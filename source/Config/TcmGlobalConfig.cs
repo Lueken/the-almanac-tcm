@@ -34,5 +34,11 @@ public class TcmGlobalConfig
     /// <summary>Rolling window (in-game days) that elects the depth-phase dominant technique.</summary>
     public int DominantWindowDays { get; set; } = 7;
 
+    /// <summary>Identical practice contexts inside this window log zero raw practice
+    /// (the place-and-rebreak guard).</summary>
+    public double DedupWindowSeconds { get; set; } = 90.0;
+
+    public int DedupRingSize { get; set; } = 64;
+
     public bool VerboseDebugLogging { get; set; } = true;
 }
