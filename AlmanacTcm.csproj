@@ -34,6 +34,16 @@
       <HintPath>$(VINTAGE_STORY)/Lib/0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="cairo-sharp">
+      <HintPath>$(VINTAGE_STORY)/Lib/cairo-sharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Sibling Almanac mod: hard dependency (modinfo), so the assembly is
+         always loaded at runtime; build Illuminated (Debug) before TCM. -->
+    <Reference Include="AlmanacIlluminated">
+      <HintPath>..\the-almanac-illuminated\bin\Debug\Mods\almanacilluminated\AlmanacIlluminated.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

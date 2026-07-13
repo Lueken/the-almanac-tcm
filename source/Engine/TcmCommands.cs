@@ -17,9 +17,6 @@ public class TcmCommands
     private readonly ICoreServerAPI sapi;
     private readonly AlmanacTcmModSystem core;
 
-    private static readonly string[] TierNames = { "Novice", "Apprentice", "Journeyman", "Master", "Grandmaster" };
-    private static readonly string[] Roman = { "", "I", "II", "III", "IV" };
-
     public TcmCommands(ICoreServerAPI sapi, AlmanacTcmModSystem core)
     {
         this.sapi = sapi;
@@ -51,11 +48,7 @@ public class TcmCommands
             .EndSubCommand();
     }
 
-    private static string RankName(int level)
-    {
-        if (level <= 0) return "Untrained";
-        return $"{TierNames[Domain.TierOf(level)]} {Roman[Domain.SubLevelOf(level)]}";
-    }
+    private static string RankName(int level) => Domain.RankName(level);
 
     private TextCommandResult OnStatus(TextCommandCallingArgs args)
     {

@@ -68,4 +68,12 @@ public class Domain
 
     /// <summary>Sub-level within the tier, 1-4 (Roman I-IV). 0 for Untrained.</summary>
     public static int SubLevelOf(int level) => level <= 0 ? 0 : (level - 1) % SubLevelsPerTier + 1;
+
+    public static readonly string[] TierNames = { "Novice", "Apprentice", "Journeyman", "Master", "Grandmaster" };
+    public static readonly string[] SubLevelRoman = { "", "I", "II", "III", "IV" };
+
+    /// <summary>Display rank ("Apprentice I", "Untrained") — names are presentation,
+    /// not tuned constants, so client surfaces may compute them from a synced level.</summary>
+    public static string RankName(int level)
+        => level <= 0 ? "Untrained" : $"{TierNames[TierOf(level)]} {SubLevelRoman[SubLevelOf(level)]}";
 }

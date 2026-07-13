@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.2.6-dev")]
+    Version = "0.3.0-dev")]
 
 namespace AlmanacTcm;
 
@@ -22,7 +22,7 @@ public class AlmanacTcmModSystem : ModSystem
 {
     /// <summary>Minimum sibling version enforced at runtime; modinfo declares the
     /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).</summary>
-    private const string MinIlluminatedVersion = "0.0.1";
+    private const string MinIlluminatedVersion = "0.0.2";
 
     /// <summary>Static access for Harmony patches (set in Start, cleared in Dispose).</summary>
     public static AlmanacTcmModSystem? Instance { get; private set; }
@@ -79,13 +79,27 @@ public class AlmanacTcmModSystem : ModSystem
         // Client receives synced STATE only (rank, pending %); engine constants
         // stay server-side by design (build-track-1 T1.0 hidden-values rule).
         Client = new LevelingClient(capi);
+
+        // The Callings page lives in Illuminated's book (hard dependency, so the
+        // assembly is always present; the tab API is 0.0.2+, enforced above).
+        capi.ModLoader.GetModSystem<AlmanacIlluminated.AlmanacIlluminatedModSystem>()
+            ?.RegisterBookTab(new Gui.CallingsTab(Client));
     }
 
     private void RegisterDomains(ICoreAPI api)
     {
-        // Vertical slice: MET only. The full 21-domain roster (with conditional
-        // Enabled gating via api.ModLoader) lands as domains are wired (T1.4+).
-        Template.AddDomain(new Domain("MET", "Metalworking"));
+        // The full roster registers on BOTH sides in DomainRoster order so packet
+        // ids line up. Only wired domains grant practice (MET so far); the rest
+        // exist as rank state — visible on the Callings page, ready for hooks.
+        foreach (Domains.DomainRoster.Entry entry in Domains.DomainRoster.All)
+        {
+            Domain domain = new(entry.Code, entry.DisplayName);
+            if (entry.RequiredMod != null && !api.ModLoader.IsModEnabled(entry.RequiredMod))
+            {
+                domain.Enabled = false;
+            }
+            Template.AddDomain(domain);
+        }
     }
 
     private void LoadGlobalConfig(ICoreServerAPI sapi)
