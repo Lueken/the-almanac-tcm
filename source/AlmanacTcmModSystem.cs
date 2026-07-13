@@ -24,6 +24,11 @@ public class AlmanacTcmModSystem : ModSystem
     /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).</summary>
     private const string MinIlluminatedVersion = "0.0.1";
 
+    /// <summary>Static access for Harmony patches (set in Start, cleared in Dispose).</summary>
+    public static AlmanacTcmModSystem? Instance { get; private set; }
+
+    private HarmonyLib.Harmony? harmony;
+
     public TcmGlobalConfig GlobalConfig { get; private set; } = new();
 
     /// <summary>The domain registry. Populated (all 21 domains, conditionals marked
@@ -34,10 +39,12 @@ public class AlmanacTcmModSystem : ModSystem
     public LevelingClient? Client { get; private set; }
     public Engine.LedgerSystem? Ledger { get; private set; }
     public Engine.AffinitySystem? Affinity { get; private set; }
+    public Engine.TcmCommands? Commands { get; private set; }
 
     public override void Start(ICoreAPI api)
     {
         base.Start(api);
+        Instance = this;
         EnforceSiblingVersions(api);
         RegisterDomains(api);
     }
@@ -45,9 +52,15 @@ public class AlmanacTcmModSystem : ModSystem
     public override void StartServerSide(ICoreServerAPI sapi)
     {
         LoadGlobalConfig(sapi);
+        Engine.LedgerSystem.DefaultFactories[Domains.MetDomain.Code] = Domains.MetDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
+        Commands = new Engine.TcmCommands(sapi, this);
+
+        harmony = new HarmonyLib.Harmony("almanactcm");
+        harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
+        TcmLog.Cat(sapi, TcmLog.Hooks, "Harmony patches applied (anvil, quench, mold, firepit)");
         TcmLog.Cat(sapi, TcmLog.Config,
             $"engine config: consolidationHour={GlobalConfig.ConsolidationHour}, " +
             $"gmDomainCap={GlobalConfig.GmDomainCap}, lambdaDeath={GlobalConfig.LambdaDeath}, " +
@@ -84,6 +97,13 @@ public class AlmanacTcmModSystem : ModSystem
 
         sapi.StoreModConfig(GlobalConfig, "almanactcm/global.json");
         TcmLog.Verbose = GlobalConfig.VerboseDebugLogging;
+    }
+
+    public override void Dispose()
+    {
+        harmony?.UnpatchAll("almanactcm");
+        Instance = null;
+        base.Dispose();
     }
 
     private void EnforceSiblingVersions(ICoreAPI api)

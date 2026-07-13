@@ -28,6 +28,10 @@ public class LedgerSystem
     /// <summary>Per-domain engine configs, loaded server-side only (hidden-values rule).</summary>
     public Dictionary<string, DomainConfig> DomainConfigs { get; } = new();
 
+    /// <summary>Domain modules register their config seeds here before StartServerSide;
+    /// used only when no ModConfig file exists yet.</summary>
+    public static readonly Dictionary<string, System.Func<DomainConfig>> DefaultFactories = new();
+
     /// <summary>Effective per-technique raw values with ifModPresent scaling pre-applied
     /// (mod presence is static per session).</summary>
     private readonly Dictionary<string, Dictionary<string, (double raw, double k)>> effective = new();
@@ -88,7 +92,9 @@ public class LedgerSystem
 
             if (domainConfig == null)
             {
-                domainConfig = new DomainConfig { Code = domain.Code };
+                domainConfig = DefaultFactories.TryGetValue(domain.Code, out var factory)
+                    ? factory()
+                    : new DomainConfig { Code = domain.Code };
                 sapi.StoreModConfig(domainConfig, path);
             }
             DomainConfigs[domain.Code] = domainConfig;

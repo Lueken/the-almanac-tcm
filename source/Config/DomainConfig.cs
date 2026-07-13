@@ -29,6 +29,11 @@ public class DomainConfig
     public List<string> Adjacency { get; set; } = new();
 
     public Dictionary<string, TechniqueConfig> Techniques { get; set; } = new();
+
+    /// <summary>Per-domain bonus-axis knobs (over-strike chance, shatter factors,
+    /// fuel-economy curve points…). Server-side only like everything here — these
+    /// are exactly the numbers a server may want to quietly diverge on.</summary>
+    public Dictionary<string, double> Bonus { get; set; } = new();
 }
 
 public class TechniqueConfig
