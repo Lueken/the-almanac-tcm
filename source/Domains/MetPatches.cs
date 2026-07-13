@@ -160,13 +160,45 @@ public static class MetPatches
         public static void Postfix(Entity byEntity, ItemStack? stack)
         {
             if (pendingMaker == null || stack == null) return;
-            stack.Attributes.SetString(MakerAttr, pendingMaker.Value.uid);
-            stack.Attributes.SetString(MakerNameAttr, pendingMaker.Value.name);
-            if (byEntity?.Api != null)
+            var maker = pendingMaker.Value;
+            stack.Attributes.SetString(MakerAttr, maker.uid);
+            stack.Attributes.SetString(MakerNameAttr, maker.name);
+            if (byEntity?.Api == null) return;
+            TcmLog.Cat(byEntity.Api, TcmLog.Hooks,
+                $"maker's mark applied to {stack.Collectible?.Code} for {maker.name}");
+
+            // Post-processors (Smithing+ transpiler / Toolsmith sharpness init) can
+            // rebuild the output stack and discard this instance (live-trial find:
+            // mark applied, gone by inspect). Re-stamp whatever instance actually
+            // survived in the smith's inventory shortly after the dust settles.
+            int collectibleId = stack.Collectible?.Id ?? 0;
+            IPlayer? smith = (byEntity as EntityPlayer)?.Player;
+            if (collectibleId == 0 || smith == null) return;
+
+            byEntity.Api.Event.RegisterCallback(_ =>
             {
-                TcmLog.Cat(byEntity.Api, TcmLog.Hooks,
-                    $"maker's mark applied to {stack.Collectible?.Code} for {pendingMaker.Value.name}");
-            }
+                var inv = smith.InventoryManager;
+                foreach (var slot in inv.GetHotbarInventory())
+                {
+                    ReStamp(byEntity.Api, slot, collectibleId, maker);
+                }
+                var backpack = inv.GetOwnInventory(GlobalConstants.backpackInvClassName);
+                if (backpack != null)
+                {
+                    foreach (var slot in backpack) ReStamp(byEntity.Api, slot, collectibleId, maker);
+                }
+            }, 500);
+        }
+
+        private static void ReStamp(ICoreAPI api, ItemSlot slot, int collectibleId, (string uid, string name) maker)
+        {
+            ItemStack? s = slot?.Itemstack;
+            if (s?.Collectible?.Id != collectibleId) return;
+            if (s.Attributes.HasAttribute(MakerAttr)) return;
+            s.Attributes.SetString(MakerAttr, maker.uid);
+            s.Attributes.SetString(MakerNameAttr, maker.name);
+            slot!.MarkDirty();
+            TcmLog.Cat(api, TcmLog.Hooks, $"maker's mark re-stamped on surviving {s.Collectible.Code}");
         }
     }
 
