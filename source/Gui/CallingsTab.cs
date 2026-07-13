@@ -56,6 +56,8 @@ public class CallingsTab : IAlmanacBookTab
             bool awake = level > 0 || experience > 0;
             double fraction = required > 0 ? experience / required : (atCeiling ? 1 : 0);
 
+            // Cards carry no trailing gap of their own — the packer joins them
+            // with spacers sized to let each column breathe down the page.
             var comps = new List<RichTextComponentBase>();
             if (!awake)
             {
@@ -64,7 +66,7 @@ public class CallingsTab : IAlmanacBookTab
                 comps.Add(new RichTextComponent(capi, entry.DisplayName + "\n", nameMuted));
                 comps.Add(new RichTextComponent(capi, Domain.RankName(0) + "\n", muted));
                 comps.Add(new ProgressBarComponent(capi, 0, columnWidth - 2, 7, inkScale: 0.55));
-                comps.Add(new ClearFloatTextComponent(capi, 12));
+                comps.Add(new ClearFloatTextComponent(capi, 2));
             }
             else
             {
@@ -88,7 +90,6 @@ public class CallingsTab : IAlmanacBookTab
                 {
                     comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
                 }
-                comps.Add(new ClearFloatTextComponent(capi, 10));
             }
             cards.Add(comps);
         }
@@ -96,10 +97,20 @@ public class CallingsTab : IAlmanacBookTab
         return PackBalanced(capi, cards, columnWidth, columnHeight);
     }
 
+    /// <summary>Base breathing room between entries, unscaled GUI units.</summary>
+    private const double EntryGap = 14;
+
+    /// <summary>Extra gap cap when a column runs short — the leftover page height
+    /// is spread across the gaps up to this much, so a sparse ledger column
+    /// settles down the page instead of huddling at the top, while a full
+    /// column stays compact and never looks stretched.</summary>
+    private const double EntryGapStretchMax = 26;
+
     /// <summary>
     /// Distributes cards evenly across one spread's four columns (21 entries
     /// pack 6/5/5/5) so the page fills instead of leaving the last column
-    /// blank. If the balanced split would overflow the column height (future
+    /// blank, then pads each column's entry gaps into the measured leftover
+    /// height. If the balanced split would overflow the column height (future
     /// taller entries), falls back to the Crops-style height-greedy packing,
     /// which page-turns onto further spreads.
     /// </summary>
@@ -110,6 +121,17 @@ public class CallingsTab : IAlmanacBookTab
         double availH = columnHeight * scale;
         int cols = ColumnsPerSpread;
 
+        List<RichTextComponentBase> Join(List<List<RichTextComponentBase>> group, double gap)
+        {
+            var joined = new List<RichTextComponentBase>();
+            for (int i = 0; i < group.Count; i++)
+            {
+                if (i > 0) joined.Add(new ClearFloatTextComponent(capi, (float)gap));
+                joined.AddRange(group[i]);
+            }
+            return joined;
+        }
+
         var columns = new List<RichTextComponentBase[]>();
         if (cards.Count > 0)
         {
@@ -118,9 +140,20 @@ public class CallingsTab : IAlmanacBookTab
             for (int c = 0; c < cols && index < cards.Count; c++)
             {
                 int take = cards.Count / cols + (c < cards.Count % cols ? 1 : 0);
-                var column = new List<RichTextComponentBase>();
-                for (int i = 0; i < take && index < cards.Count; i++, index++) column.AddRange(cards[index]);
-                if (ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth) > availH) { fits = false; break; }
+                var group = new List<List<RichTextComponentBase>>();
+                for (int i = 0; i < take && index < cards.Count; i++, index++) group.Add(cards[index]);
+
+                var column = Join(group, EntryGap);
+                double used = ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth);
+                if (used > availH) { fits = false; break; }
+
+                // Let the column settle into the page: share the leftover height
+                // across the gaps, capped so it reads as rhythm, not stretching.
+                if (group.Count > 1 && used < availH)
+                {
+                    double extra = Math.Min(EntryGapStretchMax, (availH - used) / (group.Count - 1) / scale);
+                    if (extra > 1) column = Join(group, EntryGap + extra);
+                }
                 columns.Add(column.ToArray());
             }
             if (fits && index >= cards.Count) return columns;
@@ -136,6 +169,7 @@ public class CallingsTab : IAlmanacBookTab
         foreach (var card in cards)
         {
             var trial = new List<RichTextComponentBase>(current);
+            if (current.Count > 0) trial.Add(new ClearFloatTextComponent(capi, (float)EntryGap));
             trial.AddRange(card);
             if (current.Count == 0 || ChapterRenderer.MeasureHeight(capi, trial.ToArray(), columnWidth) <= availH)
             {

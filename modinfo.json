@@ -2,7 +2,7 @@
   "type": "code",
   "name": "The Almanac: Trades, Callings & Mastery",
   "modid": "almanactcm",
-  "version": "0.3.1-dev",
+  "version": "0.3.2-dev",
 
   "description": "Identity-first trade progression for the modded world. Twenty-one domains, ranks from Novice to Grandmaster, earned by practice and never by grind: the day's work settles into your hands at rest. Part of The Almanac line.",
   "authors": [ "Venah" ],
