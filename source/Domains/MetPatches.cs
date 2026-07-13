@@ -324,13 +324,13 @@ public static class MetPatches
     [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.OnCreatedByCrafting))]
     public static class MarkTransferPatch
     {
-        public static void Postfix(ItemSlot[] allInputslots, ItemSlot outputSlot)
+        public static void Postfix(ItemSlot[] allInputSlots, ItemSlot outputSlot)
         {
             ItemStack? output = outputSlot?.Itemstack;
-            if (output?.Collectible?.Tool == null || allInputslots == null) return;
+            if (output?.Collectible?.Tool == null || allInputSlots == null) return;
             if (output.Attributes.HasAttribute(MakerAttr)) return;
 
-            foreach (ItemSlot input in allInputslots)
+            foreach (ItemSlot input in allInputSlots)
             {
                 string? maker = input?.Itemstack?.Attributes.GetString(MakerAttr);
                 if (maker == null) continue;
