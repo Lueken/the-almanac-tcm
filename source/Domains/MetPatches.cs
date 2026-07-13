@@ -286,6 +286,45 @@ public static class MetPatches
         }
     }
 
+    // -------------------------------------------------------------- assembly
+
+    /// <summary>Manual Tool Crafting's single completion seam (dive-verified: the
+    /// ONLY output-generation site in the mod; __result true = a finished, usable
+    /// tool was handed to the player). Patched at runtime only when MTC is present —
+    /// the type can't appear in a [HarmonyPatch] attribute or absent-MTC installs
+    /// would fail to load the patch class.</summary>
+    public static class MtcAssemblyPatch
+    {
+        public const string TargetType = "manualtoolcrafting.OutputHandler";
+        public const string TargetMethod = "TryCraftFromToolbar";
+
+        public static void Postfix(IServerPlayer player, Vintagestory.API.Common.GridRecipe recipe, bool __result)
+        {
+            if (!__result || player == null) return;
+            int toolId = recipe?.Output?.ResolvedItemStack?.Collectible?.Id ?? 0;
+            Core?.Ledger?.Log(player, MetDomain.Code, MetDomain.TechAssembly,
+                HashCode.Combine(toolId, player.Entity?.World.ElapsedMilliseconds / 1000));
+        }
+    }
+
+    /// <summary>Applies the MTC patch when the mod is present. Called once from the
+    /// process-wide Harmony init.</summary>
+    public static void PatchMtcIfPresent(ICoreAPI api, HarmonyLib.Harmony harmony)
+    {
+        if (!api.ModLoader.IsModEnabled("manualtoolcrafting")) return;
+
+        var target = AccessTools.TypeByName(MtcAssemblyPatch.TargetType);
+        var method = target == null ? null : AccessTools.Method(target, MtcAssemblyPatch.TargetMethod);
+        if (method == null)
+        {
+            TcmLog.Warn(api, "manualtoolcrafting present but OutputHandler.TryCraftFromToolbar not found; assembly verb inactive");
+            return;
+        }
+        harmony.Patch(method, postfix: new HarmonyMethod(
+            AccessTools.Method(typeof(MtcAssemblyPatch), nameof(MtcAssemblyPatch.Postfix))));
+        TcmLog.Info(api, "assembly verb hooked to Manual Tool Crafting completion");
+    }
+
     // --------------------------------------------------------------- firepit
 
     [HarmonyPatch(typeof(BlockEntityFirepit), "OnBurnTick")]

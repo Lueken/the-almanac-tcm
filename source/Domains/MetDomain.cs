@@ -16,6 +16,7 @@ public static class MetDomain
     public const string TechQuenching = "quenching";
     public const string TechSmelting = "smelting";
     public const string TechAlloying = "alloying";
+    public const string TechAssembly = "assembly";
 
     // Bonus knob keys (DomainConfig.Bonus)
     public const string OverStrikeChance = "overStrikeChance";
@@ -40,6 +41,9 @@ public static class MetDomain
             // chain's most spammable step); alloying keeps headroom (real craft).
             [TechSmelting] = new() { Raw = 3, K = 12 },
             [TechAlloying] = new() { Raw = 5, K = 20 },
+            // Assembly hooks Manual Tool Crafting's completion (presence-conditional);
+            // material cost (head + handle consumed) is the anti-spam, not dedup.
+            [TechAssembly] = new() { Raw = 6, K = 25 },
         },
         Bonus = new Dictionary<string, double>
         {
