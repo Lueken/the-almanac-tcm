@@ -115,6 +115,6 @@ public class TcmCommands
         PracticeLedger ledger = core.Ledger!.LedgerFor(player);
         ledger.LastConsolidatedBoundary -= 1;
         return TextCommandResult.Success(
-            "Boundary marker rewound — the real consolidation runs on the next engine tick (within ~5s).");
+            "Boundary marker rewound. The real consolidation runs on the next engine tick (within ~5s).");
     }
 }
