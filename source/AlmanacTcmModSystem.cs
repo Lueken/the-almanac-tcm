@@ -1,4 +1,5 @@
 using AlmanacTcm.Config;
+using AlmanacTcm.Leveling;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -25,25 +26,42 @@ public class AlmanacTcmModSystem : ModSystem
 
     public TcmGlobalConfig GlobalConfig { get; private set; } = new();
 
+    /// <summary>The domain registry. Populated (all 21 domains, conditionals marked
+    /// Enabled=false when their mod is absent) before any player joins.</summary>
+    public DomainSetTemplate Template { get; } = new();
+
+    public LevelingServer? Server { get; private set; }
+    public LevelingClient? Client { get; private set; }
+
     public override void Start(ICoreAPI api)
     {
         base.Start(api);
         EnforceSiblingVersions(api);
+        RegisterDomains(api);
     }
 
     public override void StartServerSide(ICoreServerAPI sapi)
     {
         LoadGlobalConfig(sapi);
+        Server = new LevelingServer(sapi, Template);
         TcmLog.Cat(sapi, TcmLog.Config,
             $"engine config: consolidationHour={GlobalConfig.ConsolidationHour}, " +
             $"gmDomainCap={GlobalConfig.GmDomainCap}, lambdaDeath={GlobalConfig.LambdaDeath}, " +
-            $"sigma={GlobalConfig.Sigma}");
+            $"sigma={GlobalConfig.Sigma}; {Template.Count} domains registered");
     }
 
     public override void StartClientSide(ICoreClientAPI capi)
     {
         // Client receives synced STATE only (rank, pending %); engine constants
         // stay server-side by design (build-track-1 T1.0 hidden-values rule).
+        Client = new LevelingClient(capi);
+    }
+
+    private void RegisterDomains(ICoreAPI api)
+    {
+        // Vertical slice: MET only. The full 21-domain roster (with conditional
+        // Enabled gating via api.ModLoader) lands as domains are wired (T1.4+).
+        Template.AddDomain(new Domain("MET", "Metalworking"));
     }
 
     private void LoadGlobalConfig(ICoreServerAPI sapi)
