@@ -14,6 +14,8 @@ public static class MetDomain
     public const string TechSmithing = "smithing";
     public const string TechCasting = "casting";
     public const string TechQuenching = "quenching";
+    public const string TechSmelting = "smelting";
+    public const string TechAlloying = "alloying";
 
     // Bonus knob keys (DomainConfig.Bonus)
     public const string OverStrikeChance = "overStrikeChance";
@@ -34,6 +36,10 @@ public static class MetDomain
             [TechSmithing] = new() { Raw = 10, K = 40 },
             [TechCasting] = new() { Raw = 6, K = 30 },
             [TechQuenching] = new() { Raw = 4, K = 12 },
+            // RULED 2026-07-13: single-metal smelting saturates FAST (low K — the
+            // chain's most spammable step); alloying keeps headroom (real craft).
+            [TechSmelting] = new() { Raw = 3, K = 12 },
+            [TechAlloying] = new() { Raw = 5, K = 20 },
         },
         Bonus = new Dictionary<string, double>
         {

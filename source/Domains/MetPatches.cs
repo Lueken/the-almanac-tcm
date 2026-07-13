@@ -23,6 +23,16 @@ public static class MetPatches
     /// <summary>Workpiece stamp: who is smithing this item. Doubles as the Maker's
     /// Mark seed at completion (one stamp, both jobs — RULED 2026-07-09).</summary>
     public const string SmithAttr = "almanactcm:smithuid";
+    public const string SmithNameAttr = "almanactcm:smithname";
+
+    /// <summary>The Maker's Mark on a finished piece (uid + display name).</summary>
+    public const string MakerAttr = "almanactcm:maker";
+    public const string MakerNameAttr = "almanactcm:makername";
+
+    /// <summary>Smelt classification written at DoSmelt (no player there); read and
+    /// converted to practice at first pour, where the pourer IS the attributable smith.</summary>
+    public const string SmeltAttr = "almanactcm:smelt";
+    public const string SmeltLoggedAttr = "almanactcm:smeltlogged";
 
     private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
 
@@ -53,6 +63,7 @@ public static class MetPatches
 
             // The stamp rides the work item through reheats to completion.
             __instance.WorkItemStack.Attributes.SetString(SmithAttr, byPlayer.PlayerUID);
+            __instance.WorkItemStack.Attributes.SetString(SmithNameAttr, byPlayer.PlayerName);
 
             // Axis 1 — over-strike: an Untrained smith's hammer sometimes bites one
             // voxel too deep, failing the exact-match completion and forcing a
@@ -100,12 +111,20 @@ public static class MetPatches
         }
     }
 
+    /// <summary>Pending Maker's Mark for the synchronous CheckIfFinished→OnItemPickedUp
+    /// window: the finished stack is a fresh recipe-output clone, so the workpiece
+    /// stamp must be re-applied to it by ambient context.</summary>
+    private static (string uid, string name)? pendingMaker;
+
     [HarmonyPatch(typeof(BlockEntityAnvil), nameof(BlockEntityAnvil.CheckIfFinished))]
     public static class AnvilFinishPatch
     {
         public static void Prefix(BlockEntityAnvil __instance, out int __state)
         {
             __state = __instance.SelectedRecipeId;
+            string? uid = __instance.WorkItemStack?.Attributes.GetString(SmithAttr);
+            string? name = __instance.WorkItemStack?.Attributes.GetString(SmithNameAttr);
+            pendingMaker = uid == null ? null : (uid, name ?? "");
         }
 
         public static void Postfix(BlockEntityAnvil __instance, IPlayer byPlayer, int __state)
@@ -116,6 +135,63 @@ public static class MetPatches
 
             Core?.Ledger?.Log(byPlayer, MetDomain.Code, MetDomain.TechSmithing,
                 HashCode.Combine(__state, __instance.Pos));
+        }
+
+        public static void Finalizer()
+        {
+            pendingMaker = null;
+        }
+    }
+
+    /// <summary>Maker's Mark v1: vanilla hands the EXACT finished stack to
+    /// OnItemPickedUp inside CheckIfFinished's success branch; the ambient pending
+    /// stamp becomes the permanent mark. Known gap: a full inventory spawns the item
+    /// as an entity instead and skips this seam — that piece goes unmarked.</summary>
+    [HarmonyPatch(typeof(ModSystemSubTongsDurability), nameof(ModSystemSubTongsDurability.OnItemPickedUp))]
+    public static class MakersMarkPatch
+    {
+        public static void Postfix(ItemStack? stack)
+        {
+            if (pendingMaker == null || stack == null) return;
+            stack.Attributes.SetString(MakerAttr, pendingMaker.Value.uid);
+            stack.Attributes.SetString(MakerNameAttr, pendingMaker.Value.name);
+        }
+    }
+
+    /// <summary>The mark on the tooltip, both sides (client patches too).</summary>
+    [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.GetHeldItemInfo))]
+    public static class MarkTooltipPatch
+    {
+        public static void Postfix(ItemSlot inSlot, System.Text.StringBuilder dsc)
+        {
+            string? maker = inSlot?.Itemstack?.Attributes.GetString(MakerNameAttr);
+            if (!string.IsNullOrEmpty(maker))
+            {
+                dsc.AppendLine(Lang.Get("almanactcm:made-by", maker));
+            }
+        }
+    }
+
+    // -------------------------------------------------------------- smelting
+
+    /// <summary>Classifies the completed smelt on the container (no player exists at
+    /// DoSmelt); the pour patch converts it to attributed practice.</summary>
+    [HarmonyPatch(typeof(BlockSmeltingContainer), nameof(BlockSmeltingContainer.DoSmelt))]
+    public static class SmeltCompletePatch
+    {
+        public static void Prefix(BlockSmeltingContainer __instance, IWorldAccessor world,
+            ISlotProvider cookingSlotsProvider, out bool __state)
+        {
+            ItemStack[] stacks = __instance.GetIngredients(world, cookingSlotsProvider);
+            __state = __instance.GetMatchingAlloy(world, stacks) != null;
+        }
+
+        public static void Postfix(IWorldAccessor world, ItemSlot outputSlot, bool __state)
+        {
+            if (world.Side != EnumAppSide.Server) return;
+            ItemStack? smelted = outputSlot?.Itemstack;
+            if (smelted?.Block is not BlockSmeltedContainer) return;
+            smelted.Attributes.SetString(SmeltAttr, __state ? "alloy" : "single");
         }
     }
 
@@ -167,10 +243,22 @@ public static class MetPatches
     [HarmonyPatch(typeof(BlockSmeltedContainer), nameof(BlockSmeltedContainer.OnHeldInteractStep))]
     public static class PourContextPatch
     {
-        public static void Prefix(EntityAgent byEntity)
+        public static void Prefix(ItemSlot slot, EntityAgent byEntity)
         {
             if (byEntity?.World?.Side != EnumAppSide.Server) return;
             pouringPlayer = (byEntity as EntityPlayer)?.Player;
+
+            // Smelting practice lands on FIRST pour of a freshly smelted crucible:
+            // the pourer is the attributable smith, once per smelt (attr guard).
+            ItemStack? crucible = slot?.Itemstack;
+            if (pouringPlayer == null || crucible == null) return;
+            string? kind = crucible.Attributes.GetString(SmeltAttr);
+            if (kind == null || crucible.Attributes.GetBool(SmeltLoggedAttr)) return;
+
+            crucible.Attributes.SetBool(SmeltLoggedAttr, true);
+            Core?.Ledger?.Log(pouringPlayer, MetDomain.Code,
+                kind == "alloy" ? MetDomain.TechAlloying : MetDomain.TechSmelting,
+                HashCode.Combine(crucible.Id, byEntity!.World.ElapsedMilliseconds / 1000));
         }
 
         public static void Finalizer()

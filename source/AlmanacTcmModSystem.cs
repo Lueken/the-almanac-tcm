@@ -27,7 +27,9 @@ public class AlmanacTcmModSystem : ModSystem
     /// <summary>Static access for Harmony patches (set in Start, cleared in Dispose).</summary>
     public static AlmanacTcmModSystem? Instance { get; private set; }
 
-    private HarmonyLib.Harmony? harmony;
+    /// <summary>Static: one patch pass per process (singleplayer runs Start for both
+    /// sides in one process; tooltip patches must exist client-side too).</summary>
+    private static HarmonyLib.Harmony? harmony;
 
     public TcmGlobalConfig GlobalConfig { get; private set; } = new();
 
@@ -47,6 +49,13 @@ public class AlmanacTcmModSystem : ModSystem
         Instance = this;
         EnforceSiblingVersions(api);
         RegisterDomains(api);
+
+        if (harmony == null)
+        {
+            harmony = new HarmonyLib.Harmony("almanactcm");
+            harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
+            TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip)");
+        }
     }
 
     public override void StartServerSide(ICoreServerAPI sapi)
@@ -58,9 +67,6 @@ public class AlmanacTcmModSystem : ModSystem
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
         Commands = new Engine.TcmCommands(sapi, this);
 
-        harmony = new HarmonyLib.Harmony("almanactcm");
-        harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
-        TcmLog.Cat(sapi, TcmLog.Hooks, "Harmony patches applied (anvil, quench, mold, firepit)");
         TcmLog.Cat(sapi, TcmLog.Config,
             $"engine config: consolidationHour={GlobalConfig.ConsolidationHour}, " +
             $"gmDomainCap={GlobalConfig.GmDomainCap}, lambdaDeath={GlobalConfig.LambdaDeath}, " +
@@ -102,6 +108,7 @@ public class AlmanacTcmModSystem : ModSystem
     public override void Dispose()
     {
         harmony?.UnpatchAll("almanactcm");
+        harmony = null;
         Instance = null;
         base.Dispose();
     }

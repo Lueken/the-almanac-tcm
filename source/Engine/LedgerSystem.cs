@@ -97,6 +97,31 @@ public class LedgerSystem
                     : new DomainConfig { Code = domain.Code };
                 sapi.StoreModConfig(domainConfig, path);
             }
+            else if (DefaultFactories.TryGetValue(domain.Code, out var factory))
+            {
+                // Migration: newly shipped techniques/knobs join an EXISTING config
+                // file additively; values the server already tuned are never touched.
+                DomainConfig defaults = factory();
+                bool changed = false;
+                foreach (var (name, tech) in defaults.Techniques)
+                {
+                    if (!domainConfig.Techniques.ContainsKey(name))
+                    {
+                        domainConfig.Techniques[name] = tech;
+                        changed = true;
+                        TcmLog.Cat(sapi, TcmLog.Config, $"{domain.Code}: new technique '{name}' merged into config");
+                    }
+                }
+                foreach (var (knob, value) in defaults.Bonus)
+                {
+                    if (!domainConfig.Bonus.ContainsKey(knob))
+                    {
+                        domainConfig.Bonus[knob] = value;
+                        changed = true;
+                    }
+                }
+                if (changed) sapi.StoreModConfig(domainConfig, path);
+            }
             DomainConfigs[domain.Code] = domainConfig;
             try
             {
