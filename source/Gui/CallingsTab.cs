@@ -9,11 +9,11 @@ namespace AlmanacTcm.Gui;
 
 /// <summary>
 /// The Callings tab in The Almanac: Illuminated — every trade of the world on
-/// one spread: name, rank above a progress bar, and the distance to the next
-/// rank. All 21 are always listed (an almanac names the callings whether you
-/// have practiced them or not); Hidden only governs /tcm status brevity.
-/// Reads the synced client state exclusively — level, banked XP, and required
-/// XP arrive in packets, so no engine constants exist on this side.
+/// one spread. Awake callings (any rank or banked practice) carry full ink:
+/// name, rank with the tier-pip stamp row, progress bar, and the distance to
+/// the next rank. Untrained ones recede to muted ink with a faint empty bar,
+/// so a squint at the page shows who this character is. Reads the synced
+/// client state exclusively — no engine constants exist on this side.
 /// </summary>
 public class CallingsTab : IAlmanacBookTab
 {
@@ -35,6 +35,8 @@ public class CallingsTab : IAlmanacBookTab
     {
         CairoFont name = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifDecorative)
             .WithWeight(Cairo.FontWeight.Bold).WithColor(Ink);
+        CairoFont nameMuted = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifDecorative)
+            .WithWeight(Cairo.FontWeight.Bold).WithColor(Muted);
         CairoFont rank = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Ink);
         CairoFont muted = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Muted);
 
@@ -51,32 +53,81 @@ public class CallingsTab : IAlmanacBookTab
             float experience = state?.Experience ?? 0f;
             float required = state?.RequiredExperience ?? 0f;
             bool atCeiling = required <= 0 && level >= Domain.MaxLevelDefault;
+            bool awake = level > 0 || experience > 0;
             double fraction = required > 0 ? experience / required : (atCeiling ? 1 : 0);
 
-            var comps = new List<RichTextComponentBase>
+            var comps = new List<RichTextComponentBase>();
+            if (!awake)
             {
-                new RichTextComponent(capi, entry.DisplayName + "\n", name),
-                new RichTextComponent(capi, Domain.RankName(level) + "\n", rank),
-                new ProgressBarComponent(capi, fraction, columnWidth - 2, 8),
-                new ClearFloatTextComponent(capi, 3),
-            };
-            if (required > 0)
-            {
-                comps.Add(new RichTextComponent(capi,
-                    $"{Math.Ceiling(required - experience):0} to {Domain.RankName(level + 1)}\n", muted));
+                // Untrained and untouched: recede into the page. The identical
+                // "5 to Novice I" caption carries no information 18 times over.
+                comps.Add(new RichTextComponent(capi, entry.DisplayName + "\n", nameMuted));
+                comps.Add(new RichTextComponent(capi, Domain.RankName(0) + "\n", muted));
+                comps.Add(new ProgressBarComponent(capi, 0, columnWidth - 2, 7, inkScale: 0.55));
+                comps.Add(new ClearFloatTextComponent(capi, 12));
             }
-            else if (atCeiling)
+            else
             {
-                comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
+                // The wander-book stamp row: filled pips are completed tiers,
+                // the outlined one is where the climb currently stands.
+                int filledPips = atCeiling ? Domain.TierCount : Domain.TierOf(level);
+                int currentPip = atCeiling ? -1 : Domain.TierOf(level);
+
+                comps.Add(new RichTextComponent(capi, entry.DisplayName + "\n", name));
+                comps.Add(new RichTextComponent(capi, Domain.RankName(level) + "  ", rank));
+                comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip));
+                comps.Add(new RichTextComponent(capi, "\n", rank));
+                comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 7));
+                comps.Add(new ClearFloatTextComponent(capi, 3));
+                if (required > 0)
+                {
+                    comps.Add(new RichTextComponent(capi,
+                        $"{Math.Ceiling(required - experience):0} to {Domain.RankName(level + 1)}\n", muted));
+                }
+                else if (atCeiling)
+                {
+                    comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
+                }
+                comps.Add(new ClearFloatTextComponent(capi, 10));
             }
-            comps.Add(new ClearFloatTextComponent(capi, 10));
             cards.Add(comps);
         }
 
-        // Pack whole entries into page-height columns, the Crops tab's approach.
+        return PackBalanced(capi, cards, columnWidth, columnHeight);
+    }
+
+    /// <summary>
+    /// Distributes cards evenly across one spread's four columns (21 entries
+    /// pack 6/5/5/5) so the page fills instead of leaving the last column
+    /// blank. If the balanced split would overflow the column height (future
+    /// taller entries), falls back to the Crops-style height-greedy packing,
+    /// which page-turns onto further spreads.
+    /// </summary>
+    private List<RichTextComponentBase[]> PackBalanced(ICoreClientAPI capi,
+        List<List<RichTextComponentBase>> cards, double columnWidth, double columnHeight)
+    {
         double scale = RuntimeEnv.GUIScale <= 0 ? 1 : RuntimeEnv.GUIScale;
         double availH = columnHeight * scale;
+        int cols = ColumnsPerSpread;
+
         var columns = new List<RichTextComponentBase[]>();
+        if (cards.Count > 0)
+        {
+            int index = 0;
+            bool fits = true;
+            for (int c = 0; c < cols && index < cards.Count; c++)
+            {
+                int take = cards.Count / cols + (c < cards.Count % cols ? 1 : 0);
+                var column = new List<RichTextComponentBase>();
+                for (int i = 0; i < take && index < cards.Count; i++, index++) column.AddRange(cards[index]);
+                if (ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth) > availH) { fits = false; break; }
+                columns.Add(column.ToArray());
+            }
+            if (fits && index >= cards.Count) return columns;
+        }
+
+        // Fallback: pack whole cards by measured height, overflow page-turns.
+        columns.Clear();
         var current = new List<RichTextComponentBase>();
         void Flush()
         {
