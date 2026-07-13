@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.1.3-dev")]
+    Version = "0.2.0-dev")]
 
 namespace AlmanacTcm;
 
@@ -54,8 +54,8 @@ public class AlmanacTcmModSystem : ModSystem
         {
             harmony = new HarmonyLib.Harmony("almanactcm");
             harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
-            Domains.MetPatches.PatchMtcIfPresent(api, harmony);
-            TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip)");
+            Domains.MetConditionalPatches.PatchAllPresent(api, harmony);
+            TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip + conditionals)");
         }
     }
 

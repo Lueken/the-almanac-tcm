@@ -25,6 +25,10 @@ public static class MetDomain
     public const string FuelEconomyUntrained = "fuelEconomyUntrained";
     public const string FuelEconomyApprentice = "fuelEconomyApprentice";
     public const string FuelEconomyGm = "fuelEconomyGm";
+    public const string BitRecoveryUntrained = "bitRecoveryUntrained";
+    public const string BitRecoveryGm = "bitRecoveryGm";
+    public const string MoldWearUntrained = "moldWearUntrained";
+    public const string MoldWearGm = "moldWearGm";
 
     public static DomainConfig Defaults() => new()
     {
@@ -53,6 +57,10 @@ public static class MetDomain
             [FuelEconomyUntrained] = -0.10,
             [FuelEconomyApprentice] = 0.03,
             [FuelEconomyGm] = 0.15,
+            [BitRecoveryUntrained] = 0.7,
+            [BitRecoveryGm] = 1.3,
+            [MoldWearUntrained] = 1.25,
+            [MoldWearGm] = 0.6,
         }
     };
 
@@ -65,6 +73,16 @@ public static class MetDomain
         int max = Leveling.Domain.MaxLevelDefault;
         double t = (level - 1) / (double)(max - 1);
         return 1.0 + t * (gmFloor - 1.0);
+    }
+
+    /// <summary>General rank curve for multiplier-shaped knobs: the untrained value
+    /// at level 0, exactly 1.0 at Novice I, linear to the GM value at max level.</summary>
+    public static double RankLinear(int level, double untrained, double gm)
+    {
+        if (level <= 0) return untrained;
+        int max = Leveling.Domain.MaxLevelDefault;
+        double t = (level - 1) / (double)(max - 1);
+        return 1.0 + t * (gm - 1.0);
     }
 
     /// <summary>Axis 2 fuel economy: Untrained burns MORE (−10%), Novice neutral,
