@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AlmanacTcm.Leveling;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -267,6 +268,12 @@ public static class MetPatches
         }
     }
 
+    /// <summary>Casters recorded per mold position at fill; the mark lands on the
+    /// cast head when the hardened contents are taken (RULED: cast heads carry
+    /// their maker like forged ones). Session-scoped memory — a restart between
+    /// pour and take loses the attribution, accepted for v1.</summary>
+    private static readonly Dictionary<string, (string uid, string name)> moldCasters = new();
+
     [HarmonyPatch(typeof(BlockEntityToolMold), nameof(BlockEntityToolMold.ReceiveLiquidMetal))]
     public static class ToolMoldFillPatch
     {
@@ -281,35 +288,79 @@ public static class MetPatches
             // Practice lands when the pour COMPLETES the cast, once per mold fill.
             if (__state || !__instance.IsFull) return;
 
+            if (moldCasters.Count > 128) moldCasters.Clear();
+            moldCasters[__instance.Pos.ToString()] = (pouringPlayer.PlayerUID, pouringPlayer.PlayerName);
+
             Core?.Ledger?.Log(pouringPlayer, MetDomain.Code, MetDomain.TechCasting,
                 HashCode.Combine(__instance.Pos));
         }
     }
 
+    [HarmonyPatch(typeof(BlockEntityToolMold), nameof(BlockEntityToolMold.GetStateAwareMoldedStacks))]
+    public static class CastMarkPatch
+    {
+        public static void Postfix(BlockEntityToolMold __instance, ItemStack[]? __result)
+        {
+            if (__result == null || __instance.Api?.Side != EnumAppSide.Server) return;
+            if (!moldCasters.TryGetValue(__instance.Pos.ToString(), out var caster)) return;
+
+            foreach (ItemStack stack in __result)
+            {
+                if (stack == null || stack.Attributes.HasAttribute(MakerAttr)) continue;
+                stack.Attributes.SetString(MakerAttr, caster.uid);
+                stack.Attributes.SetString(MakerNameAttr, caster.name);
+            }
+        }
+    }
+
     // -------------------------------------------------------------- assembly
 
-    /// <summary>THE assembly seam for hand and grid crafting: vanilla's
-    /// RecipeBase.GenerateOutputStack calls OnCreatedByCrafting on every crafted
-    /// output — which covers the plain grid AND Manual Tool Crafting's hold-craft
-    /// (MTC routes through GenerateOutputStack; live-trial find 2026-07-13: the
-    /// Quire also grid-crafts tools via mtccompanion's recipe re-enable, which the
-    /// earlier MTC-only hook missed entirely). Toolsmith's workbench builds its
-    /// stack directly and keeps its own seam. Tier filter keeps Stone Age tools
-    /// (tier &lt; 2) out of Metalworking.</summary>
+    /// <summary>MARK TRANSFER, not practice: OnCreatedByCrafting fires on grid
+    /// PREVIEWS and inside Toolsmith's held assembly (dummy inventory, no player),
+    /// so it's the wrong seam for XP but the perfect one for provenance — every
+    /// path that builds a tool from a head passes through here with the input
+    /// slots visible. The head's Maker's Mark rides onto the finished tool
+    /// (RULED 2026-07-13: forged or cast, the head's maker marks the tool).</summary>
     [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.OnCreatedByCrafting))]
-    public static class GridAssemblyPatch
+    public static class MarkTransferPatch
     {
-        public static void Postfix(ItemSlot outputSlot)
+        public static void Postfix(ItemSlot[] allInputslots, ItemSlot outputSlot)
         {
-            ItemStack? stack = outputSlot?.Itemstack;
-            if (stack?.Collectible?.Tool == null) return;
-            if (stack.Collectible.ToolTier < 2) return;
+            ItemStack? output = outputSlot?.Itemstack;
+            if (output?.Collectible?.Tool == null || allInputslots == null) return;
+            if (output.Attributes.HasAttribute(MakerAttr)) return;
 
-            IPlayer? player = (outputSlot!.Inventory as InventoryBasePlayer)?.Player;
-            if (player == null || player.Entity?.World?.Side != EnumAppSide.Server) return;
+            foreach (ItemSlot input in allInputslots)
+            {
+                string? maker = input?.Itemstack?.Attributes.GetString(MakerAttr);
+                if (maker == null) continue;
+                output.Attributes.SetString(MakerAttr, maker);
+                output.Attributes.SetString(MakerNameAttr,
+                    input!.Itemstack!.Attributes.GetString(MakerNameAttr) ?? "");
+                return;
+            }
+        }
+    }
 
-            Core?.Ledger?.Log(player, MetDomain.Code, MetDomain.TechAssembly,
-                HashCode.Combine(stack.Collectible.Id, player.Entity.World.ElapsedMilliseconds / 1000));
+    /// <summary>PRACTICE for grid and MTC assembly: GridRecipe.ConsumeInput runs
+    /// exactly once per real take (never on previews) with the player as a
+    /// parameter — the same seam Progression Framework trusts for craft XP.
+    /// Toolsmith's held/workbench paths use ConsumeCraftingIngredients instead,
+    /// so no double-count; they keep their own seams.</summary>
+    [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
+    public static class GridTakePatch
+    {
+        public static void Postfix(GridRecipe __instance, IPlayer byPlayer, bool __result)
+        {
+            if (!__result || byPlayer == null) return;
+            if (byPlayer.Entity?.World?.Side != EnumAppSide.Server) return;
+
+            ItemStack? output = __instance?.Output?.ResolvedItemStack;
+            if (output?.Collectible?.Tool == null) return;
+            if (output.Collectible.ToolTier < 2) return;
+
+            Core?.Ledger?.Log(byPlayer, MetDomain.Code, MetDomain.TechAssembly,
+                HashCode.Combine(output.Collectible.Id, byPlayer.Entity.World.ElapsedMilliseconds / 1000));
         }
     }
 
