@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.1.0-dev")]
+    Version = "0.1.1-dev")]
 
 namespace AlmanacTcm;
 
@@ -116,7 +116,10 @@ public class AlmanacTcmModSystem : ModSystem
             return;
         }
 
-        if (GameVersion.IsLowerVersionThan(illuminated.Info.Version, MinIlluminatedVersion))
+        // Almanac dev-dep convention: X.Y.Z-dev SATISFIES an X.Y.Z requirement, so
+        // compare the release part only (GameVersion treats -dev as lower).
+        string releasePart = illuminated.Info.Version.Split('-')[0];
+        if (GameVersion.IsLowerVersionThan(releasePart, MinIlluminatedVersion))
         {
             TcmLog.Error(api,
                 $"almanacilluminated {illuminated.Info.Version} is below the required {MinIlluminatedVersion}; " +

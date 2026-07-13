@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace AlmanacTcm.Config;
 
@@ -22,17 +23,24 @@ public class DomainConfig
     public int M { get; set; } = 3;
 
     /// <summary>Banked XP required to complete each tier climb, Untrained→GM order.
-    /// Defaults are the §7 pacing table; every domain shares one table by design.</summary>
+    /// Defaults are the §7 pacing table; every domain shares one table by design.
+    /// ObjectCreationHandling.Replace on every collection here: without it Json.NET
+    /// APPENDS file values onto these defaults on reload (the 10-entry-TierTotals
+    /// server crash of 2026-07-13).</summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<double> TierTotals { get; set; } = new() { 150, 500, 1400, 3200, 6500 };
 
     /// <summary>Adjacent domain codes for spillover (hand-authored matrix).</summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public List<string> Adjacency { get; set; } = new();
 
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, TechniqueConfig> Techniques { get; set; } = new();
 
     /// <summary>Per-domain bonus-axis knobs (over-strike chance, shatter factors,
     /// fuel-economy curve points…). Server-side only like everything here — these
     /// are exactly the numbers a server may want to quietly diverge on.</summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, double> Bonus { get; set; } = new();
 }
 
@@ -48,6 +56,7 @@ public class TechniqueConfig
     /// <summary>Secondary-domain XP shares (domain code → fraction). Applied at
     /// consolidation OUTSIDE the receiving domain's saturation sum; never fills
     /// breadth slots (FAR Q2 ruling).</summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, double> CoGrants { get; set; } = new();
 
     /// <summary>Optional presence-conditioned raw scaling: when the named mod is

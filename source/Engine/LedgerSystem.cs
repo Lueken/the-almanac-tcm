@@ -98,7 +98,16 @@ public class LedgerSystem
                 sapi.StoreModConfig(domainConfig, path);
             }
             DomainConfigs[domain.Code] = domainConfig;
-            domain.SetTierTotals(domainConfig.TierTotals);
+            try
+            {
+                domain.SetTierTotals(domainConfig.TierTotals);
+            }
+            catch (ArgumentException e)
+            {
+                // A bad config value must never kill the mod at boot — degrade to
+                // the built-in pacing table and say so loudly.
+                TcmLog.Error(sapi, $"{domain.Code} TierTotals invalid ({e.Message}) — using built-in defaults");
+            }
 
             var effectiveTechs = new Dictionary<string, (double raw, double k)>();
             foreach (var (name, tech) in domainConfig.Techniques)
