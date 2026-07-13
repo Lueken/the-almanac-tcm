@@ -222,6 +222,13 @@ public class LevelingServer
         }
     }
 
+    /// <summary>Re-syncs one domain's state to its player (affinity start-level
+    /// changes outside the join flow use this).</summary>
+    public void SyncDomain(IPlayer player, PlayerDomain playerDomain)
+    {
+        channel.SendPacket(new PlayerDomainPacket(playerDomain), player as IServerPlayer);
+    }
+
     /// <summary>Reveals a hidden domain (first-action-only discovery) and syncs it.</summary>
     public void RevealDomain(IPlayer player, int domainId)
     {

@@ -53,16 +53,28 @@ public class AffinitySystem
     };
 
     private readonly ICoreServerAPI sapi;
+    private readonly LevelingServer leveling;
     private AffinityConfig config = new();
 
     public AffinitySystem(ICoreServerAPI sapi, LevelingServer leveling, LedgerSystem ledger)
     {
         this.sapi = sapi;
+        this.leveling = leveling;
         LoadConfig();
 
-        leveling.DomainSetReady += ApplyStartLevels;
+        leveling.DomainSetReady += OnDomainSetReady;
         ledger.ClassCeilingProvider = (player, domain) => ResolveBand(player, domain.Code).CeilingLevel;
         ledger.SmaxScaleProvider = (player, domain) => ResolveBand(player, domain.Code).SmaxScale;
+    }
+
+    private void OnDomainSetReady(IServerPlayer player, PlayerDomainSet domainSet)
+    {
+        ApplyStartLevels(player, domainSet);
+
+        // Mid-session class changes (charsel) must re-apply starts live, not wait
+        // for the next relog. Entity is fresh each session, so one listener per join.
+        player.Entity.WatchedAttributes.RegisterModifiedListener("characterClass",
+            () => ApplyStartLevels(player, domainSet));
     }
 
     public int ScoreFor(IPlayer player, string domainCode)
@@ -92,6 +104,7 @@ public class AffinitySystem
             {
                 playerDomain.Level = band.StartLevel;
                 playerDomain.Hidden = false;
+                leveling.SyncDomain(player, playerDomain);
                 TcmLog.Cat(sapi, TcmLog.Affinity,
                     $"{player.PlayerName} {playerDomain.Domain.Code}: affinity start level {band.StartLevel}");
             }
