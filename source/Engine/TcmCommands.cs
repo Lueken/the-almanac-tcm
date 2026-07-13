@@ -83,7 +83,7 @@ public class TcmCommands
             }
             else
             {
-                sb.AppendLine(line + " — a fresh page today");
+                sb.AppendLine(line + ", a fresh page today");
             }
         }
 
