@@ -39,6 +39,10 @@ public class LedgerSystem
     public System.Func<IPlayer, Domain, int> ClassCeilingProvider { get; set; }
         = (player, domain) => domain.MaxLevel;
 
+    /// <summary>Affinity Smax scaling (±20% envelope, §10.5); default = neutral.</summary>
+    public System.Func<IPlayer, Domain, double> SmaxScaleProvider { get; set; }
+        = (player, domain) => 1.0;
+
     private string LedgerFileName
     {
         get
@@ -236,9 +240,10 @@ public class LedgerSystem
             System.Func<string, double> kOf = t =>
                 effective[domain.Code].TryGetValue(t, out var e) ? e.k : 50.0;
 
+            double smax = dc.Smax * SmaxScaleProvider(player, domain);
             double banked = depthPhase
-                ? SaturationMath.DepthBanked(accs, kOf, dc.Smax, dominant, config.DepthOffTechniqueWeight)
-                : SaturationMath.BreadthBanked(accs, kOf, dc.Smax, dc.M);
+                ? SaturationMath.DepthBanked(accs, kOf, smax, dominant, config.DepthOffTechniqueWeight)
+                : SaturationMath.BreadthBanked(accs, kOf, smax, dc.M);
 
             primaryBanked[domain.Code] = banked;
             totals.TryGetValue(domain.Code, out double t0);
@@ -249,7 +254,7 @@ public class LedgerSystem
             foreach (var (technique, x) in accs)
             {
                 double techBanked = SaturationMath.TechniqueBanked(
-                    x, kOf(technique), dc.Smax, dc.M, depthPhase, technique == dominant,
+                    x, kOf(technique), smax, dc.M, depthPhase, technique == dominant,
                     config.DepthOffTechniqueWeight);
                 ledger.RecordHistory(domain.Code, technique, boundary, techBanked);
 

@@ -33,6 +33,7 @@ public class AlmanacTcmModSystem : ModSystem
     public LevelingServer? Server { get; private set; }
     public LevelingClient? Client { get; private set; }
     public Engine.LedgerSystem? Ledger { get; private set; }
+    public Engine.AffinitySystem? Affinity { get; private set; }
 
     public override void Start(ICoreAPI api)
     {
@@ -46,6 +47,7 @@ public class AlmanacTcmModSystem : ModSystem
         LoadGlobalConfig(sapi);
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
+        Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
         TcmLog.Cat(sapi, TcmLog.Config,
             $"engine config: consolidationHour={GlobalConfig.ConsolidationHour}, " +
             $"gmDomainCap={GlobalConfig.GmDomainCap}, lambdaDeath={GlobalConfig.LambdaDeath}, " +

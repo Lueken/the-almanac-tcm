@@ -29,6 +29,10 @@ public class LevelingServer
     /// <summary>Skill sets of players not currently online, keyed by player UID.</summary>
     public Dictionary<string, SavedPlayerDomainSet> OfflineDomainSets { get; private set; } = new();
 
+    /// <summary>Fires after a player's set is created and loaded from save, before the
+    /// full client sync — the seam where affinity start levels apply.</summary>
+    public event System.Action<IServerPlayer, PlayerDomainSet>? DomainSetReady;
+
     public string SaveFileDirectory => Path.Combine(GamePaths.Saves, "AlmanacTcm");
     public string BackupFileDirectory => Path.Combine(GamePaths.Backups, "AlmanacTcm");
 
@@ -164,6 +168,7 @@ public class LevelingServer
             OfflineDomainSets.Remove(byPlayer.PlayerUID);
         }
 
+        DomainSetReady?.Invoke(byPlayer, domainSet);
         SyncAll(byPlayer, domainSet);
     }
 
