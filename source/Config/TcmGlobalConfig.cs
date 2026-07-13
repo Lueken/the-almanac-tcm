@@ -40,5 +40,9 @@ public class TcmGlobalConfig
 
     public int DedupRingSize { get; set; } = 64;
 
+    /// <summary>Send each practice gain (and dedup'd repeat) to the player's Info
+    /// tab. Trial instrumentation; consider off once the engine is trusted.</summary>
+    public bool PracticeGainMessages { get; set; } = true;
+
     public bool VerboseDebugLogging { get; set; } = true;
 }

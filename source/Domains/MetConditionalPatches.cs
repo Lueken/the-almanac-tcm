@@ -2,6 +2,7 @@ using System;
 using AlmanacTcm.Leveling;
 using HarmonyLib;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 
 namespace AlmanacTcm.Domains;
 
@@ -32,6 +33,7 @@ public static class MetConditionalPatches
     public static void PatchAllPresent(ICoreAPI api, Harmony harmony)
     {
         PatchToolsmithWorkbench(api, harmony);
+        PatchToolsmithHeldCraft(api, harmony);
         PatchSmithingPlusBits(api, harmony);
         PatchWearAndTearMolds(api, harmony);
     }
@@ -72,6 +74,43 @@ public static class MetConditionalPatches
             prefix: new HarmonyMethod(AccessTools.Method(typeof(WorkbenchCraftPatch), "Prefix")),
             postfix: new HarmonyMethod(AccessTools.Method(typeof(WorkbenchCraftPatch), "Postfix")));
         TcmLog.Info(api, "assembly verb hooked to Toolsmith workbench");
+    }
+
+    // ------------------------------- Toolsmith HELD craft (assembly, 4th path)
+
+    /// <summary>Toolsmith's in-hand flow (live-trial find: the path Jeffrey actually
+    /// uses): head+handle hold → parts BUNDLE (intermediate, not counted) → second
+    /// hold → AssembleFullTool = the finished usable tool. Postfix logs only when
+    /// the slot really became a tool (the method is void; the slot check is the
+    /// success signal).</summary>
+    public static class HeldCraftPatch
+    {
+        public static void Postfix(ItemSlot bundleSlot, EntityAgent byEntity)
+        {
+            if (byEntity?.World?.Side != EnumAppSide.Server) return;
+            IPlayer? player = (byEntity as EntityPlayer)?.Player;
+            ItemStack? stack = bundleSlot?.Itemstack;
+            if (player == null || stack?.Collectible?.Tool == null) return;
+            if (stack.Collectible.ToolTier < 2) return;
+
+            Core?.Ledger?.Log(player, MetDomain.Code, MetDomain.TechAssembly,
+                HashCode.Combine(stack.Collectible.Id, byEntity.World.ElapsedMilliseconds / 1000));
+        }
+    }
+
+    private static void PatchToolsmithHeldCraft(ICoreAPI api, Harmony harmony)
+    {
+        if (!api.ModLoader.IsModEnabled("toolsmith")) return;
+        var method = AccessTools.Method(
+            AccessTools.TypeByName("Toolsmith.ToolTinkering.TinkeringUtility"), "AssembleFullTool");
+        if (method == null)
+        {
+            TcmLog.Warn(api, "toolsmith present but TinkeringUtility.AssembleFullTool not found; held-craft assembly inactive");
+            return;
+        }
+        harmony.Patch(method,
+            postfix: new HarmonyMethod(AccessTools.Method(typeof(HeldCraftPatch), "Postfix")));
+        TcmLog.Info(api, "assembly verb hooked to Toolsmith held craft (AssembleFullTool)");
     }
 
     // ------------------------------------------- Smithing+ bit recovery (Axis 4)

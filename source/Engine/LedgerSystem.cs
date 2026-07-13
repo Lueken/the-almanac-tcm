@@ -179,7 +179,8 @@ public class LedgerSystem
             TcmLog.Warn(sapi, $"unconfigured technique {domainCode}/{technique} — using raw=1, K=50");
         }
 
-        if (IsDuplicateContext(ledger, domainCode, technique, contextHash)) raw = 0;
+        bool duplicate = IsDuplicateContext(ledger, domainCode, technique, contextHash);
+        if (duplicate) raw = 0;
 
         if (raw > 0)
         {
@@ -188,7 +189,26 @@ public class LedgerSystem
             accs[technique] = x + raw;
             TcmLog.Cat(sapi, TcmLog.Ledger,
                 $"{player.PlayerName} {domainCode}/{technique} +{raw:0.##} -> x={accs[technique]:0.##}");
+
+            if (config.PracticeGainMessages)
+            {
+                SendInfoLine(player, "almanactcm:practice-gain",
+                    domain.DisplayName, technique, raw, accs[technique]);
+            }
         }
+        else if (duplicate && config.PracticeGainMessages)
+        {
+            SendInfoLine(player, "almanactcm:practice-repeat", domain.DisplayName, technique);
+        }
+    }
+
+    /// <summary>Practice feedback to the client's Info tab (trial instrumentation;
+    /// PracticeGainMessages turns it off when the novelty wears thin).</summary>
+    private void SendInfoLine(IPlayer player, string langKey, params object[] args)
+    {
+        if (player is not IServerPlayer serverPlayer) return;
+        serverPlayer.SendMessage(GlobalConstants.InfoLogChatGroup,
+            Lang.GetL(serverPlayer.LanguageCode, langKey, args), EnumChatType.Notification);
     }
 
     private bool IsDuplicateContext(PracticeLedger ledger, string domain, string technique, int contextHash)
