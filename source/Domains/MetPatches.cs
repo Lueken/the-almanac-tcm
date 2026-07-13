@@ -126,6 +126,12 @@ public static class MetPatches
             string? uid = __instance.WorkItemStack?.Attributes.GetString(SmithAttr);
             string? name = __instance.WorkItemStack?.Attributes.GetString(SmithNameAttr);
             pendingMaker = uid == null ? null : (uid, name ?? "");
+
+            if (__instance.Api?.Side == EnumAppSide.Server && __state != -1)
+            {
+                TcmLog.Cat(__instance.Api, TcmLog.Hooks,
+                    $"anvil finish prefix: recipe={__state}, workitem={(__instance.WorkItemStack == null ? "null" : "present")}, stamp={(uid ?? "NONE")}");
+            }
         }
 
         public static void Postfix(BlockEntityAnvil __instance, IPlayer byPlayer, int __state)
@@ -151,11 +157,16 @@ public static class MetPatches
     [HarmonyPatch(typeof(ModSystemSubTongsDurability), nameof(ModSystemSubTongsDurability.OnItemPickedUp))]
     public static class MakersMarkPatch
     {
-        public static void Postfix(ItemStack? stack)
+        public static void Postfix(Entity byEntity, ItemStack? stack)
         {
             if (pendingMaker == null || stack == null) return;
             stack.Attributes.SetString(MakerAttr, pendingMaker.Value.uid);
             stack.Attributes.SetString(MakerNameAttr, pendingMaker.Value.name);
+            if (byEntity?.Api != null)
+            {
+                TcmLog.Cat(byEntity.Api, TcmLog.Hooks,
+                    $"maker's mark applied to {stack.Collectible?.Code} for {pendingMaker.Value.name}");
+            }
         }
     }
 

@@ -43,6 +43,11 @@ public class TcmCommands
                 .WithDescription("(admin) Rewind the boundary marker so the next engine tick consolidates")
                 .RequiresPrivilege(Privilege.controlserver)
                 .HandleWith(OnNextDay)
+            .EndSubCommand()
+            .BeginSubCommand("inspect")
+                .WithDescription("(admin) Print the held item's TCM attributes, server-side truth")
+                .RequiresPrivilege(Privilege.controlserver)
+                .HandleWith(OnInspect)
             .EndSubCommand();
     }
 
@@ -106,6 +111,26 @@ public class TcmCommands
             core.Ledger?.Log(player, domain, technique, System.HashCode.Combine(i, sapi.World.ElapsedMilliseconds));
         }
         return TextCommandResult.Success($"Logged {times}x {domain}/{technique} practice. See /tcm status.");
+    }
+
+    private TextCommandResult OnInspect(TextCommandCallingArgs args)
+    {
+        if (args.Caller.Player is not IServerPlayer player)
+            return TextCommandResult.Error("Player-only command.");
+        var stack = player.InventoryManager.ActiveHotbarSlot?.Itemstack;
+        if (stack == null) return TextCommandResult.Error("Hold the item to inspect.");
+
+        StringBuilder sb = new();
+        sb.AppendLine($"{stack.Collectible?.Code} (tool={stack.Collectible?.Tool}, tier={stack.Collectible?.ToolTier})");
+        bool any = false;
+        foreach (var (key, value) in stack.Attributes)
+        {
+            if (!key.StartsWith("almanactcm")) continue;
+            sb.AppendLine($"  {key} = {value.GetValue()}");
+            any = true;
+        }
+        if (!any) sb.AppendLine("  (no almanactcm attributes)");
+        return TextCommandResult.Success(sb.ToString());
     }
 
     private TextCommandResult OnNextDay(TextCommandCallingArgs args)
