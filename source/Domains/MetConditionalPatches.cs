@@ -31,7 +31,6 @@ public static class MetConditionalPatches
 
     public static void PatchAllPresent(ICoreAPI api, Harmony harmony)
     {
-        MetPatches.PatchMtcIfPresent(api, harmony);
         PatchToolsmithWorkbench(api, harmony);
         PatchSmithingPlusBits(api, harmony);
         PatchWearAndTearMolds(api, harmony);
