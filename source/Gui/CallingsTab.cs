@@ -157,7 +157,16 @@ public class CallingsTab : IAlmanacBookTab
             (LegendComponent.Glyph.FavoredStar, "a favored trade"),
             (LegendComponent.Glyph.BarredPip, "a rank beyond reach"),
         };
-        return new List<RichTextComponentBase> { new LegendComponent(capi, "The marks", rows, head, body) };
+        // Trailing clear is not cosmetic: the legend floats left (block height), and a
+        // lone float advances no flow, so MeasureHeight would read it as 0 and the
+        // bottom-pin in PackBalanced would overshoot it past the column's clip. The
+        // clear drops the pen below the float so its height is counted — the same
+        // float+clear pairing DividerComponent relies on.
+        return new List<RichTextComponentBase>
+        {
+            new LegendComponent(capi, "The marks", rows, head, body),
+            new ClearFloatTextComponent(capi, 0),
+        };
     }
 
     // --- Detail -----------------------------------------------------------
