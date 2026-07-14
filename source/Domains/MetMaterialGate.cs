@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using AlmanacTcm.Leveling;
 using Vintagestory.API.Common;
+using Vintagestory.API.Config;
+using Vintagestory.API.Server;
 
 namespace AlmanacTcm.Domains;
 
@@ -132,5 +134,44 @@ public static class MetMaterialGate
         var domainSet = AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player);
         currentLevel = domainSet?.FindDomain(MetDomain.Code)?.Level ?? 0;
         return currentLevel >= requiredLevel;
+    }
+
+    private static readonly Dictionary<string, long> lastWarn = new();
+
+    /// <summary>The seam decision: true = BLOCK this working-of-metal action, because the
+    /// gate is on, the stack's metal is gated above the player's MET rank, and the server
+    /// is not in hardcore mode. Sends the throttled warning as a side effect. Hardcore
+    /// lifts the block so the attempt proceeds (true consume-and-ruin waste is a documented
+    /// future refinement). Client side, disabled gate, no player, or a stack with no
+    /// resolvable metal (fuel, tools, non-metal) → false (allow).</summary>
+    public static bool Blocks(ICoreAPI? api, IPlayer? player, ItemStack? metalStack)
+    {
+        if (api == null || api.Side != EnumAppSide.Server || player == null) return false;
+        var cfg = AlmanacTcmModSystem.Instance?.GlobalConfig;
+        if (cfg == null || !cfg.MaterialGateMET) return false;
+
+        string? metal = MetalOf(api.World, metalStack);
+        if (metal == null) return false;
+        if (IsWorkable(api, player, metal, cfg.MaterialGateMETUnmappedLevel, out _, out int required)) return false;
+        if (cfg.MaterialGateMETHardcore) return false;
+
+        Warn(api, player, metal, required);
+        return true;
+    }
+
+    private static void Warn(ICoreAPI api, IPlayer player, string metal, int requiredLevel)
+    {
+        if (player is not IServerPlayer sp) return;
+        string key = sp.PlayerUID + ":" + metal;
+        long now = api.World.ElapsedMilliseconds;
+        if (lastWarn.TryGetValue(key, out long last) && now - last < 3000) return;
+        lastWarn[key] = now;
+
+        string metalName = char.ToUpperInvariant(metal[0]) + metal.Substring(1);
+        string rank = Domain.RankName(requiredLevel);
+        sp.SendMessage(GlobalConstants.GeneralChatGroup,
+            Lang.GetL(sp.LanguageCode, "almanactcm:gate-blocked", metalName, rank),
+            EnumChatType.Notification);
+        TcmLog.Cat(api, TcmLog.Hooks, $"gate: {sp.PlayerName} blocked from working {metal} (needs {rank})");
     }
 }
