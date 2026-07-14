@@ -100,9 +100,21 @@ public class CallingsTab : IAlmanacBookTab
                 new RichTextComponent(capi, "\n", awake ? name : nameMuted),
             };
 
+            int barred = Barred(id);
             if (!awake)
             {
-                comps.Add(new RichTextComponent(capi, Domain.RankName(0) + "\n", muted));
+                // A capped trade shows its walled ceiling even untrained; a neutral one
+                // stays clean (no pip row), so the cue appears only where it means something.
+                if (barred > 0)
+                {
+                    comps.Add(new RichTextComponent(capi, Domain.RankName(0) + "  ", muted));
+                    comps.Add(new InkPipsComponent(capi, Domain.TierCount, 0, -1, barred));
+                    comps.Add(new RichTextComponent(capi, "\n", muted));
+                }
+                else
+                {
+                    comps.Add(new RichTextComponent(capi, Domain.RankName(0) + "\n", muted));
+                }
                 comps.Add(new ProgressBarComponent(capi, 0, columnWidth - 2, 7, inkScale: 0.55));
                 comps.Add(new ClearFloatTextComponent(capi, 12));
             }
@@ -112,7 +124,7 @@ public class CallingsTab : IAlmanacBookTab
                 int currentPip = atCeiling ? -1 : Domain.TierOf(level);
 
                 comps.Add(new RichTextComponent(capi, Domain.RankName(level) + "  ", rank));
-                comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip));
+                comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip, barred));
                 comps.Add(new RichTextComponent(capi, "\n", rank));
                 comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 7));
                 comps.Add(new ClearFloatTextComponent(capi, 3));
@@ -171,7 +183,7 @@ public class CallingsTab : IAlmanacBookTab
         int filledPips = atCeiling ? Domain.TierCount : (level > 0 ? Domain.TierOf(level) : 0);
         int currentPip = atCeiling ? -1 : (level > 0 ? Domain.TierOf(level) : 0);
         comps.Add(new RichTextComponent(capi, Domain.RankName(level) + "  ", body));
-        comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip));
+        comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip, Barred(id)));
         comps.Add(new RichTextComponent(capi, "\n", body));
         comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 8));
         comps.Add(new ClearFloatTextComponent(capi, 3));
@@ -323,6 +335,16 @@ public class CallingsTab : IAlmanacBookTab
     {
         if (string.IsNullOrEmpty(code)) return "newcomer";
         return char.ToUpperInvariant(code[0]) + code.Substring(1);
+    }
+
+    /// <summary>Top tiers walled off by NEGATIVE affinity, for the barred pips. Neutral
+    /// and positive reach Grandmaster (gated by the Masterpiece deed, not by class), so
+    /// only a resisted trade caps: −1 loses Grandmaster, −2 loses Master too.</summary>
+    private int Barred(int domainId)
+    {
+        if (domainId < 0 || !client.Affinity.TryGetValue(domainId, out int score)) return 0;
+        if (score >= 0) return 0;
+        return score <= -2 ? 2 : 1;
     }
 }
 

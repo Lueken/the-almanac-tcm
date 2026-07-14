@@ -8,10 +8,16 @@ namespace AlmanacTcm.Engine;
 /// <summary>
 /// The class-affinity layer (vocation-affinity-map.md Grid 2, RULED). Scores are
 /// server config; the score→band translation is design law and lives in code:
-///   +3 Apprentice-I start, GM door, +20% Smax
-///   +2/+1 Novice-I start, GM door, +13%/+7%
-///    0 Untrained, ceiling Master IV (the GM door only exists with positive affinity)
+///   +3 Apprentice-I start, +20% Smax
+///   +2/+1 Novice-I start, +13%/+7%
+///    0 no start bonus, practice-ceiling Master IV
 ///   −1 ceiling Master I, −10% · −2 ceiling Journeyman IV, −20%
+/// Grandmaster is NOT affinity-gated: neutral and positive both reach it through the
+/// universal Masterpiece deed (ruled 2026-07-08, brief-v0.1.md; "positive-affinity-
+/// only" was a superseded inference). Only NEGATIVE affinity is hard-walled below GM
+/// and never sees the gate. Positive affinity buys a head start and faster Smax, not
+/// the door itself. (The current neutral/positive practice ceilings are a pre-quest
+/// stand-in; the Masterpiece gate arrives with Track 2.)
 /// Keys on the characterClass attribute, so vanilla and SC versions of the same
 /// class code (malefactor!) get identical treatment — SC needs no detection at all.
 /// </summary>
