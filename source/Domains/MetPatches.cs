@@ -30,6 +30,11 @@ public static class MetPatches
     public const string MakerAttr = "almanactcm:maker";
     public const string MakerNameAttr = "almanactcm:makername";
 
+    /// <summary>Maker's MET tier frozen at creation (2=Journeyman … 4=Grandmaster). Drives
+    /// the tiered provenance line; the tool stays what its maker was even if they later
+    /// rank up, down, or log off (§162 Axis 6).</summary>
+    public const string MakerTierAttr = "almanactcm:makertier";
+
     /// <summary>Smelt classification written at DoSmelt (no player there); read and
     /// converted to practice at first pour, where the pourer IS the attributable smith.</summary>
     public const string SmeltAttr = "almanactcm:smelt";
@@ -42,6 +47,27 @@ public static class MetPatches
         var domainSet = Core?.Server?.GetDomainSet(player);
         return domainSet?.FindDomain(MetDomain.Code)?.Level ?? 0;
     }
+
+    /// <summary>Maker's MET tier by uid at mark time. Returns -1 below Journeyman (tier 2):
+    /// Novice/Apprentice work is unmarked, so a mark always means something. Offline or
+    /// unknown smith is also -1 (nothing to freeze).</summary>
+    private static int MakerTierOf(ICoreAPI? api, string? uid)
+    {
+        if (api == null || uid == null) return -1;
+        IPlayer? p = api.World.PlayerByUid(uid);
+        if (p == null) return -1;
+        int tier = Leveling.Domain.TierOf(MetLevel(p));
+        return tier >= 2 ? tier : -1;
+    }
+
+    /// <summary>Provenance lang key for a maker tier: Smithed (Journeyman), Master-forged
+    /// (Master), Masterwork (Grandmaster).</summary>
+    private static string MakerKey(int tier) => tier switch
+    {
+        >= 4 => "almanactcm:masterwork-by",
+        3 => "almanactcm:master-forged-by",
+        _ => "almanactcm:smithed-by",
+    };
 
     private static double Knob(string key, double fallback)
     {
@@ -141,7 +167,7 @@ public static class MetPatches
     /// <summary>Pending Maker's Mark for the synchronous CheckIfFinished→OnItemPickedUp
     /// window: the finished stack is a fresh recipe-output clone, so the workpiece
     /// stamp must be re-applied to it by ambient context.</summary>
-    private static (string uid, string name)? pendingMaker;
+    private static (string uid, string name, int tier)? pendingMaker;
 
     [HarmonyPatch(typeof(BlockEntityAnvil), nameof(BlockEntityAnvil.CheckIfFinished))]
     public static class AnvilFinishPatch
@@ -151,7 +177,7 @@ public static class MetPatches
             __state = __instance.SelectedRecipeId;
             string? uid = __instance.WorkItemStack?.Attributes.GetString(SmithAttr);
             string? name = __instance.WorkItemStack?.Attributes.GetString(SmithNameAttr);
-            pendingMaker = uid == null ? null : (uid, name ?? "");
+            pendingMaker = uid == null ? null : (uid, name ?? "", MakerTierOf(__instance.Api, uid));
 
             if (__instance.Api?.Side == EnumAppSide.Server && __state != -1)
             {
@@ -187,8 +213,10 @@ public static class MetPatches
         {
             if (pendingMaker == null || stack == null) return;
             var maker = pendingMaker.Value;
+            if (maker.tier < 2) return;   // Journeyman+ only: lesser work carries no mark
             stack.Attributes.SetString(MakerAttr, maker.uid);
             stack.Attributes.SetString(MakerNameAttr, maker.name);
+            stack.Attributes.SetInt(MakerTierAttr, maker.tier);
             if (byEntity?.Api == null) return;
             TcmLog.Cat(byEntity.Api, TcmLog.Hooks,
                 $"maker's mark applied to {stack.Collectible?.Code} for {maker.name}");
@@ -216,13 +244,14 @@ public static class MetPatches
             }, 500);
         }
 
-        private static void ReStamp(ICoreAPI api, ItemSlot slot, int collectibleId, (string uid, string name) maker)
+        private static void ReStamp(ICoreAPI api, ItemSlot slot, int collectibleId, (string uid, string name, int tier) maker)
         {
             ItemStack? s = slot?.Itemstack;
             if (s?.Collectible?.Id != collectibleId) return;
             if (s.Attributes.HasAttribute(MakerAttr)) return;
             s.Attributes.SetString(MakerAttr, maker.uid);
             s.Attributes.SetString(MakerNameAttr, maker.name);
+            s.Attributes.SetInt(MakerTierAttr, maker.tier);
             slot!.MarkDirty();
             TcmLog.Cat(api, TcmLog.Hooks, $"maker's mark re-stamped on surviving {s.Collectible.Code}");
         }
@@ -234,11 +263,13 @@ public static class MetPatches
     {
         public static void Postfix(ItemSlot inSlot, System.Text.StringBuilder dsc)
         {
-            string? maker = inSlot?.Itemstack?.Attributes.GetString(MakerNameAttr);
-            if (!string.IsNullOrEmpty(maker))
-            {
-                dsc.AppendLine(Lang.Get("almanactcm:made-by", maker));
-            }
+            var attrs = inSlot?.Itemstack?.Attributes;
+            string? maker = attrs?.GetString(MakerNameAttr);
+            if (string.IsNullOrEmpty(maker)) return;
+            // Tiered provenance from the frozen maker tier; legacy tools (no tier) fall
+            // back to the flat line.
+            int tier = attrs!.GetInt(MakerTierAttr, -1);
+            dsc.AppendLine(Lang.Get(tier >= 2 ? MakerKey(tier) : "almanactcm:made-by", maker));
         }
     }
 
@@ -353,7 +384,7 @@ public static class MetPatches
     /// cast head when the hardened contents are taken (RULED: cast heads carry
     /// their maker like forged ones). Session-scoped memory — a restart between
     /// pour and take loses the attribution, accepted for v1.</summary>
-    private static readonly Dictionary<string, (string uid, string name)> moldCasters = new();
+    private static readonly Dictionary<string, (string uid, string name, int tier)> moldCasters = new();
 
     [HarmonyPatch(typeof(BlockEntityToolMold), nameof(BlockEntityToolMold.ReceiveLiquidMetal))]
     public static class ToolMoldFillPatch
@@ -370,7 +401,8 @@ public static class MetPatches
             if (__state || !__instance.IsFull) return;
 
             if (moldCasters.Count > 128) moldCasters.Clear();
-            moldCasters[__instance.Pos.ToString()] = (pouringPlayer.PlayerUID, pouringPlayer.PlayerName);
+            moldCasters[__instance.Pos.ToString()] =
+                (pouringPlayer.PlayerUID, pouringPlayer.PlayerName, MakerTierOf(__instance.Api, pouringPlayer.PlayerUID));
 
             Core?.Ledger?.Log(pouringPlayer, MetDomain.Code, MetDomain.TechCasting,
                 HashCode.Combine(__instance.Pos));
@@ -384,12 +416,14 @@ public static class MetPatches
         {
             if (__result == null || __instance.Api?.Side != EnumAppSide.Server) return;
             if (!moldCasters.TryGetValue(__instance.Pos.ToString(), out var caster)) return;
+            if (caster.tier < 2) return;   // Journeyman+ only, same as forged work
 
             foreach (ItemStack stack in __result)
             {
                 if (stack == null || stack.Attributes.HasAttribute(MakerAttr)) continue;
                 stack.Attributes.SetString(MakerAttr, caster.uid);
                 stack.Attributes.SetString(MakerNameAttr, caster.name);
+                stack.Attributes.SetInt(MakerTierAttr, caster.tier);
             }
         }
     }
@@ -418,6 +452,8 @@ public static class MetPatches
                 output.Attributes.SetString(MakerAttr, maker);
                 output.Attributes.SetString(MakerNameAttr,
                     input!.Itemstack!.Attributes.GetString(MakerNameAttr) ?? "");
+                output.Attributes.SetInt(MakerTierAttr,
+                    input.Itemstack.Attributes.GetInt(MakerTierAttr, -1));
                 return;
             }
         }
