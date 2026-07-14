@@ -1,0 +1,29 @@
+{
+  "MIN": { "title": "The Deep-Delver", "tagline": "The mountain tires before they do." },
+  "WOO": { "title": "The Forester", "tagline": "Leaves the forest richer than they found it." },
+  "FAR": { "title": "The Cultivator", "tagline": "Mastery bred into the seed itself." },
+  "FIS": { "title": "The Steward of the Pond", "tagline": "Their waters never go barren." },
+  "COO": { "title": "The Signature Dish", "tagline": "A meal worth traveling for, and it keeps." },
+  "MET": {
+    "title": "The Maker's Mark",
+    "tagline": "Their name on the steel outlives the hand that struck it.",
+    "identity": "The trade the whole Almanac grew from. A smith learns the fire by working it: heating, striking, folding, and cooling, until the metal answers the hammer instead of fighting it. The work is slow and hot, and there is no hurrying it.",
+    "mastery": "A Grandmaster's mark is struck into every tool they finish, forged or cast, and rides it until the tool is spent. Their fuel goes further at the forge, and their quenched steel holds where a lesser hand's would crack clean through.",
+    "techniques": ["Smithing", "Casting", "Quenching", "Smelting", "Alloying", "Assembly"]
+  },
+  "POT": { "title": "The Potter's Mark", "tagline": "Nothing spoils in a masterwork crock." },
+  "GLA": { "title": "The Glassmaker's Mark", "tagline": "A Master's glass does not crack." },
+  "PAN": { "title": "The Surveyor", "tagline": "The map itself is the deliverable." },
+  "HUN": { "title": "The Master Hunter", "tagline": "Knows the country they have hunted." },
+  "ANI": { "title": "The Master's Line", "tagline": "Every calm animal in the valley traces back to their pens." },
+  "FOR": { "title": "The Master Forager", "tagline": "Walks a harvest circuit nobody else can see." },
+  "ALC": { "title": "The Alchemist's Brand", "tagline": "Whose poultice you carry decides whether you get back up." },
+  "BRE": { "title": "The Brewer's Mark", "tagline": "The barrel knows its keeper." },
+  "TAI": { "title": "The Master Tailor", "tagline": "A coat that holds its warmth for years, and their name in the collar." },
+  "MAS": { "title": "The Mason's Mark", "tagline": "Their mark outlasts the wall." },
+  "ENG": { "title": "The Millwright's Mark", "tagline": "Machines run truer under their hand, and stay true longer." },
+  "MEL": { "title": "The Master-at-Arms", "tagline": "Reads the fight before the first blow lands." },
+  "RAN": { "title": "The Marksman's Eye", "tagline": "Knows the distance, holds the drop, and the arrow comes back." },
+  "TEM": { "title": "The Storm-Warden", "tagline": "Feels the storm a day before the village hears it." },
+  "ARC": { "title": "The Archmage", "tagline": "Even at the height of the art, the storm can reach back." }
+}

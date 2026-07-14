@@ -3,21 +3,24 @@ using System.Collections.Generic;
 using AlmanacIlluminated;
 using AlmanacTcm.Leveling;
 using Vintagestory.API.Client;
+using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 
 namespace AlmanacTcm.Gui;
 
 /// <summary>
-/// The Callings tab in The Almanac: Illuminated — every trade of the world on
-/// one spread. Awake callings (any rank or banked practice) carry full ink:
-/// name, rank with the tier-pip stamp row, progress bar, and the distance to
-/// the next rank. Untrained ones recede to muted ink with a faint empty bar,
-/// so a squint at the page shows who this character is. Reads the synced
-/// client state exclusively — no engine constants exist on this side.
+/// The Callings tab in The Almanac: Illuminated. Two views, one tab: an overview
+/// of every trade (name, rank, bar, tier pips), and a per-domain detail page you
+/// reach by clicking a calling. The detail carries the trade's identity, the
+/// climb, and what its mastery gives. Reads synced client state and a client-safe
+/// flavor asset only — no tuned constant crosses.
 /// </summary>
 public class CallingsTab : IAlmanacBookTab
 {
     private readonly LevelingClient client;
+    private IAlmanacBookTabHost? host;
+    private string? detailCode;                     // null = overview, else the domain shown
+    private Dictionary<string, DomainInfo>? info;   // lazy-loaded flavor asset
 
     private static readonly double[] Ink = { 0.13, 0.09, 0.05, 1 };
     private static readonly double[] Muted = { 0.42, 0.36, 0.28, 1 };
@@ -29,13 +32,43 @@ public class CallingsTab : IAlmanacBookTab
 
     public string Label => "Callings";
 
-    /// <summary>Between the Trades (10) and Mastery (30) ribbon chapters, so TCM's
-    /// three tabs read left-to-right as Trades, Callings, Mastery.</summary>
+    /// <summary>Between Trades (10) and Mastery (30) in the ribbon.</summary>
     public int Order => 20;
 
-    public int ColumnsPerSpread => 4;
+    /// <summary>Overview is a four-column grid; a detail page is page-wide (two).</summary>
+    public int ColumnsPerSpread => detailCode == null ? 4 : 2;
+
+    public void OnAttached(IAlmanacBookTabHost host) => this.host = host;
+
+    /// <summary>Selecting the ribbon tab always returns to the overview.</summary>
+    public void OnActivated() => detailCode = null;
 
     public List<RichTextComponentBase[]> BuildColumns(ICoreClientAPI capi, double columnWidth, double columnHeight)
+    {
+        EnsureInfo(capi);
+        return detailCode == null
+            ? BuildOverview(capi, columnWidth, columnHeight)
+            : BuildDetail(capi, detailCode, columnWidth, columnHeight);
+    }
+
+    private void EnsureInfo(ICoreClientAPI capi)
+    {
+        if (info != null) return;
+        try
+        {
+            var asset = capi.Assets.TryGet(new AssetLocation("almanactcm", "almanac/domains.json"));
+            info = asset?.ToObject<Dictionary<string, DomainInfo>>() ?? new();
+        }
+        catch (Exception e)
+        {
+            capi.Logger.Warning("[almanactcm] could not read domains.json: {0}", e.Message);
+            info = new();
+        }
+    }
+
+    // --- Overview ---------------------------------------------------------
+
+    private List<RichTextComponentBase[]> BuildOverview(ICoreClientAPI capi, double columnWidth, double columnHeight)
     {
         CairoFont name = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifDecorative)
             .WithWeight(Cairo.FontWeight.Bold).WithColor(Ink);
@@ -48,8 +81,6 @@ public class CallingsTab : IAlmanacBookTab
         for (int id = 0; id < Domains.DomainRoster.All.Length; id++)
         {
             Domains.DomainRoster.Entry entry = Domains.DomainRoster.All[id];
-            // Conditional domains vanish from the page when their mod is absent
-            // (same check the server registration gates Enabled on).
             if (entry.RequiredMod != null && !capi.ModLoader.IsModEnabled(entry.RequiredMod)) continue;
 
             client.Domains.TryGetValue(id, out LevelingClient.DomainState? state);
@@ -60,40 +91,35 @@ public class CallingsTab : IAlmanacBookTab
             bool awake = level > 0 || experience > 0;
             double fraction = required > 0 ? experience / required : (atCeiling ? 1 : 0);
 
-            // Cards carry no trailing gap of their own — the packer joins them
-            // with spacers sized to let each column breathe down the page.
-            var comps = new List<RichTextComponentBase>();
+            // The name is a link into this trade's detail page, whether trained or not.
+            string code = entry.Code;
+            var comps = new List<RichTextComponentBase>
+            {
+                new BookLinkComponent(capi, entry.DisplayName, awake ? name : nameMuted,
+                    _ => { detailCode = code; host?.Recompose(); }),
+                new RichTextComponent(capi, "\n", awake ? name : nameMuted),
+            };
+
             if (!awake)
             {
-                // Untrained and untouched: recede into the page. The identical
-                // "5 to Novice I" caption carries no information 18 times over.
-                comps.Add(new RichTextComponent(capi, entry.DisplayName + "\n", nameMuted));
                 comps.Add(new RichTextComponent(capi, Domain.RankName(0) + "\n", muted));
                 comps.Add(new ProgressBarComponent(capi, 0, columnWidth - 2, 7, inkScale: 0.55));
-                comps.Add(new ClearFloatTextComponent(capi, 2));
+                comps.Add(new ClearFloatTextComponent(capi, 12));
             }
             else
             {
-                // The wander-book stamp row: filled pips are completed tiers,
-                // the outlined one is where the climb currently stands.
                 int filledPips = atCeiling ? Domain.TierCount : Domain.TierOf(level);
                 int currentPip = atCeiling ? -1 : Domain.TierOf(level);
 
-                comps.Add(new RichTextComponent(capi, entry.DisplayName + "\n", name));
                 comps.Add(new RichTextComponent(capi, Domain.RankName(level) + "  ", rank));
                 comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip));
                 comps.Add(new RichTextComponent(capi, "\n", rank));
                 comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 7));
                 comps.Add(new ClearFloatTextComponent(capi, 3));
                 if (required > 0)
-                {
-                    comps.Add(new RichTextComponent(capi,
-                        $"{Math.Ceiling(required - experience):0} to {Domain.RankName(level + 1)}\n", muted));
-                }
+                    comps.Add(new RichTextComponent(capi, $"{Math.Ceiling(required - experience):0} to {Domain.RankName(level + 1)}\n", muted));
                 else if (atCeiling)
-                {
                     comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
-                }
             }
             cards.Add(comps);
         }
@@ -101,29 +127,100 @@ public class CallingsTab : IAlmanacBookTab
         return PackBalanced(capi, cards, columnWidth, columnHeight);
     }
 
-    /// <summary>Base breathing room between entries, unscaled GUI units.</summary>
-    private const double EntryGap = 14;
+    // --- Detail -----------------------------------------------------------
 
-    /// <summary>Extra gap cap when a column runs short — the leftover page height
-    /// is spread across the gaps up to this much, so a sparse ledger column
-    /// settles down the page instead of huddling at the top, while a full
-    /// column stays compact and never looks stretched.</summary>
-    private const double EntryGapStretchMax = 26;
+    private List<RichTextComponentBase[]> BuildDetail(ICoreClientAPI capi, string code, double columnWidth, double columnHeight)
+    {
+        CairoFont heading = CairoFont.WhiteSmallishText().WithFont(FontRegistry.SerifDecorative)
+            .WithWeight(Cairo.FontWeight.Bold).WithColor(Ink);
+        CairoFont title = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifDecorative)
+            .WithWeight(Cairo.FontWeight.Bold).WithColor(Ink);
+        CairoFont body = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Ink);
+        CairoFont italic = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithSlant(Cairo.FontSlant.Italic).WithColor(Ink);
+        CairoFont muted = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Muted);
+        CairoFont subhead = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifDecorative)
+            .WithWeight(Cairo.FontWeight.Bold).WithColor(Muted);
 
-    /// <summary>
-    /// Distributes cards evenly across one spread's four columns (21 entries
-    /// pack 6/5/5/5) so the page fills instead of leaving the last column
-    /// blank, then pads each column's entry gaps into the measured leftover
-    /// height. If the balanced split would overflow the column height (future
-    /// taller entries), falls back to the Crops-style height-greedy packing,
-    /// which page-turns onto further spreads.
-    /// </summary>
+        string display = code;
+        int id = -1;
+        for (int i = 0; i < Domains.DomainRoster.All.Length; i++)
+            if (Domains.DomainRoster.All[i].Code == code) { display = Domains.DomainRoster.All[i].DisplayName; id = i; break; }
+
+        client.Domains.TryGetValue(id, out LevelingClient.DomainState? state);
+        int level = state?.Level ?? 0;
+        float experience = state?.Experience ?? 0f;
+        float required = state?.RequiredExperience ?? 0f;
+        bool atCeiling = required <= 0 && level >= Domain.MaxLevelDefault;
+        double fraction = required > 0 ? experience / required : (atCeiling ? 1 : 0);
+        info!.TryGetValue(code, out DomainInfo? di);
+
+        var comps = new List<RichTextComponentBase>
+        {
+            new BookLinkComponent(capi, "‹ All Callings", muted, _ => { detailCode = null; host?.Recompose(); }),
+            new RichTextComponent(capi, "\n", muted),
+            new RichTextComponent(capi, display + "\n", heading),
+        };
+
+        if (di?.title != null)
+            comps.Add(new RichTextComponent(capi, di.title + "\n", title));
+        if (di?.tagline != null)
+            comps.Add(new RichTextComponent(capi, di.tagline + "\n", italic));
+
+        comps.Add(new ClearFloatTextComponent(capi, 6));
+        int filledPips = atCeiling ? Domain.TierCount : (level > 0 ? Domain.TierOf(level) : 0);
+        int currentPip = atCeiling ? -1 : (level > 0 ? Domain.TierOf(level) : 0);
+        comps.Add(new RichTextComponent(capi, Domain.RankName(level) + "  ", body));
+        comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip));
+        comps.Add(new RichTextComponent(capi, "\n", body));
+        comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 8));
+        comps.Add(new ClearFloatTextComponent(capi, 3));
+        if (required > 0)
+            comps.Add(new RichTextComponent(capi, $"{Math.Ceiling(required - experience):0} to {Domain.RankName(level + 1)}\n", muted));
+        else if (atCeiling)
+            comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
+        else
+            comps.Add(new RichTextComponent(capi, "Untrained, a fresh page\n", muted));
+
+        if (di?.identity != null)
+        {
+            comps.Add(new ClearFloatTextComponent(capi, 14));
+            comps.Add(new RichTextComponent(capi, di.identity + "\n", body));
+        }
+
+        if (di?.mastery != null)
+        {
+            comps.Add(new ClearFloatTextComponent(capi, 14));
+            comps.Add(new RichTextComponent(capi, "What mastery gives\n", subhead));
+            comps.Add(new RichTextComponent(capi, di.mastery + "\n", body));
+        }
+
+        if (di?.techniques != null && di.techniques.Length > 0)
+        {
+            comps.Add(new ClearFloatTextComponent(capi, 14));
+            comps.Add(new RichTextComponent(capi, "The work\n", subhead));
+            comps.Add(new RichTextComponent(capi, string.Join(" · ", di.techniques) + "\n", muted));
+        }
+
+        if (di?.identity == null && di?.mastery == null)
+        {
+            comps.Add(new ClearFloatTextComponent(capi, 14));
+            comps.Add(new RichTextComponent(capi, "Its full account is still being set down.\n", italic));
+        }
+
+        return PackFlow(capi, comps, columnWidth, columnHeight);
+    }
+
+    // --- Packing ----------------------------------------------------------
+
+    /// <summary>Overview: distribute cards evenly across the spread's four columns
+    /// (21 pack 6/5/5/5), padding each column's entry gaps into the leftover height.
+    /// Falls back to height-greedy packing if a balanced column would overflow.</summary>
     private List<RichTextComponentBase[]> PackBalanced(ICoreClientAPI capi,
         List<List<RichTextComponentBase>> cards, double columnWidth, double columnHeight)
     {
         double scale = RuntimeEnv.GUIScale <= 0 ? 1 : RuntimeEnv.GUIScale;
         double availH = columnHeight * scale;
-        int cols = ColumnsPerSpread;
+        int cols = 4;
 
         List<RichTextComponentBase> Join(List<List<RichTextComponentBase>> group, double gap)
         {
@@ -150,9 +247,6 @@ public class CallingsTab : IAlmanacBookTab
                 var column = Join(group, EntryGap);
                 double used = ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth);
                 if (used > availH) { fits = false; break; }
-
-                // Let the column settle into the page: share the leftover height
-                // across the gaps, capped so it reads as rhythm, not stretching.
                 if (group.Count > 1 && used < availH)
                 {
                     double extra = Math.Min(EntryGapStretchMax, (availH - used) / (group.Count - 1) / scale);
@@ -163,30 +257,58 @@ public class CallingsTab : IAlmanacBookTab
             if (fits && index >= cards.Count) return columns;
         }
 
-        // Fallback: pack whole cards by measured height, overflow page-turns.
         columns.Clear();
         var current = new List<RichTextComponentBase>();
-        void Flush()
-        {
-            if (current.Count > 0) { columns.Add(current.ToArray()); current = new List<RichTextComponentBase>(); }
-        }
+        void Flush() { if (current.Count > 0) { columns.Add(current.ToArray()); current = new List<RichTextComponentBase>(); } }
         foreach (var card in cards)
         {
             var trial = new List<RichTextComponentBase>(current);
             if (current.Count > 0) trial.Add(new ClearFloatTextComponent(capi, (float)EntryGap));
             trial.AddRange(card);
-            if (current.Count == 0 || ChapterRenderer.MeasureHeight(capi, trial.ToArray(), columnWidth) <= availH)
-            {
-                current = trial;
-            }
-            else
-            {
-                Flush();
-                current.AddRange(card);
-            }
+            if (current.Count == 0 || ChapterRenderer.MeasureHeight(capi, trial.ToArray(), columnWidth) <= availH) current = trial;
+            else { Flush(); current.AddRange(card); }
         }
         Flush();
         if (columns.Count == 0) columns.Add(Array.Empty<RichTextComponentBase>());
         return columns;
     }
+
+    /// <summary>Detail: flow a single stream of components into page-height columns,
+    /// so a long account page-turns across the spread instead of running off.</summary>
+    private List<RichTextComponentBase[]> PackFlow(ICoreClientAPI capi,
+        List<RichTextComponentBase> comps, double columnWidth, double columnHeight)
+    {
+        double scale = RuntimeEnv.GUIScale <= 0 ? 1 : RuntimeEnv.GUIScale;
+        double availH = columnHeight * scale;
+
+        var columns = new List<RichTextComponentBase[]>();
+        var current = new List<RichTextComponentBase>();
+        foreach (var c in comps)
+        {
+            var trial = new List<RichTextComponentBase>(current) { c };
+            if (current.Count > 0 && ChapterRenderer.MeasureHeight(capi, trial.ToArray(), columnWidth) > availH)
+            {
+                columns.Add(current.ToArray());
+                current = new List<RichTextComponentBase> { c };
+            }
+            else current = trial;
+        }
+        if (current.Count > 0) columns.Add(current.ToArray());
+        if (columns.Count == 0) columns.Add(Array.Empty<RichTextComponentBase>());
+        return columns;
+    }
+
+    private const double EntryGap = 14;
+    private const double EntryGapStretchMax = 26;
+}
+
+/// <summary>Client-safe per-domain flavor, read from assets/almanactcm/almanac/domains.json.
+/// Never carries tuned numbers — identity, tagline, and what mastery gives, in words.</summary>
+public class DomainInfo
+{
+    public string? title;
+    public string? tagline;
+    public string? identity;
+    public string? mastery;
+    public string[]? techniques;
 }
