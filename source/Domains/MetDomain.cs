@@ -20,6 +20,7 @@ public static class MetDomain
 
     // Bonus knob keys (DomainConfig.Bonus)
     public const string OverStrikeChance = "overStrikeChance";
+    public const string RuinChance = "ruinChance";
     public const string ShatterFactorUntrained = "shatterFactorUntrained";
     public const string ShatterFactorGm = "shatterFactorGm";
     public const string FuelEconomyUntrained = "fuelEconomyUntrained";
@@ -52,6 +53,7 @@ public static class MetDomain
         Bonus = new Dictionary<string, double>
         {
             [OverStrikeChance] = 0.15,
+            [RuinChance] = 0.008,
             [ShatterFactorUntrained] = 1.5,
             [ShatterFactorGm] = 0.4,
             [FuelEconomyUntrained] = -0.10,

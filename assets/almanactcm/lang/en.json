@@ -2,6 +2,7 @@
   "almanactcm:mod-name": "The Almanac: Trades, Callings & Mastery",
   "almanactcm:morning-rankup": "As you rest, the day's work settles into your hands: {0} {1}.",
   "almanactcm:overstrike": "Your hammer bites too deep. The piece will need a reheat and more metal.",
+  "almanactcm:ruin": "The metal cracks under a clumsy blow. The piece is ruined.",
   "almanactcm:made-by": "Made by {0}",
   "almanactcm:practice-gain": "{0}: {1} +{2} practice (today: {3:0.#})",
   "almanactcm:practice-repeat": "{0}: {1} repeated, nothing new learned",

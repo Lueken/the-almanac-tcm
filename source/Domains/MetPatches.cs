@@ -70,6 +70,19 @@ public static class MetPatches
             // voxel too deep, failing the exact-match completion and forcing a
             // reheat + top-up. Snaps to zero at Novice I.
             if (MetLevel(byPlayer) > 0) return;
+
+            // Axis 1 rare ruin: a very low chance the clumsy piece cracks and is lost
+            // outright (the harsher, rarer sibling of over-striking). Untrained only.
+            if (__instance.Api.World.Rand.NextDouble() < Knob(MetDomain.RuinChance, 0.008))
+            {
+                RuinWorkpiece(__instance);
+                (byPlayer as IServerPlayer)?.SendMessage(GlobalConstants.GeneralChatGroup,
+                    Lang.GetL((byPlayer as IServerPlayer)?.LanguageCode ?? "en", "almanactcm:ruin"),
+                    EnumChatType.Notification);
+                TcmLog.Cat(__instance.Api, TcmLog.Hooks, $"{byPlayer.PlayerName} ruined a workpiece (Untrained)");
+                return;
+            }
+
             if (voxelPos == null) return;
             if (__instance.Api.World.Rand.NextDouble() >= Knob(MetDomain.OverStrikeChance, 0.15)) return;
 
@@ -80,6 +93,19 @@ public static class MetPatches
                     EnumChatType.Notification);
                 TcmLog.Cat(__instance.Api, TcmLog.Hooks, $"{byPlayer.PlayerName} over-struck at {voxelPos}");
             }
+        }
+
+        /// <summary>Spoil the piece outright: drop the work item and clear the anvil's
+        /// voxels so nothing is recoverable. Reflection reaches the private backing field
+        /// (only a public getter exists); the same RegenMesh call the over-strike uses
+        /// refreshes the now-empty anvil.</summary>
+        private static void RuinWorkpiece(BlockEntityAnvil anvil)
+        {
+            AccessTools.Field(typeof(BlockEntityAnvil), "workItemStack")?.SetValue(anvil, null);
+            System.Array.Clear(anvil.Voxels, 0, anvil.Voxels.Length);
+            AccessTools.Method(typeof(BlockEntityAnvil), "RegenMeshAndSelectionBoxes")?.Invoke(anvil, null);
+            anvil.MarkDirty(true);
+            anvil.Api.World.BlockAccessor.MarkBlockDirty(anvil.Pos);
         }
 
         private static bool RemoveAdjacentMetalVoxel(BlockEntityAnvil anvil, Vec3i pos)
