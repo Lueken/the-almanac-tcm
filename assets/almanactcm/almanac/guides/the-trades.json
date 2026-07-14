@@ -1,0 +1,89 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
+  "schemaVersion": 1,
+  "id": "almanactcm:the-trades",
+  "gate": "almanactcm",
+  "title": "The Trades",
+  "subtitle": "How a calling is earned, and what mastery gives",
+  "byline": "set down by Venah",
+  "accentColor": "#6e4b28",
+  "sections": [
+    {
+      "id": "the-work-teaches",
+      "title": "The work teaches",
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph", "dropcap": true,
+          "text": "Every trade in this world is a calling, and you are born to none of them and shut out of none. Twenty-one callings are named in these pages, from the deep mine to the forge to the quiet still. You hold them all at once, most untouched, each waiting on the day you first set a hand to it." },
+        { "type": "paragraph",
+          "text": "Rank is not bought, and it is not read out of a book. It is earned by doing the work. Swing the hammer and the smith in you learns the hammer. Walk the woods and the forager learns the woods. There is no other road, and no way around it." }
+      ]
+    },
+    {
+      "id": "the-day-settles",
+      "title": "The day settles at rest",
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph",
+          "text": "No lesson lands all at once. Through the day your work gathers unsettled, a tally of what your hands attempted. At the turn of each night it settles. What you did across the day becomes what you know, and you wake a little more skilled than you lay down." },
+        { "type": "callout", "variant": "tip",
+          "text": "A day of varied work teaches more broadly than the same hours poured into one motion. The hands learn range, not repetition. Work as the day asks, and the range comes on its own." }
+      ]
+    },
+    {
+      "id": "the-five-tiers",
+      "title": "The five tiers",
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph",
+          "text": "Every calling climbs the same road. <strong>Novice</strong>, then <strong>Apprentice</strong>, then <strong>Journeyman</strong>, then <strong>Master</strong>, and at the summit, <strong>Grandmaster</strong>. Four steps to each tier, twenty rungs from the first day to the last." },
+        { "type": "paragraph",
+          "text": "Your standing in every trade waits on the Callings page. A bar shows the road left within your rank, and a row of marks shows the tiers already behind you. Open it and read yourself at a glance." }
+      ]
+    },
+    {
+      "id": "what-mastery-gives",
+      "title": "What mastery gives",
+      "blocks": [
+        { "type": "paragraph",
+          "text": "Rank is not a number kept for its own sake. Each calling repays the climb in its own coin. The smith's fuel burns longer and the steel shatters less. The forager walks a circuit only they can find. The mason draws more dressed stone from every slab of rough." },
+        { "type": "paragraph",
+          "text": "At the height of a trade your name rides your work. A Grandmaster smith's mark is struck into the tool, and it outlives the hand that struck it. What each road leads to is set down on its own calling. Turn to a trade to read where it ends." }
+      ]
+    },
+    {
+      "id": "two-great-works",
+      "title": "Two great works",
+      "keepTogether": true,
+      "blocks": [
+        { "type": "divider" },
+        { "type": "paragraph",
+          "text": "A life is long, but not long enough to master all of it. You may raise two callings to Grandmaster in a lifetime, and no more. The rest you may carry to Master and be the better for it." },
+        { "type": "callout", "variant": "lore",
+          "text": "Choose your two with care, for the choice is what your name will come to mean. One known for two masteries is known. One who reached for all of them is remembered for none." }
+      ]
+    },
+    {
+      "id": "what-death-takes",
+      "title": "What death takes",
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph",
+          "text": "Fall, and the day's unsettled work scatters. What you attempted but had not yet slept on is the part at risk, and a portion of it is lost." },
+        { "type": "paragraph",
+          "text": "But what has already settled into your hands is yours for good. No rank you have earned is taken by a blade, a fall, or a hard winter. Rest often, and you carry little worth losing." }
+      ]
+    },
+    {
+      "id": "your-nature",
+      "title": "Your nature",
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph",
+          "text": "You did not arrive empty. The life you led before this one left its mark on your hands. Some trades you begin already part-taught, the tools half-familiar. Others sit behind a wall your nature will not easily cross." },
+        { "type": "callout", "variant": "lore",
+          "text": "This is no failing. A hunter is not meant to be a smith, and the world is the richer for it. Learn what your nature offers first. The rest will come slower, and that is only right." }
+      ]
+    }
+  ]
+}
