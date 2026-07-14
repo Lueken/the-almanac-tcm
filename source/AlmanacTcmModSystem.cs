@@ -22,7 +22,7 @@ public class AlmanacTcmModSystem : ModSystem
 {
     /// <summary>Minimum sibling version enforced at runtime; modinfo declares the
     /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).</summary>
-    private const string MinIlluminatedVersion = "0.0.11";
+    private const string MinIlluminatedVersion = "0.0.13";
 
     /// <summary>Static access for Harmony patches (set in Start, cleared in Dispose).</summary>
     public static AlmanacTcmModSystem? Instance { get; private set; }
