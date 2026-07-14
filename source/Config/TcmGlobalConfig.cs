@@ -45,4 +45,20 @@ public class TcmGlobalConfig
     public bool PracticeGainMessages { get; set; } = true;
 
     public bool VerboseDebugLogging { get; set; } = true;
+
+    /// <summary>MET material gate (§162 Axis 5): below the required MET rank a player
+    /// cannot smelt, form, or cast a metal above their tier. Assembly is never gated.
+    /// Server-owned and bespoke to MET so other domains get their own toggle later
+    /// (materialGateALC, …). Set false to disable the MET gate entirely.</summary>
+    public bool MaterialGateMET { get; set; } = true;
+
+    /// <summary>Enforcement for a gated attempt: false = block the interaction with a
+    /// warning (default, no accidental material loss); true = HARDCORE, let it through
+    /// and waste the material.</summary>
+    public bool MaterialGateMETHardcore { get; set; } = false;
+
+    /// <summary>Required MET level for a metal not in the classification map (a mod-added
+    /// metal). Default 0 = allow and log once, so nothing is silently locked; raise it to
+    /// gate unknowns conservatively.</summary>
+    public int MaterialGateMETUnmappedLevel { get; set; } = 0;
 }
