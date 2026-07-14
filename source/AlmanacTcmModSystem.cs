@@ -55,7 +55,8 @@ public class AlmanacTcmModSystem : ModSystem
             harmony = new HarmonyLib.Harmony("almanactcm");
             harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
             Domains.MetConditionalPatches.PatchAllPresent(api, harmony);
-            TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip + conditionals)");
+            Domains.MetGatePatches.PatchConditional(api, harmony);
+            TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate + conditionals)");
         }
     }
 

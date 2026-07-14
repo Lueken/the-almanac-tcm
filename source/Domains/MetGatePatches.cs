@@ -72,4 +72,57 @@ public static class MetGatePatches
             return true;
         }
     }
+
+    // ---- Conditional: industrialstory smelting / ore processing (graceful-degrade) ----
+
+    /// <summary>Wire the gate into industrialstory's furnaces and ore crushing when that
+    /// mod is present. Roasting is skipped on purpose (its roastable ores, sphalerite and
+    /// galena, smelt to ungated tier-I zinc/lead); the taps are covered by gating the
+    /// charge. Every bind degrades to nothing if the mod renames a target.</summary>
+    public static void PatchConditional(ICoreAPI api, Harmony harmony)
+    {
+        if (!api.ModLoader.IsModEnabled("industrialstory")) return;
+
+        var crush = AccessTools.Method(
+            AccessTools.TypeByName("IndustrialStory.BehaviorAdvancedGroundProcessable"), "OnContainedInteractStart");
+        if (crush != null)
+            harmony.Patch(crush, prefix: new HarmonyMethod(AccessTools.Method(typeof(MetGatePatches), nameof(CrushGatePrefix))));
+        else
+            TcmLog.Warn(api, "industrialstory present but AdvancedGroundProcessable.OnContainedInteractStart not found; ore-crush gate inactive");
+
+        var addPrefix = new HarmonyMethod(AccessTools.Method(typeof(MetGatePatches), nameof(SmelterAddGatePrefix)));
+        int hooked = 0;
+        foreach (string type in new[] { "IndustrialStory.BlockEntitySmallSmelter", "IndustrialStory.BlockEntityRetortSmelter" })
+        {
+            var m = AccessTools.Method(AccessTools.TypeByName(type), "TryAdd");
+            if (m != null) { harmony.Patch(m, prefix: addPrefix); hooked++; }
+        }
+        TcmLog.Info(api, $"MET material gate hooked to industrialstory (crush {(crush != null ? "on" : "off")}, {hooked} furnace charges)");
+    }
+
+    /// <summary>Ore crush start: block grinding an ore whose metal is gated (the slot
+    /// carries the ore; its SmeltedStack resolves the metal). The acting entity supplies
+    /// the side-correct api so this gates on the client too.</summary>
+    public static bool CrushGatePrefix(ItemSlot slot, IPlayer byPlayer, ref bool __result)
+    {
+        if (MetMaterialGate.Blocks(byPlayer?.Entity?.Api, byPlayer, slot?.Itemstack))
+        {
+            __result = false;
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>Furnace charge (small smelter / retort): block adding a gated ore, taken
+    /// off the active hotbar exactly as the smelter's own TryAdd reads it.</summary>
+    public static bool SmelterAddGatePrefix(BlockEntity __instance, IPlayer byPlayer, ref bool __result)
+    {
+        ItemStack? ore = byPlayer?.InventoryManager?.ActiveHotbarSlot?.Itemstack;
+        if (MetMaterialGate.Blocks(__instance?.Api, byPlayer, ore))
+        {
+            __result = false;
+            return false;
+        }
+        return true;
+    }
 }
