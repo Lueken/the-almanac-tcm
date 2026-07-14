@@ -290,23 +290,25 @@ public class CallingsTab : IAlmanacBookTab
                 var group = new List<List<RichTextComponentBase>>();
                 for (int i = 0; i < take && index < cards.Count; i++, index++) group.Add(cards[index]);
 
-                // The rightmost column reserves the legend's height, stretches its
-                // entries into the rest, then pins the legend at the foot.
-                bool isLast = c == cols - 1 && legend != null;
-                double target = isLast ? Math.Max(availH * 0.5, availH - legendH - GuiElement.scaled(16)) : availH;
-
                 var column = Join(group, EntryGap);
                 double used = ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth);
-                if (used > target) { fits = false; break; }
-                if (group.Count > 1 && used < target)
+                if (used > availH) { fits = false; break; }
+                if (group.Count > 1 && used < availH)
                 {
-                    double extra = Math.Min(EntryGapStretchMax, (target - used) / (group.Count - 1) / scale);
-                    if (extra > 1) column = Join(group, EntryGap + extra);
+                    double extra = Math.Min(EntryGapStretchMax, (availH - used) / (group.Count - 1) / scale);
+                    if (extra > 1)
+                    {
+                        column = Join(group, EntryGap + extra);
+                        used = ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth);
+                    }
                 }
-                if (isLast)
+                // Pin the key to the true foot of the rightmost column: the capped
+                // stretch leaves a gap at the bottom, so fill it, then drop the legend.
+                if (c == cols - 1 && legend != null)
                 {
-                    column.Add(new ClearFloatTextComponent(capi, 16));
-                    column.AddRange(legend!);
+                    double padUnscaled = (availH - used - legendH) / scale;
+                    if (padUnscaled > 2) column.Add(new ClearFloatTextComponent(capi, (float)padUnscaled));
+                    column.AddRange(legend);
                 }
                 columns.Add(column.ToArray());
             }
