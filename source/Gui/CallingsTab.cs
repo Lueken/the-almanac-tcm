@@ -140,7 +140,27 @@ public class CallingsTab : IAlmanacBookTab
             cards.Add(comps);
         }
 
-        return PackBalanced(capi, cards, columnWidth, columnHeight);
+        return PackBalanced(capi, cards, columnWidth, columnHeight, BuildLegend(capi));
+    }
+
+    /// <summary>The key for the marks, pinned to the foot of the rightmost column so
+    /// the stars and the barred pip read plainly. Muted, out of the way.</summary>
+    private List<RichTextComponentBase> BuildLegend(ICoreClientAPI capi)
+    {
+        CairoFont head = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifDecorative)
+            .WithWeight(Cairo.FontWeight.Bold).WithColor(Muted);
+        CairoFont body = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Muted);
+
+        return new List<RichTextComponentBase>
+        {
+            new RichTextComponent(capi, "The marks\n", head),
+            new AffinityMarkComponent(capi, filled: true),
+            new RichTextComponent(capi, "  a gifted calling\n", body),
+            new AffinityMarkComponent(capi, filled: false),
+            new RichTextComponent(capi, "  a favored trade\n", body),
+            new InkPipsComponent(capi, 1, 0, -1, 1),
+            new RichTextComponent(capi, "  a rank beyond reach\n", body),
+        };
     }
 
     // --- Detail -----------------------------------------------------------
@@ -240,11 +260,13 @@ public class CallingsTab : IAlmanacBookTab
     /// (21 pack 6/5/5/5), padding each column's entry gaps into the leftover height.
     /// Falls back to height-greedy packing if a balanced column would overflow.</summary>
     private List<RichTextComponentBase[]> PackBalanced(ICoreClientAPI capi,
-        List<List<RichTextComponentBase>> cards, double columnWidth, double columnHeight)
+        List<List<RichTextComponentBase>> cards, double columnWidth, double columnHeight,
+        List<RichTextComponentBase>? legend = null)
     {
         double scale = RuntimeEnv.GUIScale <= 0 ? 1 : RuntimeEnv.GUIScale;
         double availH = columnHeight * scale;
         int cols = 4;
+        double legendH = legend != null ? ChapterRenderer.MeasureHeight(capi, legend.ToArray(), columnWidth) : 0;
 
         List<RichTextComponentBase> Join(List<List<RichTextComponentBase>> group, double gap)
         {
@@ -268,13 +290,23 @@ public class CallingsTab : IAlmanacBookTab
                 var group = new List<List<RichTextComponentBase>>();
                 for (int i = 0; i < take && index < cards.Count; i++, index++) group.Add(cards[index]);
 
+                // The rightmost column reserves the legend's height, stretches its
+                // entries into the rest, then pins the legend at the foot.
+                bool isLast = c == cols - 1 && legend != null;
+                double target = isLast ? Math.Max(availH * 0.5, availH - legendH - GuiElement.scaled(16)) : availH;
+
                 var column = Join(group, EntryGap);
                 double used = ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth);
-                if (used > availH) { fits = false; break; }
-                if (group.Count > 1 && used < availH)
+                if (used > target) { fits = false; break; }
+                if (group.Count > 1 && used < target)
                 {
-                    double extra = Math.Min(EntryGapStretchMax, (availH - used) / (group.Count - 1) / scale);
+                    double extra = Math.Min(EntryGapStretchMax, (target - used) / (group.Count - 1) / scale);
                     if (extra > 1) column = Join(group, EntryGap + extra);
+                }
+                if (isLast)
+                {
+                    column.Add(new ClearFloatTextComponent(capi, 16));
+                    column.AddRange(legend!);
                 }
                 columns.Add(column.ToArray());
             }
