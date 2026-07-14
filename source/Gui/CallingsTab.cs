@@ -151,16 +151,13 @@ public class CallingsTab : IAlmanacBookTab
             .WithWeight(Cairo.FontWeight.Bold).WithColor(Muted);
         CairoFont body = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Muted);
 
-        return new List<RichTextComponentBase>
+        var rows = new (LegendComponent.Glyph, string)[]
         {
-            new RichTextComponent(capi, "The marks\n", head),
-            new AffinityMarkComponent(capi, filled: true),
-            new RichTextComponent(capi, "  a gifted calling\n", body),
-            new AffinityMarkComponent(capi, filled: false),
-            new RichTextComponent(capi, "  a favored trade\n", body),
-            new InkPipsComponent(capi, 1, 0, -1, 1),
-            new RichTextComponent(capi, "  a rank beyond reach\n", body),
+            (LegendComponent.Glyph.GiftedStar, "a gifted calling"),
+            (LegendComponent.Glyph.FavoredStar, "a favored trade"),
+            (LegendComponent.Glyph.BarredPip, "a rank beyond reach"),
         };
+        return new List<RichTextComponentBase> { new LegendComponent(capi, "The marks", rows, head, body) };
     }
 
     // --- Detail -----------------------------------------------------------
