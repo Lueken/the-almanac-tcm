@@ -1,9 +1,34 @@
 {
-  "MIN": { "title": "The Deep-Delver", "tagline": "The mountain tires before they do." },
-  "WOO": { "title": "The Forester", "tagline": "Leaves the forest richer than they found it." },
-  "FAR": { "title": "The Cultivator", "tagline": "Mastery bred into the seed itself." },
-  "FIS": { "title": "The Steward of the Pond", "tagline": "Their waters never go barren." },
-  "COO": { "title": "The Signature Dish", "tagline": "A meal worth traveling for, and it keeps." },
+  "MIN": {
+    "title": "The Deep-Delver",
+    "tagline": "The mountain tires before they do.",
+    "identity": "Endurance turned into ore. A miner learns the rock by staying with it, working the face long after the light and the legs of others have given out. There is no sight that finds the vein for you. There is only the swing, and the patience to keep swinging.",
+    "mastery": "A Grandmaster works the stone tirelessly, and the rock gives up more to their pick than to any other hand. Where a lesser digger walks out empty, they come back up loaded."
+  },
+  "WOO": {
+    "title": "The Forester",
+    "tagline": "Leaves the forest richer than they found it.",
+    "identity": "The whole circle of the woods: the felling, the planting, and the slow burn that turns wood to fuel. A forester learns to read a stand, to take without emptying it, and to leave saplings that will stand when they are gone.",
+    "mastery": "A Grandmaster fells all day without tiring, and their planted trees take where others wither. Above all they are the master collier: charcoal bearing their mark burns hotter and longer, and smiths ask for it by name."
+  },
+  "FAR": {
+    "title": "The Cultivator",
+    "tagline": "Mastery bred into the seed itself.",
+    "identity": "The patient science of the seed. A cultivator learns the soil and the season, coaxing a little more from a plot each year, and saving back the best of the harvest to sow again.",
+    "mastery": "A Grandmaster's heirloom seed out-yields in any hands for a few generations before the line fades and the village comes back for fresh stock. Their harvest keeps through the winter, and their grafts almost always take."
+  },
+  "FIS": {
+    "title": "The Steward of the Pond",
+    "tagline": "Their waters never go barren.",
+    "identity": "Not the biggest catch, but the longest-lived water. A steward reads a pond's stock at a glance, fishes it with a light hand, and seeds roe to bring a tired pool back to life.",
+    "mastery": "A novice fishes a pond dead in an afternoon. A Grandmaster's waters stay stocked for years, and a place to fish them is worth trading for. They take what a water can spare, and never more."
+  },
+  "COO": {
+    "title": "The Signature Dish",
+    "tagline": "A meal worth traveling for, and it keeps.",
+    "identity": "The cook who feeds a journey. Anyone can fill a belly for a day. This trade is the meal that travels well and keeps, the ration still good when you finally need it.",
+    "mastery": "A Grandmaster's preserves outlast anyone else's, so parties and traders commission them before every long haul. Their name on a crock means the food inside will not have turned."
+  },
   "MET": {
     "title": "The Maker's Mark",
     "tagline": "Their name on the steel outlives the hand that struck it.",
@@ -11,19 +36,94 @@
     "mastery": "A Grandmaster's mark is struck into every tool they finish, forged or cast, and rides it until the tool is spent. Their fuel goes further at the forge, and their quenched steel holds where a lesser hand's would crack clean through.",
     "techniques": ["Smithing", "Casting", "Quenching", "Smelting", "Alloying", "Assembly"]
   },
-  "POT": { "title": "The Potter's Mark", "tagline": "Nothing spoils in a masterwork crock." },
-  "GLA": { "title": "The Glassmaker's Mark", "tagline": "A Master's glass does not crack." },
-  "PAN": { "title": "The Surveyor", "tagline": "The map itself is the deliverable." },
-  "HUN": { "title": "The Master Hunter", "tagline": "Knows the country they have hunted." },
-  "ANI": { "title": "The Master's Line", "tagline": "Every calm animal in the valley traces back to their pens." },
-  "FOR": { "title": "The Master Forager", "tagline": "Walks a harvest circuit nobody else can see." },
-  "ALC": { "title": "The Alchemist's Brand", "tagline": "Whose poultice you carry decides whether you get back up." },
-  "BRE": { "title": "The Brewer's Mark", "tagline": "The barrel knows its keeper." },
-  "TAI": { "title": "The Master Tailor", "tagline": "A coat that holds its warmth for years, and their name in the collar." },
-  "MAS": { "title": "The Mason's Mark", "tagline": "Their mark outlasts the wall." },
-  "ENG": { "title": "The Millwright's Mark", "tagline": "Machines run truer under their hand, and stay true longer." },
-  "MEL": { "title": "The Master-at-Arms", "tagline": "Reads the fight before the first blow lands." },
-  "RAN": { "title": "The Marksman's Eye", "tagline": "Knows the distance, holds the drop, and the arrow comes back." },
-  "TEM": { "title": "The Storm-Warden", "tagline": "Feels the storm a day before the village hears it." },
-  "ARC": { "title": "The Archmage", "tagline": "Even at the height of the art, the storm can reach back." }
+  "POT": {
+    "title": "The Potter's Mark",
+    "tagline": "Nothing spoils in a masterwork crock.",
+    "identity": "The quiet keeper of the larder. A potter learns clay and fire to make the vessels everything else is stored in, and the difference between a good crock and a poor one is measured in seasons.",
+    "mastery": "Food sealed in a Grandmaster's vessels outlasts food sealed in anyone else's. A masterwork crock is bought once and kept for a lifetime, an heirloom with a thumbprint pressed into the glaze."
+  },
+  "GLA": {
+    "title": "The Glassmaker's Mark",
+    "tagline": "A Master's glass does not crack.",
+    "identity": "Command of a narrow window. Glass forgives nothing: too hot or too cold, and the work is lost. This is the trade of the annealer's patience, the rarest calling on the server, and no one is born to it.",
+    "mastery": "Where a novice's melt shatters at the edge of tolerance, a Grandmaster works glass that simply holds. Their blown vessels carry the maker's name from the annealer onward."
+  },
+  "PAN": {
+    "title": "The Surveyor",
+    "tagline": "The map itself is the deliverable.",
+    "identity": "Hired knowledge of the ground. A surveyor walks a claim and reads what lies beneath it: which ores, and how deep each one runs. The map they leave behind is the work.",
+    "mastery": "A Grandmaster's readings are exact, and they share to the whole group at full fidelity. A village brings them in to walk their claim precisely because no one else could draw the map they leave."
+  },
+  "HUN": {
+    "title": "The Master Hunter",
+    "tagline": "Knows the country they have hunted.",
+    "identity": "The reader of living country. A hunter learns to see an animal at range for what it is, to move unseen, and to carry in their head a map of where every quarry they have chased is likely to be found.",
+    "mastery": "A novice sees a deer, spooks it, and loses it. A Grandmaster reads its size, its condition, and its heading at a glance, stalks it unseen, and knows the country well enough to find its kind again."
+  },
+  "ANI": {
+    "title": "The Master's Line",
+    "tagline": "Every calm animal in the valley traces back to their pens.",
+    "identity": "The keeper of bloodlines. This trade is not one animal but a line of them, raised and bred across generations toward calm, healthy, dependable stock.",
+    "mastery": "A Grandmaster's animals carry their name for life: raised, bred, of the master's line. Closed pens elsewhere breed themselves into sickness, so owners return for fresh outcross blood from the one breeder who keeps a line healthy."
+  },
+  "FOR": {
+    "title": "The Master Forager",
+    "tagline": "Walks a harvest circuit nobody else can see.",
+    "identity": "Private knowledge of the living land. A forager's map is a constellation of small, timed circles: which patches renew, and exactly when each is ready. The knowledge itself is the trade good.",
+    "mastery": "A Grandmaster walks a harvest circuit no one else can see or find twice, and they corner the foraged market by selling access to it. What they know is worth more than what they carry."
+  },
+  "ALC": {
+    "title": "The Alchemist's Brand",
+    "tagline": "Whose poultice you carry decides whether you get back up.",
+    "identity": "Remedies made and branded at the seal. An alchemist learns which things mend and which harm, and puts their name and their intent on every batch that leaves their hands.",
+    "mastery": "A Grandmaster's poultice pulls a downed friend further back from the edge than anyone else's, which is why raiders and travelers carry a named brand into danger. Each batch bears its maker and their chosen emphasis: potent, or lasting."
+  },
+  "BRE": {
+    "title": "The Brewer's Mark",
+    "tagline": "The barrel knows its keeper.",
+    "identity": "The humblest mark, worn in the cellar. Liquids mix and lose their signature, so a brewer's name lives instead on the solid things the cellar keeps: the cured wheel, the aged ham, the barrel that came out right.",
+    "mastery": "A Grandmaster's preserves and cures carry their mark, and the exceptional batch comes out of their barrels more often than chance allows. The cellar knows its keeper."
+  },
+  "TAI": {
+    "title": "The Master Tailor",
+    "tagline": "A coat that holds its warmth for years, and their name in the collar.",
+    "identity": "Metalworking's twin in cloth. A tailor learns wool and hide and the cut that turns them into warmth, and their name goes into the collar of every garment they finish.",
+    "mastery": "A Grandmaster's coats hold their warmth for years where others fray, cut to the maker's choice: warm for the north, cool for the desert, or lasting so the warmth never wears out. Cold-country folk return to the one hand that can keep a coat what it was."
+  },
+  "MAS": {
+    "title": "The Mason's Mark",
+    "tagline": "Their mark outlasts the wall.",
+    "identity": "The oldest mark of all: a stonecutter's personal sigil, struck into the block they dressed and the stone they carved. A mason learns to draw more finished stone from rough rock than it looks able to give.",
+    "mastery": "A Grandmaster gets more dressed block from every slab, and their signed carvings carry the mark for the life of the stone. Long after the wall is built, the mark outlasts it."
+  },
+  "ENG": {
+    "title": "The Millwright's Mark",
+    "tagline": "Machines run truer under their hand, and stay true longer.",
+    "identity": "The standing service contract. Machines are built things, and they remember who kept them. A millwright learns the gears and the mechanisms and the slow art of keeping them true.",
+    "mastery": "A part a Grandmaster has serviced decays visibly slower until the next hand touches it, so mill owners want no other hand on their machines. Serviced by them, on the mechanism, is the cleanest provenance in the world."
+  },
+  "MEL": {
+    "title": "The Master-at-Arms",
+    "tagline": "Reads the fight before the first blow lands.",
+    "identity": "Not a harder hitter, but a veteran. This trade is read and defense: sizing up a foe before the first blow, planting a shield like a wall, and wearing heavy plate like a second skin.",
+    "mastery": "A Grandmaster sees at a glance what a foe is, how close to death, and whether it can pierce their iron, and they plant themselves where a lesser fighter breaks. The edge is knowledge and footing, never raw force."
+  },
+  "RAN": {
+    "title": "The Marksman's Eye",
+    "tagline": "Knows the distance, holds the drop, and the arrow comes back.",
+    "identity": "Ballistics by instinct. A marksman learns range and holdover the way a veteran archer judges by eye, and looses with the steadiest hand on the field.",
+    "mastery": "A Grandmaster knows the distance, holds the drop without thinking, and makes the shot a novice only hopes for. And the arrow comes back: they recover what a lesser hand leaves in the grass."
+  },
+  "TEM": {
+    "title": "The Storm-Warden",
+    "tagline": "Feels the storm a day before the village hears it.",
+    "identity": "The one who stands when the world dissolves. This is the trade of the temporal storm: feeling it coming, weathering it upright, and keeping the wards and translocators of a region running.",
+    "mastery": "A Grandmaster feels the storm a day before its first warning reaches anyone else, stays standing while novices black out, and runs the region's machinery on the fewest gears. Forecast, resilience, and economy, the rarest kind of calm."
+  },
+  "ARC": {
+    "title": "The Archmage",
+    "tagline": "Even at the height of the art, the storm can reach back.",
+    "identity": "The one trade no one is born to. The initiation is open to anyone, and the road is the same length for all who walk it. An arcanist learns the art of spells as a discipline, tier by careful tier.",
+    "mastery": "A Grandmaster commands the deep workings others cannot reach, but the greatest are never routine: even the Archmage carries a sliver of misfire on the highest spells, and each costs minutes of vulnerable trance to recover. Their trade is the scroll, magic scribed and sold by the charge."
+  }
 }
