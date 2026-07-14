@@ -92,13 +92,17 @@ public class CallingsTab : IAlmanacBookTab
             double fraction = required > 0 ? experience / required : (atCeiling ? 1 : 0);
 
             // The name is a link into this trade's detail page, whether trained or not.
+            // A positive-affinity trade wears a star: this calling is one of yours.
             string code = entry.Code;
+            CairoFont nameFont = awake ? name : nameMuted;
+            int score = Score(id);
             var comps = new List<RichTextComponentBase>
             {
-                new BookLinkComponent(capi, entry.DisplayName, awake ? name : nameMuted,
+                new BookLinkComponent(capi, entry.DisplayName, nameFont,
                     _ => { detailCode = code; host?.Recompose(); }),
-                new RichTextComponent(capi, "\n", awake ? name : nameMuted),
             };
+            if (score > 0) comps.Add(new AffinityMarkComponent(capi, filled: score >= 3));
+            comps.Add(new RichTextComponent(capi, "\n", nameFont));
 
             int barred = Barred(id);
             if (!awake)
@@ -171,8 +175,11 @@ public class CallingsTab : IAlmanacBookTab
         {
             new BookLinkComponent(capi, "‹ All Callings", muted, _ => { detailCode = null; host?.Recompose(); }),
             new RichTextComponent(capi, "\n", muted),
-            new RichTextComponent(capi, display + "\n", heading),
+            new RichTextComponent(capi, display, heading),
         };
+        int score = Score(id);
+        if (score > 0) comps.Add(new AffinityMarkComponent(capi, filled: score >= 3, 12));
+        comps.Add(new RichTextComponent(capi, "\n", heading));
 
         if (di?.title != null)
             comps.Add(new RichTextComponent(capi, di.title + "\n", title));
@@ -346,6 +353,10 @@ public class CallingsTab : IAlmanacBookTab
         if (score >= 0) return 0;
         return score <= -2 ? 2 : 1;
     }
+
+    /// <summary>Synced affinity score for a domain (−2 … +3), 0 if unknown.</summary>
+    private int Score(int domainId)
+        => domainId >= 0 && client.Affinity.TryGetValue(domainId, out int s) ? s : 0;
 }
 
 /// <summary>Client-safe per-domain flavor, read from assets/almanactcm/almanac/domains.json.
