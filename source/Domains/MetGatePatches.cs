@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.GameContent;
 
 namespace AlmanacTcm.Domains;
@@ -33,10 +34,31 @@ public static class MetGatePatches
         }
     }
 
-    /// <summary>Anvil forge: block the interaction when a gated metal is in play — the
-    /// held hot ingot/nugget being placed (the point a work item is born), or a gated
-    /// work item already on the anvil (defense). A hammer or non-metal resolves to no
-    /// metal, so striking legitimate work is untouched.</summary>
+    /// <summary>Forge heating: shift-click adds the held item to heat it. Block adding a
+    /// gated ingot — the earliest real "work the metal" step (you can't even get it hot),
+    /// which makes the anvil question moot. Only the add path (shift) is gated; taking a
+    /// heated item out, and adding fuel (coal resolves to no metal), pass through.</summary>
+    [HarmonyPatch(typeof(BlockEntityForge), nameof(BlockEntityForge.OnPlayerInteract))]
+    public static class ForgeGatePatch
+    {
+        public static bool Prefix(BlockEntityForge __instance, IPlayer byPlayer, ref bool __result)
+        {
+            if (__instance.Api?.Side != EnumAppSide.Server) return true;
+            if ((byPlayer?.Entity as EntityAgent)?.Controls?.ShiftKey != true) return true;
+            ItemStack? held = byPlayer!.InventoryManager?.ActiveHotbarSlot?.Itemstack;
+            if (MetMaterialGate.Blocks(__instance.Api, byPlayer, held))
+            {
+                __result = false;
+                return false;
+            }
+            return true;
+        }
+    }
+
+    /// <summary>Anvil forge: block the interaction when a gated metal is in play — a gated
+    /// hot ingot being placed, or a gated work item already on the anvil (defense). In
+    /// practice the forge gate stops a gated ingot from ever heating, so this rarely
+    /// fires; a hammer or non-metal resolves to no metal, so legitimate work is untouched.</summary>
     [HarmonyPatch(typeof(BlockEntityAnvil), "OnPlayerInteract")]
     public static class AnvilGatePatch
     {

@@ -169,9 +169,9 @@ public static class MetMaterialGate
 
         string metalName = char.ToUpperInvariant(metal[0]) + metal.Substring(1);
         string rank = Domain.RankName(requiredLevel);
-        sp.SendMessage(GlobalConstants.GeneralChatGroup,
-            Lang.GetL(sp.LanguageCode, "almanactcm:gate-blocked", metalName, rank),
-            EnumChatType.Notification);
+        // Red ingame-error (near the crosshair), not a chat line — it's the natural
+        // "you can't do that" feedback and far more visible than a Notification.
+        sp.SendIngameError("metalgate", Lang.GetL(sp.LanguageCode, "almanactcm:gate-blocked", metalName, rank));
         TcmLog.Cat(api, TcmLog.Hooks, $"gate: {sp.PlayerName} blocked from working {metal} (needs {rank})");
     }
 }
