@@ -1,10 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
   "schemaVersion": 1,
-  "id": "almanactcm:the-trades",
+  "id": "almanactcm:trades",
   "gate": "almanactcm",
-  "title": "The Trades",
-  "subtitle": "How a calling is earned, and what mastery gives",
+  "ribbonTab": true,
+  "order": 10,
+  "title": "Trades",
+  "subtitle": "How a calling is earned",
   "byline": "set down by Venah",
   "accentColor": "#6e4b28",
   "sections": [
@@ -39,28 +41,6 @@
           "text": "Every calling climbs the same road. <strong>Novice</strong>, then <strong>Apprentice</strong>, then <strong>Journeyman</strong>, then <strong>Master</strong>, and at the summit, <strong>Grandmaster</strong>. Four steps to each tier, twenty rungs from the first day to the last." },
         { "type": "paragraph",
           "text": "Your standing in every trade waits on the Callings page. A bar shows the road left within your rank, and a row of marks shows the tiers already behind you. Open it and read yourself at a glance." }
-      ]
-    },
-    {
-      "id": "what-mastery-gives",
-      "title": "What mastery gives",
-      "blocks": [
-        { "type": "paragraph",
-          "text": "Rank is not a number kept for its own sake. Each calling repays the climb in its own coin. The smith's fuel burns longer and the steel shatters less. The forager walks a circuit only they can find. The mason draws more dressed stone from every slab of rough." },
-        { "type": "paragraph",
-          "text": "At the height of a trade your name rides your work. A Grandmaster smith's mark is struck into the tool, and it outlives the hand that struck it. What each road leads to is set down on its own calling. Turn to a trade to read where it ends." }
-      ]
-    },
-    {
-      "id": "two-great-works",
-      "title": "Two great works",
-      "keepTogether": true,
-      "blocks": [
-        { "type": "divider" },
-        { "type": "paragraph",
-          "text": "A life is long, but not long enough to master all of it. You may raise two callings to Grandmaster in a lifetime, and no more. The rest you may carry to Master and be the better for it." },
-        { "type": "callout", "variant": "lore",
-          "text": "Choose your two with care, for the choice is what your name will come to mean. One known for two masteries is known. One who reached for all of them is remembered for none." }
       ]
     },
     {

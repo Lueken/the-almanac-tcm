@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
+  "schemaVersion": 1,
+  "id": "almanactcm:mastery",
+  "gate": "almanactcm",
+  "ribbonTab": true,
+  "order": 30,
+  "title": "Mastery",
+  "subtitle": "What the climb leads to",
+  "byline": "set down by Venah",
+  "accentColor": "#6e4b28",
+  "sections": [
+    {
+      "id": "what-mastery-gives",
+      "title": "What mastery gives",
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph", "dropcap": true,
+          "text": "Rank is not a number kept for its own sake. Each calling repays the climb in its own coin. The smith's fuel burns longer and the steel shatters less. The forager walks a circuit only they can find. The mason draws more dressed stone from every slab of rough." },
+        { "type": "paragraph",
+          "text": "At the height of a trade your name rides your work. A Grandmaster smith's mark is struck into the tool, and it outlives the hand that struck it. What each road leads to is set down on its own calling. Turn to a trade to read where it ends." }
+      ]
+    },
+    {
+      "id": "two-great-works",
+      "title": "Two great works",
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph",
+          "text": "A life is long, but not long enough to master all of it. You may raise two callings to Grandmaster in a lifetime, and no more. The rest you may carry to Master and be the better for it." },
+        { "type": "callout", "variant": "lore",
+          "text": "Choose your two with care, for the choice is what your name will come to mean. One known for two masteries is known. One who reached for all of them is remembered for none." }
+      ]
+    }
+  ]
+}

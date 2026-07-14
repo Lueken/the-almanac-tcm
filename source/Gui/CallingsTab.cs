@@ -29,6 +29,10 @@ public class CallingsTab : IAlmanacBookTab
 
     public string Label => "Callings";
 
+    /// <summary>Between the Trades (10) and Mastery (30) ribbon chapters, so TCM's
+    /// three tabs read left-to-right as Trades, Callings, Mastery.</summary>
+    public int Order => 20;
+
     public int ColumnsPerSpread => 4;
 
     public List<RichTextComponentBase[]> BuildColumns(ICoreClientAPI capi, double columnWidth, double columnHeight)
