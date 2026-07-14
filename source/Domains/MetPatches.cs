@@ -32,8 +32,13 @@ public static class MetPatches
 
     /// <summary>Maker's MET tier frozen at creation (2=Journeyman … 4=Grandmaster). Drives
     /// the tiered provenance line; the tool stays what its maker was even if they later
-    /// rank up, down, or log off (§162 Axis 6).</summary>
+    /// rank up, down, or log off (§162 Axis 6). PERMANENT — never stripped.</summary>
     public const string MakerTierAttr = "almanactcm:makertier";
+
+    /// <summary>The tier the durability quality buff is CURRENTLY active at (starts equal to
+    /// MakerTierAttr). Kept separate from the permanent tag so the repair-gate (stage 2) can
+    /// strip the buff on an under-ranked repair while the provenance line stays intact.</summary>
+    public const string MakerQualityAttr = "almanactcm:makerquality";
 
     /// <summary>Smelt classification written at DoSmelt (no player there); read and
     /// converted to practice at first pour, where the pourer IS the attributable smith.</summary>
@@ -67,6 +72,18 @@ public static class MetPatches
         >= 4 => "almanactcm:masterwork-by",
         3 => "almanactcm:master-forged-by",
         _ => "almanactcm:smithed-by",
+    };
+
+    /// <summary>Durability multiplier for the maker-quality tier (§162 Axis 6): a modest,
+    /// tier-scaling bump to the HEAD's pool. Below Journeyman (or a stripped buff) = ×1.
+    /// Handle and binding stay stock — they take their own quality from WOO / TAI-HUN later,
+    /// stacking per-part into the pinnacle tool.</summary>
+    private static double QualityFactor(int qualityTier) => qualityTier switch
+    {
+        >= 4 => 1.15,
+        3 => 1.10,
+        2 => 1.05,
+        _ => 1.0,
     };
 
     private static double Knob(string key, double fallback)
@@ -217,6 +234,7 @@ public static class MetPatches
             stack.Attributes.SetString(MakerAttr, maker.uid);
             stack.Attributes.SetString(MakerNameAttr, maker.name);
             stack.Attributes.SetInt(MakerTierAttr, maker.tier);
+            stack.Attributes.SetInt(MakerQualityAttr, maker.tier);
             if (byEntity?.Api == null) return;
             TcmLog.Cat(byEntity.Api, TcmLog.Hooks,
                 $"maker's mark applied to {stack.Collectible?.Code} for {maker.name}");
@@ -252,6 +270,7 @@ public static class MetPatches
             s.Attributes.SetString(MakerAttr, maker.uid);
             s.Attributes.SetString(MakerNameAttr, maker.name);
             s.Attributes.SetInt(MakerTierAttr, maker.tier);
+            s.Attributes.SetInt(MakerQualityAttr, maker.tier);
             slot!.MarkDirty();
             TcmLog.Cat(api, TcmLog.Hooks, $"maker's mark re-stamped on surviving {s.Collectible.Code}");
         }
@@ -270,6 +289,23 @@ public static class MetPatches
             // back to the flat line.
             int tier = attrs!.GetInt(MakerTierAttr, -1);
             dsc.AppendLine(Lang.Get(tier >= 2 ? MakerKey(tier) : "almanactcm:made-by", maker));
+        }
+    }
+
+    /// <summary>Maker-quality durability (§162 Axis 6): a modest tier-scaling bump to the
+    /// HEAD's pool. Toolsmith reads a tinkered head's max through this same vanilla seam
+    /// (GetToolheadMaxDurability => Collectible.GetMaxDurability), so one postfix covers
+    /// both tinkered heads and plain vanilla tools; handle and binding keep their own stock
+    /// pools (they take WOO / TAI-HUN quality later). Reads makerquality, so a repair-
+    /// stripped tool loses the buff but keeps its provenance tag. Both sides (display + wear).</summary>
+    [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.GetMaxDurability))]
+    public static class MakerQualityDurabilityPatch
+    {
+        public static void Postfix(ItemStack itemstack, ref int __result)
+        {
+            int q = itemstack?.Attributes?.GetInt(MakerQualityAttr, -1) ?? -1;
+            if (q < 2 || __result <= 0) return;
+            __result = (int)System.Math.Round(__result * QualityFactor(q));
         }
     }
 
@@ -424,6 +460,7 @@ public static class MetPatches
                 stack.Attributes.SetString(MakerAttr, caster.uid);
                 stack.Attributes.SetString(MakerNameAttr, caster.name);
                 stack.Attributes.SetInt(MakerTierAttr, caster.tier);
+                stack.Attributes.SetInt(MakerQualityAttr, caster.tier);
             }
         }
     }
@@ -454,6 +491,10 @@ public static class MetPatches
                     input!.Itemstack!.Attributes.GetString(MakerNameAttr) ?? "");
                 output.Attributes.SetInt(MakerTierAttr,
                     input.Itemstack.Attributes.GetInt(MakerTierAttr, -1));
+                // Quality carries the head's CURRENT buff state (a stripped head passes a
+                // stripped tool), keeping the head-for-life model intact through assembly.
+                output.Attributes.SetInt(MakerQualityAttr,
+                    input.Itemstack.Attributes.GetInt(MakerQualityAttr, -1));
                 return;
             }
         }
