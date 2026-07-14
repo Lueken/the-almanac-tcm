@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using AlmanacTcm.Leveling;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
-using Vintagestory.API.Server;
 
 namespace AlmanacTcm.Domains;
 
@@ -131,12 +131,38 @@ public static class MetMaterialGate
     public static bool IsWorkable(ICoreAPI api, IPlayer player, string? metalCode, int unmappedDefault, out int currentLevel, out int requiredLevel)
     {
         requiredLevel = RequiredLevel(api, metalCode, unmappedDefault);
-        var domainSet = AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player);
-        currentLevel = domainSet?.FindDomain(MetDomain.Code)?.Level ?? 0;
+        currentLevel = MetLevelOf(api, player);
         return currentLevel >= requiredLevel;
     }
 
+    private static int metDomainId = -2;   // -2 = not yet resolved
+
+    /// <summary>MET's registry id, for the client-side level lookup (client Domains are
+    /// keyed by id). Resolved once from the roster.</summary>
+    private static int MetDomainId()
+    {
+        if (metDomainId != -2) return metDomainId;
+        metDomainId = -1;
+        for (int i = 0; i < DomainRoster.All.Length; i++)
+            if (DomainRoster.All[i].Code == MetDomain.Code) { metDomainId = i; break; }
+        return metDomainId;
+    }
+
+    /// <summary>The interacting player's MET level, read from whichever side is live: the
+    /// server ledger, or (client) the synced state of the local player. This is what lets
+    /// the gate run client-side too, so a blocked action is never mispredicted.</summary>
+    private static int MetLevelOf(ICoreAPI api, IPlayer player)
+    {
+        if (api.Side == EnumAppSide.Server)
+            return AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player)?.FindDomain(MetDomain.Code)?.Level ?? 0;
+
+        LevelingClient? client = AlmanacTcmModSystem.Instance?.Client;
+        int id = MetDomainId();
+        return client != null && id >= 0 && client.Domains.TryGetValue(id, out var st) ? st.Level : 0;
+    }
+
     private static readonly Dictionary<string, long> lastWarn = new();
+    private static readonly object errorSender = new();
 
     /// <summary>The seam decision: true = BLOCK this working-of-metal action, because the
     /// gate is on, the stack's metal is gated above the player's MET rank, and the server
@@ -146,7 +172,11 @@ public static class MetMaterialGate
     /// resolvable metal (fuel, tools, non-metal) → false (allow).</summary>
     public static bool Blocks(ICoreAPI? api, IPlayer? player, ItemStack? metalStack)
     {
-        if (api == null || api.Side != EnumAppSide.Server || player == null) return false;
+        if (api == null || player == null) return false;
+        // Runs on BOTH sides: the client uses its synced MET level to avoid predicting a
+        // placement the server will reject (the ghost-ingot desync). Config here is the
+        // client's default when unsynced — fine while the gate ships enabled; syncing the
+        // toggle to clients is a future refinement.
         var cfg = AlmanacTcmModSystem.Instance?.GlobalConfig;
         if (cfg == null || !cfg.MaterialGateMET) return false;
 
@@ -161,17 +191,21 @@ public static class MetMaterialGate
 
     private static void Warn(ICoreAPI api, IPlayer player, string metal, int requiredLevel)
     {
-        if (player is not IServerPlayer sp) return;
-        string key = sp.PlayerUID + ":" + metal;
+        string key = player.PlayerUID + ":" + metal;
         long now = api.World.ElapsedMilliseconds;
-        if (lastWarn.TryGetValue(key, out long last) && now - last < 3000) return;
+        if (lastWarn.TryGetValue(key, out long last) && now - last < 2000) return;
         lastWarn[key] = now;
 
         string metalName = char.ToUpperInvariant(metal[0]) + metal.Substring(1);
         string rank = Domain.RankName(requiredLevel);
-        // Red ingame-error (near the crosshair), not a chat line — it's the natural
-        // "you can't do that" feedback and far more visible than a Notification.
-        sp.SendIngameError("metalgate", Lang.GetL(sp.LanguageCode, "almanactcm:gate-blocked", metalName, rank));
-        TcmLog.Cat(api, TcmLog.Hooks, $"gate: {sp.PlayerName} blocked from working {metal} (needs {rank})");
+
+        // Show the red ingame-error on the CLIENT — that's where the acting player sees it,
+        // the client gate always runs for the local player, and it never doubles. Relying
+        // on the server would be fragile: once the client cancels the interaction, the
+        // interact packet may never reach the server to fire the error.
+        if (api is ICoreClientAPI capi)
+            capi.TriggerIngameError(errorSender, "metalgate", Lang.Get("almanactcm:gate-blocked", metalName, rank));
+        else
+            TcmLog.Cat(api, TcmLog.Hooks, $"gate: {player.PlayerName} blocked from working {metal} (needs {rank})");
     }
 }

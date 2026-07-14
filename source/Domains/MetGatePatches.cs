@@ -23,7 +23,6 @@ public static class MetGatePatches
     {
         public static bool Prefix(BlockEntityBloomery __instance, IPlayer byPlayer, ref bool __result)
         {
-            if (__instance.Api?.Side != EnumAppSide.Server) return true;
             ItemStack? ore = byPlayer?.InventoryManager?.ActiveHotbarSlot?.Itemstack;
             if (MetMaterialGate.Blocks(__instance.Api, byPlayer, ore))
             {
@@ -43,7 +42,6 @@ public static class MetGatePatches
     {
         public static bool Prefix(BlockEntityForge __instance, IPlayer byPlayer, ref bool __result)
         {
-            if (__instance.Api?.Side != EnumAppSide.Server) return true;
             if ((byPlayer?.Entity as EntityAgent)?.Controls?.ShiftKey != true) return true;
             ItemStack? held = byPlayer!.InventoryManager?.ActiveHotbarSlot?.Itemstack;
             if (MetMaterialGate.Blocks(__instance.Api, byPlayer, held))
@@ -64,7 +62,6 @@ public static class MetGatePatches
     {
         public static bool Prefix(BlockEntityAnvil __instance, IPlayer byPlayer, ref bool __result)
         {
-            if (__instance.Api?.Side != EnumAppSide.Server) return true;
             ItemStack? metalStack = __instance.WorkItemStack
                 ?? byPlayer?.InventoryManager?.ActiveHotbarSlot?.Itemstack;
             if (MetMaterialGate.Blocks(__instance.Api, byPlayer, metalStack))

@@ -289,24 +289,24 @@ public static class MetPatches
     {
         public static bool Prefix(ItemSlot slot, EntityAgent byEntity, ref bool __result)
         {
-            if (byEntity?.World?.Side != EnumAppSide.Server) return true;
-            pouringPlayer = (byEntity as EntityPlayer)?.Player;
-
+            IPlayer? player = (byEntity as EntityPlayer)?.Player;
             ItemStack? crucible = slot?.Itemstack;
-            if (pouringPlayer == null || crucible == null) return true;
+            if (player == null || crucible == null) return true;
 
-            // MATERIAL GATE (§162 Axis 5): casting is working the metal, so block pouring a
-            // gated molten metal — folded in here rather than a second, order-fragile prefix
-            // on the same seam. Blocked pours log no practice (the check runs first).
+            // MATERIAL GATE (§162 Axis 5), BOTH SIDES: casting is working the metal, so
+            // block pouring a gated molten metal. Client-side too, so the pour isn't
+            // mispredicted. Blocked pours log no practice (the check runs first).
             ItemStack? molten = (crucible.Collectible as BlockSmeltedContainer)?.GetContents(byEntity.World, crucible).Key;
-            if (MetMaterialGate.Blocks(byEntity.Api, pouringPlayer, molten))
+            if (MetMaterialGate.Blocks(byEntity.Api, player, molten))
             {
                 __result = false;
                 return false;
             }
 
-            // Smelting practice lands on FIRST pour of a freshly smelted crucible:
-            // the pourer is the attributable smith, once per smelt (attr guard).
+            // Server-only: smelting practice, attributed to the pourer, on FIRST pour of a
+            // freshly smelted crucible (attr guard). pouringPlayer feeds ToolMoldFillPatch.
+            if (byEntity.World.Side != EnumAppSide.Server) return true;
+            pouringPlayer = player;
             string? kind = crucible.Attributes.GetString(SmeltAttr);
             if (kind == null || crucible.Attributes.GetBool(SmeltLoggedAttr)) return true;
 
