@@ -70,6 +70,7 @@ public class LevelingServer
         channel = sapi.Network.RegisterChannel("almanactcm");
         channel.RegisterMessageType(typeof(PlayerDomainPacket));
         channel.RegisterMessageType(typeof(KnowledgePacket));
+        channel.RegisterMessageType(typeof(AffinityPacket));
 
         sapi.Event.PlayerNowPlaying += OnPlayerNowPlaying;
         sapi.Event.PlayerDisconnect += OnPlayerDisconnect;
@@ -227,6 +228,13 @@ public class LevelingServer
     public void SyncDomain(IPlayer player, PlayerDomain playerDomain)
     {
         channel.SendPacket(new PlayerDomainPacket(playerDomain), player as IServerPlayer);
+    }
+
+    /// <summary>Sends the resolved affinity band for one domain (the "why you started
+    /// here" line). The grid stays server-side; only the band crosses.</summary>
+    public void SyncAffinity(IPlayer player, int domainId, int band)
+    {
+        channel.SendPacket(new AffinityPacket(domainId, band), player as IServerPlayer);
     }
 
     /// <summary>Reveals a hidden domain (first-action-only discovery) and syncs it.</summary>

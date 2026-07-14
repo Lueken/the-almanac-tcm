@@ -27,13 +27,24 @@ public class LevelingClient
     /// <summary>Synced knowledge/discovery store.</summary>
     public Dictionary<string, int> Knowledge { get; } = new();
 
+    /// <summary>Synced affinity band per domain id (−2 … +3): the player's aptitude for
+    /// each trade given their class. Drives the detail page's "why you started" line.</summary>
+    public Dictionary<int, int> Affinity { get; } = new();
+
     public LevelingClient(ICoreClientAPI capi)
     {
         IClientNetworkChannel channel = capi.Network.RegisterChannel("almanactcm");
         channel.RegisterMessageType(typeof(PlayerDomainPacket));
         channel.RegisterMessageType(typeof(KnowledgePacket));
+        channel.RegisterMessageType(typeof(AffinityPacket));
         channel.SetMessageHandler<PlayerDomainPacket>(OnDomainPacket);
         channel.SetMessageHandler<KnowledgePacket>(OnKnowledgePacket);
+        channel.SetMessageHandler<AffinityPacket>(OnAffinityPacket);
+    }
+
+    private void OnAffinityPacket(AffinityPacket packet)
+    {
+        if (packet.domainId >= 0) Affinity[packet.domainId] = packet.band;
     }
 
     private void OnDomainPacket(PlayerDomainPacket packet)

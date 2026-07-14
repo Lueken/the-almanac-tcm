@@ -70,11 +70,27 @@ public class AffinitySystem
     private void OnDomainSetReady(IServerPlayer player, PlayerDomainSet domainSet)
     {
         ApplyStartLevels(player, domainSet);
+        SyncAffinities(player, domainSet);
 
-        // Mid-session class changes (charsel) must re-apply starts live, not wait
-        // for the next relog. Entity is fresh each session, so one listener per join.
-        player.Entity.WatchedAttributes.RegisterModifiedListener("characterClass",
-            () => ApplyStartLevels(player, domainSet));
+        // Mid-session class changes (charsel) must re-apply starts AND re-sync bands
+        // live, not wait for the next relog. Entity is fresh each session, so one
+        // listener per join.
+        player.Entity.WatchedAttributes.RegisterModifiedListener("characterClass", () =>
+        {
+            ApplyStartLevels(player, domainSet);
+            SyncAffinities(player, domainSet);
+        });
+    }
+
+    /// <summary>Sends every enabled domain's resolved band to the client, for the
+    /// per-domain "why you started here" line. State, not the grid.</summary>
+    private void SyncAffinities(IServerPlayer player, PlayerDomainSet domainSet)
+    {
+        foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)
+        {
+            if (!playerDomain.Domain.Enabled) continue;
+            leveling.SyncAffinity(player, playerDomain.Domain.Id, ScoreFor(player, playerDomain.Domain.Code));
+        }
     }
 
     public int ScoreFor(IPlayer player, string domainCode)

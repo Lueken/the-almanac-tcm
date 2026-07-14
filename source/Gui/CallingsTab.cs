@@ -138,6 +138,7 @@ public class CallingsTab : IAlmanacBookTab
         CairoFont body = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Ink);
         CairoFont italic = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithSlant(Cairo.FontSlant.Italic).WithColor(Ink);
         CairoFont muted = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Muted);
+        CairoFont mutedItalic = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithSlant(Cairo.FontSlant.Italic).WithColor(Muted);
         CairoFont subhead = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifDecorative)
             .WithWeight(Cairo.FontWeight.Bold).WithColor(Muted);
 
@@ -180,6 +181,10 @@ public class CallingsTab : IAlmanacBookTab
             comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
         else
             comps.Add(new RichTextComponent(capi, "Untrained, a fresh page\n", muted));
+
+        string? affinity = AffinityLine(capi, id);
+        if (affinity != null)
+            comps.Add(new RichTextComponent(capi, affinity + "\n", mutedItalic));
 
         if (di?.identity != null)
         {
@@ -300,6 +305,25 @@ public class CallingsTab : IAlmanacBookTab
 
     private const double EntryGap = 14;
     private const double EntryGapStretchMax = 26;
+
+    /// <summary>The "why you started here" line, from the synced affinity band and the
+    /// player's class. Gifted and favored trades read as native; resisted ones as
+    /// uphill; a neutral trade (or an unlisted class like commoner) shows nothing.</summary>
+    private string? AffinityLine(ICoreClientAPI capi, int domainId)
+    {
+        if (domainId < 0 || !client.Affinity.TryGetValue(domainId, out int score)) return null;
+        string cls = PrettyClass(capi.World.Player?.Entity?.WatchedAttributes?.GetString("characterClass"));
+        if (score >= 3) return $"Your {cls} hands took to this early.";
+        if (score >= 1) return $"This comes readily to a {cls}.";
+        if (score <= -1) return $"This runs against a {cls}'s nature. The climb is steeper, and the summit sits lower.";
+        return null;
+    }
+
+    private static string PrettyClass(string? code)
+    {
+        if (string.IsNullOrEmpty(code)) return "newcomer";
+        return char.ToUpperInvariant(code[0]) + code.Substring(1);
+    }
 }
 
 /// <summary>Client-safe per-domain flavor, read from assets/almanactcm/almanac/domains.json.

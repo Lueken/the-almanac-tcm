@@ -42,6 +42,31 @@ public class PlayerDomainPacket
     }
 }
 
+/// <summary>Server→client affinity band for one domain, given the player's class.
+/// The grid (design law, server-configurable) never leaves the server; only this
+/// resolved band does, so the client shows the "why you started here" line without
+/// a copy of the grid that could drift from a customized affinity.json.</summary>
+[ProtoContract]
+public class AffinityPacket
+{
+    [ProtoMember(1)]
+    [DefaultValue(-1)]
+    public int domainId = -1;
+
+    /// <summary>The affinity score for this domain (−2 … +3). The client buckets it
+    /// into prose; it is identity, not a tuned curve value.</summary>
+    [ProtoMember(2)]
+    public int band;
+
+    public AffinityPacket() { }
+
+    public AffinityPacket(int domainId, int band)
+    {
+        this.domainId = domainId;
+        this.band = band;
+    }
+}
+
 /// <summary>Server→client knowledge/discovery sync.</summary>
 [ProtoContract]
 public class KnowledgePacket
