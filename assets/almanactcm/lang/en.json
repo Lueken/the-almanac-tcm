@@ -5,6 +5,6 @@
   "almanactcm:made-by": "Made by {0}",
   "almanactcm:practice-gain": "{0}: {1} +{2} practice (today: {3:0.#})",
   "almanactcm:practice-repeat": "{0}: {1} repeated, nothing new learned",
-  "almanactcm:gate-blocked": "Your hands don't yet know how to work {0} — that takes {1} Metalworking.",
+  "almanactcm:gate-blocked": "Your hands don't yet know how to work {0}. That takes {1} Metalworking.",
   "almanactcm:gate-wasted": "You force the unfamiliar {0} and ruin it. {1} Metalworking would have known better."
 }
