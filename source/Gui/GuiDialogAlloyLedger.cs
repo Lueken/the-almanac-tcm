@@ -249,9 +249,12 @@ public class GuiDialogAlloyLedger : GuiDialog
             { TcmLog.Warn(capi, "alloy ledger: registry has no Recipes property"); return null; }
 
             var result = new List<LedgerAlloy>();
+            // Read the raw Code fields, not Resolved* — the client's synced recipes are NOT
+            // resolved (LoadFromSync just parses JSON), so ResolvedItemstack/ResolvedCollectible
+            // are null client-side. Codes are always present.
             PropertyInfo? pEnabled = null, pOutput = null, pMetals = null, pCats = null;
-            PropertyInfo? pMin = null, pMax = null, pUpi = null, pMetalColl = null;
-            PropertyInfo? pQty = null, pCatColl = null;
+            PropertyInfo? pMin = null, pMax = null, pUpi = null, pMetalCode = null;
+            PropertyInfo? pQty = null, pCatCode = null, pOutCode = null;
 
             foreach (var r in recipes)
             {
@@ -264,7 +267,8 @@ public class GuiDialogAlloyLedger : GuiDialog
 
                 if (pEnabled?.GetValue(r) is bool en && !en) continue;
                 if (pOutput?.GetValue(r) is not { } outObj) continue;
-                if (AccessTools.Property(outObj.GetType(), "ResolvedItemstack")?.GetValue(outObj) is not ItemStack outStack || outStack.Collectible == null) continue;
+                pOutCode ??= AccessTools.Property(outObj.GetType(), "Code");
+                if (pOutCode?.GetValue(outObj) is not AssetLocation outCode) continue;
 
                 var metals = new List<LedgerAlloy.Component>();
                 if (pMetals?.GetValue(r) is Array marr)
@@ -276,11 +280,10 @@ public class GuiDialogAlloyLedger : GuiDialog
                         pMin ??= AccessTools.Property(mt, "MinRatio");
                         pMax ??= AccessTools.Property(mt, "MaxRatio");
                         pUpi ??= AccessTools.Property(mt, "UnitsPerItem");
-                        pMetalColl ??= AccessTools.Property(mt, "ResolvedCollectible");
-                        var coll = pMetalColl?.GetValue(m) as CollectibleObject;
+                        pMetalCode ??= AccessTools.Property(mt, "Code");
                         metals.Add(new LedgerAlloy.Component
                         {
-                            Name = MetalName(coll?.Code),
+                            Name = MetalName(pMetalCode?.GetValue(m) as AssetLocation),
                             Min = pMin?.GetValue(m) is float mn ? mn : 0f,
                             Max = pMax?.GetValue(m) is float mx ? mx : 0f,
                             UnitsPerItem = pUpi?.GetValue(m) is int u ? u : 0,
@@ -297,17 +300,16 @@ public class GuiDialogAlloyLedger : GuiDialog
                         if (c == null) continue;
                         Type ct = c.GetType();
                         pQty ??= AccessTools.Property(ct, "Quantity");
-                        pCatColl ??= AccessTools.Property(ct, "ResolvedCollectible");
-                        var coll = pCatColl?.GetValue(c) as CollectibleObject;
+                        pCatCode ??= AccessTools.Property(ct, "Code");
                         cats.Add(new LedgerAlloy.Catalyst
                         {
-                            Name = MetalName(coll?.Code),
+                            Name = MetalName(pCatCode?.GetValue(c) as AssetLocation),
                             Quantity = pQty?.GetValue(c) is int q ? q : 1,
                         });
                     }
                 }
 
-                result.Add(new LedgerAlloy { Output = outStack.GetName(), Metals = metals.ToArray(), Catalysts = cats.ToArray() });
+                result.Add(new LedgerAlloy { Output = ResolveName(capi, outCode), Metals = metals.ToArray(), Catalysts = cats.ToArray() });
             }
             TcmLog.Info(capi, $"alloy ledger: read {result.Count} industrialstory alloys");
             return result;
@@ -450,6 +452,18 @@ public class GuiDialogAlloyLedger : GuiDialog
 
         sb.Append("\n\n").Append(Lang.Get("almanactcm:alloy-footnote"));
         return sb.ToString();
+    }
+
+    /// <summary>A display name for an output code, resolving it against the world for the proper
+    /// localised item name (e.g. "Tin bronze ingot"); falls back to the code-based label.</summary>
+    private static string ResolveName(ICoreClientAPI capi, AssetLocation? code)
+    {
+        if (code == null) return "?";
+        Item? it = capi.World.GetItem(code);
+        if (it != null) return new ItemStack(it).GetName();
+        Block? bl = capi.World.GetBlock(code);
+        if (bl != null) return new ItemStack(bl).GetName();
+        return MetalName(code);
     }
 
     /// <summary>Clean metal/item label from a collectible code (nugget-copper -> Copper).</summary>
