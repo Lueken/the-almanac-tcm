@@ -43,8 +43,7 @@ public static class WooFallingTreePatches
         // Priority.First so our stash lands BEFORE FallingTree's own prefix runs the fell and
         // calls ConfigurePivotFaller.
         harmony.Patch(axeBreak,
-            prefix: new HarmonyMethod(AccessTools.Method(typeof(FellStashPatch), "Prefix")) { priority = Priority.First },
-            postfix: new HarmonyMethod(AccessTools.Method(typeof(FellStashPatch), "Postfix")));
+            prefix: new HarmonyMethod(AccessTools.Method(typeof(FellStashPatch), "Prefix")) { priority = Priority.First });
         harmony.Patch(configurePivot,
             prefix: new HarmonyMethod(AccessTools.Method(typeof(PivotDirPatch), "Prefix")));
         TcmLog.Info(api, "WOO directional felling hooked to FallingTree (rank-skewed fall direction)");
@@ -70,22 +69,28 @@ public static class WooFallingTreePatches
             TcmLog.Cat(world.Api, TcmLog.Hooks,
                 $"WOO fell: face=({n.X},{n.Z}) WOO={WooDomain.LevelOf(player)} -> dir=({skewX:0.##},{skewZ:0.##})");
         }
-
-        public static void Postfix() => skewValid = false;
+        // No Postfix clear: the domino cascade (TryDomino) spawns the rest of the tree on LATER
+        // ticks, so the skew must survive past this call. It's reset at the top of the next fell.
     }
 
-    /// <summary>Redirects the fall by rewriting the PIVOT offset (FallingTree ignores its dirX/dirZ
-    /// args — the topple direction is pivot − treeCenter). We recover the tree center from the
-    /// original dir args and re-offset it toward our skewed direction; same pivot for every log.</summary>
+    /// <summary>Redirects the WHOLE tree — every log, from both the initial SpawnFallers pass and
+    /// the deferred TryDomino cascade (both route through here). FallingTree ignores its dirX/dirZ
+    /// args (the topple is the pivot − treeCenter offset), so we recover the center from those args
+    /// and re-aim the pivot, AND overwrite the per-entity drift attributes the physics reads.</summary>
     public static class PivotDirPatch
     {
-        public static void Prefix(ref double pivotX, ref double pivotZ, float dirX, float dirZ)
+        public static void Prefix(EntityBlockFalling faller, ref double pivotX, ref double pivotZ, float dirX, float dirZ)
         {
             if (!skewValid) return;
             double centerX = pivotX - dirX * 0.5;
             double centerZ = pivotZ - dirZ * 0.5;
             pivotX = centerX + skewX * 0.5;
             pivotZ = centerZ + skewZ * 0.5;
+
+            // The per-log horizontal drift reads these; they were set to the default dir just before
+            // this call, so overwrite them to match the rewritten pivot.
+            faller.WatchedAttributes.SetFloat("fallingtree:dirX", skewX);
+            faller.WatchedAttributes.SetFloat("fallingtree:dirZ", skewZ);
         }
     }
 
