@@ -71,6 +71,7 @@ public class LevelingServer
         channel.RegisterMessageType(typeof(PlayerDomainPacket));
         channel.RegisterMessageType(typeof(KnowledgePacket));
         channel.RegisterMessageType(typeof(AffinityPacket));
+        channel.RegisterMessageType(typeof(ClientConfigPacket));
 
         sapi.Event.PlayerNowPlaying += OnPlayerNowPlaying;
         sapi.Event.PlayerDisconnect += OnPlayerDisconnect;
@@ -175,6 +176,10 @@ public class LevelingServer
 
     private void SyncAll(IServerPlayer byPlayer, PlayerDomainSet domainSet)
     {
+        // Client-facing config flags first, so client-side gates honour the server's settings.
+        bool masterOnly = AlmanacTcmModSystem.Instance?.GlobalConfig.AlloyLedgerMasterOnly ?? true;
+        channel.SendPacket(new ClientConfigPacket(masterOnly), byPlayer);
+
         foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)
         {
             channel.SendPacket(new PlayerDomainPacket(playerDomain), byPlayer);

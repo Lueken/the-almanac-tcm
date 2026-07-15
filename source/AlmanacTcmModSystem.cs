@@ -97,6 +97,10 @@ public class AlmanacTcmModSystem : ModSystem
     /// placed-crucible interact hook. Null on the server.</summary>
     public Gui.GuiDialogAlloyLedger? AlloyLedger { get; private set; }
 
+    /// <summary>Client mirror of the server's <see cref="Config.TcmGlobalConfig.AlloyLedgerMasterOnly"/>,
+    /// synced on join. Defaults to the ruled Master-only until the server says otherwise.</summary>
+    public bool AlloyLedgerMasterOnly { get; set; } = true;
+
     private void RegisterDomains(ICoreAPI api)
     {
         // The full roster registers on BOTH sides in DomainRoster order so packet

@@ -61,4 +61,10 @@ public class TcmGlobalConfig
     /// metal). Default 0 = allow and log once, so nothing is silently locked; raise it to
     /// gate unknowns conservatively.</summary>
     public int MaterialGateMETUnmappedLevel { get; set; } = 0;
+
+    /// <summary>Alloy Ledger (§162 Axis 4 Master unlock) access. true = only a Master of
+    /// Metalworking can open it on a crucible (the ruled default); false = any player can, for
+    /// servers that want the convenience for everyone. Server-owned and synced to clients on
+    /// join, since the ledger opens client-side.</summary>
+    public bool AlloyLedgerMasterOnly { get; set; } = true;
 }

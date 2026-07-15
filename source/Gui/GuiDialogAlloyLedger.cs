@@ -61,7 +61,10 @@ public class GuiDialogAlloyLedger : GuiDialog
     /// this (well after asset load), so the list is gathered on first open, not construction.</summary>
     public override bool TryOpen()
     {
-        if (!IsMaster())
+        // Master gate is server-owned (AlloyLedgerMasterOnly, synced on join). When a server
+        // opens it to everyone, the rank check is skipped entirely.
+        bool masterOnly = AlmanacTcmModSystem.Instance?.AlloyLedgerMasterOnly ?? true;
+        if (masterOnly && !IsMaster())
         {
             capi.TriggerIngameError(this, "notmaster", Lang.Get("almanactcm:alloy-locked"));
             return false;

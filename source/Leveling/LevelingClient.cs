@@ -37,9 +37,17 @@ public class LevelingClient
         channel.RegisterMessageType(typeof(PlayerDomainPacket));
         channel.RegisterMessageType(typeof(KnowledgePacket));
         channel.RegisterMessageType(typeof(AffinityPacket));
+        channel.RegisterMessageType(typeof(ClientConfigPacket));
         channel.SetMessageHandler<PlayerDomainPacket>(OnDomainPacket);
         channel.SetMessageHandler<KnowledgePacket>(OnKnowledgePacket);
         channel.SetMessageHandler<AffinityPacket>(OnAffinityPacket);
+        channel.SetMessageHandler<ClientConfigPacket>(OnClientConfigPacket);
+    }
+
+    private void OnClientConfigPacket(ClientConfigPacket packet)
+    {
+        var core = AlmanacTcmModSystem.Instance;
+        if (core != null) core.AlloyLedgerMasterOnly = packet.alloyLedgerMasterOnly;
     }
 
     private void OnAffinityPacket(AffinityPacket packet)

@@ -67,6 +67,24 @@ public class AffinityPacket
     }
 }
 
+/// <summary>Server→client sync of the config flags the CLIENT must honour (gates that open
+/// client-side). Sent once on join, so a server-owned setting in global.json actually reaches
+/// the client instead of the client falling back to the shipped default.</summary>
+[ProtoContract]
+public class ClientConfigPacket
+{
+    [ProtoMember(1)]
+    [DefaultValue(true)]
+    public bool alloyLedgerMasterOnly = true;
+
+    public ClientConfigPacket() { }
+
+    public ClientConfigPacket(bool alloyLedgerMasterOnly)
+    {
+        this.alloyLedgerMasterOnly = alloyLedgerMasterOnly;
+    }
+}
+
 /// <summary>Server→client knowledge/discovery sync.</summary>
 [ProtoContract]
 public class KnowledgePacket
