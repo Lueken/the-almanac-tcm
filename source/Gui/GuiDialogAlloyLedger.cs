@@ -167,8 +167,13 @@ public class GuiDialogAlloyLedger : GuiDialog
         mb.Alignment = EnumDialogArea.None;
         mb.fixedOffsetX = 0;
         mb.fixedOffsetY = 0;
-        mb.absFixedX = sb.absFixedX - mb.OuterWidth;   // right edge against the station's left edge
-        mb.absFixedY = sb.absFixedY;                   // tops aligned
+        // Use the station's RESOLVED render position, not absFixedX: the floaty branch only sets
+        // absFixedX in immersive-mouse mode, so a pinned window leaves it 0 and the tab flew
+        // off-screen. renderX/renderY resolve correctly in both modes.
+        mb.absOffsetX = 0;
+        mb.absOffsetY = 0;
+        mb.absFixedX = sb.renderX - mb.OuterWidth;   // right edge against the station's left edge
+        mb.absFixedY = sb.renderY;                   // tops aligned
         mb.absMarginX = 0;
         mb.absMarginY = 0;
         base.OnRenderGUI(deltaTime);
