@@ -36,7 +36,7 @@ public static class FirepitLedgerOpenPatch
     public static void Postfix(GuiDialogBlockEntity __instance)
     {
         if (!GuiDialogAlloyLedger.HasCrucible(__instance.Inventory)) return;
-        AlmanacTcmModSystem.Instance?.AlloyLedger?.AttachTo(__instance);   // self-gates on config/Master
+        AlmanacTcmModSystem.Instance?.AlloyLedger?.AttachTo(__instance);   // self-gates on config/rank
     }
 }
 
@@ -87,13 +87,13 @@ public static class AlloyLedgerBrickFurnacePatch
 }
 
 /// <summary>
-/// The Alloy Ledger (rank-bonus-design.md §162 Axis 4, Master unlock). A read-only aid a Master
+/// The Alloy Ledger (rank-bonus-design.md §162 Axis 4, Apprentice unlock). A read-only aid an Apprentice+
 /// smith "just knows": pick an alloy and a desired ingot count and it reads out the metal amounts
 /// for the ratio ranges, the leanest valid mix, and any required catalysts. Its data comes from
 /// whatever alloy system is live: industrialstory's CrucibleAlloyRecipe registry when that mod is
 /// present (it replaces vanilla alloys), otherwise the vanilla alloy list. It automates nothing
 /// and multiplies no yield. Client-side; opens attached to a crucible-bearing firepit or brick
-/// furnace, gated to Master MET (server-owned toggle).
+/// furnace, gated to Apprentice+ MET (server-owned toggle).
 /// </summary>
 public class GuiDialogAlloyLedger : GuiDialog
 {
@@ -129,12 +129,12 @@ public class GuiDialogAlloyLedger : GuiDialog
     }
 
     /// <summary>Weld the ledger (collapsed to its tab) to a station window that holds a crucible.
-    /// Server-owned Master gate: when Master-only and the viewer is not a Master, no tab appears
+    /// Server-owned rank gate: when gated and the viewer is below Apprentice, no tab appears
     /// (silent). Called from the firepit / brick furnace open hooks.</summary>
     public void AttachTo(GuiDialogBlockEntity stationDlg)
     {
-        bool masterOnly = AlmanacTcmModSystem.Instance?.AlloyLedgerMasterOnly ?? true;
-        if (masterOnly && !IsMaster()) return;
+        bool gated = AlmanacTcmModSystem.Instance?.AlloyLedgerGated ?? true;
+        if (gated && !IsUnlocked()) return;
         station = stationDlg;
         expanded = false;
         EnsureAlloys();
@@ -471,12 +471,14 @@ public class GuiDialogAlloyLedger : GuiDialog
         return metal.Length == 0 ? path : char.ToUpperInvariant(metal[0]) + metal.Substring(1);
     }
 
-    private static bool IsMaster()
+    /// <summary>Unlocked at Apprentice+ MET (tier 1): the ledger becomes relevant the moment
+    /// alloys do, when bronze opens up (RULED 2026-07-15, was Master).</summary>
+    private static bool IsUnlocked()
     {
         LevelingClient? client = AlmanacTcmModSystem.Instance?.Client;
         if (client == null) return false;
         int id = MetDomainId();
-        return id >= 0 && client.Domains.TryGetValue(id, out var st) && Domain.TierOf(st.Level) >= 3;
+        return id >= 0 && client.Domains.TryGetValue(id, out var st) && Domain.TierOf(st.Level) >= 1;
     }
 
     private static int MetDomainId()

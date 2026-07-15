@@ -83,7 +83,7 @@ public class AlmanacTcmModSystem : ModSystem
         // stay server-side by design (build-track-1 T1.0 hidden-values rule).
         // Reset client-synced flags to their SAFE default first, so a value carried over
         // from a previous server can't linger into this one before its join packet lands.
-        AlloyLedgerMasterOnly = true;
+        AlloyLedgerGated = true;
         Client = new LevelingClient(capi);
 
         // The Callings page lives in Illuminated's book (hard dependency, so the
@@ -91,19 +91,19 @@ public class AlmanacTcmModSystem : ModSystem
         capi.ModLoader.GetModSystem<AlmanacIlluminated.AlmanacIlluminatedModSystem>()
             ?.RegisterBookTab(new Gui.CallingsTab(Client));
 
-        // Axis 4 Master unlock: the Alloy Ledger modal. It opens on an empty-handed
+        // Axis 4 Apprentice unlock: the Alloy Ledger modal. It opens on an empty-handed
         // right-click of a placed crucible (see MetSignaturePatches / the crucible interact
-        // hook), gated to Master MET on open. Held here so the interact patch can toggle it.
+        // hook), gated to Apprentice+ MET on open. Held here so the interact patch can toggle it.
         AlloyLedger = new Gui.GuiDialogAlloyLedger(capi);
     }
 
-    /// <summary>The client Alloy Ledger dialog (Axis 4 Master unlock), opened from the
+    /// <summary>The client Alloy Ledger dialog (Axis 4 Apprentice unlock), opened from the
     /// placed-crucible interact hook. Null on the server.</summary>
     public Gui.GuiDialogAlloyLedger? AlloyLedger { get; private set; }
 
-    /// <summary>Client mirror of the server's <see cref="Config.TcmGlobalConfig.AlloyLedgerMasterOnly"/>,
-    /// synced on join. Defaults to the ruled Master-only until the server says otherwise.</summary>
-    public bool AlloyLedgerMasterOnly { get; set; } = true;
+    /// <summary>Client mirror of the server's <see cref="Config.TcmGlobalConfig.AlloyLedgerGated"/>,
+    /// synced on join. Defaults to the ruled gated state until the server says otherwise.</summary>
+    public bool AlloyLedgerGated { get; set; } = true;
 
     private void RegisterDomains(ICoreAPI api)
     {

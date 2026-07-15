@@ -75,13 +75,13 @@ public class ClientConfigPacket
 {
     [ProtoMember(1)]
     [DefaultValue(true)]
-    public bool alloyLedgerMasterOnly = true;
+    public bool alloyLedgerGated = true;
 
     public ClientConfigPacket() { }
 
-    public ClientConfigPacket(bool alloyLedgerMasterOnly)
+    public ClientConfigPacket(bool alloyLedgerGated)
     {
-        this.alloyLedgerMasterOnly = alloyLedgerMasterOnly;
+        this.alloyLedgerGated = alloyLedgerGated;
     }
 }
 

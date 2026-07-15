@@ -62,9 +62,9 @@ public class TcmGlobalConfig
     /// gate unknowns conservatively.</summary>
     public int MaterialGateMETUnmappedLevel { get; set; } = 0;
 
-    /// <summary>Alloy Ledger (§162 Axis 4 Master unlock) access. true = only a Master of
+    /// <summary>Alloy Ledger (§162 Axis 4, Apprentice unlock) access. true = only an Apprentice+ of
     /// Metalworking can open it on a crucible (the ruled default); false = any player can, for
     /// servers that want the convenience for everyone. Server-owned and synced to clients on
     /// join, since the ledger opens client-side.</summary>
-    public bool AlloyLedgerMasterOnly { get; set; } = true;
+    public bool AlloyLedgerGated { get; set; } = true;
 }

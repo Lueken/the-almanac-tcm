@@ -47,7 +47,7 @@ public class LevelingClient
     private void OnClientConfigPacket(ClientConfigPacket packet)
     {
         var core = AlmanacTcmModSystem.Instance;
-        if (core != null) core.AlloyLedgerMasterOnly = packet.alloyLedgerMasterOnly;
+        if (core != null) core.AlloyLedgerGated = packet.alloyLedgerGated;
     }
 
     private void OnAffinityPacket(AffinityPacket packet)
