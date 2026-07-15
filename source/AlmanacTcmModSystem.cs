@@ -87,18 +87,15 @@ public class AlmanacTcmModSystem : ModSystem
         capi.ModLoader.GetModSystem<AlmanacIlluminated.AlmanacIlluminatedModSystem>()
             ?.RegisterBookTab(new Gui.CallingsTab(Client));
 
-        // Axis 4 Master unlock: the Alloy Ledger modal, toggled by a (player-bound)
-        // hotkey and gated to Master MET on open. Default unbound to avoid clashing with
-        // the pack's many mods; it shows as "Almanac: Alloy Ledger" in Controls.
-        var alloyLedger = new Gui.GuiDialogAlloyLedger(capi);
-        capi.Input.RegisterHotKey("tcmalloyledger", "Almanac: Alloy Ledger", GlKeys.Unknown, HotkeyType.GUIOrOtherControls);
-        capi.Input.SetHotKeyHandler("tcmalloyledger", _ =>
-        {
-            if (alloyLedger.IsOpened()) alloyLedger.TryClose();
-            else alloyLedger.TryOpen();
-            return true;
-        });
+        // Axis 4 Master unlock: the Alloy Ledger modal. It opens on an empty-handed
+        // right-click of a placed crucible (see MetSignaturePatches / the crucible interact
+        // hook), gated to Master MET on open. Held here so the interact patch can toggle it.
+        AlloyLedger = new Gui.GuiDialogAlloyLedger(capi);
     }
+
+    /// <summary>The client Alloy Ledger dialog (Axis 4 Master unlock), opened from the
+    /// placed-crucible interact hook. Null on the server.</summary>
+    public Gui.GuiDialogAlloyLedger? AlloyLedger { get; private set; }
 
     private void RegisterDomains(ICoreAPI api)
     {

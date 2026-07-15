@@ -4,12 +4,39 @@ using System.Linq;
 using System.Text;
 using AlmanacTcm.Domains;
 using AlmanacTcm.Leveling;
+using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.GameContent;
 
 namespace AlmanacTcm.Gui;
+
+/// <summary>
+/// Opens the Alloy Ledger on an empty-handed right-click of a placed crucible (Axis 4 Master
+/// unlock, delivery ruled 2026-07-14). Guarded to the crucible block and the client's local
+/// interaction, so a full hand still fills/uses the crucible normally and every other block is
+/// untouched. The ledger self-gates to Master, which also serves as the teaser for lesser ranks.
+/// </summary>
+[HarmonyPatch(typeof(Block), nameof(Block.OnBlockInteractStart),
+    new[] { typeof(IWorldAccessor), typeof(IPlayer), typeof(BlockSelection) })]
+public static class CrucibleLedgerPatch
+{
+    public static bool Prefix(Block __instance, IWorldAccessor world, IPlayer byPlayer, ref bool __result)
+    {
+        if (__instance is not BlockSmeltingContainer) return true;       // only the crucible
+        if (world.Side != EnumAppSide.Client) return true;              // the GUI is a client concern
+        if (byPlayer?.InventoryManager?.ActiveHotbarSlot?.Empty != true) return true;  // empty hand only
+
+        var dlg = AlmanacTcmModSystem.Instance?.AlloyLedger;
+        if (dlg == null) return true;
+
+        if (dlg.IsOpened()) dlg.TryClose();
+        else dlg.TryOpen();   // self-gates to Master (shows the teaser to lesser ranks)
+        __result = true;
+        return false;         // consume the interact so nothing else fires
+    }
+}
 
 /// <summary>
 /// The Alloy Ledger (rank-bonus-design.md §162 Axis 4, Master unlock). A read-only aid a
