@@ -21,7 +21,12 @@ public static class MinConditionalPatches
     // is internal-static called from nowhere else, so a thread-static factor set in the
     // OnDurHit prefix is live for exactly its TryConsume and reset by the finalizer.
     [ThreadStatic] private static double imPendingFactor;
+    [ThreadStatic] private static bool imPickaxeHit;
+    [ThreadStatic] private static string? imMinerName;
     [ThreadStatic] private static IPlayer? sqQuarrier;
+
+    /// <summary>Captured at patch time so the static stamina prefix can log without an api hop.</summary>
+    private static ICoreAPI? logApi;
 
     public static void PatchAllPresent(ICoreAPI api, Harmony harmony)
     {
@@ -39,6 +44,8 @@ public static class MinConditionalPatches
         public static void Prefix(IServerPlayer fromPlayer, object pkt)
         {
             imPendingFactor = 1.0;
+            imPickaxeHit = false;
+            imMinerName = null;
             if (fromPlayer == null || pkt == null) return;
 
             EnumTool tool;
@@ -46,27 +53,44 @@ public static class MinConditionalPatches
             catch { return; }
             if (tool != EnumTool.Pickaxe) return;
 
+            imPickaxeHit = true;
+            imMinerName = fromPlayer.PlayerName;
             imPendingFactor = MinDomain.RankLinear(MinDomain.LevelOf(fromPlayer),
                 MinDomain.Knob(MinDomain.StaminaUntrained, 1.15),
                 MinDomain.Knob(MinDomain.StaminaGm, 0.85));
         }
 
-        public static void Finalizer() => imPendingFactor = 1.0;
+        public static void Finalizer()
+        {
+            imPendingFactor = 1.0;
+            imPickaxeHit = false;
+            imMinerName = null;
+        }
     }
 
     /// <summary>Scales the flat per-hit stamina amount IM hands Vigor. A master swings for
-    /// less; an Untrained miner for more. Never touches mining speed or durability.</summary>
+    /// less; an Untrained miner for more. Never touches mining speed or durability.
+    /// Emits one verbose line per PICKAXE hit (base -> scaled + factor) so the seam can be
+    /// validated quantitatively — Novice logs factor 1.00 (proves attachment with no change).</summary>
     public static class VigorConsumePatch
     {
         public static void Prefix(ref float amount)
         {
+            if (!imPickaxeHit) return;
+
+            float baseAmt = amount;
             if (imPendingFactor != 1.0) amount *= (float)imPendingFactor;
+
+            if (logApi != null)
+                TcmLog.Cat(logApi, TcmLog.Hooks,
+                    $"MIN stamina: {imMinerName} pickaxe hit base={baseAmt:0.##} -> {amount:0.##} (x{imPendingFactor:0.###})");
         }
     }
 
     private static void PatchImmersiveMiningStamina(ICoreAPI api, Harmony harmony)
     {
         if (!api.ModLoader.IsModEnabled("immersivemining")) return;
+        logApi = api;
 
         var onDurHit = AccessTools.Method(AccessTools.TypeByName("ImmersiveMining.ImmersiveMiningServer"), "OnDurHit");
         var tryConsume = AccessTools.Method(AccessTools.TypeByName("ImmersiveMining.VigorHook"), "TryConsume");
