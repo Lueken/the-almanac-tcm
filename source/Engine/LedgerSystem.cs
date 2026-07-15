@@ -167,6 +167,10 @@ public class LedgerSystem
         PlayerDomainSet? domainSet = leveling.GetDomainSet(player);
         PlayerDomain? playerDomain = domainSet?[domain.Id];
         if (playerDomain == null) return;
+        // Maxed out: a domain at its terminal rank (Grandmaster) has nothing left to earn, so
+        // skip all practice accounting for it — no accumulator writes, no dedup ring, no
+        // consolidation work. This is the per-action hot path, so the guard pays for itself.
+        if (playerDomain.Level >= playerDomain.Domain.MaxLevel) return;
         if (playerDomain.Hidden) leveling.RevealDomain(player, domain.Id);
 
         double raw = 1.0, k = 50.0;

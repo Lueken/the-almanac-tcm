@@ -303,21 +303,12 @@ public static class MetPatches
     {
         public static void Postfix(Entity byEntity, ItemStack? stack)
         {
-            // DIAGNOSTIC: every pickup logs whether the seam fired and what pending state it saw,
-            // so a single forge in the log tells us if OnItemPickedUp is even hit and if the
-            // anvil-finish handoff set a pending maker + tier.
-            ICoreAPI? dbgApi = byEntity?.Api;
-            if (dbgApi != null)
-                TcmLog.Cat(dbgApi, TcmLog.Hooks,
-                    $"OnItemPickedUp: stack={stack?.Collectible?.Code}, pending={(pendingMaker == null ? "NULL" : pendingMaker.Value.tier + "/" + pendingMaker.Value.name)}");
-
+            // The immediate path: when a completed head is handed straight to inventory, vanilla
+            // calls this inside CheckIfFinished with the pending maker still set. The full-inventory
+            // (dropped-entity) and delayed-pickup cases are covered by StampCompletedOutput instead.
             if (pendingMaker == null || stack == null) return;
             var maker = pendingMaker.Value;
-            if (maker.tier < 2)   // Journeyman+ only: lesser work carries no mark
-            {
-                if (dbgApi != null) TcmLog.Cat(dbgApi, TcmLog.Hooks, $"mark skipped: maker tier {maker.tier} below Journeyman");
-                return;
-            }
+            if (maker.tier < 2) return;   // Journeyman+ only: lesser work carries no mark
             stack.Attributes.SetString(MakerAttr, maker.uid);
             stack.Attributes.SetString(MakerNameAttr, maker.name);
             stack.Attributes.SetInt(MakerTierAttr, maker.tier);
