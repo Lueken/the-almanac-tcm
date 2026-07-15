@@ -89,28 +89,38 @@ public static class MetSignature
     public static bool HasSignature(ItemStack stack) =>
         stack.Attributes.HasAttribute(HonedAttr) || stack.Attributes.HasAttribute(DurableAttr);
 
-    /// <summary>Weapon vs tool vs bare-head, for signature assignment. CO weapons win
-    /// first (they may not carry a vanilla EnumTool); otherwise the vanilla EnumTool
-    /// decides. A collectible with no EnumTool is a head or non-tool → None.</summary>
+    /// <summary>Weapon vs tool vs neither, for signature assignment. CO melee weapons win
+    /// first (they may not carry a vanilla EnumTool). Ranged/thrown weapons are Hunter's
+    /// domain, not MET (RULED 2026-07-14), so they take NO MET signature. Otherwise the
+    /// vanilla EnumTool decides: a melee weapon is Honed, any other tool is Durable, and a
+    /// collectible with no EnumTool is a bare head or non-tool → None.</summary>
     private static SignatureKind Classify(ItemStack stack)
     {
         if (CoWeaponClassifier != null && CoWeaponClassifier(stack)) return SignatureKind.Weapon;
 
         EnumTool? tool = stack.Collectible?.Tool;
         if (tool == null) return SignatureKind.None;
-        return IsWeaponTool(tool.Value) ? SignatureKind.Weapon : SignatureKind.Tool;
+        if (IsRangedWeapon(tool.Value)) return SignatureKind.None;   // HUN's domain, not MET
+        return IsMeleeWeapon(tool.Value) ? SignatureKind.Weapon : SignatureKind.Tool;
     }
 
-    /// <summary>Vanilla EnumTool weapon set (docs/design/met-makers-mark-stage2.md §3).
-    /// Knife is a harvesting tool → Durable. NOTE: Bow/Sling/Firearm/Crossbow are ranged,
-    /// so Honed's melee armor-pierce is inert on them — pending a ruling on whether ranged
-    /// weapons should take Durable instead; kept per the locked "weapon → honed" call.</summary>
-    private static bool IsWeaponTool(EnumTool tool) => tool switch
+    /// <summary>Melee weapons a MET smith forges (Honed). Knife is a harvesting tool
+    /// (→ Durable); Spear/Pike are primarily melee polearms so they stay here.</summary>
+    private static bool IsMeleeWeapon(EnumTool tool) => tool switch
     {
-        EnumTool.Sword or EnumTool.Spear or EnumTool.Bow or EnumTool.Sling
-            or EnumTool.Firearm or EnumTool.Crossbow or EnumTool.Javelin or EnumTool.Pike
-            or EnumTool.Club or EnumTool.Mace or EnumTool.Warhammer or EnumTool.Poleaxe
+        EnumTool.Sword or EnumTool.Spear or EnumTool.Pike or EnumTool.Club
+            or EnumTool.Mace or EnumTool.Warhammer or EnumTool.Poleaxe
             or EnumTool.Halberd or EnumTool.Polearm => true,
+        _ => false,
+    };
+
+    /// <summary>Ranged / thrown weapons. Their edge is the Hunter domain's business, not
+    /// MET's, and Honed's melee armor-pierce is inert on them — so MET assigns them nothing
+    /// (RULED 2026-07-14). Javelin is the thrown polearm; the melee Pike stays a MET weapon.</summary>
+    private static bool IsRangedWeapon(EnumTool tool) => tool switch
+    {
+        EnumTool.Bow or EnumTool.Sling or EnumTool.Firearm
+            or EnumTool.Crossbow or EnumTool.Javelin => true,
         _ => false,
     };
 }
