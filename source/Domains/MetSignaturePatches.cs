@@ -288,7 +288,9 @@ public static class MetSignaturePatches
     private static bool TryPatchHonedCombatOverhaul(ICoreAPI api, Harmony harmony)
     {
         var mdt = AccessTools.TypeByName("CombatOverhaul.MeleeSystems.MeleeDamageType");
-        var dd = AccessTools.TypeByName("CombatOverhaul.MeleeSystems.DamageData");
+        // DamageData/DirectionalTypedDamageSource live in DamageSystems, not MeleeSystems
+        // (confirmed by the live-assembly scan; the decompile grouped them misleadingly).
+        var dd = AccessTools.TypeByName("CombatOverhaul.DamageSystems.DamageData");
         if (mdt == null || dd == null)
         {
             TcmLog.Warn(api, $"Honed CO: type lookup MeleeDamageType={mdt != null} DamageData={dd != null}; scanning loaded assemblies for the real names...");
