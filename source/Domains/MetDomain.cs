@@ -30,6 +30,10 @@ public static class MetDomain
     public const string BitRecoveryGm = "bitRecoveryGm";
     public const string MoldWearUntrained = "moldWearUntrained";
     public const string MoldWearGm = "moldWearGm";
+    // Axis 6 stage 2 — GM signature
+    public const string GmWearSkip = "gmWearSkip";
+    public const string DurableWearSkip = "durableWearSkip";
+    public const string HonedArmorPierce = "honedArmorPierce";
 
     public static DomainConfig Defaults() => new()
     {
@@ -63,6 +67,13 @@ public static class MetDomain
             [BitRecoveryGm] = 1.3,
             [MoldWearUntrained] = 1.25,
             [MoldWearGm] = 0.6,
+            // Axis 6 stage 2: per-hit wear-skip chance on GM work. Durable is a deeper
+            // single value, NOT stacked on the universal skip; both ride on top of the
+            // maker quality pool, so kept modest (GM Durable ≈ 1.4× baseline lifespan).
+            [GmWearSkip] = 0.08,
+            [DurableWearSkip] = 0.18,
+            // Effective armor-piercing added by Honed on attack (both CO + vanilla paths).
+            [HonedArmorPierce] = 1,
         }
     };
 

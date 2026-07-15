@@ -238,6 +238,9 @@ public static class MetPatches
             stack.Attributes.SetString(MakerNameAttr, maker.name);
             stack.Attributes.SetInt(MakerTierAttr, maker.tier);
             stack.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.tier));
+            // GM signature (Axis 6 stage 2): a directly-forged weapon/tool is classifiable
+            // here; a bare Toolsmith head is not and takes its edge at assembly instead.
+            MetSignature.Assign(stack, maker.tier);
             if (byEntity?.Api == null) return;
             TcmLog.Cat(byEntity.Api, TcmLog.Hooks,
                 $"maker's mark applied to {stack.Collectible?.Code} for {maker.name}");
@@ -274,6 +277,7 @@ public static class MetPatches
             s.Attributes.SetString(MakerNameAttr, maker.name);
             s.Attributes.SetInt(MakerTierAttr, maker.tier);
             s.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.tier));
+            MetSignature.Assign(s, maker.tier);
             slot!.MarkDirty();
             TcmLog.Cat(api, TcmLog.Hooks, $"maker's mark re-stamped on surviving {s.Collectible.Code}");
         }
@@ -292,6 +296,12 @@ public static class MetPatches
             // back to the flat line.
             int tier = attrs!.GetInt(MakerTierAttr, -1);
             dsc.AppendLine(Lang.Get(tier >= 2 ? MakerKey(tier) : "almanactcm:made-by", maker));
+
+            // The GM signature (Axis 6 stage 2), a quiet line under the provenance.
+            if (MetSignature.IsHoned(inSlot!.Itemstack))
+                dsc.AppendLine(Lang.Get("almanactcm:honed-mark"));
+            else if (MetSignature.IsDurable(inSlot.Itemstack))
+                dsc.AppendLine(Lang.Get("almanactcm:durable-mark"));
         }
     }
 
@@ -451,6 +461,7 @@ public static class MetPatches
                 stack.Attributes.SetString(MakerNameAttr, caster.name);
                 stack.Attributes.SetInt(MakerTierAttr, caster.tier);
                 stack.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(caster.tier));
+                MetSignature.Assign(stack, caster.tier);
             }
         }
     }
@@ -485,6 +496,10 @@ public static class MetPatches
                 // stripped tool), keeping the head-for-life model intact through assembly.
                 output.Attributes.SetFloat(SmithingQualityAttr,
                     input.Itemstack.Attributes.GetFloat(SmithingQualityAttr, 1f));
+                // GM signature: keep an already-marked head's edge; otherwise the bare head
+                // finally becomes a classifiable tool here, so assign by the finished type.
+                if (!MetSignature.CopySignature(input.Itemstack, output))
+                    MetSignature.Assign(output, input.Itemstack.Attributes.GetInt(MakerTierAttr, -1));
                 return;
             }
         }
