@@ -93,11 +93,22 @@ public static class MetPatches
     /// Toolsmith reads head current-durability from the vanilla "durability" attribute; a fresh
     /// forge sets it to the BASE max, so once our sp:smithingQuality lifts GetMaxDurability the
     /// tool would otherwise be born partly worn (e.g. 5000/5750). Call right after stamping quality.</summary>
-    private static void RefreshHeadDurability(ItemStack? stack)
+    private static void RefreshHeadDurability(ItemStack? stack, ICoreAPI? api)
     {
         if (stack?.Collectible == null) return;
-        int max = stack.Collectible.GetMaxDurability(stack);
-        if (max > 0) stack.Attributes.SetInt("durability", max);
+        // Best-effort and never-throw: GetMaxDurability runs other mods' postfixes (Toolsmith's
+        // can NRE on a bare head), and this call sits in the maker's-mark flow BEFORE the
+        // re-stamp registers — an escaping exception here would abort the whole mark. So it is
+        // fully guarded; a failure just skips the top-up, it never breaks the mark.
+        try
+        {
+            int max = stack.Collectible.GetMaxDurability(stack);
+            if (max > 0) stack.Attributes.SetInt("durability", max);
+        }
+        catch (System.Exception e)
+        {
+            if (api != null) TcmLog.Cat(api, TcmLog.Hooks, $"head durability top-up skipped ({stack.Collectible.Code}): {e.Message}");
+        }
     }
 
     private static double Knob(string key, double fallback)
@@ -249,7 +260,7 @@ public static class MetPatches
             stack.Attributes.SetString(MakerNameAttr, maker.name);
             stack.Attributes.SetInt(MakerTierAttr, maker.tier);
             stack.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.tier));
-            RefreshHeadDurability(stack);
+            RefreshHeadDurability(stack, byEntity?.Api);
             // GM signature (Axis 6 stage 2): a directly-forged weapon/tool is classifiable
             // here; a bare Toolsmith head is not and takes its edge at assembly instead.
             MetSignature.Assign(stack, maker.tier);
@@ -289,7 +300,7 @@ public static class MetPatches
             s.Attributes.SetString(MakerNameAttr, maker.name);
             s.Attributes.SetInt(MakerTierAttr, maker.tier);
             s.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.tier));
-            RefreshHeadDurability(s);
+            RefreshHeadDurability(s, api);
             MetSignature.Assign(s, maker.tier);
             slot!.MarkDirty();
             TcmLog.Cat(api, TcmLog.Hooks, $"maker's mark re-stamped on surviving {s.Collectible.Code}");
@@ -474,7 +485,7 @@ public static class MetPatches
                 stack.Attributes.SetString(MakerNameAttr, caster.name);
                 stack.Attributes.SetInt(MakerTierAttr, caster.tier);
                 stack.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(caster.tier));
-                RefreshHeadDurability(stack);
+                RefreshHeadDurability(stack, __instance.Api);
                 MetSignature.Assign(stack, caster.tier);
             }
         }
@@ -510,7 +521,7 @@ public static class MetPatches
                 // stripped tool), keeping the head-for-life model intact through assembly.
                 output.Attributes.SetFloat(SmithingQualityAttr,
                     input.Itemstack.Attributes.GetFloat(SmithingQualityAttr, 1f));
-                RefreshHeadDurability(output);
+                RefreshHeadDurability(output, outputSlot?.Inventory?.Api);
                 // GM signature: keep an already-marked head's edge; otherwise the bare head
                 // finally becomes a classifiable tool here, so assign by the finished type.
                 if (!MetSignature.CopySignature(input.Itemstack, output))
