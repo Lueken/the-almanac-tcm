@@ -211,6 +211,10 @@ public static class MetPatches
     /// stamp must be re-applied to it by ambient context.</summary>
     private static (string uid, string name, int tier)? pendingMaker;
 
+    /// <summary>Collectible id of the recipe output about to complete, captured in the prefix so
+    /// the completion postfix can find that exact head in inventory or on the ground.</summary>
+    private static int pendingOutputId;
+
     [HarmonyPatch(typeof(BlockEntityAnvil), nameof(BlockEntityAnvil.CheckIfFinished))]
     public static class AnvilFinishPatch
     {
@@ -220,6 +224,7 @@ public static class MetPatches
             string? uid = __instance.WorkItemStack?.Attributes.GetString(SmithAttr);
             string? name = __instance.WorkItemStack?.Attributes.GetString(SmithNameAttr);
             pendingMaker = uid == null ? null : (uid, name ?? "", MakerTierOf(__instance.Api, uid));
+            pendingOutputId = __instance.SelectedRecipe?.Output?.ResolvedItemstack?.Collectible?.Id ?? 0;
 
             if (__instance.Api?.Side == EnumAppSide.Server && __state != -1)
             {
@@ -236,12 +241,57 @@ public static class MetPatches
 
             Core?.Ledger?.Log(byPlayer, MetDomain.Code, MetDomain.TechSmithing,
                 HashCode.Combine(__state, __instance.Pos));
+
+            // Mark the finished head HERE, at completion — robust to how vanilla delivers it.
+            // If the inventory has room the head is given (and OnItemPickedUp marks it inside the
+            // pending window); if it is FULL the head is dropped as an entity and that seam is
+            // skipped entirely, so the head is only picked up later with no pending (the live bug).
+            // Scanning both inventory and nearby drops at completion catches every path.
+            if (pendingMaker is { } m && m.tier >= 2 && pendingOutputId != 0)
+                StampCompletedOutput(__instance, byPlayer, m, pendingOutputId);
         }
 
         public static void Finalizer()
         {
             pendingMaker = null;
         }
+    }
+
+    /// <summary>Find the just-completed head (by collectible id) in the smith's inventory OR
+    /// among items dropped near the anvil, and stamp the maker's mark on it. Runs shortly after
+    /// completion so post-processors (Toolsmith/Smithing+ rebuilds) have settled.</summary>
+    private static void StampCompletedOutput(BlockEntityAnvil anvil, IPlayer byPlayer,
+        (string uid, string name, int tier) maker, int collId)
+    {
+        ICoreAPI api = anvil.Api;
+        api.Event.RegisterCallback(_ =>
+        {
+            int marked = 0;
+            foreach (var slot in byPlayer.InventoryManager.GetHotbarInventory())
+                if (StampIfMatch(api, slot?.Itemstack, collId, maker)) marked++;
+            var backpack = byPlayer.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
+            if (backpack != null)
+                foreach (var slot in backpack)
+                    if (StampIfMatch(api, slot?.Itemstack, collId, maker)) marked++;
+
+            foreach (var e in api.World.GetEntitiesAround(anvil.Pos.ToVec3d().Add(0.5, 0.5, 0.5), 4f, 4f,
+                         ent => ent is EntityItem ei && ei.Itemstack?.Collectible?.Id == collId))
+                if (StampIfMatch(api, (e as EntityItem)?.Itemstack, collId, maker)) marked++;
+
+            if (marked > 0) TcmLog.Cat(api, TcmLog.Hooks, $"maker's mark stamped {marked}x at completion (collectible {collId})");
+        }, 150);
+    }
+
+    private static bool StampIfMatch(ICoreAPI api, ItemStack? s, int collId, (string uid, string name, int tier) maker)
+    {
+        if (s?.Collectible?.Id != collId || s.Attributes.HasAttribute(MakerAttr)) return false;
+        s.Attributes.SetString(MakerAttr, maker.uid);
+        s.Attributes.SetString(MakerNameAttr, maker.name);
+        s.Attributes.SetInt(MakerTierAttr, maker.tier);
+        s.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.tier));
+        RefreshHeadDurability(s, api);
+        MetSignature.Assign(s, maker.tier);
+        return true;
     }
 
     /// <summary>Maker's Mark v1: vanilla hands the EXACT finished stack to
