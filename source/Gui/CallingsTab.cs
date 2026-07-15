@@ -246,6 +246,13 @@ public class CallingsTab : IAlmanacBookTab
             comps.Add(new RichTextComponent(capi, string.Join(" · ", di.techniques) + "\n", muted));
         }
 
+        if (di?.tip != null)
+        {
+            comps.Add(new ClearFloatTextComponent(capi, 14));
+            comps.Add(new RichTextComponent(capi, "A smith's tip\n", subhead));
+            comps.Add(new RichTextComponent(capi, di.tip + "\n", body));
+        }
+
         if (di?.identity == null && di?.mastery == null)
         {
             comps.Add(new ClearFloatTextComponent(capi, 14));
@@ -402,5 +409,6 @@ public class DomainInfo
     public string? tagline;
     public string? identity;
     public string? mastery;
+    public string? tip;
     public string[]? techniques;
 }

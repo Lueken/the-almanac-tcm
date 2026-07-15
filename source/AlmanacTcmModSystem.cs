@@ -86,6 +86,18 @@ public class AlmanacTcmModSystem : ModSystem
         // assembly is always present; the tab API is 0.0.2+, enforced above).
         capi.ModLoader.GetModSystem<AlmanacIlluminated.AlmanacIlluminatedModSystem>()
             ?.RegisterBookTab(new Gui.CallingsTab(Client));
+
+        // Axis 4 Master unlock: the Alloy Ledger modal, toggled by a (player-bound)
+        // hotkey and gated to Master MET on open. Default unbound to avoid clashing with
+        // the pack's many mods; it shows as "Almanac: Alloy Ledger" in Controls.
+        var alloyLedger = new Gui.GuiDialogAlloyLedger(capi);
+        capi.Input.RegisterHotKey("tcmalloyledger", "Almanac: Alloy Ledger", GlKeys.Unknown, HotkeyType.GUIOrOtherControls);
+        capi.Input.SetHotKeyHandler("tcmalloyledger", _ =>
+        {
+            if (alloyLedger.IsOpened()) alloyLedger.TryClose();
+            else alloyLedger.TryOpen();
+            return true;
+        });
     }
 
     private void RegisterDomains(ICoreAPI api)

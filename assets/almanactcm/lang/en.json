@@ -12,5 +12,11 @@
   "almanactcm:gate-blocked": "Your hands don't yet know how to work {0}. That takes {1} Metalworking.",
   "almanactcm:gate-wasted": "You force the unfamiliar {0} and ruin it. {1} Metalworking would have known better.",
   "almanactcm:honed-mark": "Honed. Its edge finds the gaps in armour.",
-  "almanactcm:durable-mark": "Durable. Tempered to outlast hard use."
+  "almanactcm:durable-mark": "Durable. Tempered to outlast hard use.",
+  "almanactcm:alloy-title": "Alloy Ledger",
+  "almanactcm:alloy-ingots": "Ingots to make",
+  "almanactcm:alloy-locked": "The alloy ledger opens only to a Master of Metalworking.",
+  "almanactcm:alloy-none": "No alloys are known.",
+  "almanactcm:alloy-leanest": "Leanest mix:",
+  "almanactcm:alloy-footnote": "100 units make one ingot. Any mix inside the ranges yields this alloy."
 }
