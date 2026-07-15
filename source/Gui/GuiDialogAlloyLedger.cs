@@ -176,7 +176,9 @@ public class GuiDialogAlloyLedger : GuiDialog
 
     private void EnsureAlloys()
     {
-        if (built) return;
+        // Retry while empty: industrialstory's registry may not have synced to the client the
+        // first time a station is opened, so a zero-length read is not cached.
+        if (built && alloys.Count > 0) return;
         built = true;
         alloys = BuildAlloys(capi);
         if (selected >= alloys.Count) selected = 0;
@@ -233,9 +235,18 @@ public class GuiDialogAlloyLedger : GuiDialog
         try
         {
             var mod = capi.ModLoader.GetModSystem("IndustrialStory.IndustrialStoryModSystem");
-            var registry = mod == null ? null : AccessTools.Property(mod.GetType(), "CrucibleAlloyRegistry")?.GetValue(mod);
-            if (registry == null) return null;
-            if (AccessTools.Property(registry.GetType(), "Recipes")?.GetValue(registry) is not IEnumerable recipes) return null;
+            if (mod == null)
+            {
+                // Fall back to a name scan in case GetModSystem's full-name match differs.
+                foreach (var s in capi.ModLoader.Systems)
+                    if (s.GetType().Name == "IndustrialStoryModSystem") { mod = s; break; }
+            }
+            if (mod == null) { TcmLog.Warn(capi, "alloy ledger: IndustrialStoryModSystem not found"); return null; }
+
+            var registry = AccessTools.Property(mod.GetType(), "CrucibleAlloyRegistry")?.GetValue(mod);
+            if (registry == null) { TcmLog.Warn(capi, "alloy ledger: CrucibleAlloyRegistry is null (not synced yet?)"); return null; }
+            if (AccessTools.Property(registry.GetType(), "Recipes")?.GetValue(registry) is not IEnumerable recipes)
+            { TcmLog.Warn(capi, "alloy ledger: registry has no Recipes property"); return null; }
 
             var result = new List<LedgerAlloy>();
             PropertyInfo? pEnabled = null, pOutput = null, pMetals = null, pCats = null;
@@ -298,6 +309,7 @@ public class GuiDialogAlloyLedger : GuiDialog
 
                 result.Add(new LedgerAlloy { Output = outStack.GetName(), Metals = metals.ToArray(), Catalysts = cats.ToArray() });
             }
+            TcmLog.Info(capi, $"alloy ledger: read {result.Count} industrialstory alloys");
             return result;
         }
         catch (Exception e)

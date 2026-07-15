@@ -41,6 +41,12 @@ public class TcmCommands
                 .RequiresPrivilege(Privilege.controlserver)
                 .HandleWith(OnNextDay)
             .EndSubCommand()
+            .BeginSubCommand("setlevel")
+                .WithDescription("(admin) Set a domain's rank directly, for testing (Master I = 13)")
+                .RequiresPrivilege(Privilege.controlserver)
+                .WithArgs(parsers.Word("domain"), parsers.Int("level"))
+                .HandleWith(OnSetLevel)
+            .EndSubCommand()
             .BeginSubCommand("inspect")
                 .WithDescription("(admin) Print the held item's TCM attributes, server-side truth")
                 .RequiresPrivilege(Privilege.controlserver)
@@ -124,6 +130,23 @@ public class TcmCommands
         }
         if (!any) sb.AppendLine("  (no almanactcm attributes)");
         return TextCommandResult.Success(sb.ToString());
+    }
+
+    private TextCommandResult OnSetLevel(TextCommandCallingArgs args)
+    {
+        if (args.Caller.Player is not IServerPlayer player)
+            return TextCommandResult.Error("Player-only command.");
+        string domain = ((string)args[0]).ToUpperInvariant();
+        int level = (int)args[1];
+
+        PlayerDomainSet? domainSet = core.Server?.GetDomainSet(player);
+        PlayerDomain? pd = domainSet?.FindDomain(domain);
+        if (pd == null) return TextCommandResult.Error($"No such domain '{domain}'.");
+
+        pd.Hidden = false;
+        pd.Level = level;
+        core.Server?.SyncDomain(player, pd);
+        return TextCommandResult.Success($"{domain} set to {RankName(level)} (level {level}). Reopen the station or book to see it.");
     }
 
     private TextCommandResult OnNextDay(TextCommandCallingArgs args)
