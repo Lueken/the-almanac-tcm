@@ -20,5 +20,8 @@
   "almanactcm:alloy-leanest": "Leanest mix:",
   "almanactcm:alloy-catalysts": "Plus:",
   "almanactcm:alloy-footnote": "100 units make one ingot. Any mix inside the ranges yields this alloy.",
-  "almanactcm:alloy-tab": "Alloy"
+  "almanactcm:alloy-tab": "Alloy",
+  "almanactcm:instability-steady": "This rock feels steady underfoot.",
+  "almanactcm:instability-uneasy": "This rock feels uneasy. It wants support.",
+  "almanactcm:instability-dangerous": "This rock feels ready to come down."
 }

@@ -156,8 +156,11 @@ public class LedgerSystem
 
     /// <summary>The one entry point for listeners. Raw value and K come from server
     /// config, never the caller; identical contexts inside the dedup window log zero
-    /// (place-and-rebreak guard); first contact reveals a hidden domain.</summary>
-    public void Log(IPlayer player, string domainCode, string technique, int contextHash)
+    /// (place-and-rebreak guard); first contact reveals a hidden domain.
+    /// <paramref name="rawMultiplier"/> scales the config raw for THIS action only —
+    /// the seam for ruled per-action quality scaling (MIN Q5: ore rarity/depth), never
+    /// a way to inject a caller-chosen base (the base still lives in config).</summary>
+    public void Log(IPlayer player, string domainCode, string technique, int contextHash, double rawMultiplier = 1.0)
     {
         Domain? domain = template.FindDomain(domainCode);
         if (domain == null || !domain.Enabled) return;
@@ -182,6 +185,8 @@ public class LedgerSystem
         {
             TcmLog.Warn(sapi, $"unconfigured technique {domainCode}/{technique} — using raw=1, K=50");
         }
+
+        if (rawMultiplier != 1.0) raw = System.Math.Max(0, raw * rawMultiplier);
 
         bool duplicate = IsDuplicateContext(ledger, domainCode, technique, contextHash);
         if (duplicate) raw = 0;

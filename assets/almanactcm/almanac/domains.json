@@ -3,7 +3,13 @@
     "title": "The Deep-Delver",
     "tagline": "The mountain tires before they do.",
     "identity": "Endurance turned into ore. A miner learns the rock by staying with it, working the face long after the light and the legs of others have given out. There is no sight that finds the vein for you. There is only the swing, and the patience to keep swinging.",
-    "mastery": "A Grandmaster works the stone tirelessly, and the rock gives up more to their pick than to any other hand. Where a lesser digger walks out empty, they come back up loaded."
+    "mastery": "A Grandmaster works the stone tirelessly, and the rock gives up more to their pick than to any other hand. Where a lesser digger walks out empty, they come back up loaded.",
+    "tip": "A skilled cut brings the roof down less often, but no skill makes deep rock safe. The save is a lowered chance, never a promise: rock cut loose from all support still falls on anyone, and a slide already in motion answers to no one. Read the face, keep supports near, and pull the last prop of an overhang only when you are ready to run.",
+    "techniques": [
+      "Pickaxe mining",
+      "Quarrying",
+      "Knapping"
+    ]
   },
   "WOO": {
     "title": "The Forester",

@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.12-dev")]
+    Version = "0.3.42-dev")]
 
 namespace AlmanacTcm;
 
@@ -57,8 +57,9 @@ public class AlmanacTcmModSystem : ModSystem
             Domains.MetConditionalPatches.PatchAllPresent(api, harmony);
             Domains.MetGatePatches.PatchConditional(api, harmony);
             Domains.MetSignaturePatches.PatchConditional(api, harmony);
+            Domains.MinConditionalPatches.PatchAllPresent(api, harmony);
             Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
-            TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate + conditionals)");
+            TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate, mining, cave-in + conditionals)");
         }
     }
 
@@ -66,10 +67,16 @@ public class AlmanacTcmModSystem : ModSystem
     {
         LoadGlobalConfig(sapi);
         Engine.LedgerSystem.DefaultFactories[Domains.MetDomain.Code] = Domains.MetDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.MinDomain.Code] = Domains.MinDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
         Commands = new Engine.TcmCommands(sapi, this);
+
+        // MIN's zero-Harmony server hooks (knapping practice, oreDropRate reconcile) need
+        // the ledger live, so they register after it — the vanilla mining/cave-in patches
+        // were already applied in Start via PatchAll.
+        Domains.MinPatches.RegisterServer(sapi);
 
         TcmLog.Cat(sapi, TcmLog.Config,
             $"engine config: consolidationHour={GlobalConfig.ConsolidationHour}, " +
