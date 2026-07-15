@@ -28,9 +28,16 @@ public static class MinConditionalPatches
     /// <summary>Captured at patch time so the static stamina prefix can log without an api hop.</summary>
     private static ICoreAPI? logApi;
 
+    /// <summary>When false, the IM stamina hook is NOT attached — a diagnostic switch to
+    /// tell whether patching IM's shared TryConsume is what stopped Vigor from draining
+    /// (the knife, which our scaling never touches, also read zero drain). Flip back to
+    /// true once the Vigor interaction is understood.</summary>
+    public static bool EnableStaminaAxis = false;
+
     public static void PatchAllPresent(ICoreAPI api, Harmony harmony)
     {
-        PatchImmersiveMiningStamina(api, harmony);
+        if (EnableStaminaAxis) PatchImmersiveMiningStamina(api, harmony);
+        else TcmLog.Info(api, "MIN stamina axis DISABLED (diagnostic — IM/Vigor drain check)");
         PatchStoneQuarry(api, harmony);
     }
 
