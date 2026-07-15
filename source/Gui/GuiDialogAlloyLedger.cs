@@ -249,62 +249,44 @@ public class GuiDialogAlloyLedger : GuiDialog
             { TcmLog.Warn(capi, "alloy ledger: registry has no Recipes property"); return null; }
 
             var result = new List<LedgerAlloy>();
-            // Read the raw Code fields, not Resolved* — the client's synced recipes are NOT
-            // resolved (LoadFromSync just parses JSON), so ResolvedItemstack/ResolvedCollectible
-            // are null client-side. Codes are always present.
-            PropertyInfo? pEnabled = null, pOutput = null, pMetals = null, pCats = null;
-            PropertyInfo? pMin = null, pMax = null, pUpi = null, pMetalCode = null;
-            PropertyInfo? pQty = null, pCatCode = null, pOutCode = null;
-
+            // Members are read field-OR-property agnostically: the client's synced recipes are
+            // deserialized but NOT resolved (so read raw Code, not Resolved*), and CO's JsonItemStack
+            // exposes Code as a FIELD while the ingredient ratios are PROPERTIES. Mixing the two
+            // silently skipped every recipe when read as properties only.
             foreach (var r in recipes)
             {
                 if (r == null) continue;
-                Type rt = r.GetType();
-                pEnabled ??= AccessTools.Property(rt, "Enabled");
-                pOutput ??= AccessTools.Property(rt, "Output");
-                pMetals ??= AccessTools.Property(rt, "MetalIngredients");
-                pCats ??= AccessTools.Property(rt, "Catalysts");
-
-                if (pEnabled?.GetValue(r) is bool en && !en) continue;
-                if (pOutput?.GetValue(r) is not { } outObj) continue;
-                pOutCode ??= AccessTools.Property(outObj.GetType(), "Code");
-                if (pOutCode?.GetValue(outObj) is not AssetLocation outCode) continue;
+                if (Member(r, "Enabled") is bool en && !en) continue;
+                if (Member(r, "Output") is not { } outObj) continue;
+                if (Member(outObj, "Code") is not AssetLocation outCode) continue;
 
                 var metals = new List<LedgerAlloy.Component>();
-                if (pMetals?.GetValue(r) is Array marr)
+                if (Member(r, "MetalIngredients") is Array marr)
                 {
                     foreach (var m in marr)
                     {
                         if (m == null) continue;
-                        Type mt = m.GetType();
-                        pMin ??= AccessTools.Property(mt, "MinRatio");
-                        pMax ??= AccessTools.Property(mt, "MaxRatio");
-                        pUpi ??= AccessTools.Property(mt, "UnitsPerItem");
-                        pMetalCode ??= AccessTools.Property(mt, "Code");
                         metals.Add(new LedgerAlloy.Component
                         {
-                            Name = MetalName(pMetalCode?.GetValue(m) as AssetLocation),
-                            Min = pMin?.GetValue(m) is float mn ? mn : 0f,
-                            Max = pMax?.GetValue(m) is float mx ? mx : 0f,
-                            UnitsPerItem = pUpi?.GetValue(m) is int u ? u : 0,
+                            Name = MetalName(Member(m, "Code") as AssetLocation),
+                            Min = Member(m, "MinRatio") is float mn ? mn : 0f,
+                            Max = Member(m, "MaxRatio") is float mx ? mx : 0f,
+                            UnitsPerItem = Member(m, "UnitsPerItem") is int u ? u : 0,
                         });
                     }
                 }
                 if (metals.Count == 0) continue;
 
                 var cats = new List<LedgerAlloy.Catalyst>();
-                if (pCats?.GetValue(r) is Array carr)
+                if (Member(r, "Catalysts") is Array carr)
                 {
                     foreach (var c in carr)
                     {
                         if (c == null) continue;
-                        Type ct = c.GetType();
-                        pQty ??= AccessTools.Property(ct, "Quantity");
-                        pCatCode ??= AccessTools.Property(ct, "Code");
                         cats.Add(new LedgerAlloy.Catalyst
                         {
-                            Name = MetalName(pCatCode?.GetValue(c) as AssetLocation),
-                            Quantity = pQty?.GetValue(c) is int q ? q : 1,
+                            Name = MetalName(Member(c, "Code") as AssetLocation),
+                            Quantity = Member(c, "Quantity") is int q ? q : 1,
                         });
                     }
                 }
@@ -452,6 +434,14 @@ public class GuiDialogAlloyLedger : GuiDialog
 
         sb.Append("\n\n").Append(Lang.Get("almanactcm:alloy-footnote"));
         return sb.ToString();
+    }
+
+    /// <summary>Read a member value by name, trying property then field, so reflection into a
+    /// third-party type works whether the member is declared either way.</summary>
+    private static object? Member(object obj, string name)
+    {
+        Type t = obj.GetType();
+        return AccessTools.Property(t, name)?.GetValue(obj) ?? AccessTools.Field(t, name)?.GetValue(obj);
     }
 
     /// <summary>A display name for an output code, resolving it against the world for the proper

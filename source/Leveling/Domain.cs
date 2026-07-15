@@ -14,7 +14,10 @@ public class Domain
 {
     public const int SubLevelsPerTier = 4;
     public const int TierCount = 5;
-    public const int MaxLevelDefault = SubLevelsPerTier * TierCount;
+
+    /// <summary>Novice…Master each have four sub-levels; Grandmaster is a single terminal rank
+    /// (RULED 2026-07-15: "GM is GM, no ranks within it"). So the ladder is 4 tiers × 4 + 1 GM = 17.</summary>
+    public const int MaxLevelDefault = SubLevelsPerTier * (TierCount - 1) + 1;
 
     /// <summary>Save/identify key (the three-letter code). Must never change once shipped.</summary>
     public string Code { get; private set; }
@@ -59,6 +62,9 @@ public class Domain
     {
         if (level <= 0 || level > MaxLevel) return 0f;
         int tier = (level - 1) / SubLevelsPerTier;
+        // Grandmaster is one terminal step, so its whole tier total is that single leap (the
+        // hardest step of all), not a quadratic sub-level fraction.
+        if (tier >= TierCount - 1) return (float)tierTotals[TierCount - 1];
         int step = (level - 1) % SubLevelsPerTier + 1;
         return (float)(tierTotals[tier] * step * step / 30.0);
     }
@@ -75,5 +81,10 @@ public class Domain
     /// <summary>Display rank ("Apprentice I", "Untrained") — names are presentation,
     /// not tuned constants, so client surfaces may compute them from a synced level.</summary>
     public static string RankName(int level)
-        => level <= 0 ? "Untrained" : $"{TierNames[TierOf(level)]} {SubLevelRoman[SubLevelOf(level)]}";
+    {
+        if (level <= 0) return "Untrained";
+        int tier = TierOf(level);
+        // Grandmaster carries no sub-level numeral; it is a single terminal rank.
+        return tier >= TierCount - 1 ? TierNames[tier] : $"{TierNames[tier]} {SubLevelRoman[SubLevelOf(level)]}";
+    }
 }
