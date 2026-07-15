@@ -13,28 +13,38 @@ using Vintagestory.GameContent;
 namespace AlmanacTcm.Gui;
 
 /// <summary>
-/// Opens the Alloy Ledger on an empty-handed right-click of a placed crucible (Axis 4 Master
-/// unlock, delivery ruled 2026-07-14). Guarded to the crucible block and the client's local
-/// interaction, so a full hand still fills/uses the crucible normally and every other block is
-/// untouched. The ledger self-gates to Master, which also serves as the teaser for lesser ranks.
+/// Attaches the Alloy Ledger to the firepit window (Axis 4 Master unlock; the firepit is where
+/// alloying happens, ruled 2026-07-14). It rides open with a firepit that holds a crucible, and
+/// closes with it. The firepit dialog floats with the block, so the ledger docks at a fixed spot
+/// on the left rather than gluing to the moving window. The ledger self-gates on the config, so
+/// nothing shows when it is Master-only and the viewer is not a Master.
 /// </summary>
-[HarmonyPatch(typeof(Block), nameof(Block.OnBlockInteractStart),
-    new[] { typeof(IWorldAccessor), typeof(IPlayer), typeof(BlockSelection) })]
-public static class CrucibleLedgerPatch
+[HarmonyPatch(typeof(GuiDialogBlockEntityFirepit), nameof(GuiDialogBlockEntityFirepit.OnGuiOpened))]
+public static class FirepitLedgerOpenPatch
 {
-    public static bool Prefix(Block __instance, IWorldAccessor world, IPlayer byPlayer, ref bool __result)
+    public static void Postfix(GuiDialogBlockEntity __instance)
     {
-        if (__instance is not BlockSmeltingContainer) return true;       // only the crucible
-        if (world.Side != EnumAppSide.Client) return true;              // the GUI is a client concern
-        if (byPlayer?.InventoryManager?.ActiveHotbarSlot?.Empty != true) return true;  // empty hand only
-
         var dlg = AlmanacTcmModSystem.Instance?.AlloyLedger;
-        if (dlg == null) return true;
+        if (dlg == null || !HasCrucible(__instance.Inventory)) return;
+        dlg.TryOpen();   // self-gates on config/Master; silent when not allowed
+    }
 
-        if (dlg.IsOpened()) dlg.TryClose();
-        else dlg.TryOpen();   // self-gates to Master (shows the teaser to lesser ranks)
-        __result = true;
-        return false;         // consume the interact so nothing else fires
+    private static bool HasCrucible(InventoryBase? inv)
+    {
+        if (inv == null) return false;
+        foreach (ItemSlot slot in inv)
+            if (slot?.Itemstack?.Collectible is BlockSmeltingContainer) return true;
+        return false;
+    }
+}
+
+[HarmonyPatch(typeof(GuiDialogBlockEntityFirepit), nameof(GuiDialogBlockEntityFirepit.OnGuiClosed))]
+public static class FirepitLedgerClosePatch
+{
+    public static void Postfix()
+    {
+        var dlg = AlmanacTcmModSystem.Instance?.AlloyLedger;
+        if (dlg != null && dlg.IsOpened()) dlg.TryClose();
     }
 }
 
@@ -61,14 +71,11 @@ public class GuiDialogAlloyLedger : GuiDialog
     /// this (well after asset load), so the list is gathered on first open, not construction.</summary>
     public override bool TryOpen()
     {
-        // Master gate is server-owned (AlloyLedgerMasterOnly, synced on join). When a server
-        // opens it to everyone, the rank check is skipped entirely.
+        // Master gate is server-owned (AlloyLedgerMasterOnly, synced on join). Silent: when the
+        // ledger is Master-only and the viewer is not a Master, it simply does not appear beside
+        // the firepit (no error), and when a server opens it to everyone the check is skipped.
         bool masterOnly = AlmanacTcmModSystem.Instance?.AlloyLedgerMasterOnly ?? true;
-        if (masterOnly && !IsMaster())
-        {
-            capi.TriggerIngameError(this, "notmaster", Lang.Get("almanactcm:alloy-locked"));
-            return false;
-        }
+        if (masterOnly && !IsMaster()) return false;
         EnsureAlloys();
         Compose();
         return base.TryOpen();
@@ -99,7 +106,11 @@ public class GuiDialogAlloyLedger : GuiDialog
         bgBounds.BothSizing = ElementSizing.FitToChildren;
         bgBounds.WithChildren(ddBounds, lblBounds, numBounds, txtBounds);
 
-        var dialogBounds = ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle);
+        // Docked at the left edge, mid-height: the firepit floats near the block (usually
+        // centre-right), so a fixed left berth keeps the ledger clear of it and predictable.
+        var dialogBounds = ElementStdBounds.AutosizedMainDialog
+            .WithAlignment(EnumDialogArea.LeftMiddle)
+            .WithFixedAlignmentOffset(40, 0);
 
         string[] codes = alloys.Select((_, i) => i.ToString()).ToArray();
         string[] names = alloys.Select(OutName).ToArray();
