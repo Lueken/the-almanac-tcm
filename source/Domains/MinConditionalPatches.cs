@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -24,8 +25,13 @@ public static class MinConditionalPatches
     // load-bearing: a Harmony finalizer rewraps the whole method's exception handling and was
     // the cause of the 0.3.43 regression where every tool (knife included) stopped draining.
     [ThreadStatic] private static double imPendingFactor;
-    [ThreadStatic] private static bool imPickaxeHit;
+    [ThreadStatic] private static bool imScaled;
     [ThreadStatic] private static IPlayer? sqQuarrier;
+
+    /// <summary>Per-tool rank→stamina-factor, populated by each domain that meters an IM tool
+    /// (MIN→Pickaxe, WOO→Axe). One shared IM hook serves all of them, gated by this map so the
+    /// knife/shovel and any unmapped tool pass through untouched.</summary>
+    public static readonly Dictionary<EnumTool, System.Func<IServerPlayer, double>> ToolFactor = new();
 
     /// <summary>Kill-switch for the IM stamina hook (whole axis is IM-conditional anyway).</summary>
     public static bool EnableStaminaAxis = true;
@@ -39,37 +45,35 @@ public static class MinConditionalPatches
 
     // ---------------------------------------------- ImmersiveMining stamina (Axes 2/1/6)
 
-    /// <summary>Gates the scale to PICKAXE hits only — axe is Woodcutting, shovel is
-    /// domainless digging, knife is not mining. Sets the rank factor for the TryConsume
-    /// that OnDurHit is about to make (reset at the top so no finalizer is needed).</summary>
+    /// <summary>Looks up the hit tool in the ToolFactor map (Pickaxe→MIN, Axe→WOO, …) and sets
+    /// the rank factor for the TryConsume OnDurHit is about to make. Unmapped tools pass through.
+    /// Reset at the top so no finalizer is needed (the finalizer broke every tool in 0.3.43).</summary>
     public static class DurHitGatePatch
     {
         public static void Prefix(IServerPlayer fromPlayer, object pkt)
         {
             imPendingFactor = 1.0;
-            imPickaxeHit = false;
+            imScaled = false;
             if (fromPlayer == null || pkt == null) return;
 
             EnumTool tool;
             try { tool = Traverse.Create(pkt).Property<EnumTool>("Tool").Value; }
             catch { return; }
-            if (tool != EnumTool.Pickaxe) return;
+            if (!ToolFactor.TryGetValue(tool, out var factorOf)) return;
 
-            imPickaxeHit = true;
-            imPendingFactor = MinDomain.RankLinear(MinDomain.LevelOf(fromPlayer),
-                MinDomain.Knob(MinDomain.StaminaUntrained, 1.3),
-                MinDomain.Knob(MinDomain.StaminaGm, 0.7));
+            imScaled = true;
+            imPendingFactor = factorOf(fromPlayer);
         }
     }
 
-    /// <summary>Scales the flat per-hit stamina IM hands Vigor for a PICKAXE — a master swings
-    /// for less, an Untrained miner for more. Never touches mining speed or durability. Silent
-    /// per-hit; non-pickaxe tools pass through untouched.</summary>
+    /// <summary>Scales the flat per-hit stamina IM hands Vigor for a metered tool — a master
+    /// swings for less, an Untrained one for more. Never touches mining speed or durability.
+    /// Silent per-hit; unmapped tools pass through untouched.</summary>
     public static class VigorConsumePatch
     {
         public static void Prefix(ref float amount)
         {
-            if (imPickaxeHit && imPendingFactor != 1.0) amount *= (float)imPendingFactor;
+            if (imScaled && imPendingFactor != 1.0) amount *= (float)imPendingFactor;
         }
     }
 
@@ -81,7 +85,7 @@ public static class MinConditionalPatches
         var tryConsume = AccessTools.Method(AccessTools.TypeByName("ImmersiveMining.VigorHook"), "TryConsume");
         if (onDurHit == null || tryConsume == null)
         {
-            TcmLog.Warn(api, "immersivemining present but OnDurHit/VigorHook.TryConsume not found; MIN stamina axis inactive");
+            TcmLog.Warn(api, "immersivemining present but OnDurHit/VigorHook.TryConsume not found; tool-stamina axes inactive");
             return;
         }
 
@@ -89,7 +93,7 @@ public static class MinConditionalPatches
             prefix: new HarmonyMethod(AccessTools.Method(typeof(DurHitGatePatch), "Prefix")));
         harmony.Patch(tryConsume,
             prefix: new HarmonyMethod(AccessTools.Method(typeof(VigorConsumePatch), "Prefix")));
-        TcmLog.Info(api, "MIN stamina axis hooked to ImmersiveMining (pickaxe hits)");
+        TcmLog.Info(api, "tool-stamina axis hooked to ImmersiveMining (per-tool via ToolFactor)");
     }
 
     // ------------------------------------------------------- StoneQuarry quarrying verb

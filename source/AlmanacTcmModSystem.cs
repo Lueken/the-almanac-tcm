@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.47-dev")]
+    Version = "0.3.48-dev")]
 
 namespace AlmanacTcm;
 
@@ -58,8 +58,9 @@ public class AlmanacTcmModSystem : ModSystem
             Domains.MetGatePatches.PatchConditional(api, harmony);
             Domains.MetSignaturePatches.PatchConditional(api, harmony);
             Domains.MinConditionalPatches.PatchAllPresent(api, harmony);
+            Domains.WooFallingTreePatches.PatchConditional(api, harmony);
             Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
-            TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate, mining, cave-in + conditionals)");
+            TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate, mining, cave-in, felling + conditionals)");
         }
     }
 
@@ -68,6 +69,7 @@ public class AlmanacTcmModSystem : ModSystem
         LoadGlobalConfig(sapi);
         Engine.LedgerSystem.DefaultFactories[Domains.MetDomain.Code] = Domains.MetDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.MinDomain.Code] = Domains.MinDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.WooDomain.Code] = Domains.WooDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
@@ -77,6 +79,17 @@ public class AlmanacTcmModSystem : ModSystem
         // the ledger live, so they register after it — the vanilla mining/cave-in patches
         // were already applied in Start via PatchAll.
         Domains.MinPatches.RegisterServer(sapi);
+
+        // The shared IM stamina hook (one patch on VigorHook.TryConsume) scales per tool via
+        // this map: Pickaxe→MIN, Axe→WOO. Registered here so both domains' knobs are live.
+        Domains.MinConditionalPatches.ToolFactor[EnumTool.Pickaxe] = p =>
+            Domains.MinDomain.RankLinear(Domains.MinDomain.LevelOf(p),
+                Domains.MinDomain.Knob(Domains.MinDomain.StaminaUntrained, 1.3),
+                Domains.MinDomain.Knob(Domains.MinDomain.StaminaGm, 0.7));
+        Domains.MinConditionalPatches.ToolFactor[EnumTool.Axe] = p =>
+            Domains.WooDomain.RankLinear(Domains.WooDomain.LevelOf(p),
+                Domains.WooDomain.Knob(Domains.WooDomain.StaminaUntrained, 1.15),
+                Domains.WooDomain.Knob(Domains.WooDomain.StaminaGm, 0.85));
 
         TcmLog.Cat(sapi, TcmLog.Config,
             $"engine config: consolidationHour={GlobalConfig.ConsolidationHour}, " +

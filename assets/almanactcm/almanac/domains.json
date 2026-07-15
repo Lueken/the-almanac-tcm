@@ -15,7 +15,12 @@
     "title": "The Forester",
     "tagline": "Leaves the forest richer than they found it.",
     "identity": "The whole circle of the woods: the felling, the planting, and the slow burn that turns wood to fuel. A forester learns to read a stand, to take without emptying it, and to leave saplings that will stand when they are gone.",
-    "mastery": "A Grandmaster fells all day without tiring, and their planted trees take where others wither. Above all they are the master collier: charcoal bearing their mark burns hotter and longer, and smiths ask for it by name."
+    "mastery": "A Grandmaster fells all day without tiring, and their planted trees take where others wither. Above all they are the master collier: charcoal bearing their mark burns hotter and longer, and smiths ask for it by name.",
+    "tip": "A tree falls toward the face you cut, not away. Stand to the side and strike the face pointing where you want it down, never the one facing you. A green hand's aim wanders and the trunk can land on them; a master lays it exactly where they mean to, clear of their own feet. The wood is heavy and it does not forgive standing in its path.",
+    "techniques": [
+      "Felling",
+      "Planting"
+    ]
   },
   "FAR": {
     "title": "The Cultivator",
