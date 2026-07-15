@@ -57,6 +57,7 @@ public class AlmanacTcmModSystem : ModSystem
             Domains.MetConditionalPatches.PatchAllPresent(api, harmony);
             Domains.MetGatePatches.PatchConditional(api, harmony);
             Domains.MetSignaturePatches.PatchConditional(api, harmony);
+            Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
             TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate + conditionals)");
         }
     }
