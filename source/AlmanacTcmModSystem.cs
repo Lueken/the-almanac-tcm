@@ -80,6 +80,9 @@ public class AlmanacTcmModSystem : ModSystem
     {
         // Client receives synced STATE only (rank, pending %); engine constants
         // stay server-side by design (build-track-1 T1.0 hidden-values rule).
+        // Reset client-synced flags to their SAFE default first, so a value carried over
+        // from a previous server can't linger into this one before its join packet lands.
+        AlloyLedgerMasterOnly = true;
         Client = new LevelingClient(capi);
 
         // The Callings page lives in Illuminated's book (hard dependency, so the
