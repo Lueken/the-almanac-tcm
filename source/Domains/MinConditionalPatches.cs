@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -29,9 +30,9 @@ public static class MinConditionalPatches
     [ThreadStatic] private static string? imToolName;
     [ThreadStatic] private static IPlayer? sqQuarrier;
 
-    /// <summary>Last pickaxe-impact timestamp (ms), for measuring swing cadence. Single-miner
-    /// diagnostic — interleaves harmlessly with multiple miners; trimmed once cadence is known.</summary>
-    private static long lastPickHitMs;
+    /// <summary>Per-tool last-impact timestamp (ms), for measuring each tool's swing cadence.
+    /// Single-miner diagnostic — trimmed once the cadences are known.</summary>
+    private static readonly Dictionary<EnumTool, long> lastHitMsByTool = new();
 
     /// <summary>Captured at patch time so the static stamina prefix can log without an api hop.</summary>
     private static ICoreAPI? logApi;
@@ -66,6 +67,19 @@ public static class MinConditionalPatches
             try { tool = Traverse.Create(pkt).Property<EnumTool>("Tool").Value; }
             catch { return; }
             imToolName = tool.ToString();
+
+            // Cadence probe for EVERY tool (runs before the pickaxe gate): the gap between a
+            // tool's impacts is its true swing interval. Pick/axe/shovel fire once per swing so
+            // their readings are clean swing intervals; the knife's 3 frames make its readings
+            // noisy (intra-swing frame gaps mixed with swing-to-swing). Feeds the SPH ratio.
+            long now = fromPlayer.Entity?.World?.ElapsedMilliseconds ?? 0;
+            if (now > 0 && logApi != null)
+            {
+                if (lastHitMsByTool.TryGetValue(tool, out long last) && last > 0 && now > last)
+                    TcmLog.Cat(logApi, TcmLog.Hooks, $"MIN cadence: tool={tool} {now - last}ms since last impact");
+                lastHitMsByTool[tool] = now;
+            }
+
             if (tool != EnumTool.Pickaxe) return;
 
             imPickaxeHit = true;
@@ -73,14 +87,6 @@ public static class MinConditionalPatches
             imPendingFactor = MinDomain.RankLinear(MinDomain.LevelOf(fromPlayer),
                 MinDomain.Knob(MinDomain.StaminaUntrained, 1.15),
                 MinDomain.Knob(MinDomain.StaminaGm, 0.85));
-
-            // Cadence probe: ms between consecutive pickaxe impacts — the number that lets us
-            // set the Vigor cooldown to the minimum that still suppresses regen mid-dig.
-            long now = fromPlayer.Entity?.World?.ElapsedMilliseconds ?? 0;
-            if (lastPickHitMs > 0 && now > lastPickHitMs && logApi != null)
-                TcmLog.Cat(logApi, TcmLog.Hooks,
-                    $"MIN cadence: {now - lastPickHitMs}ms since last pickaxe impact ({imMinerName})");
-            if (now > 0) lastPickHitMs = now;
         }
     }
 
