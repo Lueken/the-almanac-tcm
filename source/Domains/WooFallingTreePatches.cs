@@ -67,20 +67,25 @@ public static class WooFallingTreePatches
 
             (skewX, skewZ) = ComputeFall(player, blockSel.Position, n.X, n.Z, world.Rand);
             skewValid = true;
+            TcmLog.Cat(world.Api, TcmLog.Hooks,
+                $"WOO fell: face=({n.X},{n.Z}) WOO={WooDomain.LevelOf(player)} -> dir=({skewX:0.##},{skewZ:0.##})");
         }
 
         public static void Postfix() => skewValid = false;
     }
 
-    /// <summary>Overrides the fall direction FallingTree bakes into each falling-log entity with
-    /// our rank-skewed one (same for every log of the tree).</summary>
+    /// <summary>Redirects the fall by rewriting the PIVOT offset (FallingTree ignores its dirX/dirZ
+    /// args — the topple direction is pivot − treeCenter). We recover the tree center from the
+    /// original dir args and re-offset it toward our skewed direction; same pivot for every log.</summary>
     public static class PivotDirPatch
     {
-        public static void Prefix(ref float dirX, ref float dirZ)
+        public static void Prefix(ref double pivotX, ref double pivotZ, float dirX, float dirZ)
         {
             if (!skewValid) return;
-            dirX = skewX;
-            dirZ = skewZ;
+            double centerX = pivotX - dirX * 0.5;
+            double centerZ = pivotZ - dirZ * 0.5;
+            pivotX = centerX + skewX * 0.5;
+            pivotZ = centerZ + skewZ * 0.5;
         }
     }
 

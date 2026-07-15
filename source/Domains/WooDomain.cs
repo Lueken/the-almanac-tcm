@@ -44,9 +44,9 @@ public static class WooDomain
         Adjacency = new List<string> { "FOR", "MET" },
         Techniques = new Dictionary<string, TechniqueConfig>
         {
-            // The staple grind floor: per log, and vanilla fells the whole trunk in one swing
-            // (many log-breaks), so raw is low per block. Large K.
-            [TechFelling] = new() { Raw = 3, K = 60 },
+            // The staple grind floor: per log, and felling a whole tree breaks many logs, so raw
+            // is LOW per block (spec: logs 0.2–0.4) — a ~10-log tree banks ~3.5, not 35. Large K.
+            [TechFelling] = new() { Raw = 0.35, K = 60 },
             // Cheap and self-limiting (seeds are finite); credited at the plant action (ruled).
             [TechPlanting] = new() { Raw = 5, K = 15 },
         },

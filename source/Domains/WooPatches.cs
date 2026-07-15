@@ -39,13 +39,14 @@ public static class WooPatches
     [HarmonyPatch(typeof(ItemTreeSeed), nameof(ItemTreeSeed.OnHeldInteractStart))]
     public static class PlantingPracticePatch
     {
-        public static void Postfix(EntityAgent byEntity, BlockSelection blockSel, bool firstEvent,
-            ref EnumHandHandling handling)
+        // Only a subset of the params — Harmony injects by name and ignores the rest, so the
+        // ref handHandling stays out of our signature (its mis-named ref param crashed Start once).
+        public static void Postfix(EntityAgent byEntity, BlockSelection blockSel, bool firstEvent)
         {
-            if (!firstEvent || handling == EnumHandHandling.NotHandled || blockSel == null) return;
+            if (!firstEvent || blockSel == null) return;
             if (byEntity?.World?.Side != EnumAppSide.Server) return;
             IPlayer? player = (byEntity as EntityPlayer)?.Player;
-            if (player == null) return;
+            if (player == null || !byEntity.Controls.Sneak) return; // planting is a shift-interact
 
             Core?.Ledger?.Log(player, WooDomain.Code, WooDomain.TechPlanting, blockSel.Position.GetHashCode());
         }
