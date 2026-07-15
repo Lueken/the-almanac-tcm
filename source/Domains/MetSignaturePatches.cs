@@ -289,14 +289,31 @@ public static class MetSignaturePatches
     {
         var mdt = AccessTools.TypeByName("CombatOverhaul.MeleeSystems.MeleeDamageType");
         var dd = AccessTools.TypeByName("CombatOverhaul.MeleeSystems.DamageData");
-        var resolve = mdt == null ? null : AccessTools.Method(mdt, "ResolveDamageTypeData");
-        if (mdt == null || dd == null || resolve == null) return false;
+        if (mdt == null || dd == null)
+        {
+            TcmLog.Warn(api, $"Honed CO: type lookup MeleeDamageType={mdt != null} DamageData={dd != null}; scanning loaded assemblies for the real names...");
+            foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                System.Type[] types;
+                try { types = asm.GetTypes(); }
+                catch { continue; }
+                foreach (var t in types)
+                    if (t.Name is "DamageData" or "MeleeDamageType" or "DirectionalTypedDamageSource")
+                        TcmLog.Warn(api, $"Honed CO: candidate {t.FullName} in {asm.GetName().Name}");
+            }
+            return false;
+        }
 
-        _ddCtor = dd.GetConstructor(new[] { typeof(EnumDamageType), typeof(int), typeof(int) });
+        var resolve = AccessTools.Method(mdt, "ResolveDamageTypeData");
+        _ddCtor = AccessTools.Constructor(dd, new[] { typeof(EnumDamageType), typeof(int), typeof(int) });
         _ddType = AccessTools.Field(dd, "DamageType");
         _ddTier = AccessTools.Field(dd, "Tier");
         _ddAp = AccessTools.Field(dd, "ArmorPiercingTier");
-        if (_ddCtor == null || _ddType == null || _ddTier == null || _ddAp == null) return false;
+        if (resolve == null || _ddCtor == null || _ddType == null || _ddTier == null || _ddAp == null)
+        {
+            TcmLog.Warn(api, $"Honed CO: member lookup resolve={resolve != null} ctor={_ddCtor != null} type={_ddType != null} tier={_ddTier != null} ap={_ddAp != null}");
+            return false;
+        }
 
         InstallCoWeaponClassifier(api);
 
