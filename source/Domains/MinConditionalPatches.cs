@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -21,30 +20,20 @@ public static class MinConditionalPatches
     // OnDurHit → TryConsume is a 1:1 synchronous call on the server thread, and TryConsume
     // is internal-static called from nowhere else, so a thread-static factor set in the
     // OnDurHit prefix is live for exactly its TryConsume. The prefix RESETS this state at its
-    // top on every call, so no finalizer is needed to clear it — and dropping the finalizer
-    // is the prime suspect for the 0.3.43 knife regression (a finalizer rewraps the whole
-    // method's exception handling; a bare prefix does not).
+    // top on every call, so no finalizer is needed to clear it — and NOT using a finalizer is
+    // load-bearing: a Harmony finalizer rewraps the whole method's exception handling and was
+    // the cause of the 0.3.43 regression where every tool (knife included) stopped draining.
     [ThreadStatic] private static double imPendingFactor;
     [ThreadStatic] private static bool imPickaxeHit;
-    [ThreadStatic] private static string? imMinerName;
-    [ThreadStatic] private static string? imToolName;
     [ThreadStatic] private static IPlayer? sqQuarrier;
 
-    /// <summary>Per-tool last-impact timestamp (ms), for measuring each tool's swing cadence.
-    /// Single-miner diagnostic — trimmed once the cadences are known.</summary>
-    private static readonly Dictionary<EnumTool, long> lastHitMsByTool = new();
-
-    /// <summary>Captured at patch time so the static stamina prefix can log without an api hop.</summary>
-    private static ICoreAPI? logApi;
-
-    /// <summary>Master switch for the IM stamina hook. Diagnostic pass re-enables it with the
-    /// finalizer removed + full per-tool logging to confirm the knife path survives.</summary>
+    /// <summary>Kill-switch for the IM stamina hook (whole axis is IM-conditional anyway).</summary>
     public static bool EnableStaminaAxis = true;
 
     public static void PatchAllPresent(ICoreAPI api, Harmony harmony)
     {
         if (EnableStaminaAxis) PatchImmersiveMiningStamina(api, harmony);
-        else TcmLog.Info(api, "MIN stamina axis DISABLED (diagnostic — IM/Vigor drain check)");
+        else TcmLog.Info(api, "MIN stamina axis disabled");
         PatchStoneQuarry(api, harmony);
     }
 
@@ -52,66 +41,41 @@ public static class MinConditionalPatches
 
     /// <summary>Gates the scale to PICKAXE hits only — axe is Woodcutting, shovel is
     /// domainless digging, knife is not mining. Sets the rank factor for the TryConsume
-    /// that OnDurHit is about to make.</summary>
+    /// that OnDurHit is about to make (reset at the top so no finalizer is needed).</summary>
     public static class DurHitGatePatch
     {
         public static void Prefix(IServerPlayer fromPlayer, object pkt)
         {
             imPendingFactor = 1.0;
             imPickaxeHit = false;
-            imMinerName = null;
-            imToolName = "?";
             if (fromPlayer == null || pkt == null) return;
 
             EnumTool tool;
             try { tool = Traverse.Create(pkt).Property<EnumTool>("Tool").Value; }
             catch { return; }
-            imToolName = tool.ToString();
-
-            // Cadence probe for EVERY tool (runs before the pickaxe gate): the gap between a
-            // tool's impacts is its true swing interval. Pick/axe/shovel fire once per swing so
-            // their readings are clean swing intervals; the knife's 3 frames make its readings
-            // noisy (intra-swing frame gaps mixed with swing-to-swing). Feeds the SPH ratio.
-            long now = fromPlayer.Entity?.World?.ElapsedMilliseconds ?? 0;
-            if (now > 0 && logApi != null)
-            {
-                if (lastHitMsByTool.TryGetValue(tool, out long last) && last > 0 && now > last)
-                    TcmLog.Cat(logApi, TcmLog.Hooks, $"MIN cadence: tool={tool} {now - last}ms since last impact");
-                lastHitMsByTool[tool] = now;
-            }
-
             if (tool != EnumTool.Pickaxe) return;
 
             imPickaxeHit = true;
-            imMinerName = fromPlayer.PlayerName;
             imPendingFactor = MinDomain.RankLinear(MinDomain.LevelOf(fromPlayer),
-                MinDomain.Knob(MinDomain.StaminaUntrained, 1.15),
-                MinDomain.Knob(MinDomain.StaminaGm, 0.85));
+                MinDomain.Knob(MinDomain.StaminaUntrained, 1.3),
+                MinDomain.Knob(MinDomain.StaminaGm, 0.7));
         }
     }
 
-    /// <summary>Scales the flat per-hit stamina amount IM hands Vigor for a PICKAXE. A master
-    /// swings for less, an Untrained miner for more; never touches mining speed or durability.
-    /// Logs EVERY tool's consume this pass (base -> scaled + factor) so we can confirm the knife
-    /// path still fires with the finalizer gone — the 0.3.43 regression check.</summary>
+    /// <summary>Scales the flat per-hit stamina IM hands Vigor for a PICKAXE — a master swings
+    /// for less, an Untrained miner for more. Never touches mining speed or durability. Silent
+    /// per-hit; non-pickaxe tools pass through untouched.</summary>
     public static class VigorConsumePatch
     {
         public static void Prefix(ref float amount)
         {
-            float baseAmt = amount;
             if (imPickaxeHit && imPendingFactor != 1.0) amount *= (float)imPendingFactor;
-
-            if (logApi != null)
-                TcmLog.Cat(logApi, TcmLog.Hooks,
-                    $"MIN stamina: tool={imToolName ?? "?"} base={baseAmt:0.##} -> {amount:0.##} " +
-                    $"(x{(imPickaxeHit ? imPendingFactor : 1.0):0.###})");
         }
     }
 
     private static void PatchImmersiveMiningStamina(ICoreAPI api, Harmony harmony)
     {
         if (!api.ModLoader.IsModEnabled("immersivemining")) return;
-        logApi = api;
 
         var onDurHit = AccessTools.Method(AccessTools.TypeByName("ImmersiveMining.ImmersiveMiningServer"), "OnDurHit");
         var tryConsume = AccessTools.Method(AccessTools.TypeByName("ImmersiveMining.VigorHook"), "TryConsume");
@@ -125,7 +89,7 @@ public static class MinConditionalPatches
             prefix: new HarmonyMethod(AccessTools.Method(typeof(DurHitGatePatch), "Prefix")));
         harmony.Patch(tryConsume,
             prefix: new HarmonyMethod(AccessTools.Method(typeof(VigorConsumePatch), "Prefix")));
-        TcmLog.Info(api, "MIN stamina axis hooked to ImmersiveMining (pickaxe hits; finalizer-free + cadence probe)");
+        TcmLog.Info(api, "MIN stamina axis hooked to ImmersiveMining (pickaxe hits)");
     }
 
     // ------------------------------------------------------- StoneQuarry quarrying verb

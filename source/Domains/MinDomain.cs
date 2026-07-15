@@ -61,9 +61,11 @@ public static class MinDomain
         },
         Bonus = new Dictionary<string, double>
         {
-            // Axis 2 (illustrative, Open Q1): Untrained tires fast, GM endurance floor.
-            [StaminaUntrained] = 1.15,
-            [StaminaGm] = 0.85,
+            // Axis 2 (tuned live on The Quire 2026-07-15): Untrained tires fast, GM endurance
+            // floor. Widened from ±0.15 to ±0.30 so a Grandmaster works ~1.9x longer at the
+            // face than an Untrained miner — the felt Deep-Delver signature.
+            [StaminaUntrained] = 1.3,
+            [StaminaGm] = 0.7,
             // Axis 1/4: Untrained shatters ore (< 1.0), GM ore-yield peak (cap ~1.15 so it
             // never doubles even on multi-unit drops).
             [OreYieldUntrained] = 0.90,
