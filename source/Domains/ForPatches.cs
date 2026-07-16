@@ -242,6 +242,10 @@ public static class ForPatches
 
         private static bool IsWildGather(Block block, IWorldAccessor world, BlockPos pos)
         {
+            // RULED 2026-07-16: grass is terrain clearing, not foraging — no credit, and a stray
+            // grass swipe must not spend a cell's dedup window. Vanilla tallgrass is a plain
+            // BlockPlant (code "tallgrass"), so it is excluded by code, not class.
+            if (block.Code?.FirstCodePart() == "tallgrass") return false;
             // BlockPlant covers BlockMushroom + BlockReeds by inheritance; BlockLooseRock covers
             // loose stones; BlockLooseOres is surface flint/ore bits.
             if (block is BlockPlant || block is BlockLooseRock || block is BlockLooseOres) return true;
