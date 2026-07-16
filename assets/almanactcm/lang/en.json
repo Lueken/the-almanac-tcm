@@ -39,6 +39,9 @@
   "almanactcm:spot-water-healthy": "These waters fish well.",
   "almanactcm:spot-stock": "Stocks near {0} percent.",
   "almanactcm:spot-eta": "Ready in about {0} days.",
+  "almanactcm:spot-water-eta": "Back to full stock in about {0} days.",
+  "almanactcm:spot-names": "({0})",
+  "almanactcm:spot-names-more": "and more",
   "almanactcm:fish-escaped": "The line goes slack. It got away, and it took the bait with it.",
   "almanactcm:colliers-mark": "Collier's Mark: burned by {0}. Takes a hotter, longer fire.",
 

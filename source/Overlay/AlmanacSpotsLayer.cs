@@ -46,6 +46,12 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         [ProtoMember(2)] public int Y;
         [ProtoMember(3)] public int Z;
         [ProtoMember(4)] public int Kind;
+        /// <summary>Display names of what was picked here (a folded patch can hold several).
+        /// The world keeps the promise: mycelium regrows its own species, bushes their own berry.</summary>
+        [ProtoMember(5)] public List<string>? Names;
+        /// <summary>Horizontal footprint (blocks from anchor) learned from mycelium fruiting
+        /// offsets and folded repeat picks, so precise circles cover the TRUE patch, not a dot.</summary>
+        [ProtoMember(6)] public int Reach;
     }
 
     /// <summary>What the client is allowed to see: already fuzzed + fidelity-trimmed.</summary>
@@ -66,6 +72,9 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         /// <summary>Fidelity tier the server rendered this at (1 Apprentice .. 4 GM), so the
         /// client can phrase the hover without ever knowing the underlying values.</summary>
         [ProtoMember(9)] public int Tier;
+        /// <summary>What was picked here. No tier gate: the player picked it, they remember it.
+        /// The LOCATION precision stays the rank reward.</summary>
+        [ProtoMember(10)] public List<string>? Names;
     }
 
     // ------------------------------------------------------------ server state
@@ -111,8 +120,10 @@ public class AlmanacSpotsLayer : MarkerMapLayer
     // ------------------------------------------------------------ recording (server)
 
     /// <summary>Records a worked spot once. Dedup: water by the vanilla 8-block depletion cell,
-    /// mushrooms by the mycelium grow range (7), bushes by exact block.</summary>
-    public void Record(IPlayer player, BlockPos pos, SpotKind kind)
+    /// mushrooms by the mycelium grow range (7), bushes by exact block. Repeat picks inside a
+    /// known patch still teach it something: new species names fold in and the footprint widens
+    /// to cover where the pick actually happened.</summary>
+    public void Record(IPlayer player, BlockPos pos, SpotKind kind, string? name = null)
     {
         if (sapi == null || player == null) return;
         var list = GetOrLoad(player.PlayerUID);
@@ -122,19 +133,43 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         {
             if (s.Kind != (int)kind) continue;
             if (Math.Abs(s.X - pos.X) <= dedupe && Math.Abs(s.Z - pos.Z) <= dedupe && Math.Abs(s.Y - pos.Y) <= 4)
+            {
+                AddName(s, name);
+                s.Reach = Math.Max(s.Reach, Math.Max(Math.Abs(s.X - pos.X), Math.Abs(s.Z - pos.Z)));
                 return; // already known
+            }
         }
 
         // Mushrooms: anchor the patch on the hidden mycelium BE when it can be found nearby, so
-        // the GM read points at the true regrow source, not the one cap that got picked.
+        // the GM read points at the true regrow source, not the one cap that got picked. The
+        // network's current fruiting offsets seed the footprint.
+        int reach = 0;
         if (kind == SpotKind.Mushroom)
         {
             BlockPos? root = FindMyceliumNear(pos);
-            if (root != null) pos = root;
+            if (root != null)
+            {
+                reach = Math.Max(Math.Abs(root.X - pos.X), Math.Abs(root.Z - pos.Z));
+                if (offsetsRef != null && sapi.World.BlockAccessor.GetBlockEntity(root) is BlockEntityMycelium myc)
+                {
+                    foreach (var off in offsetsRef(myc))
+                        reach = Math.Max(reach, Math.Max(Math.Abs(off.X), Math.Abs(off.Z)));
+                }
+                pos = root;
+            }
         }
 
-        list.Add(new WorkedSpot { X = pos.X, Y = pos.Y, Z = pos.Z, Kind = (int)kind });
+        var spot = new WorkedSpot { X = pos.X, Y = pos.Y, Z = pos.Z, Kind = (int)kind, Reach = reach };
+        AddName(spot, name);
+        list.Add(spot);
         if (list.Count > MaxSpotsPerPlayer) list.RemoveAt(0);
+    }
+
+    private static void AddName(WorkedSpot spot, string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return;
+        spot.Names ??= new List<string>();
+        if (spot.Names.Count < 6 && !spot.Names.Contains(name)) spot.Names.Add(name);
     }
 
     private BlockPos? FindMyceliumNear(BlockPos pos)
@@ -172,6 +207,8 @@ public class AlmanacSpotsLayer : MarkerMapLayer
                 if (a.Kind == b.Kind && Math.Abs(a.X - b.X) <= dedupe && Math.Abs(a.Z - b.Z) <= dedupe
                     && Math.Abs(a.Y - b.Y) <= 4)
                 {
+                    b.Reach = Math.Max(b.Reach, Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Z - b.Z)));
+                    if (a.Names != null) foreach (var nm in a.Names) AddName(b, nm);
                     list.RemoveAt(i);
                     break;
                 }
@@ -223,7 +260,28 @@ public class AlmanacSpotsLayer : MarkerMapLayer
             if (level < 5) continue; // pre-Apprentice: the memory has not formed yet
 
             int tier = (level - 1) / 4; // 1=Apprentice ... 4=GM(terminal)
-            var view = new SpotView { Kind = spot.Kind, Y = spot.Y };
+            var view = new SpotView { Kind = spot.Kind, Y = spot.Y, Names = spot.Names };
+
+            // State / stock / ETA by tier and kind. Read BEFORE the radius so the mushroom
+            // state read's live footprint refresh (mycelium fruiting offsets) lands this rebuild.
+            if (kind == SpotKind.Water)
+            {
+                (int state, float stockPct, float etaDays) = ReadWater(spot, nowDays);
+                view.State = state; // Apprentice+ gets the coarse verdict (the ruled read)
+                if (tier >= 2) view.StockPct = stockPct;
+                // The GM forecast only matters when the water is actually worn down; a near-full
+                // spot nagging "ready in 14 days" reads as a warning it is not (live feedback).
+                if (tier >= 4 && stockPct <= 40f) view.EtaDays = etaDays;
+            }
+            else
+            {
+                if (tier >= 2) view.State = ReadPatchState(spot, out float eta);
+                if (tier >= 4 && view.State == 1)
+                {
+                    ReadPatchState(spot, out float eta2);
+                    view.EtaDays = eta2;
+                }
+            }
 
             // Centre fuzz + radius by tier. The fuzz is DETERMINISTIC per spot so the circle
             // does not wander between map opens.
@@ -235,6 +293,10 @@ public class AlmanacSpotsLayer : MarkerMapLayer
                 case 3: radius = kind == SpotKind.Water ? 9 : 8; fuzz = 1; break;
                 default: radius = kind == SpotKind.Water ? 8 : (kind == SpotKind.Mushroom ? 7 : 4); fuzz = 0; break;
             }
+            // Precision never lies: a tight high-rank circle still covers the patch's TRUE
+            // footprint (mycelium fruiting spread / folded picks), instead of converging on the
+            // anchor and leaving the fringe caps outside (live feedback at Master+).
+            radius = Math.Max(radius, spot.Reach + 2);
             // Deterministic fuzz keyed to the 16-block AREA + player, not the exact spot: two
             // patches a few blocks apart drift the SAME way instead of flying apart, and the
             // magnitude is capped so the true spot always sits inside the circle.
@@ -244,24 +306,6 @@ public class AlmanacSpotsLayer : MarkerMapLayer
             view.Z = spot.Z + 0.5 + (fuzz == 0 ? 0 : ((hash / 31) % (fuzz * 2 + 1)) - fuzz);
             view.RadiusBlocks = radius;
             view.Tier = tier;
-
-            // State / stock / ETA by tier and kind.
-            if (kind == SpotKind.Water)
-            {
-                (int state, float stockPct, float etaDays) = ReadWater(spot, nowDays);
-                view.State = state; // Apprentice+ gets the coarse verdict (the ruled read)
-                if (tier >= 2) view.StockPct = stockPct;
-                if (tier >= 4) view.EtaDays = etaDays;
-            }
-            else
-            {
-                if (tier >= 2) view.State = ReadPatchState(spot, out float eta);
-                if (tier >= 4 && view.State == 1)
-                {
-                    ReadPatchState(spot, out float eta2);
-                    view.EtaDays = eta2;
-                }
-            }
 
             result.Add(view);
         }
@@ -294,7 +338,13 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         if (spot.Kind == (int)SpotKind.Mushroom)
         {
             if (ba.GetBlockEntity(pos) is not BlockEntityMycelium myc) return 1;
-            if (offsetsRef != null && offsetsRef(myc).Length > 0) return 2;
+            if (offsetsRef != null)
+            {
+                // Opportunistic footprint learning: the network's fruiting spread IS the patch.
+                foreach (var off in offsetsRef(myc))
+                    spot.Reach = Math.Max(spot.Reach, Math.Max(Math.Abs(off.X), Math.Abs(off.Z)));
+                if (offsetsRef(myc).Length > 0) return 2;
+            }
             if (diedDaysRef != null && growingDaysRef != null)
             {
                 double eta = growingDaysRef(myc) - (sapi.World.Calendar.TotalDays - diedDaysRef(myc));
@@ -401,6 +451,12 @@ public class AlmanacSpotsLayer : MarkerMapLayer
                 blob.Tier = Math.Max(blob.Tier, m.Tier);
                 if (m.StockPct >= 0) blob.StockPct = blob.StockPct < 0 ? m.StockPct : Math.Min(blob.StockPct, m.StockPct);
                 blob.EtaDays = Math.Max(blob.EtaDays, m.EtaDays);
+                if (m.Names != null)
+                {
+                    blob.Names ??= new List<string>();
+                    foreach (var nm in m.Names)
+                        if (blob.Names.Count < 6 && !blob.Names.Contains(nm)) blob.Names.Add(nm);
+                }
             }
             blob.RadiusBlocks = radius;
             result.Add((blob, members.Count));
@@ -508,7 +564,7 @@ public class SpotMapComponent : MapComponent
         {
             line = view.State == 1 ? Lang.Get("almanactcm:spot-water-low") : Lang.Get("almanactcm:spot-water-healthy");
             if (view.StockPct >= 0) line += " " + Lang.Get("almanactcm:spot-stock", (int)view.StockPct);
-            if (view.EtaDays > 0) line += " " + Lang.Get("almanactcm:spot-eta", (int)Math.Ceiling(view.EtaDays));
+            if (view.EtaDays > 0) line += " " + Lang.Get("almanactcm:spot-water-eta", (int)Math.Ceiling(view.EtaDays));
             if (view.Tier >= 3 && view.EtaDays <= 0 && view.StockPct >= 0)
                 line += " " + Lang.Get("almanactcm:spot-precise");
         }
@@ -527,6 +583,15 @@ public class SpotMapComponent : MapComponent
                 _ => (view.State == 2 ? Lang.Get("almanactcm:spot-ready", what) : Lang.Get("almanactcm:spot-resting-exact", what)),
             };
             if (view.EtaDays > 0) line += " " + Lang.Get("almanactcm:spot-eta", (int)Math.Ceiling(view.EtaDays));
+
+            // What was picked here, no tier gate: you picked it, you remember it.
+            if (view.Names != null && view.Names.Count > 0)
+            {
+                var shown = view.Names.Count > 3 ? view.Names.GetRange(0, 3) : view.Names;
+                string joined = string.Join(", ", shown);
+                if (view.Names.Count > 3) joined += " " + Lang.Get("almanactcm:spot-names-more");
+                line += " " + Lang.Get("almanactcm:spot-names", joined);
+            }
         }
         if (count > 1) line += " " + Lang.Get("almanactcm:spot-count", count);
         hoverText.AppendLine(line);

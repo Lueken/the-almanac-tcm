@@ -163,6 +163,20 @@ public static class ForPatches
     // verbs). Harvesting therefore patches the two REAL pluck-completion seams instead:
     // BlockBehaviorHarvestable (resin, reeds, herbarium) and BEBehaviorFruitingBush (berry bushes).
 
+    /// <summary>Display name for the overlay's species memory, resolved once at record time
+    /// (server language). State suffixes like "(ripe)" are trimmed: the label outlives the state.</summary>
+    private static string? SpotName(Block? block)
+    {
+        if (block == null) return null;
+        try
+        {
+            string n = new ItemStack(block).GetName();
+            int p = n.IndexOf(" (", StringComparison.Ordinal);
+            return p > 0 ? n[..p] : n;
+        }
+        catch { return null; }
+    }
+
     private static void CreditHarvest(IPlayer byPlayer, Block? block)
     {
         if (serverWorld == null || byPlayer == null) return;
@@ -218,7 +232,7 @@ public static class ForPatches
             CreditHarvest(byPlayer, __instance.Block);
             // The Forager's Memory: a plucked bush is a renewable patch worth remembering.
             Overlay.AlmanacSpotsLayer.Instance?.Record(byPlayer, __instance.Pos,
-                Overlay.AlmanacSpotsLayer.SpotKind.Bush);
+                Overlay.AlmanacSpotsLayer.SpotKind.Bush, SpotName(__instance.Block));
         }
     }
 
@@ -247,7 +261,7 @@ public static class ForPatches
             if (__instance is BlockMushroom)
             {
                 Overlay.AlmanacSpotsLayer.Instance?.Record(byPlayer, pos,
-                    Overlay.AlmanacSpotsLayer.SpotKind.Mushroom);
+                    Overlay.AlmanacSpotsLayer.SpotKind.Mushroom, SpotName(__instance));
             }
         }
 
