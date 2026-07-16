@@ -46,7 +46,14 @@
     "identity": "The trade the whole Almanac grew from. A smith learns the fire by working it: heating, striking, folding, and cooling, until the metal answers the hammer instead of fighting it. The work is slow and hot, and there is no hurrying it.",
     "mastery": "A Grandmaster's mark is struck into every tool they finish, forged or cast, and rides it until the tool is spent. Their fuel goes further at the forge, and their quenched steel holds where a lesser hand's would crack clean through.",
     "tip": "A tool comes apart at the bench, and its head remembers both its wear and its maker. Take a tiring tool apart before the binding frays: reforge the head alone to freshen it, then fit it anew. Leave it too long and a worn binding is lost when the tool breaks. The mark and its quality ride the head, so a head kept whole keeps the master's work.",
-    "techniques": ["Smithing", "Casting", "Quenching", "Smelting", "Alloying", "Assembly"]
+    "techniques": [
+      "Smithing",
+      "Casting",
+      "Quenching",
+      "Smelting",
+      "Alloying",
+      "Assembly"
+    ]
   },
   "POT": {
     "title": "The Potter's Mark",
@@ -82,7 +89,13 @@
     "title": "The Master Forager",
     "tagline": "Walks a harvest circuit nobody else can see.",
     "identity": "Private knowledge of the living land. A forager's map is a constellation of small, timed circles: which patches renew, and exactly when each is ready. The knowledge itself is the trade good.",
-    "mastery": "A Grandmaster walks a harvest circuit no one else can see or find twice, and they corner the foraged market by selling access to it. What they know is worth more than what they carry."
+    "mastery": "A Grandmaster walks a harvest circuit no one else can see or find twice, and they corner the foraged market by selling access to it. What they know is worth more than what they carry.",
+    "tip": "Range wide: the first time you take a new species teaches you far more than stripping the same bush ever will. And mind your feet. A harvest circuit walked the same way every day wears a trail straight to your best patches, and a trail can be followed. A wise forager varies the route.",
+    "techniques": [
+      "Wild harvesting",
+      "Wild gathering",
+      "Tapping"
+    ]
   },
   "ALC": {
     "title": "The Alchemist's Brand",

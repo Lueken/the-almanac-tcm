@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.56-dev")]
+    Version = "0.3.57-dev")]
 
 namespace AlmanacTcm;
 
@@ -61,6 +61,7 @@ public class AlmanacTcmModSystem : ModSystem
             Domains.WooFallingTreePatches.PatchConditional(api, harmony);
             Domains.WooIdgPatches.PatchConditional(api, harmony);
             Domains.WooIwPatches.PatchConditional(api, harmony);
+            Domains.ForAcaPatches.PatchConditional(api, harmony);
             Domains.WooColliderPatches.PatchAll(api, harmony);
             Domains.WooColliersMark.PatchAll(api, harmony);
             Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
@@ -74,6 +75,7 @@ public class AlmanacTcmModSystem : ModSystem
         Engine.LedgerSystem.DefaultFactories[Domains.MetDomain.Code] = Domains.MetDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.MinDomain.Code] = Domains.MinDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.WooDomain.Code] = Domains.WooDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.ForDomain.Code] = Domains.ForDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
@@ -83,6 +85,10 @@ public class AlmanacTcmModSystem : ModSystem
         // the ledger live, so they register after it — the vanilla mining/cave-in patches
         // were already applied in Start via PatchAll.
         Domains.MinPatches.RegisterServer(sapi);
+
+        // FOR's zero-Harmony server hooks (harvest event listener, the two-stat yield reconcile,
+        // the persisted novel-finds + tapline-owner state) register after the ledger is live.
+        Domains.ForPatches.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
