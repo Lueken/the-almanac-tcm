@@ -98,7 +98,7 @@ public static class WooColliderPatches
     /// attribute, falling back to vanilla's uniform[0.5, 1.0]) — a prefix would be overwritten.</summary>
     public static class FirewoodEfficiencyPatch
     {
-        public static void Postfix(ref NatFloat efficiency)
+        public static void Postfix(BlockPos pos, ref NatFloat efficiency)
         {
             if (collier == null || efficiency == null) return;
             scaledBlocks++;
@@ -116,6 +116,17 @@ public static class WooColliderPatches
             if (newMax < newMin) newMax = newMin;
 
             efficiency = NatFloat.createUniform((newMin + newMax) / 2f, (newMax - newMin) / 2f);
+
+            // Axis 4b: a GM burn stamps its piles. Recorded here rather than in the ConvertPit
+            // postfix because this is the only place we see each firewood column position — and
+            // ConvertPit places charcoal exactly where firewood was (IsFirewoodPile(lpos)).
+            // We over-record on purpose: columns that run out of charcoal become air instead of a
+            // pile, and those entries simply never resolve (the mark read validates the block is a
+            // live BlockCharcoalPile) and get pruned at save. Cheaper than predicting the split.
+            if (pos != null && IsGrandmaster(level))
+            {
+                WooColliersMark.Remember(pos, collier.PlayerName);
+            }
 
             if (scaledBlocks == 1)
             {
@@ -145,4 +156,9 @@ public static class WooColliderPatches
     /// keeps vanilla's 1.0 — skill removes bad burns, it never invents magic charcoal.</summary>
     private static float CeilFor(int level)
         => level <= 0 ? (float)WooDomain.Knob(WooDomain.PitCeilUntrained, 0.85) : 1f;
+
+    /// <summary>The Collier's Mark is Grandmaster-only (summary table: unmarked at every rank
+    /// below GM). GM is the terminal level, so this is the top tier, not a range.</summary>
+    private static bool IsGrandmaster(int level)
+        => level > 0 && (level - 1) / Leveling.Domain.SubLevelsPerTier >= Leveling.Domain.TierCount - 1;
 }

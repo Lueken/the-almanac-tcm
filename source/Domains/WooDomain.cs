@@ -65,6 +65,10 @@ public static class WooDomain
     public const string PitFloorJourneyman = "pitFloorJourneyman";
     public const string PitFloorMaster = "pitFloorMaster";
     public const string PitFloorGm = "pitFloorGm";
+    // Axis 4b — the Collier's Mark. GM-only premium fuel, honored at the firepit for whoever
+    // burns it (not for the collier). Magnitudes playtest-tuned per MET ruling 1.
+    public const string MarkBurnTempBonus = "markBurnTempBonus";     // degrees added
+    public const string MarkBurnDurationMul = "markBurnDurationMul"; // duration multiplier
 
     public static DomainConfig Defaults() => new()
     {
@@ -126,6 +130,8 @@ public static class WooDomain
             [PitFloorJourneyman] = 0.7,
             [PitFloorMaster] = 0.8,
             [PitFloorGm] = 0.85,
+            [MarkBurnTempBonus] = 100,
+            [MarkBurnDurationMul] = 1.2,
         }
     };
 

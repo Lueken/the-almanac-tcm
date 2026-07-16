@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.54-dev")]
+    Version = "0.3.55-dev")]
 
 namespace AlmanacTcm;
 
@@ -61,6 +61,7 @@ public class AlmanacTcmModSystem : ModSystem
             Domains.WooFallingTreePatches.PatchConditional(api, harmony);
             Domains.WooIdgPatches.PatchConditional(api, harmony);
             Domains.WooColliderPatches.PatchAll(api, harmony);
+            Domains.WooColliersMark.PatchAll(api, harmony);
             Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
             TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate, mining, cave-in, felling + conditionals)");
         }
@@ -81,6 +82,11 @@ public class AlmanacTcmModSystem : ModSystem
         // the ledger live, so they register after it — the vanilla mining/cave-in patches
         // were already applied in Start via PatchAll.
         Domains.MinPatches.RegisterServer(sapi);
+
+        // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
+        // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
+        // its save file, so it registers here rather than in Start.
+        Domains.WooColliersMark.RegisterServer(sapi);
 
         // The shared IM stamina hook (one patch on VigorHook.TryConsume) scales per tool via
         // this map: Pickaxe→MIN, Axe→WOO. Registered here so both domains' knobs are live.
