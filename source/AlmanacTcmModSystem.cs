@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.61-dev")]
+    Version = "0.3.62-dev")]
 
 namespace AlmanacTcm;
 
@@ -63,6 +63,7 @@ public class AlmanacTcmModSystem : ModSystem
             Domains.WooIwPatches.PatchConditional(api, harmony);
             Domains.ForAcaPatches.PatchConditional(api, harmony);
             Domains.FisPsPatches.PatchConditional(api, harmony);
+            Domains.FisTrapPatches.PatchConditional(api, harmony);
             Domains.WooColliderPatches.PatchAll(api, harmony);
             Domains.WooColliersMark.PatchAll(api, harmony);
             Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
@@ -91,6 +92,10 @@ public class AlmanacTcmModSystem : ModSystem
         // FOR's zero-Harmony server hooks (harvest event listener, the two-stat yield reconcile,
         // the persisted novel-finds + tapline-owner state) register after the ledger is live.
         Domains.ForPatches.RegisterServer(sapi);
+
+        // FIS trap owners persist in a side map (no trap BE stores an owner); needs the server
+        // API for its save file.
+        Domains.FisTrapPatches.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
