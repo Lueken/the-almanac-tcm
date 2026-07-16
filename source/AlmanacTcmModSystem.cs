@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.62-dev")]
+    Version = "0.3.63-dev")]
 
 namespace AlmanacTcm;
 
@@ -49,6 +49,11 @@ public class AlmanacTcmModSystem : ModSystem
         Instance = this;
         EnforceSiblingVersions(api);
         RegisterDomains(api);
+
+        // The worked-ground overlay (FOR Memory + FIS Read) rides the vanilla map system's own
+        // per-player data channel; registered both sides like every MapLayer.
+        api.ModLoader.GetModSystem<Vintagestory.GameContent.WorldMapManager>()
+            ?.RegisterMapLayer<Overlay.AlmanacSpotsLayer>("almanacworkedground", 0.7);
 
         if (harmony == null)
         {

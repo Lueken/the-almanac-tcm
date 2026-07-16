@@ -25,6 +25,16 @@
   "almanactcm:instability-uneasy": "This rock feels uneasy. It wants support.",
   "almanactcm:instability-dangerous": "This rock feels ready to come down.",
 
+  "almanactcm:maplayer-workedground": "Worked ground",
+  "almanactcm:spot-mushrooms": "Mushrooms",
+  "almanactcm:spot-berries": "Berries",
+  "almanactcm:spot-ready": "{0} here look ready.",
+  "almanactcm:spot-regrowing": "{0} regrow around here.",
+  "almanactcm:spot-somewhere": "{0} grow somewhere near here.",
+  "almanactcm:spot-water-low": "These waters are running thin.",
+  "almanactcm:spot-water-healthy": "These waters fish well.",
+  "almanactcm:spot-stock": "Stocks near {0} percent.",
+  "almanactcm:spot-eta": "Ready in about {0} days.",
   "almanactcm:fish-escaped": "The line goes slack. It got away, and it took the bait with it.",
   "almanactcm:colliers-mark": "Collier's Mark: burned by {0}. Takes a hotter, longer fire.",
 

@@ -216,6 +216,9 @@ public static class ForPatches
             if (now == __state || __instance.BState.Growthstate != EnumFruitingBushGrowthState.Mature) return;
 
             CreditHarvest(byPlayer, __instance.Block);
+            // The Forager's Memory: a plucked bush is a renewable patch worth remembering.
+            Overlay.AlmanacSpotsLayer.Instance?.Record(byPlayer, __instance.Pos,
+                Overlay.AlmanacSpotsLayer.SpotKind.Bush);
         }
     }
 
@@ -238,6 +241,14 @@ public static class ForPatches
 
             Core?.Ledger?.Log(byPlayer, ForDomain.Code, ForDomain.TechGathering,
                 HashCode.Combine(pos.X >> 3, pos.Y >> 3, pos.Z >> 3), mult);
+
+            // The Forager's Memory: mushrooms renew (hidden mycelium); everything else here is
+            // a one-time worldgen placement and would only be a looted checklist.
+            if (__instance is BlockMushroom)
+            {
+                Overlay.AlmanacSpotsLayer.Instance?.Record(byPlayer, pos,
+                    Overlay.AlmanacSpotsLayer.SpotKind.Mushroom);
+            }
         }
 
         private static bool IsWildGather(Block block, IWorldAccessor world, BlockPos pos)

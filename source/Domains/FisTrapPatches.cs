@@ -157,6 +157,7 @@ public static class FisTrapPatches
         if (owner == null) return; // owner offline; their catch, but practice waits for them
 
         Core?.Ledger?.Log(owner, FisDomain.Code, FisDomain.TechTrapping, be.Pos.GetHashCode());
+        Overlay.AlmanacSpotsLayer.Instance?.Record(owner, be.Pos, Overlay.AlmanacSpotsLayer.SpotKind.Water);
     }
 
     /// <summary>PS traps: fish leave the container inventory on a successful empty-hand take.</summary>

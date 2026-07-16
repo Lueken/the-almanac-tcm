@@ -167,5 +167,8 @@ public static class FisPatches
     {
         Core?.Ledger?.Log(player, FisDomain.Code, FisDomain.TechAngling,
             HashCode.Combine(FisDomain.TechAngling, bobber.World.ElapsedMilliseconds / 1000));
+        // The Angler's Read: a landed catch marks these waters as worked.
+        Overlay.AlmanacSpotsLayer.Instance?.Record(player, bobber.Pos.XYZ.AsBlockPos,
+            Overlay.AlmanacSpotsLayer.SpotKind.Water);
     }
 }
