@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.59-dev")]
+    Version = "0.3.60-dev")]
 
 namespace AlmanacTcm;
 
@@ -62,6 +62,7 @@ public class AlmanacTcmModSystem : ModSystem
             Domains.WooIdgPatches.PatchConditional(api, harmony);
             Domains.WooIwPatches.PatchConditional(api, harmony);
             Domains.ForAcaPatches.PatchConditional(api, harmony);
+            Domains.FisPsPatches.PatchConditional(api, harmony);
             Domains.WooColliderPatches.PatchAll(api, harmony);
             Domains.WooColliersMark.PatchAll(api, harmony);
             Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
@@ -76,6 +77,7 @@ public class AlmanacTcmModSystem : ModSystem
         Engine.LedgerSystem.DefaultFactories[Domains.MinDomain.Code] = Domains.MinDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.WooDomain.Code] = Domains.WooDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.ForDomain.Code] = Domains.ForDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.FisDomain.Code] = Domains.FisDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);

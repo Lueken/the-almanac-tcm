@@ -25,6 +25,7 @@
   "almanactcm:instability-uneasy": "This rock feels uneasy. It wants support.",
   "almanactcm:instability-dangerous": "This rock feels ready to come down.",
 
+  "almanactcm:fish-escaped": "The line goes slack. It got away, and it took the bait with it.",
   "almanactcm:colliers-mark": "Collier's Mark: burned by {0}. Takes a hotter, longer fire.",
 
   "game:deathmsg-blockfalling-1": "{0}, the tree did not appreciate that.",
