@@ -106,13 +106,32 @@ public static class WooFallingTreePatches
         double toPlayer = NormalizeAngle(Math.Atan2(pz, px) - baseAngle);
         double towardSign = toPlayer >= 0 ? 1.0 : -1.0;
 
-        double t = WooDomain.RankProgress(WooDomain.LevelOf(player));
-        double spread = Lerp(WooDomain.Knob(WooDomain.FellSpreadUntrained, 85), WooDomain.Knob(WooDomain.FellSpreadGm, 6), t) * Deg2Rad;
-        double bias = Lerp(WooDomain.Knob(WooDomain.FellBiasUntrained, 35), WooDomain.Knob(WooDomain.FellBiasGm, -22), t) * Deg2Rad * towardSign;
+        int level = WooDomain.LevelOf(player);
+        double spread = Lerp(WooDomain.Knob(WooDomain.FellSpreadUntrained, 85),
+            WooDomain.Knob(WooDomain.FellSpreadGm, 6), WooDomain.RankProgress(level)) * Deg2Rad;
+        double bias = BiasDegrees(level) * Deg2Rad * towardSign;
         double theta = (rand.NextDouble() * 2 - 1) * spread;
 
         double a = baseAngle + bias + theta;
         return ((float)Math.Cos(a), (float)Math.Sin(a));
+    }
+
+    /// <summary>Cone-centre bias (RULED 2026-07-15): leans TOWARD the feller the whole way up
+    /// through Journeyman, reaches exactly zero at Master I, then rotates AWAY to the GM value.
+    /// A plain untrained→GM lerp would cross zero back at Journeyman II, so this is piecewise.</summary>
+    private static double BiasDegrees(int level)
+    {
+        double untrained = WooDomain.Knob(WooDomain.FellBiasUntrained, 35);
+        double gm = WooDomain.Knob(WooDomain.FellBiasGm, -22);
+        int masterEntry = 3 * Leveling.Domain.SubLevelsPerTier + 1; // Master I — the zero crossing
+        int max = Leveling.Domain.MaxLevelDefault;
+
+        if (level <= 0) return untrained;
+        if (level >= max) return gm;
+        // Untrained → Master I: toward the feller, decaying to zero.
+        if (level <= masterEntry) return untrained * (1.0 - level / (double)masterEntry);
+        // Master I → GM: rotate away from the feller.
+        return gm * ((level - masterEntry) / (double)(max - masterEntry));
     }
 
     private static double Lerp(double a, double b, double t) => a + (b - a) * t;
