@@ -63,6 +63,9 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         [ProtoMember(7)] public float StockPct = -1;
         /// <summary>Days until ready/recovered, or -1 when hidden (GM only).</summary>
         [ProtoMember(8)] public float EtaDays = -1;
+        /// <summary>Fidelity tier the server rendered this at (1 Apprentice .. 4 GM), so the
+        /// client can phrase the hover without ever knowing the underlying values.</summary>
+        [ProtoMember(9)] public int Tier;
     }
 
     // ------------------------------------------------------------ server state
@@ -114,7 +117,7 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         if (sapi == null || player == null) return;
         var list = GetOrLoad(player.PlayerUID);
 
-        int dedupe = kind == SpotKind.Bush ? 1 : kind == SpotKind.Mushroom ? 7 : 8;
+        int dedupe = kind == SpotKind.Bush ? 6 : kind == SpotKind.Mushroom ? 7 : 8;
         foreach (var s in list)
         {
             if (s.Kind != (int)kind) continue;
@@ -152,9 +155,28 @@ public class AlmanacSpotsLayer : MarkerMapLayer
     {
         if (spotsByPlayer.TryGetValue(uid, out var list)) return list;
         byte[]? data = sapi!.WorldManager.SaveGame.GetData("almanacSpots-" + uid);
-        return spotsByPlayer[uid] = data == null
-            ? new List<WorkedSpot>()
-            : SerializerUtil.Deserialize<List<WorkedSpot>>(data);
+        var loaded = data == null ? new List<WorkedSpot>() : SerializerUtil.Deserialize<List<WorkedSpot>>(data);
+        CollapseNearDuplicates(loaded); // one-time cleanup of pre-patch-dedupe recordings
+        return spotsByPlayer[uid] = loaded;
+    }
+
+    private static void CollapseNearDuplicates(List<WorkedSpot> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            var a = list[i];
+            int dedupe = a.Kind == (int)SpotKind.Bush ? 6 : a.Kind == (int)SpotKind.Mushroom ? 7 : 8;
+            for (int j = 0; j < i; j++)
+            {
+                var b = list[j];
+                if (a.Kind == b.Kind && Math.Abs(a.X - b.X) <= dedupe && Math.Abs(a.Z - b.Z) <= dedupe
+                    && Math.Abs(a.Y - b.Y) <= 4)
+                {
+                    list.RemoveAt(i);
+                    break;
+                }
+            }
+        }
     }
 
     private void OnSave()
@@ -213,10 +235,15 @@ public class AlmanacSpotsLayer : MarkerMapLayer
                 case 3: radius = kind == SpotKind.Water ? 9 : 8; fuzz = 1; break;
                 default: radius = kind == SpotKind.Water ? 8 : (kind == SpotKind.Mushroom ? 7 : 4); fuzz = 0; break;
             }
-            int hash = HashCode.Combine(spot.X, spot.Y, spot.Z, player.PlayerUID);
+            // Deterministic fuzz keyed to the 16-block AREA + player, not the exact spot: two
+            // patches a few blocks apart drift the SAME way instead of flying apart, and the
+            // magnitude is capped so the true spot always sits inside the circle.
+            fuzz = Math.Min(fuzz, Math.Max(0, (int)radius - 6));
+            int hash = Math.Abs(HashCode.Combine(spot.X >> 4, spot.Z >> 4, player.PlayerUID));
             view.X = spot.X + 0.5 + (fuzz == 0 ? 0 : (hash % (fuzz * 2 + 1)) - fuzz);
             view.Z = spot.Z + 0.5 + (fuzz == 0 ? 0 : ((hash / 31) % (fuzz * 2 + 1)) - fuzz);
             view.RadiusBlocks = radius;
+            view.Tier = tier;
 
             // State / stock / ETA by tier and kind.
             if (kind == SpotKind.Water)
@@ -328,7 +355,57 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         if (!mapSink.IsOpened || capi == null) return;
         foreach (var c in comps) c.Dispose();
         comps.Clear();
-        foreach (var view in ownSpots) comps.Add(new SpotMapComponent(view, this, capi));
+        foreach (var (view, count) in Cluster(ownSpots)) comps.Add(new SpotMapComponent(view, count, this, capi));
+    }
+
+    /// <summary>Merges same-kind circles that overlap into one blob (ruled from live feedback:
+    /// several worked patches in an area should read as one larger stretch of known ground, not
+    /// stacked discs). Higher rank means smaller circles, fewer overlaps, more defined spots —
+    /// the fidelity ladder expressed spatially for free.</summary>
+    private static List<(SpotView view, int count)> Cluster(List<SpotView> views)
+    {
+        int n = views.Count;
+        int[] group = new int[n];
+        for (int i = 0; i < n; i++) group[i] = i;
+        int Find(int i) { while (group[i] != i) i = group[i] = group[group[i]]; return i; }
+
+        for (int i = 0; i < n; i++)
+            for (int j = i + 1; j < n; j++)
+            {
+                if (views[i].Kind != views[j].Kind) continue;
+                double dx = views[i].X - views[j].X, dz = views[i].Z - views[j].Z;
+                double reach = views[i].RadiusBlocks + views[j].RadiusBlocks;
+                if (dx * dx + dz * dz <= reach * reach) group[Find(i)] = Find(j);
+            }
+
+        var byGroup = new Dictionary<int, List<SpotView>>();
+        for (int i = 0; i < n; i++)
+        {
+            int g = Find(i);
+            (byGroup.TryGetValue(g, out var l) ? l : byGroup[g] = new List<SpotView>()).Add(views[i]);
+        }
+
+        var result = new List<(SpotView, int)>();
+        foreach (var members in byGroup.Values)
+        {
+            if (members.Count == 1) { result.Add((members[0], 1)); continue; }
+            var blob = new SpotView { Kind = members[0].Kind, Tier = members[0].Tier, StockPct = -1, EtaDays = -1 };
+            foreach (var m in members) { blob.X += m.X; blob.Y += m.Y; blob.Z += m.Z; }
+            blob.X /= members.Count; blob.Y /= members.Count; blob.Z /= members.Count;
+            float radius = 0;
+            foreach (var m in members)
+            {
+                double dx = m.X - blob.X, dz = m.Z - blob.Z;
+                radius = Math.Max(radius, (float)Math.Sqrt(dx * dx + dz * dz) + m.RadiusBlocks);
+                blob.State = Math.Max(blob.State, m.State); // any ready patch marks the blob ready
+                blob.Tier = Math.Max(blob.Tier, m.Tier);
+                if (m.StockPct >= 0) blob.StockPct = blob.StockPct < 0 ? m.StockPct : Math.Min(blob.StockPct, m.StockPct);
+                blob.EtaDays = Math.Max(blob.EtaDays, m.EtaDays);
+            }
+            blob.RadiusBlocks = radius;
+            result.Add((blob, members.Count));
+        }
+        return result;
     }
 
     public override void Render(GuiElementMap mapElem, float dt)
@@ -357,24 +434,31 @@ public class SpotMapComponent : MapComponent
 {
     private readonly AlmanacSpotsLayer.SpotView view;
     private readonly AlmanacSpotsLayer layer;
+    private readonly int count;
     private readonly Vec3d worldPos;
     private readonly Vec4f color = new();
     private Vec2f viewPos = new();
     private Vec2f edgePos = new();
     private readonly Matrixf mvMat = new();
 
-    public SpotMapComponent(AlmanacSpotsLayer.SpotView view, AlmanacSpotsLayer layer, ICoreClientAPI capi) : base(capi)
+    public SpotMapComponent(AlmanacSpotsLayer.SpotView view, int count, AlmanacSpotsLayer layer, ICoreClientAPI capi) : base(capi)
     {
         this.view = view;
+        this.count = count;
         this.layer = layer;
         worldPos = new Vec3d(view.X, view.Y, view.Z);
 
-        // FOR greens/ambers on paper; FIS blue/red. Ready/healthy = the fuller colour.
-        int rgb = view.Kind == (int)AlmanacSpotsLayer.SpotKind.Water
-            ? (view.State == 1 ? ColorUtil.ToRgba(255, 60, 90, 170) : ColorUtil.ToRgba(255, 200, 140, 60))
-            : (view.State == 2 ? ColorUtil.ToRgba(255, 80, 160, 80) : ColorUtil.ToRgba(255, 90, 150, 190));
+        // ONE learnable colour per kind (live feedback ruling): berries crimson, mushrooms
+        // amber, waters blue. State rides intensity, never hue: ready/healthy is full-strength,
+        // resting/thin is the same colour sat down, so the legend stays one-glance learnable.
+        int rgb = view.Kind switch
+        {
+            (int)AlmanacSpotsLayer.SpotKind.Bush => ColorUtil.ToRgba(255, 215, 40, 80),      // berry crimson
+            (int)AlmanacSpotsLayer.SpotKind.Mushroom => ColorUtil.ToRgba(255, 240, 150, 40), // cap amber
+            _ => ColorUtil.ToRgba(255, 45, 130, 230),                                        // water blue
+        };
         ColorUtil.ToRGBAVec4f(rgb, ref color);
-        color.W = 0.38f;
+        color.W = view.State == 2 ? 0.60f : view.State == 1 ? 0.40f : 0.50f;
     }
 
     public override void Render(GuiElementMap map, float dt)
@@ -425,16 +509,26 @@ public class SpotMapComponent : MapComponent
             line = view.State == 1 ? Lang.Get("almanactcm:spot-water-low") : Lang.Get("almanactcm:spot-water-healthy");
             if (view.StockPct >= 0) line += " " + Lang.Get("almanactcm:spot-stock", (int)view.StockPct);
             if (view.EtaDays > 0) line += " " + Lang.Get("almanactcm:spot-eta", (int)Math.Ceiling(view.EtaDays));
+            if (view.Tier >= 3 && view.EtaDays <= 0 && view.StockPct >= 0)
+                line += " " + Lang.Get("almanactcm:spot-precise");
         }
         else
         {
             string what = view.Kind == (int)AlmanacSpotsLayer.SpotKind.Mushroom
                 ? Lang.Get("almanactcm:spot-mushrooms") : Lang.Get("almanactcm:spot-berries");
-            line = view.State == 2 ? Lang.Get("almanactcm:spot-ready", what)
-                 : view.State == 1 ? Lang.Get("almanactcm:spot-regrowing", what)
-                 : Lang.Get("almanactcm:spot-somewhere", what);
+            // The phrasing itself climbs with rank, so the hover visibly changes as you level
+            // even when the patch state does not.
+            line = view.Tier switch
+            {
+                1 => Lang.Get("almanactcm:spot-somewhere", what),
+                2 => view.State == 2 ? Lang.Get("almanactcm:spot-ready", what) : Lang.Get("almanactcm:spot-regrowing", what),
+                3 => (view.State == 2 ? Lang.Get("almanactcm:spot-ready", what) : Lang.Get("almanactcm:spot-regrowing", what))
+                     + " " + Lang.Get("almanactcm:spot-precise"),
+                _ => (view.State == 2 ? Lang.Get("almanactcm:spot-ready", what) : Lang.Get("almanactcm:spot-resting-exact", what)),
+            };
             if (view.EtaDays > 0) line += " " + Lang.Get("almanactcm:spot-eta", (int)Math.Ceiling(view.EtaDays));
         }
+        if (count > 1) line += " " + Lang.Get("almanactcm:spot-count", count);
         hoverText.AppendLine(line);
     }
 }

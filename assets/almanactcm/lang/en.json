@@ -26,6 +26,10 @@
   "almanactcm:instability-dangerous": "This rock feels ready to come down.",
 
   "almanactcm:maplayer-workedground": "Worked ground",
+  "game:maplayer-almanacworkedground": "Worked ground",
+  "almanactcm:spot-precise": "You could walk straight to it.",
+  "almanactcm:spot-resting-exact": "{0} are resting. You know the spot exactly.",
+  "almanactcm:spot-count": "{0} patches worked in this stretch.",
   "almanactcm:spot-mushrooms": "Mushrooms",
   "almanactcm:spot-berries": "Berries",
   "almanactcm:spot-ready": "{0} here look ready.",
