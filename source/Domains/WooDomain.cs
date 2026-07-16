@@ -28,6 +28,9 @@ public static class WooDomain
     public const string TechSawing = "sawing";
     public const string TechHewing = "hewing";
     public const string TechPounding = "pounding";
+    /// <summary>Technique #8, adopted 2026-07-09: the collier. Credited to the pit's IGNITER
+    /// (vanilla stores `startedByPlayerUid`), not whoever digs the charcoal out.</summary>
+    public const string TechBurning = "burning";
 
     // Bonus knob keys (DomainConfig.Bonus).
     public const string StaminaUntrained = "staminaUntrained"; // Axis 2 axe-stamina (MIN's twin)
@@ -50,6 +53,18 @@ public static class WooDomain
     // stands in the wrong place is as flat as an Untrained one.
     public const string FellImpactDamage = "fellImpactDamage";         // flat damage per connect
     public const string FellDamageCooldownMs = "fellDamageCooldownMs"; // min gap between hits, same victim
+    // Axis 4 + Axis 1 — the collier's charcoal pit. RULED shape: raise the FLOOR of the efficiency
+    // roll, never the ceiling. Vanilla is uniform[0.5, 1.0] (avg 0.75) — a perfect burn is already
+    // possible by luck, so skill removes bad outcomes instead of inventing good ones (the MET
+    // quench-reliability logic applied to yield). A GM collier is CONSISTENT, not lucky.
+    // Untrained is the only rank that also drops the ceiling: that is the Axis 1 botched-burn band.
+    public const string PitFloorUntrained = "pitFloorUntrained";
+    public const string PitCeilUntrained = "pitCeilUntrained";
+    public const string PitFloorNovice = "pitFloorNovice";
+    public const string PitFloorApprentice = "pitFloorApprentice";
+    public const string PitFloorJourneyman = "pitFloorJourneyman";
+    public const string PitFloorMaster = "pitFloorMaster";
+    public const string PitFloorGm = "pitFloorGm";
 
     public static DomainConfig Defaults() => new()
     {
@@ -73,6 +88,10 @@ public static class WooDomain
             [TechSawing] = new() { Raw = 4, K = 30 },
             [TechHewing] = new() { Raw = 4, K = 30 },
             [TechPounding] = new() { Raw = 4, K = 30 },
+            // A pit is a big, slow, deliberate build (hours to burn), so one solid credit per pit
+            // rather than a grind. Flat regardless of pit size for v1 — scaling raw by firewood
+            // quantity via LedgerSystem's rawMultiplier is the obvious tune if it reads flat.
+            [TechBurning] = new() { Raw = 10, K = 25 },
         },
         Bonus = new Dictionary<string, double>
         {
@@ -96,6 +115,17 @@ public static class WooDomain
             // cooldown is a corpse. The cooldown is what stops a 10-log tree landing 10 hits.
             [FellImpactDamage] = 8,
             [FellDamageCooldownMs] = 600,
+            // Charcoal pit efficiency band by rank (RULED 2026-07-10; GM starts at 0.85, tweak in
+            // playtest). Untrained [0.35, 0.85] = wasted wood, half-charred pits. Novice restores
+            // vanilla exactly. GM avg ≈ 0.925 — every pit comes out near-full, ~+20% average, and
+            // yield never exceeds vanilla's own ceiling (no magic charcoal).
+            [PitFloorUntrained] = 0.35,
+            [PitCeilUntrained] = 0.85,
+            [PitFloorNovice] = 0.5,
+            [PitFloorApprentice] = 0.6,
+            [PitFloorJourneyman] = 0.7,
+            [PitFloorMaster] = 0.8,
+            [PitFloorGm] = 0.85,
         }
     };
 
