@@ -20,6 +20,14 @@ public static class WooDomain
 
     public const string TechFelling = "felling";
     public const string TechPlanting = "planting";
+    // The IDG processing verbs (RULED DISTINCT 2026-07-08: chop/saw/hew/pound are different
+    // woodworking crafts with different tools, outputs and skill expressions). Planing is merged
+    // into hewing per ruling 2 — and costs nothing, since IDG 3.0.1-rc.5 ships ZERO planing
+    // recipes (verified across the asset tree: only chopping/sawing/hewing/pounding appear).
+    public const string TechChopping = "chopping";
+    public const string TechSawing = "sawing";
+    public const string TechHewing = "hewing";
+    public const string TechPounding = "pounding";
 
     // Bonus knob keys (DomainConfig.Bonus).
     public const string StaminaUntrained = "staminaUntrained"; // Axis 2 axe-stamina (MIN's twin)
@@ -57,6 +65,14 @@ public static class WooDomain
             [TechFelling] = new() { Raw = 0.35, K = 60 },
             // Cheap and self-limiting (seeds are finite); credited at the plant action (ruled).
             [TechPlanting] = new() { Raw = 5, K = 15 },
+            // IDG processing. Per-action (one deliberate hold per log), NOT per-block like felling,
+            // so raw is a normal verb value. Chopping is the other staple grind floor (stone-axe
+            // day one, 37 recipes) → large K like felling. Saw/hew/pound are copper- or
+            // workstation-gated and lower volume → medium K. Magnitudes playtest-tuned (MET ruling 1).
+            [TechChopping] = new() { Raw = 3, K = 60 },
+            [TechSawing] = new() { Raw = 4, K = 30 },
+            [TechHewing] = new() { Raw = 4, K = 30 },
+            [TechPounding] = new() { Raw = 4, K = 30 },
         },
         Bonus = new Dictionary<string, double>
         {
