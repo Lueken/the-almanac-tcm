@@ -118,7 +118,6 @@ public static class ForPatches
         serverWorld = api.World;
         LoadState();
         api.Event.GameWorldSave += SaveState;
-        api.Event.RegisterEventBusListener(OnItemCollected, 0.5, "onitemcollected");
         api.Event.RegisterGameTickListener(_ => ReconcileForageYield(api), 2000);
         TcmLog.Info(api, "FOR hooks live (harvesting, gathering, forage/wildcrop yield, novel-finds)");
     }
@@ -154,23 +153,70 @@ public static class ForPatches
         }
     }
 
-    // ============================================================ harvesting (zero-Harmony)
+    // ============================================================ harvesting (the two pluck seams)
 
-    private static void OnItemCollected(string eventName, ref EnumHandling handling, IAttribute data)
+    // LESSON (0.3.57 -> 0.3.58): the technique map's "zero-Harmony" option — the `onitemcollected`
+    // bus event — is NOT a harvest event. It is the tutorial system's generic "player received an
+    // item" signal, pushed from FIVE sites including plain ground pickup (BehaviorCollectEntities)
+    // and right-click pickup, so listening to it credited harvesting for every item a player
+    // collected, including the drops of their own gathering breaks (live repro: catmint gave both
+    // verbs). Harvesting therefore patches the two REAL pluck-completion seams instead:
+    // BlockBehaviorHarvestable (resin, reeds, herbarium) and BEBehaviorFruitingBush (berry bushes).
+
+    private static void CreditHarvest(IPlayer byPlayer, Block? block)
     {
-        if (data is not ITreeAttribute tree || serverWorld == null) return;
-
-        IPlayer? player = (serverWorld.GetEntityById(tree.GetLong("byentityid")) as EntityPlayer)?.Player;
-        if (player == null) return;
-
-        ItemStack? stack = tree.GetItemstack("itemstack");
-        string species = stack?.Collectible?.Code?.ToString() ?? "unknown";
-        double mult = IsNovel(player, species) ? Knob(ForDomain.NovelFindMultiplier, 4.0) : 1.0;
+        if (serverWorld == null || byPlayer == null) return;
+        string species = block?.Code?.ToString() ?? "unknown";
+        double mult = IsNovel(byPlayer, species) ? Knob(ForDomain.NovelFindMultiplier, 4.0) : 1.0;
 
         // contextHash = species + a 1s bucket: a berry run credits every bush (K is the ceiling);
         // the bucket only swallows a genuine double-fire.
-        Core?.Ledger?.Log(player, ForDomain.Code, ForDomain.TechHarvesting,
+        Core?.Ledger?.Log(byPlayer, ForDomain.Code, ForDomain.TechHarvesting,
             HashCode.Combine(species, serverWorld.ElapsedMilliseconds / 1000), mult);
+    }
+
+    /// <summary>In-place pluck on the block-behavior family (resin, reeds, herbarium's tool-gated
+    /// plants — its subclass overrides Start/Step only, so this base Stop still runs). The postfix
+    /// replicates the method's own success guard exactly: tool match, harvest time reached,
+    /// harvested stacks present, server side.</summary>
+    [HarmonyPatch(typeof(BlockBehaviorHarvestable), nameof(BlockBehaviorHarvestable.OnBlockInteractStop))]
+    public static class HarvestablePluckPatch
+    {
+        private static readonly AccessTools.FieldRef<BlockBehaviorHarvestable, float> harvestTimeRef =
+            AccessTools.FieldRefAccess<BlockBehaviorHarvestable, float>("harvestTime");
+
+        public static void Postfix(BlockBehaviorHarvestable __instance, float secondsUsed,
+            IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
+        {
+            if (world.Side != EnumAppSide.Server || byPlayer == null) return;
+            if (__instance.Tool != null && byPlayer.InventoryManager.ActiveTool != __instance.Tool) return;
+            if (__instance.harvestedStacks == null || secondsUsed <= harvestTimeRef(__instance) - 0.05f) return;
+
+            CreditHarvest(byPlayer, world.BlockAccessor.GetBlock(blockSel.Position));
+        }
+    }
+
+    /// <summary>Berry/fruiting bushes (the OTHER pluck seam — bushes are block entities, not the
+    /// harvestable block behavior). Success is detected as the growth-state transition the harvest
+    /// itself performs (ripe -> Mature inside this one call), which sidesteps the method's private
+    /// harvest-time multiplier math entirely.</summary>
+    [HarmonyPatch(typeof(BEBehaviorFruitingBush), nameof(BEBehaviorFruitingBush.OnBlockInteractStop))]
+    public static class FruitingBushPluckPatch
+    {
+        public static void Prefix(BEBehaviorFruitingBush __instance, out int __state)
+        {
+            __state = (int)(__instance.BState?.Growthstate ?? 0);
+        }
+
+        public static void Postfix(BEBehaviorFruitingBush __instance, IWorldAccessor world,
+            IPlayer byPlayer, int __state)
+        {
+            if (world.Side != EnumAppSide.Server || byPlayer == null || __instance.BState == null) return;
+            int now = (int)__instance.BState.Growthstate;
+            if (now == __state || __instance.BState.Growthstate != EnumFruitingBushGrowthState.Mature) return;
+
+            CreditHarvest(byPlayer, __instance.Block);
+        }
     }
 
     // ============================================================ gathering (break-collect)
