@@ -71,8 +71,9 @@ public static class FisPatches
             int level = FisDomain.LevelOf(player);
             var rand = __instance.Api.World.Rand;
 
-            // 1. The one that got away (Untrained only, ruled). The bait goes with it.
-            if (level <= 0 && rand.NextDouble() < Knob(FisDomain.EscapeChanceUntrained, 0.25))
+            // 1. The one that got away (re-ruled 2026-07-16: a PERMANENT risk curve — never
+            // zero except, optionally, at GM). The bait goes with it.
+            if (rand.NextDouble() < FisDomain.EscapeChanceFor(level))
             {
                 __instance.BaitStack = null;
                 __instance.WatchedAttributes.MarkPathDirty("baitStack");

@@ -23,10 +23,14 @@ public static class FisDomain
     public const string TechTrapping = "trapping"; // basket/weir/trotline/Ithania trap (Phase 1b)
 
     // Bonus knob keys (DomainConfig.Bonus).
-    /// <summary>Untrained-only chance a hooked catch escapes on the reel, taking the bait
-    /// (ruled 2026-07-16: the ruled fumble spent as a LOUD story moment, the MET over-strike
-    /// shape). Never fires at Novice I or above.</summary>
+    /// <summary>The one that got away — RE-RULED 2026-07-16 (same day): a PERMANENT risk curve,
+    /// not an Untrained-only penalty. "There SHOULD be some risk of the fish getting away. Never
+    /// zero, except MAYBE at GM." Untrained 0.25, snaps to the Novice value at Novice I, linear
+    /// down to the GM floor (0.02 by default — set escapeChanceGm to 0 in FIS.json for a
+    /// truly safe Grandmaster).</summary>
     public const string EscapeChanceUntrained = "escapeChanceUntrained";
+    public const string EscapeChanceNovice = "escapeChanceNovice";
+    public const string EscapeChanceGm = "escapeChanceGm";
     /// <summary>Additive skew on the adult chance of the vanilla size roll (P(adult) is
     /// 1 - abundance, then + skew). Untrained negative (leans juvenile), GM positive: a master
     /// lands the bigger catch (ruled 2026-07-16; rides the real roll at EntityBobber age pick).</summary>
@@ -59,6 +63,8 @@ public static class FisDomain
         Bonus = new Dictionary<string, double>
         {
             [EscapeChanceUntrained] = 0.25,
+            [EscapeChanceNovice] = 0.10,
+            [EscapeChanceGm] = 0.02,
             [SizeSkewUntrained] = -0.15,
             [SizeSkewGm] = 0.35,
             [DepletionUntrained] = 1.5,
@@ -74,6 +80,19 @@ public static class FisDomain
         int max = Leveling.Domain.MaxLevelDefault;
         double t = (level - 1) / (double)(max - 1);
         return 1.0 + t * (gm - 1.0);
+    }
+
+    /// <summary>The escape-risk curve: untrained at level 0, the Novice value at Novice I,
+    /// linear to the GM floor at max level.</summary>
+    public static double EscapeChanceFor(int level)
+    {
+        double u = Knob(EscapeChanceUntrained, 0.25);
+        double n = Knob(EscapeChanceNovice, 0.10);
+        double g = Knob(EscapeChanceGm, 0.02);
+        if (level <= 0) return u;
+        int max = Leveling.Domain.MaxLevelDefault;
+        if (level >= max) return g;
+        return n + (g - n) * (level - 1) / (double)(max - 1);
     }
 
     /// <summary>Additive skew curve: the untrained value at level 0, ZERO at Novice I (no skew
