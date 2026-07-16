@@ -23,5 +23,10 @@
   "almanactcm:alloy-tab": "Alloy",
   "almanactcm:instability-steady": "This rock feels steady underfoot.",
   "almanactcm:instability-uneasy": "This rock feels uneasy. It wants support.",
-  "almanactcm:instability-dangerous": "This rock feels ready to come down."
+  "almanactcm:instability-dangerous": "This rock feels ready to come down.",
+
+  "game:deathmsg-blockfalling-1": "{0}, the tree did not appreciate that.",
+  "game:deathmsg-blockfalling-2": "{0} found out which way the tree falls.",
+  "game:deathmsg-blockfalling-3": "{0} was standing exactly where the tree wanted to be.",
+  "game:deathmsg-blockfalling-4": "{0} chopped it down. It landed on them."
 }

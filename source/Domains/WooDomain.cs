@@ -34,6 +34,14 @@ public static class WooDomain
     public const string FellSpreadGm = "fellSpreadGm";               // cone half-width, GM
     public const string FellBiasUntrained = "fellBiasUntrained";     // center offset toward player (+deg)
     public const string FellBiasGm = "fellBiasGm";                   // center offset away from player (−deg)
+    // Axis 3 impact. FallingTree's own damage is inert on a pivoted fall (it scales
+    // 18 × |motionY| × impactDamageMul, and ConfigurePivotFaller zeroes the motion because the
+    // topple is driven by rotation), and it only checks the log's final 1×1×1 landing cell, so a
+    // trunk sweeping through you never connects. WOO replaces both with a flat hit along the
+    // swept path. Rank governs WHERE the tree lands, never how hard it hits: a Grandmaster who
+    // stands in the wrong place is as flat as an Untrained one.
+    public const string FellImpactDamage = "fellImpactDamage";         // flat damage per connect
+    public const string FellDamageCooldownMs = "fellDamageCooldownMs"; // min gap between hits, same victim
 
     public static DomainConfig Defaults() => new()
     {
@@ -68,6 +76,10 @@ public static class WooDomain
             [FellSpreadGm] = 6,
             [FellBiasUntrained] = 35,   // rotate cone center TOWARD the player
             [FellBiasGm] = -22,         // rotate cone center AWAY from the player
+            // Tuned against a 15 HP player: one connect is a serious wound, two inside the
+            // cooldown is a corpse. The cooldown is what stops a 10-log tree landing 10 hits.
+            [FellImpactDamage] = 8,
+            [FellDamageCooldownMs] = 600,
         }
     };
 
