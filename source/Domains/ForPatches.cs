@@ -234,12 +234,22 @@ public static class ForPatches
             Overlay.AlmanacSpotsLayer.Instance?.Record(byPlayer, __instance.Pos,
                 Overlay.AlmanacSpotsLayer.SpotKind.Bush, SpotName(__instance.Block));
 
-            // Stewardship liability: Untrained hands wound the bush — the fresh regrow cycle
-            // (Ripe just flipped to Mature above) starts late. Never destroys anything.
-            if (ForDomain.LevelOf(byPlayer) == 0)
+            // Patch Stewardship, decided by the hands doing the picking (re-ruled 2026-07-16):
+            // Untrained rips and the fresh cycle (Ripe just flipped to Mature above) starts
+            // late; a ranked forager plucks clean and it starts early. No cooldown needed —
+            // a bush can only be harvested once per ripening cycle anyway.
+            int bushLevel = ForDomain.LevelOf(byPlayer);
+            if (bushLevel == 0)
             {
                 double wound = Knob(ForDomain.WoundDays, 1.5);
                 __instance.BState.TransitionHoursLeft += wound * world.Calendar.HoursPerDay;
+                __instance.Blockentity?.MarkDirty(true);
+            }
+            else if (bushLevel >= 5)
+            {
+                double boost = ForDomain.TendBoostFor(bushLevel);
+                __instance.BState.TransitionHoursLeft =
+                    Math.Max(0, __instance.BState.TransitionHoursLeft - boost * world.Calendar.HoursPerDay);
                 __instance.Blockentity?.MarkDirty(true);
             }
         }
@@ -272,10 +282,16 @@ public static class ForPatches
                 Overlay.AlmanacSpotsLayer.Instance?.Record(byPlayer, pos,
                     Overlay.AlmanacSpotsLayer.SpotKind.Mushroom, SpotName(__instance));
 
-                // Stewardship liability: an Untrained pick wounds the network's regrow clock.
+                // Patch Stewardship, decided by the hands doing the picking (re-ruled
+                // 2026-07-16): Untrained rips wound the network's clock; a ranked forager cuts
+                // clean and it regrows early (day-gated per patch inside the layer).
                 if (ForDomain.LevelOf(byPlayer) == 0)
                 {
                     Overlay.AlmanacSpotsLayer.Instance?.WoundMushroomNear(pos, Knob(ForDomain.WoundDays, 1.5));
+                }
+                else
+                {
+                    Overlay.AlmanacSpotsLayer.Instance?.StewardMushroomNear(byPlayer, pos);
                 }
             }
         }

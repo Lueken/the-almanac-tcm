@@ -23,7 +23,6 @@ public static class ForDomain
     public const string TechHarvesting = "harvesting"; // in-place pluck: bush, resin, reeds (renewable)
     public const string TechGathering = "gathering";   // destructive: break plant/mushroom/surface litter
     public const string TechTapping = "tapping";       // ACA spile sap (owner-at-placement, passive drip)
-    public const string TechTending = "tending";       // Patch Stewardship: water a worked patch (active verb, ruled 2026-07-16)
 
     // Bonus knob keys (DomainConfig.Bonus).
     public const string ForageYieldUntrained = "forageYieldUntrained"; // forageDropRate (in-place)
@@ -33,9 +32,11 @@ public static class ForDomain
     /// <summary>Raw multiplier for the FIRST harvest of a species this player has ever taken
     /// (novel-finds ruling). Later harvests of a known species earn base raw.</summary>
     public const string NovelFindMultiplier = "novelFindMultiplier";
-    /// <summary>Patch Stewardship (the state-WRITE half). Tending = watering one of YOUR worked
-    /// patches: advances the mushroom network's regrow clock / the bush's stage clock by this
-    /// many days, scaled Apprentice -> GM, once per patch per in-game day.</summary>
+    /// <summary>Patch Stewardship (the state-WRITE half, re-ruled 2026-07-16): the skill IS the
+    /// hands. No separate verb — the HARVEST itself stewards. A ranked pick (Apprentice I+)
+    /// leaves the network intact, advancing the regrow clock by this many days (Apprentice ->
+    /// GM); an Untrained pick wounds it instead. Deliberately fragile on unclaimed ground:
+    /// whoever picks your patch, their hands decide what it costs. Claims fence out strangers.</summary>
     public const string TendBoostDaysApprentice = "tendBoostDaysApprentice";
     public const string TendBoostDaysGm = "tendBoostDaysGm";
     /// <summary>The liability half: an UNTRAINED pick wounds the patch, delaying its regrowth by
@@ -62,9 +63,6 @@ public static class ForDomain
             // Passive per-session shape: credit accrues as a tapline actually drips (hours),
             // never for placing the spile. Small K: one tapline sweep is most of the bank.
             [TechTapping] = new() { Raw = 4, K = 15 },
-            // Stewardship: gated by the once-per-patch-per-day cooldown, so K stays small — a
-            // tending circuit over a real patch network is most of the bank.
-            [TechTending] = new() { Raw = 3, K = 12 },
         },
         Bonus = new Dictionary<string, double>
         {

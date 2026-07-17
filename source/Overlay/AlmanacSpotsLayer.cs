@@ -199,74 +199,41 @@ public class AlmanacSpotsLayer : MarkerMapLayer
 
     // ------------------------------------------------------------ Patch Stewardship (server)
 
-    /// <summary>The active tending verb (ruled 2026-07-16): watering one of YOUR worked patches
-    /// advances its regrow clock. Requires Apprentice I (the memory has formed), a recorded spot
-    /// of yours near the watered block, a resting patch, and one tend per patch per in-game day.
-    /// Mushrooms: pushes the network's growing-progress clock. Bushes: shortens the current
-    /// stage's transition hours (Mature/Flowering/Ripening only — never rushes Ripe toward drop,
-    /// never touches Dormant: winter is winter).</summary>
-    public void TendAt(IPlayer player, BlockPos pos)
+    /// <summary>Careful hands (re-ruled 2026-07-16): the HARVEST itself stewards — a ranked
+    /// forager cuts without damaging the network, so ground THEY pick regrows faster. Fires at
+    /// pick time for Apprentice I+, advancing the network's growing-progress clock by the rank
+    /// boost, once per patch per in-game day per player (a 5-cap patch is one careful visit,
+    /// not five boosts). Silent: the effect shows in the GM regrow read, not in chat.
+    /// Deliberately fragile on unclaimed ground — whoever picks the patch, their hands decide.
+    /// Bushes get the same treatment inline at the pluck seam (their cycle self-limits).</summary>
+    public void StewardMushroomNear(IPlayer player, BlockPos pos)
     {
-        if (sapi == null || player is not IServerPlayer splayer) return;
+        if (sapi == null || player == null) return;
         int level = Domains.ForDomain.LevelOf(player);
-        if (level < 5) return; // pre-Apprentice: silent, watering is just watering
+        if (level < 5) return;
 
+        // The picker's own recorded spot (Record just ran for this pick) carries the day gate.
         WorkedSpot? spot = null;
         foreach (var s in GetOrLoad(player.PlayerUID))
         {
-            if (s.Kind == (int)SpotKind.Water) continue;
-            if (Math.Abs(s.X - pos.X) <= 6 && Math.Abs(s.Z - pos.Z) <= 6 && Math.Abs(s.Y - pos.Y) <= 4)
+            if (s.Kind != (int)SpotKind.Mushroom) continue;
+            if (Math.Abs(s.X - pos.X) <= 7 && Math.Abs(s.Z - pos.Z) <= 7 && Math.Abs(s.Y - pos.Y) <= 4)
             {
                 spot = s;
                 break;
             }
         }
-        if (spot == null) return;
+        if (spot == null || growingProgressRef == null) return;
 
         double nowDays = sapi.World.Calendar.TotalDays;
-        if (nowDays - spot.LastTendDay < 1)
-        {
-            splayer.SendMessage(GlobalConstants.GeneralChatGroup,
-                Lang.GetL(splayer.LanguageCode, "almanactcm:tend-rested"), EnumChatType.Notification);
-            return;
-        }
+        if (nowDays - spot.LastTendDay < 1) return;
+        if (sapi.World.BlockAccessor.GetBlockEntity(new BlockPos(spot.X, spot.Y, spot.Z)) is not BlockEntityMycelium myc) return;
 
         double boost = Domains.ForDomain.TendBoostFor(level);
-        bool tended = false;
-        string doneKey = "almanactcm:tend-mushroom";
-
-        if (spot.Kind == (int)SpotKind.Mushroom)
-        {
-            var ba = sapi.World.BlockAccessor;
-            if (ba.GetBlockEntity(new BlockPos(spot.X, spot.Y, spot.Z)) is not BlockEntityMycelium myc) return;
-            (int state, _, _, _) = ReadMushroom(spot);
-            if (state == 2) return; // caps are standing; nothing to hurry
-            if (growingProgressRef == null) return;
-            growingProgressRef(myc) += boost;
-            myc.MarkDirty(false);
-            tended = true;
-        }
-        else
-        {
-            var be = sapi.World.BlockAccessor.GetBlockEntity(new BlockPos(spot.X, spot.Y, spot.Z));
-            var bush = be?.GetBehavior<BEBehaviorFruitingBush>();
-            var gstate = bush?.BState?.Growthstate;
-            if (bush?.BState == null || be == null) return;
-            if (gstate != EnumFruitingBushGrowthState.Mature && gstate != EnumFruitingBushGrowthState.Flowering
-                && gstate != EnumFruitingBushGrowthState.Ripening) return;
-            bush.BState.TransitionHoursLeft = Math.Max(0, bush.BState.TransitionHoursLeft - boost * sapi.World.Calendar.HoursPerDay);
-            be.MarkDirty(true);
-            doneKey = "almanactcm:tend-bush";
-            tended = true;
-        }
-
-        if (!tended) return;
+        growingProgressRef(myc) += boost;
+        myc.MarkDirty(false);
         spot.LastTendDay = nowDays;
-        AlmanacTcmModSystem.Instance?.Ledger?.Log(player, Domains.ForDomain.Code, Domains.ForDomain.TechTending,
-            HashCode.Combine(spot.X, spot.Y, spot.Z));
-        splayer.SendMessage(GlobalConstants.GeneralChatGroup,
-            Lang.GetL(splayer.LanguageCode, doneKey), EnumChatType.Notification);
-        TcmLog.Cat(sapi, TcmLog.Hooks, $"FOR tend: {player.PlayerName} +{boost:0.##}d at {spot.X},{spot.Y},{spot.Z} (kind {spot.Kind})");
+        TcmLog.Cat(sapi, TcmLog.Hooks, $"FOR careful hands: {player.PlayerName} +{boost:0.##}d regrow at {spot.X},{spot.Y},{spot.Z}");
     }
 
     /// <summary>The liability half: an Untrained pick wounds the network, delaying regrowth.
