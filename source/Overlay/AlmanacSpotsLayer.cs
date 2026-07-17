@@ -52,6 +52,10 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         /// <summary>Horizontal footprint (blocks from anchor) learned from mycelium fruiting
         /// offsets and folded repeat picks, so precise circles cover the TRUE patch, not a dot.</summary>
         [ProtoMember(6)] public int Reach;
+        /// <summary>Packed pick positions relative to the anchor ((dx+512)&lt;&lt;10 | dz+512),
+        /// recorded for bushes and waters: the GM outline is built from where the work actually
+        /// happened. Mushroom outlines read the live network instead.</summary>
+        [ProtoMember(7)] public List<int>? Cells;
     }
 
     /// <summary>What the client is allowed to see: already fuzzed + fidelity-trimmed.</summary>
@@ -75,6 +79,12 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         /// <summary>What was picked here. No tier gate: the player picked it, they remember it.
         /// The LOCATION precision stays the rank reward.</summary>
         [ProtoMember(10)] public List<string>? Names;
+        /// <summary>GM outline cells, absolute cell indices packed (cx&lt;&lt;32 | (uint)cz) at
+        /// CellSize blocks per cell. Null below GM or when the live read was unavailable.</summary>
+        [ProtoMember(11)] public List<long>? Cells;
+        [ProtoMember(12)] public int CellSize = 4;
+        /// <summary>Caps verified standing in the world right now (GM mushrooms), -1 = not sent.</summary>
+        [ProtoMember(13)] public int CapsStanding = -1;
     }
 
     // ------------------------------------------------------------ server state
@@ -136,6 +146,7 @@ public class AlmanacSpotsLayer : MarkerMapLayer
             {
                 AddName(s, name);
                 s.Reach = Math.Max(s.Reach, Math.Max(Math.Abs(s.X - pos.X), Math.Abs(s.Z - pos.Z)));
+                if (kind != SpotKind.Mushroom) AddCell(s, pos);
                 return; // already known
             }
         }
@@ -161,6 +172,7 @@ public class AlmanacSpotsLayer : MarkerMapLayer
 
         var spot = new WorkedSpot { X = pos.X, Y = pos.Y, Z = pos.Z, Kind = (int)kind, Reach = reach };
         AddName(spot, name);
+        if (kind != SpotKind.Mushroom) AddCell(spot, pos);
         list.Add(spot);
         if (list.Count > MaxSpotsPerPlayer) list.RemoveAt(0);
     }
@@ -171,6 +183,17 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         spot.Names ??= new List<string>();
         if (spot.Names.Count < 6 && !spot.Names.Contains(name)) spot.Names.Add(name);
     }
+
+    private static void AddCell(WorkedSpot spot, BlockPos pos)
+    {
+        int dx = pos.X - spot.X, dz = pos.Z - spot.Z;
+        if (dx < -511 || dx > 511 || dz < -511 || dz > 511) return;
+        int packed = ((dx + 512) << 10) | (dz + 512);
+        spot.Cells ??= new List<int>();
+        if (spot.Cells.Count < 48 && !spot.Cells.Contains(packed)) spot.Cells.Add(packed);
+    }
+
+    private static long PackCell(int cx, int cz) => ((long)cx << 32) | (uint)cz;
 
     private BlockPos? FindMyceliumNear(BlockPos pos)
     {
@@ -209,6 +232,15 @@ public class AlmanacSpotsLayer : MarkerMapLayer
                 {
                     b.Reach = Math.Max(b.Reach, Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Z - b.Z)));
                     if (a.Names != null) foreach (var nm in a.Names) AddName(b, nm);
+                    if (a.Cells != null)
+                    {
+                        foreach (int packed in a.Cells)
+                        {
+                            int ax = a.X + ((packed >> 10) & 0x3ff) - 512;
+                            int az = a.Z + (packed & 0x3ff) - 512;
+                            AddCell(b, new BlockPos(ax, a.Y, az));
+                        }
+                    }
                     list.RemoveAt(i);
                     break;
                 }
@@ -269,17 +301,45 @@ public class AlmanacSpotsLayer : MarkerMapLayer
                 (int state, float stockPct, float etaDays) = ReadWater(spot, nowDays);
                 view.State = state; // Apprentice+ gets the coarse verdict (the ruled read)
                 if (tier >= 2) view.StockPct = stockPct;
-                // The GM forecast only matters when the water is actually worn down; a near-full
-                // spot nagging "ready in 14 days" reads as a warning it is not (live feedback).
-                if (tier >= 4 && stockPct <= 40f) view.EtaDays = etaDays;
-            }
-            else
-            {
-                if (tier >= 2) view.State = ReadPatchState(spot, out float eta);
-                if (tier >= 4 && view.State == 1)
+                if (tier >= 4)
                 {
-                    ReadPatchState(spot, out float eta2);
-                    view.EtaDays = eta2;
+                    // The forecast only matters when the water is actually worn down; a near-full
+                    // spot nagging "ready in 14 days" reads as a warning it is not (live feedback).
+                    if (stockPct <= 40f) view.EtaDays = etaDays;
+                    // The GM outline for water IS the vanilla depletion bucket: the true 8-block
+                    // cell the game tracks stock in.
+                    view.CellSize = 8;
+                    view.Cells = new List<long> { PackCell(spot.X >> 3, spot.Z >> 3) };
+                }
+            }
+            else if (kind == SpotKind.Mushroom)
+            {
+                if (tier >= 2)
+                {
+                    (int state, int caps, float eta, List<long>? cells) = ReadMushroom(spot);
+                    view.State = state;
+                    if (tier >= 4)
+                    {
+                        view.CapsStanding = caps;
+                        if (state == 1 && eta >= 0) view.EtaDays = eta;
+                        view.Cells = cells;
+                    }
+                }
+            }
+            else // bush
+            {
+                if (tier >= 2) view.State = ReadBush(spot);
+                if (tier >= 4 && spot.Cells != null)
+                {
+                    var cells = new List<long>();
+                    foreach (int packed in spot.Cells)
+                    {
+                        int ax = spot.X + ((packed >> 10) & 0x3ff) - 512;
+                        int az = spot.Z + (packed & 0x3ff) - 512;
+                        long cell = PackCell(ax >> 2, az >> 2);
+                        if (!cells.Contains(cell)) cells.Add(cell);
+                    }
+                    view.Cells = cells;
                 }
             }
 
@@ -316,10 +376,12 @@ public class AlmanacSpotsLayer : MarkerMapLayer
 
     private static readonly AccessTools.FieldRef<object, Vec3i[]>? offsetsRef =
         TryFieldRef<Vec3i[]>("grownMushroomOffsets");
-    private static readonly AccessTools.FieldRef<object, double>? diedDaysRef =
-        TryFieldRef<double>("mushroomsDiedTotalDays");
     private static readonly AccessTools.FieldRef<object, double>? growingDaysRef =
         TryFieldRef<double>("growingDays");
+    private static readonly AccessTools.FieldRef<object, double>? growingProgressRef =
+        TryFieldRef<double>("mushroomsGrowingDays");
+    private static readonly AccessTools.FieldRef<object, AssetLocation>? mushroomCodeRef =
+        TryFieldRef<AssetLocation>("mushroomBlockCode");
 
     private static AccessTools.FieldRef<object, T>? TryFieldRef<T>(string field)
     {
@@ -327,34 +389,49 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         catch { return null; }
     }
 
-    /// <summary>Patch state: 2 = ready (caps up / bush ripe), 1 = resting/regrowing. ETA is only
-    /// meaningful for mushrooms (bush ripeness is vanilla-visible on hover, ruled redundant).</summary>
-    private int ReadPatchState(WorkedSpot spot, out float etaDays)
+    /// <summary>Mushroom truth pass. Vanilla prunes its offsets list LAZILY (a scan at most every
+    /// 0.1 game-days, skipped entirely while any offset chunk is unloaded), so a freshly picked
+    /// patch keeps claiming caps for minutes. Every claimed cap is therefore verified against the
+    /// actual world block: ready means standing RIGHT NOW, and the verified caps are the GM
+    /// outline cells. The regrow ETA reads the network's growing-progress clock (10-20 warm days
+    /// per network; cold days pause it), NOT the died-day stamp, which vanilla only writes on
+    /// natural death and never on player picks.</summary>
+    private (int state, int caps, float etaDays, List<long>? cells) ReadMushroom(WorkedSpot spot)
     {
-        etaDays = -1;
         var ba = sapi!.World.BlockAccessor;
         var pos = new BlockPos(spot.X, spot.Y, spot.Z);
+        if (ba.GetBlockEntity(pos) is not BlockEntityMycelium myc) return (1, -1, -1, null);
 
-        if (spot.Kind == (int)SpotKind.Mushroom)
+        var cells = new List<long> { PackCell(spot.X >> 2, spot.Z >> 2) };
+        int caps = 0;
+        if (offsetsRef != null)
         {
-            if (ba.GetBlockEntity(pos) is not BlockEntityMycelium myc) return 1;
-            if (offsetsRef != null)
+            AssetLocation? code = mushroomCodeRef?.Invoke(myc);
+            var mpos = new BlockPos(0);
+            foreach (var off in offsetsRef(myc))
             {
                 // Opportunistic footprint learning: the network's fruiting spread IS the patch.
-                foreach (var off in offsetsRef(myc))
-                    spot.Reach = Math.Max(spot.Reach, Math.Max(Math.Abs(off.X), Math.Abs(off.Z)));
-                if (offsetsRef(myc).Length > 0) return 2;
+                spot.Reach = Math.Max(spot.Reach, Math.Max(Math.Abs(off.X), Math.Abs(off.Z)));
+                mpos.Set(spot.X + off.X, spot.Y + off.Y, spot.Z + off.Z);
+                if (code != null && code.Equals(ba.GetBlock(mpos).Code))
+                {
+                    caps++;
+                    long cell = PackCell(mpos.X >> 2, mpos.Z >> 2);
+                    if (!cells.Contains(cell)) cells.Add(cell);
+                }
             }
-            if (diedDaysRef != null && growingDaysRef != null)
-            {
-                double eta = growingDaysRef(myc) - (sapi.World.Calendar.TotalDays - diedDaysRef(myc));
-                etaDays = (float)Math.Max(0, Math.Min(eta, 60));
-            }
-            return 1;
         }
 
-        // Bush: ready when any fruiting-bush behavior at the spot reads Ripe.
-        var be = ba.GetBlockEntity(pos);
+        float eta = -1;
+        if (caps == 0 && growingDaysRef != null && growingProgressRef != null)
+            eta = (float)GameMath.Clamp(growingDaysRef(myc) - growingProgressRef(myc), 0, 60);
+        return (caps > 0 ? 2 : 1, caps, eta, cells);
+    }
+
+    /// <summary>Bush: ready when any fruiting-bush behavior at the spot reads Ripe.</summary>
+    private int ReadBush(WorkedSpot spot)
+    {
+        var be = sapi!.World.BlockAccessor.GetBlockEntity(new BlockPos(spot.X, spot.Y, spot.Z));
         var bush = be?.GetBehavior<BEBehaviorFruitingBush>();
         if (bush?.BState == null) return 1;
         return bush.BState.Growthstate == EnumFruitingBushGrowthState.Ripe ? 2 : 1;
@@ -405,14 +482,15 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         if (!mapSink.IsOpened || capi == null) return;
         foreach (var c in comps) c.Dispose();
         comps.Clear();
-        foreach (var (view, count) in Cluster(ownSpots)) comps.Add(new SpotMapComponent(view, count, this, capi));
+        foreach (var members in Cluster(ownSpots)) comps.Add(new SpotMapComponent(members, this, capi));
     }
 
-    /// <summary>Merges same-kind circles that overlap into one blob (ruled from live feedback:
-    /// several worked patches in an area should read as one larger stretch of known ground, not
-    /// stacked discs). Higher rank means smaller circles, fewer overlaps, more defined spots —
-    /// the fidelity ladder expressed spatially for free.</summary>
-    private static List<(SpotView view, int count)> Cluster(List<SpotView> views)
+    /// <summary>Groups same-kind circles that overlap into one cluster (ruled from live
+    /// feedback: several worked patches in an area should read as one larger stretch of known
+    /// ground, not stacked discs). The component renders the cluster as a lumpy union of its
+    /// member circles below GM and as the blocky cell outline at GM — the fidelity ladder
+    /// expressed spatially.</summary>
+    private static List<List<SpotView>> Cluster(List<SpotView> views)
     {
         int n = views.Count;
         int[] group = new int[n];
@@ -434,34 +512,7 @@ public class AlmanacSpotsLayer : MarkerMapLayer
             int g = Find(i);
             (byGroup.TryGetValue(g, out var l) ? l : byGroup[g] = new List<SpotView>()).Add(views[i]);
         }
-
-        var result = new List<(SpotView, int)>();
-        foreach (var members in byGroup.Values)
-        {
-            if (members.Count == 1) { result.Add((members[0], 1)); continue; }
-            var blob = new SpotView { Kind = members[0].Kind, Tier = members[0].Tier, StockPct = -1, EtaDays = -1 };
-            foreach (var m in members) { blob.X += m.X; blob.Y += m.Y; blob.Z += m.Z; }
-            blob.X /= members.Count; blob.Y /= members.Count; blob.Z /= members.Count;
-            float radius = 0;
-            foreach (var m in members)
-            {
-                double dx = m.X - blob.X, dz = m.Z - blob.Z;
-                radius = Math.Max(radius, (float)Math.Sqrt(dx * dx + dz * dz) + m.RadiusBlocks);
-                blob.State = Math.Max(blob.State, m.State); // any ready patch marks the blob ready
-                blob.Tier = Math.Max(blob.Tier, m.Tier);
-                if (m.StockPct >= 0) blob.StockPct = blob.StockPct < 0 ? m.StockPct : Math.Min(blob.StockPct, m.StockPct);
-                blob.EtaDays = Math.Max(blob.EtaDays, m.EtaDays);
-                if (m.Names != null)
-                {
-                    blob.Names ??= new List<string>();
-                    foreach (var nm in m.Names)
-                        if (blob.Names.Count < 6 && !blob.Names.Contains(nm)) blob.Names.Add(nm);
-                }
-            }
-            blob.RadiusBlocks = radius;
-            result.Add((blob, members.Count));
-        }
-        return result;
+        return new List<List<SpotView>>(byGroup.Values);
     }
 
     public override void Render(GuiElementMap mapElem, float dt)
@@ -473,7 +524,13 @@ public class AlmanacSpotsLayer : MarkerMapLayer
     public override void OnMouseMoveClient(MouseEvent args, GuiElementMap mapElem, System.Text.StringBuilder hoverText)
     {
         if (!Active) return;
-        foreach (var c in comps) c.OnMouseMove(args, mapElem, hoverText);
+        // First hit wins: overlapping clusters must not stack their tooltips (live feedback).
+        foreach (var c in comps)
+        {
+            int len = hoverText.Length;
+            c.OnMouseMove(args, mapElem, hoverText);
+            if (hoverText.Length != len) return;
+        }
     }
 
     public override void Dispose()
@@ -484,116 +541,242 @@ public class AlmanacSpotsLayer : MarkerMapLayer
     }
 }
 
-/// <summary>One translucent circle: colour by kind+state, pixel radius derived from the world
-/// radius at the current zoom, quiet alpha so the map stays readable underneath.</summary>
+/// <summary>One cluster of same-kind worked ground. The shape ladder (ruled from live feedback,
+/// Jeffrey's mockup): below GM every member renders as its own soft translucent circle, so
+/// overlapping patches read as one lumpy blob instead of a single fat circle; at GM the cluster
+/// renders the blocky cell outline of the TRUTH (verified standing caps, recorded picks, the
+/// vanilla depletion bucket). Hover climbs the same ladder: vague line, state line, then one
+/// line per patch at Master+.</summary>
 public class SpotMapComponent : MapComponent
 {
-    private readonly AlmanacSpotsLayer.SpotView view;
+    private readonly List<AlmanacSpotsLayer.SpotView> members;
     private readonly AlmanacSpotsLayer layer;
-    private readonly int count;
-    private readonly Vec3d worldPos;
+    private readonly int kind;
+    private int tier, state;
+    private readonly int cellSize;
+    private readonly List<string> names = new();
+    private float stockPct = -1, etaDays = -1;
+    private readonly Vec3d center = new();
+    private float enclosingRadius;
+    private readonly List<(int cx, int cz, int cstate)> cells = new();
     private readonly Vec4f color = new();
     private Vec2f viewPos = new();
     private Vec2f edgePos = new();
     private readonly Matrixf mvMat = new();
 
-    public SpotMapComponent(AlmanacSpotsLayer.SpotView view, int count, AlmanacSpotsLayer layer, ICoreClientAPI capi) : base(capi)
+    public SpotMapComponent(List<AlmanacSpotsLayer.SpotView> members, AlmanacSpotsLayer layer, ICoreClientAPI capi) : base(capi)
     {
-        this.view = view;
-        this.count = count;
+        this.members = members;
         this.layer = layer;
-        worldPos = new Vec3d(view.X, view.Y, view.Z);
+        kind = members[0].Kind;
+        cellSize = Math.Max(1, members[0].CellSize);
+
+        foreach (var m in members)
+        {
+            center.X += m.X; center.Y += m.Y; center.Z += m.Z;
+            tier = Math.Max(tier, m.Tier);
+            state = Math.Max(state, m.State); // any ready patch marks the cluster ready
+            if (m.StockPct >= 0) stockPct = stockPct < 0 ? m.StockPct : Math.Min(stockPct, m.StockPct);
+            etaDays = Math.Max(etaDays, m.EtaDays);
+            if (m.Names != null)
+                foreach (var nm in m.Names)
+                    if (names.Count < 6 && !names.Contains(nm)) names.Add(nm);
+        }
+        center.X /= members.Count; center.Y /= members.Count; center.Z /= members.Count;
+        foreach (var m in members)
+        {
+            double dx = m.X - center.X, dz = m.Z - center.Z;
+            enclosingRadius = Math.Max(enclosingRadius, (float)Math.Sqrt(dx * dx + dz * dz) + m.RadiusBlocks);
+        }
+
+        // GM: the blocky truth. Server-sent cells are exact; a member without cells (unloaded
+        // chunk, pre-outline recording) falls back to rasterizing its circle so it still shows.
+        if (tier >= 4)
+        {
+            foreach (var m in members)
+            {
+                if (m.Cells != null)
+                    foreach (long packed in m.Cells) AddCell((int)(packed >> 32), (int)packed, m.State);
+                else
+                    RasterizeCircle(m);
+            }
+        }
 
         // ONE learnable colour per kind (live feedback ruling): berries crimson, mushrooms
-        // amber, waters blue. State rides intensity, never hue: ready/healthy is full-strength,
-        // resting/thin is the same colour sat down, so the legend stays one-glance learnable.
-        int rgb = view.Kind switch
+        // amber, waters blue. State rides intensity, never hue.
+        int rgb = kind switch
         {
             (int)AlmanacSpotsLayer.SpotKind.Bush => ColorUtil.ToRgba(255, 215, 40, 80),      // berry crimson
             (int)AlmanacSpotsLayer.SpotKind.Mushroom => ColorUtil.ToRgba(255, 240, 150, 40), // cap amber
             _ => ColorUtil.ToRgba(255, 45, 130, 230),                                        // water blue
         };
         ColorUtil.ToRGBAVec4f(rgb, ref color);
-        color.W = view.State == 2 ? 0.60f : view.State == 1 ? 0.40f : 0.50f;
     }
+
+    private void AddCell(int cx, int cz, int cstate)
+    {
+        for (int i = 0; i < cells.Count; i++)
+        {
+            if (cells[i].cx == cx && cells[i].cz == cz)
+            {
+                if (cstate > cells[i].cstate) cells[i] = (cx, cz, cstate);
+                return;
+            }
+        }
+        cells.Add((cx, cz, cstate));
+    }
+
+    private void RasterizeCircle(AlmanacSpotsLayer.SpotView m)
+    {
+        int c0x = (int)Math.Floor((m.X - m.RadiusBlocks) / cellSize), c1x = (int)Math.Floor((m.X + m.RadiusBlocks) / cellSize);
+        int c0z = (int)Math.Floor((m.Z - m.RadiusBlocks) / cellSize), c1z = (int)Math.Floor((m.Z + m.RadiusBlocks) / cellSize);
+        for (int cx = c0x; cx <= c1x; cx++)
+            for (int cz = c0z; cz <= c1z; cz++)
+            {
+                double dx = cx * cellSize + cellSize * 0.5 - m.X;
+                double dz = cz * cellSize + cellSize * 0.5 - m.Z;
+                if (dx * dx + dz * dz <= m.RadiusBlocks * m.RadiusBlocks) AddCell(cx, cz, m.State);
+            }
+    }
+
+    private static float AlphaFor(int st) => st == 2 ? 0.60f : st == 1 ? 0.40f : 0.50f;
 
     public override void Render(GuiElementMap map, float dt)
     {
-        map.TranslateWorldPosToViewPos(worldPos, ref viewPos);
-        if (viewPos.X < -300 || viewPos.Y < -300
-            || viewPos.X > map.Bounds.OuterWidth + 300 || viewPos.Y > map.Bounds.OuterHeight + 300) return;
-
-        // Pixel radius from the world radius: translate a point radius-blocks east and diff.
-        map.TranslateWorldPosToViewPos(new Vec3d(view.X + view.RadiusBlocks, view.Y, view.Z), ref edgePos);
-        float pixelRadius = Math.Max(6, Math.Abs(edgePos.X - viewPos.X));
-
-        float x = (float)(map.Bounds.renderX + viewPos.X);
-        float y = (float)(map.Bounds.renderY + viewPos.Y);
+        map.TranslateWorldPosToViewPos(center, ref viewPos);
+        map.TranslateWorldPosToViewPos(new Vec3d(center.X + enclosingRadius, center.Y, center.Z), ref edgePos);
+        float pixelReach = Math.Abs(edgePos.X - viewPos.X) + 50;
+        if (viewPos.X < -pixelReach || viewPos.Y < -pixelReach
+            || viewPos.X > map.Bounds.OuterWidth + pixelReach || viewPos.Y > map.Bounds.OuterHeight + pixelReach) return;
 
         var api = map.Api;
         var prog = api.Render.GetEngineShader(EnumShaderProgram.Gui);
-        prog.Uniform("rgbaIn", color);
         prog.Uniform("extraGlow", 0);
         prog.Uniform("applyColor", 0);
-        prog.Uniform("noTexture", 0f);
-
+        prog.UniformMatrix("projectionMatrix", api.Render.CurrentProjectionMatrix);
         var tex = layer.circleTexture;
         if (tex == null || layer.quadModel == null) return;
+
+        if (tier >= 4 && cells.Count > 0)
+        {
+            // Blocky truth cells: flat untextured quads, disjoint so the union stays one flat tone.
+            prog.Uniform("noTexture", 1f);
+            prog.BindTexture2D("tex2d", tex.TextureId, 0);
+            var corner = new Vec3d();
+            var cornerPos = new Vec2f();
+            foreach (var (cx, cz, cstate) in cells)
+            {
+                corner.Set(cx * (double)cellSize, center.Y, cz * (double)cellSize);
+                map.TranslateWorldPosToViewPos(corner, ref cornerPos);
+                corner.Set((cx + 1) * (double)cellSize, center.Y, (cz + 1) * (double)cellSize);
+                map.TranslateWorldPosToViewPos(corner, ref edgePos);
+                float w = Math.Max(2, edgePos.X - cornerPos.X), h = Math.Max(2, edgePos.Y - cornerPos.Y);
+                float x = (float)(map.Bounds.renderX + cornerPos.X + w / 2);
+                float y = (float)(map.Bounds.renderY + cornerPos.Y + h / 2);
+
+                color.W = AlphaFor(cstate);
+                prog.Uniform("rgbaIn", color);
+                mvMat.Set(api.Render.CurrentModelviewMatrix)
+                    .Translate(x, y, 60)
+                    .Scale(w, h, 0)
+                    .Scale(0.5f, 0.5f, 0);
+                prog.UniformMatrix("modelViewMatrix", mvMat.Values);
+                api.Render.RenderMesh(layer.quadModel);
+            }
+            return;
+        }
+
+        // Below GM: every member circle renders, so overlaps read as one lumpy blob.
+        prog.Uniform("noTexture", 0f);
         prog.BindTexture2D("tex2d", tex.TextureId, 0);
-        prog.UniformMatrix("projectionMatrix", api.Render.CurrentProjectionMatrix);
-        mvMat
-            .Set(api.Render.CurrentModelviewMatrix)
-            .Translate(x, y, 60)
-            .Scale(pixelRadius * 2, pixelRadius * 2, 0)
-            .Scale(0.5f, 0.5f, 0);
-        prog.UniformMatrix("modelViewMatrix", mvMat.Values);
-        api.Render.RenderMesh(layer.quadModel);
+        var mpos = new Vec3d();
+        var mview = new Vec2f();
+        foreach (var m in members)
+        {
+            mpos.Set(m.X, m.Y, m.Z);
+            map.TranslateWorldPosToViewPos(mpos, ref mview);
+            mpos.Set(m.X + m.RadiusBlocks, m.Y, m.Z);
+            map.TranslateWorldPosToViewPos(mpos, ref edgePos);
+            float pixelRadius = Math.Max(6, Math.Abs(edgePos.X - mview.X));
+            float x = (float)(map.Bounds.renderX + mview.X);
+            float y = (float)(map.Bounds.renderY + mview.Y);
+
+            color.W = AlphaFor(m.State);
+            prog.Uniform("rgbaIn", color);
+            mvMat.Set(api.Render.CurrentModelviewMatrix)
+                .Translate(x, y, 60)
+                .Scale(pixelRadius * 2, pixelRadius * 2, 0)
+                .Scale(0.5f, 0.5f, 0);
+            prog.UniformMatrix("modelViewMatrix", mvMat.Values);
+            api.Render.RenderMesh(layer.quadModel);
+        }
     }
 
     public override void OnMouseMove(MouseEvent args, GuiElementMap mapElem, System.Text.StringBuilder hoverText)
     {
-        mapElem.TranslateWorldPosToViewPos(worldPos, ref viewPos);
+        mapElem.TranslateWorldPosToViewPos(center, ref viewPos);
         double dx = args.X - (viewPos.X + mapElem.Bounds.renderX);
         double dy = args.Y - (viewPos.Y + mapElem.Bounds.renderY);
-        mapElem.TranslateWorldPosToViewPos(new Vec3d(view.X + view.RadiusBlocks, view.Y, view.Z), ref edgePos);
+        mapElem.TranslateWorldPosToViewPos(new Vec3d(center.X + enclosingRadius, center.Y, center.Z), ref edgePos);
         float pixelRadius = Math.Max(6, Math.Abs(edgePos.X - viewPos.X));
         if (dx * dx + dy * dy > pixelRadius * pixelRadius) return;
 
-        string line;
-        if (view.Kind == (int)AlmanacSpotsLayer.SpotKind.Water)
+        if (kind == (int)AlmanacSpotsLayer.SpotKind.Water)
         {
-            line = view.State == 1 ? Lang.Get("almanactcm:spot-water-low") : Lang.Get("almanactcm:spot-water-healthy");
-            if (view.StockPct >= 0) line += " " + Lang.Get("almanactcm:spot-stock", (int)view.StockPct);
-            if (view.EtaDays > 0) line += " " + Lang.Get("almanactcm:spot-water-eta", (int)Math.Ceiling(view.EtaDays));
-            if (view.Tier >= 3 && view.EtaDays <= 0 && view.StockPct >= 0)
-                line += " " + Lang.Get("almanactcm:spot-precise");
+            string line = state == 1 ? Lang.Get("almanactcm:spot-water-low") : Lang.Get("almanactcm:spot-water-healthy");
+            if (stockPct >= 0) line += " " + Lang.Get("almanactcm:spot-stock", (int)stockPct);
+            if (etaDays > 0) line += " " + Lang.Get("almanactcm:spot-water-eta", (int)Math.Ceiling(etaDays));
+            if (members.Count > 1) line += " " + Lang.Get("almanactcm:spot-count", members.Count);
+            hoverText.AppendLine(line);
+            return;
         }
-        else
-        {
-            string what = view.Kind == (int)AlmanacSpotsLayer.SpotKind.Mushroom
-                ? Lang.Get("almanactcm:spot-mushrooms") : Lang.Get("almanactcm:spot-berries");
-            // The phrasing itself climbs with rank, so the hover visibly changes as you level
-            // even when the patch state does not.
-            line = view.Tier switch
-            {
-                1 => Lang.Get("almanactcm:spot-somewhere", what),
-                2 => view.State == 2 ? Lang.Get("almanactcm:spot-ready", what) : Lang.Get("almanactcm:spot-regrowing", what),
-                3 => (view.State == 2 ? Lang.Get("almanactcm:spot-ready", what) : Lang.Get("almanactcm:spot-regrowing", what))
-                     + " " + Lang.Get("almanactcm:spot-precise"),
-                _ => (view.State == 2 ? Lang.Get("almanactcm:spot-ready", what) : Lang.Get("almanactcm:spot-resting-exact", what)),
-            };
-            if (view.EtaDays > 0) line += " " + Lang.Get("almanactcm:spot-eta", (int)Math.Ceiling(view.EtaDays));
 
-            // What was picked here, no tier gate: you picked it, you remember it.
-            if (view.Names != null && view.Names.Count > 0)
+        string noun = kind == (int)AlmanacSpotsLayer.SpotKind.Mushroom
+            ? Lang.Get("almanactcm:spot-mushrooms") : Lang.Get("almanactcm:spot-berries");
+
+        // Apprentice/Journeyman: one summary line for the stretch.
+        if (tier <= 2)
+        {
+            string line = tier <= 1
+                ? Lang.Get("almanactcm:spot-somewhere", noun)
+                : state == 2 ? Lang.Get("almanactcm:spot-ready", noun) : Lang.Get("almanactcm:spot-regrowing", noun);
+            if (names.Count > 0)
             {
-                var shown = view.Names.Count > 3 ? view.Names.GetRange(0, 3) : view.Names;
+                var shown = names.Count > 3 ? names.GetRange(0, 3) : names;
                 string joined = string.Join(", ", shown);
-                if (view.Names.Count > 3) joined += " " + Lang.Get("almanactcm:spot-names-more");
+                if (names.Count > 3) joined += " " + Lang.Get("almanactcm:spot-names-more");
                 line += " " + Lang.Get("almanactcm:spot-names", joined);
             }
+            if (members.Count > 1) line += " " + Lang.Get("almanactcm:spot-count", members.Count);
+            hoverText.AppendLine(line);
+            return;
         }
-        if (count > 1) line += " " + Lang.Get("almanactcm:spot-count", count);
-        hoverText.AppendLine(line);
+
+        // Master+: one line per patch, no flavor. GM adds verified counts and the regrow clock.
+        int listed = 0;
+        foreach (var m in members)
+        {
+            if (listed == 6 && members.Count > 7)
+            {
+                hoverText.AppendLine(Lang.Get("almanactcm:spot-more", members.Count - listed));
+                break;
+            }
+            string what = m.Names != null && m.Names.Count > 0 ? string.Join(", ", m.Names) : noun;
+            string mline;
+            if (m.State == 2)
+            {
+                mline = m.CapsStanding > 1 ? Lang.Get("almanactcm:spot-line-ready-caps", what, m.CapsStanding)
+                    : m.CapsStanding == 1 ? Lang.Get("almanactcm:spot-line-ready-onecap", what)
+                    : Lang.Get("almanactcm:spot-line-ready", what);
+            }
+            else
+            {
+                mline = m.EtaDays >= 0 && m.EtaDays < 1.5f ? Lang.Get("almanactcm:spot-line-soon", what)
+                    : m.EtaDays >= 1.5f ? Lang.Get("almanactcm:spot-line-eta", what, (int)Math.Round(m.EtaDays))
+                    : Lang.Get("almanactcm:spot-line-resting", what);
+            }
+            hoverText.AppendLine(mline);
+            listed++;
+        }
     }
 }
