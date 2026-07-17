@@ -1,4 +1,5 @@
 using AlmanacTcm.Config;
+using System;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
@@ -37,6 +38,12 @@ public static class PanDomain
     /// Novice+ is exactly vanilla resolution.</summary>
     public const string CoarsenFactorStep = "coarsenFactorStep";
     public const string CoarsenPptStep = "coarsenPptStep";
+    /// <summary>Placer-tracing (the crown jewel, ruled): the pan reads the ore maps under the
+    /// wash and biases the drop table toward what is ACTUALLY below. Strength scales Apprentice
+    /// -> GM; below Master the trace is noisy (a faint signal), Master+ reads clean. Novice and
+    /// below pan blind (vanilla).</summary>
+    public const string TraceStrengthApprentice = "traceStrengthApprentice";
+    public const string TraceStrengthGm = "traceStrengthGm";
 
     public static DomainConfig Defaults() => new()
     {
@@ -60,8 +67,20 @@ public static class PanDomain
             [PanYieldGm] = 1.25,
             [CoarsenFactorStep] = 0.1,
             [CoarsenPptStep] = 0.5,
+            [TraceStrengthApprentice] = 0.35,
+            [TraceStrengthGm] = 1.5,
         }
     };
+
+    /// <summary>Trace strength for a level, linear Apprentice I (5) -> GM (max); 0 below.</summary>
+    public static double TraceStrengthFor(int level)
+    {
+        if (level < 5) return 0;
+        double app = Knob(TraceStrengthApprentice, 0.35), gm = Knob(TraceStrengthGm, 1.5);
+        int max = Leveling.Domain.MaxLevelDefault;
+        double t = Math.Min(1.0, (level - 5) / (double)(max - 5));
+        return app + t * (gm - app);
+    }
 
     /// <summary>General rank curve: untrained value at level 0, exactly 1.0 at Novice I,
     /// linear to the GM value at max level (shared shape with the other domains).</summary>

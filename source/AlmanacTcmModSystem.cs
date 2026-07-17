@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.71-dev")]
+    Version = "0.3.72-dev")]
 
 namespace AlmanacTcm;
 
@@ -71,6 +71,7 @@ public class AlmanacTcmModSystem : ModSystem
             Domains.FisTrapPatches.PatchConditional(api, harmony);
             Domains.FisEcologyPatches.PatchConditional(api, harmony);
             Domains.PanPatches.PatchConditional(api, harmony);
+            Domains.PanSurveyor.PatchConditional(api, harmony);
             Domains.WooColliderPatches.PatchAll(api, harmony);
             Domains.WooColliersMark.PatchAll(api, harmony);
             Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
@@ -110,8 +111,10 @@ public class AlmanacTcmModSystem : ModSystem
         Domains.FisEcologyPatches.RegisterServer(sapi);
 
         // PAN's pan-yield stat rides vanilla's own DropModbyStat path; the stat name is
-        // injected onto the parsed drop table once the world is running.
+        // injected onto the parsed drop table once the world is running. The Surveyor's depth
+        // store + sync channel register alongside it.
         Domains.PanPatches.RegisterServer(sapi);
+        Domains.PanSurveyor.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
@@ -143,6 +146,9 @@ public class AlmanacTcmModSystem : ModSystem
         // from a previous server can't linger into this one before its join packet lands.
         AlloyLedgerGated = true;
         Client = new LevelingClient(capi);
+
+        // The Surveyor's depth bands arrive on their own channel (the PT tooltip reads them).
+        Domains.PanSurveyor.RegisterClient(capi);
 
         // The Callings page lives in Illuminated's book (hard dependency, so the
         // assembly is always present; the tab API is 0.0.2+, enforced above).

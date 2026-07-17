@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
+using Vintagestory.API.Util;
 using Vintagestory.GameContent;
+using Vintagestory.ServerMods;
 
 namespace AlmanacTcm.Domains;
 
@@ -134,12 +137,102 @@ public static class PanPatches
 
         /// <summary>Every recorded reading is prospecting practice, whatever tool took it
         /// (vanilla propick, BP density, BP stone scan). Context = the chunk column, so
-        /// re-reading the same ground dedups inside the window.</summary>
+        /// re-reading the same ground dedups inside the window. Master+ readings also record
+        /// the depth band (the Surveyor, Phase 2).</summary>
         public static void Postfix(PropickReading results, IServerPlayer splr)
         {
             if (splr == null || results?.Position == null) return;
             Core?.Ledger?.Log(splr, PanDomain.Code, PanDomain.TechProspecting,
                 HashCode.Combine((int)results.Position.X >> 5, (int)results.Position.Z >> 5));
+            PanSurveyor.OnReading(results, splr);
+        }
+    }
+
+    // ------------------------------------------------------------ placer-tracing (Phase 2)
+
+    /// <summary>Samples the region ore maps at a column, exactly the way GenProbeResults does
+    /// (the medieval inference loop runs on the SAME deterministic data the propick reads).</summary>
+    internal static Dictionary<string, double>? SampleOreFactors(ICoreServerAPI api, BlockPos atPos)
+    {
+        var ppws = ObjectCacheUtil.TryGet<ProPickWorkSpace>(api, "propickworkspace");
+        if (ppws?.depositsByCode == null) return null;
+        var ba = api.World.BlockAccessor;
+        int regsize = ba.RegionSize;
+        var reg = ba.GetMapRegion(atPos.X / regsize, atPos.Z / regsize);
+        if (reg?.OreMaps == null) return null;
+
+        int lx = atPos.X % regsize, lz = atPos.Z % regsize;
+        var pos = atPos.Copy();
+        pos.Y = ba.GetTerrainMapheightAt(pos);
+        int[] blockColumn = ppws.GetRockColumn(pos.X, pos.Z);
+
+        var factors = new Dictionary<string, double>();
+        foreach (var val in reg.OreMaps)
+        {
+            var map = val.Value;
+            int noiseSize = map.InnerSize;
+            int oreDist = map.GetUnpaddedColorLerped((float)lx / regsize * noiseSize, (float)lz / regsize * noiseSize);
+            if (!ppws.depositsByCode.TryGetValue(val.Key, out var variant)) continue;
+            variant.GetPropickReading(pos, oreDist, blockColumn, out _, out double totalFactor);
+            if (totalFactor > 0) factors[val.Key] = totalFactor;
+        }
+        return factors;
+    }
+
+    /// <summary>Placer-tracing, the ruled crown jewel: at wash time the pan drop table is
+    /// biased toward the ores ACTUALLY in the ore maps below the pan — walk a valley and feel
+    /// the copper strengthen as you near the lode. Novice pans blind (vanilla); Apprentice/
+    /// Journeyman get a faint NOISY trace; Master+ reads clean. Implemented as a temporary
+    /// chance mutation restored in the postfix, so vanilla's own roll logic runs untouched and
+    /// other callers (the Panning Machine's entity has no rank) see the stock table.</summary>
+    [HarmonyPatch(typeof(BlockPan), "CreateDrop")]
+    public static class PlacerTracePatch
+    {
+        [ThreadStatic] private static List<(PanningDrop drop, float origAvg)>? mutated;
+
+        public static void Prefix(BlockPan __instance, EntityAgent byEntity, string fromBlockCode)
+        {
+            Restore(); // safety: never stack a stale mutation
+            if (byEntity?.World?.Side != EnumAppSide.Server || sapi == null || panDropsRef == null) return;
+            IPlayer? player = (byEntity as EntityPlayer)?.Player;
+            int level = PanDomain.LevelOf(player);
+            double strength = PanDomain.TraceStrengthFor(level);
+            if (strength <= 0) return;
+
+            var factors = SampleOreFactors(sapi, byEntity.Pos.AsBlockPos);
+            if (factors == null || factors.Count == 0) return;
+
+            // Below Master the signal wavers: the trace term rolls 30-100% each wash.
+            if (level < PanSurveyor.MasterLevel) strength *= 0.3 + sapi.World.Rand.NextDouble() * 0.7;
+
+            var table = panDropsRef(__instance);
+            if (table == null) return;
+            foreach (var kv in table)
+            {
+                if (!WildcardUtil.Match(kv.Key, fromBlockCode)) continue;
+                foreach (var drop in kv.Value)
+                {
+                    string? path = drop.Code?.Path;
+                    if (path == null) continue;
+                    foreach (var ore in factors)
+                    {
+                        if (!path.Contains(ore.Key)) continue;
+                        double mult = 1.0 + strength * Math.Min(1.0, ore.Value / 0.25);
+                        (mutated ??= new()).Add((drop, drop.Chance.avg));
+                        drop.Chance.avg *= (float)mult;
+                        break;
+                    }
+                }
+            }
+        }
+
+        public static void Postfix() => Restore();
+
+        private static void Restore()
+        {
+            if (mutated == null) return;
+            foreach (var (drop, orig) in mutated) drop.Chance.avg = orig;
+            mutated = null;
         }
     }
 
