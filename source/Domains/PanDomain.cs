@@ -32,6 +32,13 @@ public static class PanDomain
     /// low-rank doubling).</summary>
     public const string PanYieldUntrained = "panYieldUntrained";
     public const string PanYieldGm = "panYieldGm";
+    /// <summary>The GRAVE-SIFTER (ruled 2026-07-17): pan-table entries at or below this base
+    /// chance are the treasure tail (lore books, temporal gears, jewelry, gems, tuning
+    /// cylinders — the bony-soil dig's real prizes), and from Master I they climb by an EXTRA
+    /// multiplier on top of pan yield. A career panner is who you bring to a bonemeal dig.</summary>
+    public const string TreasureChanceThreshold = "treasureChanceThreshold";
+    public const string TreasureBiasMaster = "treasureBiasMaster";
+    public const string TreasureBiasGm = "treasureBiasGm";
     /// <summary>Placer-tracing (the crown jewel, ruled): the pan reads the ore maps under the
     /// wash and biases the drop table toward what is ACTUALLY below. Strength scales Apprentice
     /// -> GM; below Master the trace is noisy (a faint signal), Master+ reads clean. Novice and
@@ -61,8 +68,23 @@ public static class PanDomain
             [PanYieldGm] = 1.25,
             [TraceStrengthApprentice] = 0.35,
             [TraceStrengthGm] = 1.5,
+            // Grave-sifter: entries at/below 1% base chance count as treasure; Master I picks
+            // up an extra x1.3 on them, GM x2.0 (on TOP of pan yield: GM treasure ~x2.5 net).
+            [TreasureChanceThreshold] = 0.01,
+            [TreasureBiasMaster] = 1.3,
+            [TreasureBiasGm] = 2.0,
         }
     };
+
+    /// <summary>Treasure-tail bias for a level: 1.0 below Master I, linear Master -> GM.</summary>
+    public static double TreasureBiasFor(int level)
+    {
+        if (level < 13) return 1.0;
+        double m = Knob(TreasureBiasMaster, 1.3), g = Knob(TreasureBiasGm, 2.0);
+        int max = Leveling.Domain.MaxLevelDefault;
+        if (level >= max) return g;
+        return m + (g - m) * (level - 13) / (double)(max - 13);
+    }
 
     /// <summary>Trace strength for a level, linear Apprentice I (5) -> GM (max); 0 below.</summary>
     public static double TraceStrengthFor(int level)

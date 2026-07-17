@@ -39,6 +39,7 @@ public static class PanPatches
     private static ICoreServerAPI? sapi;
 
     private const string PanStatName = "almanacPanningRate";
+    private const string TreasureStatName = "almanacPanTreasureRate";
 
     // ------------------------------------------------------------ registration
 
@@ -58,25 +59,35 @@ public static class PanPatches
         api.Event.RegisterGameTickListener(ReconcilePanYield, 2000);
     }
 
-    /// <summary>Gives every stat-less pan drop entry our stat name so the vanilla CreateDrop
-    /// multiplier path applies to the whole table (rusty gears keep their own stat).</summary>
+    /// <summary>Gives every stat-less pan drop entry a stat name so the vanilla CreateDrop
+    /// multiplier path applies to the whole table (rusty gears keep their own vanilla stat).
+    /// Entries at/below the treasure threshold get the TREASURE stat instead — the grave-sifter
+    /// ruling: lore books, temporal gears, jewelry, gems and the like climb separately at
+    /// Master+.</summary>
     private static void InjectPanDropStat()
     {
         if (sapi == null || panDropsRef == null) return;
-        int touched = 0;
+        double threshold = PanDomain.Knob(PanDomain.TreasureChanceThreshold, 0.01);
+        int common = 0, treasure = 0;
         foreach (Block block in sapi.World.Blocks)
         {
             if (block is not BlockPan pan) continue;
             var table = panDropsRef(pan);
             if (table == null) continue;
             foreach (var drops in table.Values)
+            {
                 foreach (var drop in drops)
-                    if (drop.DropModbyStat == null) { drop.DropModbyStat = PanStatName; touched++; }
+                {
+                    if (drop.DropModbyStat != null) continue;
+                    if (drop.Chance != null && drop.Chance.avg <= threshold) { drop.DropModbyStat = TreasureStatName; treasure++; }
+                    else { drop.DropModbyStat = PanStatName; common++; }
+                }
+            }
         }
-        TcmLog.Info(sapi, $"PAN yield stat injected onto {touched} pan drop entries ({PanStatName})");
+        TcmLog.Info(sapi, $"PAN yield stats injected: {common} common ({PanStatName}), {treasure} treasure ({TreasureStatName}, threshold {threshold:0.###})");
     }
 
-    private static readonly Dictionary<string, double> lastPanFactor = new();
+    private static readonly Dictionary<string, (double factor, double treasure)> lastPanFactor = new();
 
     private static void ReconcilePanYield(float dt)
     {
@@ -85,12 +96,16 @@ public static class PanPatches
         {
             var entity = player.Entity;
             if (entity == null) continue;
-            double factor = PanDomain.RankLinear(PanDomain.LevelOf(player),
+            int level = PanDomain.LevelOf(player);
+            double factor = PanDomain.RankLinear(level,
                 PanDomain.Knob(PanDomain.PanYieldUntrained, 0.85),
                 PanDomain.Knob(PanDomain.PanYieldGm, 1.25));
-            if (lastPanFactor.TryGetValue(player.PlayerUID, out double prev) && Math.Abs(prev - factor) < 0.001) continue;
+            double treasureFactor = factor * PanDomain.TreasureBiasFor(level);
+            if (lastPanFactor.TryGetValue(player.PlayerUID, out var prev)
+                && Math.Abs(prev.factor - factor) < 0.001 && Math.Abs(prev.treasure - treasureFactor) < 0.001) continue;
             entity.Stats.Set(PanStatName, "almanactcm", (float)(factor - 1.0), false);
-            lastPanFactor[player.PlayerUID] = factor;
+            entity.Stats.Set(TreasureStatName, "almanactcm", (float)(treasureFactor - 1.0), false);
+            lastPanFactor[player.PlayerUID] = (factor, treasureFactor);
         }
     }
 
