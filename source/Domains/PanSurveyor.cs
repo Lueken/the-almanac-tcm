@@ -288,6 +288,43 @@ public static class PanSurveyor
         }
     }
 
+    // ------------------------------------------------------------ map de-duplication (client)
+
+    private const string VanillaOreLayerSetting = "almanactcmVanillaOreLayer";
+
+    /// <summary>The Quire runs ProspectTogether as THE prospecting surface (it carries the
+    /// fidelity-gated readings, the depth bands, and the trade economy), so the vanilla ore
+    /// layer starts HIDDEN when PT is present: the two displays double every tooltip and can
+    /// flatly contradict each other (PT heatmap red over vanilla's bright-green go-dig marker,
+    /// live feedback 2026-07-17). The Prospecting map tab still works, and an explicit
+    /// re-enable is remembered across sessions (vanilla's own tab toggles reset every launch).</summary>
+    [HarmonyPatch(typeof(OreMapLayer), MethodType.Constructor, typeof(ICoreAPI), typeof(IWorldMapManager))]
+    public static class HideVanillaOreLayerPatch
+    {
+        public static void Postfix(OreMapLayer __instance, ICoreAPI api)
+        {
+            if (api.Side != EnumAppSide.Client) return;
+            if (!api.ModLoader.IsModEnabled("prospecttogether")) return;
+            if (((ICoreClientAPI)api).Settings.Bool[VanillaOreLayerSetting]) return; // player opted back in
+            __instance.Active = false;
+        }
+    }
+
+    /// <summary>Remembers the player's explicit choice on the vanilla Prospecting tab, so an
+    /// opt-in (or a later re-hide) survives relaunches.</summary>
+    [HarmonyPatch(typeof(GuiDialogWorldMap), "OnTabClicked")]
+    public static class RememberOreLayerTogglePatch
+    {
+        public static void Postfix(GuiDialogWorldMap __instance, int arg1, GuiTab tab)
+        {
+            if (capi == null) return;
+            var tabnames = Traverse.Create(__instance).Field("tabnames").GetValue<List<string>>();
+            if (tabnames == null || arg1 < 0 || arg1 >= tabnames.Count) return;
+            if (tabnames[arg1] != "prospecting") return;
+            capi.Settings.Bool[VanillaOreLayerSetting] = tab.Active;
+        }
+    }
+
     /// <summary>The PT map tooltip grows the depth lines when this client holds the band for
     /// that column (own survey, or one that was shared to it).</summary>
     public static class PtTooltipPatch
