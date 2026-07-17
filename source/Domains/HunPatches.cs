@@ -190,6 +190,21 @@ public static class HunPatches
             }
         }
 
+        // BloodTrail vibrancy (Phase 2, ruled 2026-07-17): the blood particle colour is chosen
+        // client-side per observer, so a ranked hunter reads a more vivid trail. Patch GetColor
+        // on the client behaviour. Server has no client behaviour, so this only takes on clients.
+        if (api.Side == EnumAppSide.Client && api.ModLoader.IsModEnabled("bloodtrail"))
+        {
+            var t = AccessTools.TypeByName("BloodTrail.src.Client.EntityBleedingBehaviorParticles");
+            var m = t == null ? null : AccessTools.Method(t, "GetColor");
+            if (m == null) TcmLog.Warn(api, "bloodtrail present but GetColor not found; HUN blood vibrancy inactive");
+            else
+            {
+                harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(BloodVibrancyPatch), "Postfix")));
+                TcmLog.Info(api, "HUN blood vibrancy hooked to BloodTrail (per-observer rank tint)");
+            }
+        }
+
         // PS land traps: snare + deadfall, owner at placement, credit at catch collection.
         if (api.ModLoader.IsModEnabled("primitivesurvival"))
         {
@@ -215,6 +230,49 @@ public static class HunPatches
                     postfix: new HarmonyMethod(AccessTools.Method(typeof(TrapPlacePatch), "Postfix")));
             }
             if (hooked > 0) TcmLog.Info(api, $"HUN trapping hooked ({hooked} trap BE(s); owner at placement, catch at collection)");
+        }
+    }
+
+    /// <summary>Boosts blood-particle vibrancy by the LOCAL client's HUN rank (ruled: the trail
+    /// reads clearer to a skilled tracker). Below Apprentice, no change — an untrained eye sees
+    /// the dull default. The colour is packed ARGB; we lift saturation and value in HSV so
+    /// dark specks become vivid crimson without changing hue (rainbow/confetti modes untouched
+    /// enough — they still ramp, just brighter).</summary>
+    public static class BloodVibrancyPatch
+    {
+        public static void Postfix(ref int __result)
+        {
+            int level = HunDomain.ClientLevel();
+            if (level < 5) return;
+            float f = Math.Min(1f, (level - 4) / 13f); // Apprentice I ~0.08 -> GM 1.0
+
+            int a = (__result >> 24) & 0xFF, r = (__result >> 16) & 0xFF, g = (__result >> 8) & 0xFF, b = __result & 0xFF;
+            float rr = r / 255f, gg = g / 255f, bb = b / 255f;
+
+            float max = Math.Max(rr, Math.Max(gg, bb)), min = Math.Min(rr, Math.Min(gg, bb));
+            float v = max, delta = max - min;
+            float s = max <= 0 ? 0 : delta / max;
+            float hue;
+            if (delta < 1e-4f) hue = 0;
+            else if (max == rr) hue = ((gg - bb) / delta % 6f);
+            else if (max == gg) hue = (bb - rr) / delta + 2f;
+            else hue = (rr - gg) / delta + 4f;
+            hue *= 60f; if (hue < 0) hue += 360f;
+
+            s = Math.Min(1f, s + 0.35f * f);
+            v = Math.Min(1f, v + 0.45f * f);
+
+            float c = v * s, x = c * (1 - Math.Abs((hue / 60f) % 2f - 1f)), mBase = v - c;
+            float r2, g2, b2;
+            if (hue < 60) { r2 = c; g2 = x; b2 = 0; }
+            else if (hue < 120) { r2 = x; g2 = c; b2 = 0; }
+            else if (hue < 180) { r2 = 0; g2 = c; b2 = x; }
+            else if (hue < 240) { r2 = 0; g2 = x; b2 = c; }
+            else if (hue < 300) { r2 = x; g2 = 0; b2 = c; }
+            else { r2 = c; g2 = 0; b2 = x; }
+
+            int nr = (int)((r2 + mBase) * 255f), ng = (int)((g2 + mBase) * 255f), nb = (int)((b2 + mBase) * 255f);
+            __result = (a << 24) | (nr << 16) | (ng << 8) | nb;
         }
     }
 

@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.81-dev")]
+    Version = "0.3.82-dev")]
 
 namespace AlmanacTcm;
 
@@ -155,6 +155,10 @@ public class AlmanacTcmModSystem : ModSystem
 
         // The Surveyor's depth bands arrive on their own channel (the PT tooltip reads them).
         Domains.PanSurveyor.RegisterClient(capi);
+
+        // The Tracker's Eye HUD (sneak + look read of live game). Client-only, reads networked
+        // entity state and the local HUN rank; no server round-trip.
+        new Domains.HunTrackerEye(capi);
 
         // The Callings page lives in Illuminated's book (hard dependency, so the
         // assembly is always present; the tab API is 0.0.2+, enforced above).

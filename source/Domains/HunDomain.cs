@@ -85,6 +85,17 @@ public static class HunDomain
         return set?.FindDomain(Code)?.Level ?? 0;
     }
 
+    /// <summary>Client-side HUN level from the synced domain state (0 when unknown). The
+    /// Tracker's Eye and blood vibrancy run on the client, which never sees server rank state
+    /// directly — only the level packets in LevelingClient.</summary>
+    public static int ClientLevel()
+    {
+        var core = AlmanacTcmModSystem.Instance;
+        var dom = core?.Template?.FindDomain(Code);
+        if (dom == null || core?.Client == null) return 0;
+        return core.Client.Domains.TryGetValue(dom.Id, out var st) ? st.Level : 0;
+    }
+
     /// <summary>A Bonus knob, falling back to the shipped default if the server dropped it.</summary>
     public static double Knob(string key, double fallback)
     {
