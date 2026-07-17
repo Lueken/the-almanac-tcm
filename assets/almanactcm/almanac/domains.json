@@ -78,7 +78,12 @@
     "title": "The Surveyor",
     "tagline": "The map itself is the deliverable.",
     "identity": "Hired knowledge of the ground. A surveyor walks a claim and reads what lies beneath it: which ores, and how deep each one runs. The map they leave behind is the work.",
-    "mastery": "A Grandmaster's readings are exact, and they share to the whole group at full fidelity. A village brings them in to walk their claim precisely because no one else could draw the map they leave."
+    "mastery": "A Grandmaster's readings are exact, and they share to the whole group at full fidelity. A village brings them in to walk their claim precisely because no one else could draw the map they leave.",
+    "tip": "The map remembers the hand that took the reading. An unpracticed surveyor records garbled numbers, and every copy shared carries the garble. Practice at the pan too: green hands wash a lot of empty gravel.",
+    "techniques": [
+      "Panning",
+      "Prospecting"
+    ]
   },
   "HUN": {
     "title": "The Master Hunter",
