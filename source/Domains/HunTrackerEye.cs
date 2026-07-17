@@ -1,6 +1,7 @@
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using Cairo;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -11,20 +12,18 @@ using Vintagestory.GameContent;
 namespace AlmanacTcm.Domains;
 
 /// <summary>
-/// HUN Phase 2 — THE TRACKER'S EYE (rank-bonus-design §HUN Axis 3, ruled; interaction ruled
-/// 2026-07-17: SNEAK + LOOK). While crouched and centred on a live animal within a rank-scaled
-/// range, the hunter reads real, already-networked state — nothing hidden ever crosses to the
-/// client (T1.0). The read is a pure BONUS band above vanilla's free 4.5-block hover name; it
-/// never degrades the baseline, and below Apprentice it simply does not appear.
+/// HUN Phase 2 — THE TRACKER'S EYE (rank-bonus-design §HUN Axis 3; interaction ruled 2026-07-17:
+/// SNEAK + LOOK; readout redesigned 2026-07-17 to a hunter's internal monologue). Two zones,
+/// both only while crouched and only for real ANIMALS (has the harvestable behaviour AND a
+/// creatureDiet — temporal hostiles like drifters/shivers eat nothing and are excluded):
 ///
-/// Ladder (ruled):
-///   Apprentice: species + size, short range.
-///   Journeyman: + condition (health) and agitation (stress), range grows.
-///   Master+:    + wound state (BloodTrail isBleeding) and heading, full range.
+///   READ (aimed within ~7 deg AND inside the rank scan range): the quarry, catalogued.
+///     "{Name} (gender, age, size). {N}m."  + condition (Journeyman+) + wounds/heading (Master+).
+///   SENSE (nearest animal within a wider radius, when not producing a read): the country.
+///     "Sign of an animal to the {bearing}."  + ", moving {heading}." at Master+.
 ///
-/// Entirely client-side: it reads the entity's networked WatchedAttributes and the local
-/// player's synced HUN level, and paints a small HUD readout under the crosshair. No server
-/// round-trip, no new packet.
+/// Entirely client-side: reads networked WatchedAttributes and the local synced HUN level; no
+/// server round-trip. Below Apprentice nothing shows. Never displays unless crouched.
 /// </summary>
 public class HunTrackerEye : HudElement
 {
@@ -34,6 +33,7 @@ public class HunTrackerEye : HudElement
     public HunTrackerEye(ICoreClientAPI capi) : base(capi)
     {
         Compose();
+        capi.Gui.RegisterDialog(this); // without this a GuiDialog never enters the render loop
         capi.Event.RegisterGameTickListener(OnTick, 150);
     }
 
@@ -44,12 +44,26 @@ public class HunTrackerEye : HudElement
 
     private void Compose()
     {
-        var font = CairoFont.WhiteSmallText().WithStroke(new double[] { 0, 0, 0, 1 }, 1.5);
-        var text = ElementBounds.Fixed(EnumDialogArea.CenterMiddle, 0, 120, 340, 108);
-        SingleComposer = capi.Gui.CreateCompo("huntrackereye", text)
-            .AddDynamicText("", font, text, "read")
+        var font = CairoFont.WhiteSmallText().WithStroke(new double[] { 0, 0, 0, 1 }, 2.0);
+        font.Orientation = EnumTextOrientation.Center;
+        var panel = ElementBounds.Fixed(0, 0, 400, 116);
+        var textBounds = ElementBounds.Fixed(14, 12, 372, 92);
+        var dialogBounds = panel.ForkBoundingParent()
+            .WithAlignment(EnumDialogArea.CenterMiddle)
+            .WithFixedAlignmentOffset(0, 150);
+        SingleComposer = capi.Gui.CreateCompo("huntrackereye", dialogBounds)
+            .AddStaticCustomDraw(panel, DrawPanel)
+            .AddDynamicText("", font, textBounds, "read")
             .Compose();
-        TryOpen();
+        // Start closed; only opens while there is something to read (no empty panel).
+    }
+
+    /// <summary>Semi-transparent dark rounded panel for legibility over bright terrain.</summary>
+    private void DrawPanel(Context ctx, ImageSurface surface, ElementBounds b)
+    {
+        ctx.SetSourceRGBA(0, 0, 0, 0.55);
+        GuiElement.RoundRectangle(ctx, b.drawX, b.drawY, b.OuterWidth, b.OuterHeight, 5);
+        ctx.Fill();
     }
 
     private void OnTick(float dt)
@@ -57,85 +71,120 @@ public class HunTrackerEye : HudElement
         string text = BuildRead();
         if (text == lastText) return;
         lastText = text;
+
+        if (text.Length == 0) { TryClose(); return; }
         SingleComposer?.GetDynamicText("read")?.SetNewText(text);
+        if (!IsOpened()) TryOpen();
     }
 
     private string BuildRead()
     {
+        // Only while actively playing: the moment any menu/inventory opens the mouse ungrabs,
+        // so the panel closes and never overlays (or blocks) the escape menu's buttons.
+        if (!capi.Input.MouseGrabbed) return "";
+
         var plr = capi.World?.Player?.Entity;
-        if (plr == null || !plr.Controls.Sneak) return "";
+        if (plr == null || !plr.Controls.Sneak) return ""; // only ever while crouched
 
         int level = HunDomain.ClientLevel();
         if (level < 5) return ""; // pre-Apprentice: the read has not been learned
-
         int tier = (level - 1) / 4; // 1 App .. 4 GM
         float range = tier switch { 1 => 12f, 2 => 20f, 3 => 30f, _ => 42f };
+        float senseRange = range + 24f;
 
-        Entity? target = PickLookedAt(plr, range);
-        if (target == null) return "";
-
-        sb.Clear();
-        // Species + size (Apprentice+). Size from the entity's own selection-box height band.
-        string name = target.GetName();
-        string size = SizeWord(target);
-        sb.Append(Lang.Get("almanactcm:track-name", name, size));
-
-        // Condition + agitation (Journeyman+).
-        if (tier >= 2)
-        {
-            float hpPct = HealthPct(target);
-            if (hpPct >= 0)
-            {
-                string cond = hpPct > 0.85f ? "track-cond-strong"
-                    : hpPct > 0.45f ? "track-cond-hurt" : "track-cond-failing";
-                sb.Append('\n').Append(Lang.Get("almanactcm:" + cond));
-            }
-            if (target.WatchedAttributes?.GetFloat("stressLevel", 0) > 0.1f)
-                sb.Append(' ').Append(Lang.Get("almanactcm:track-agitated"));
-        }
-
-        // Wounds + heading (Master+).
-        if (tier >= 4 || (tier >= 3 && level >= 15))
-        {
-            if (target.WatchedAttributes?.GetBool("isBleeding") == true)
-                sb.Append('\n').Append(Lang.Get("almanactcm:track-bleeding"));
-            string? heading = Heading(target);
-            if (heading != null)
-                sb.Append('\n').Append(Lang.Get("almanactcm:track-heading", heading));
-        }
-
-        return sb.ToString();
-    }
-
-    /// <summary>Nearest live huntable animal whose bearing is within a narrow cone of where the
-    /// player is looking. Angle test (cheap, robust) rather than a precise box ray; the cone
-    /// tightens with distance so far reads still require aiming.</summary>
-    private Entity? PickLookedAt(EntityPlayer plr, float range)
-    {
         var eye = plr.Pos.XYZ.Add(0, plr.LocalEyePos.Y, 0);
         var look = plr.Pos.GetViewVector().Normalize();
-        Entity? best = null;
-        double bestDist = range;
+
+        Entity? aimed = null; double aimedDist = range;
+        Entity? nearest = null; double nearestDist = senseRange;
 
         foreach (var e in capi.World.LoadedEntities.Values)
         {
-            if (e == null || !e.Alive || e == plr) continue;
-            if (e.GetBehavior<EntityBehaviorHarvestable>() == null) continue; // huntable game only
-
+            if (e == null || !e.Alive || e == plr || !IsAnimal(e)) continue;
             var center = e.Pos.XYZ.Add(0, (e.SelectionBox?.Y2 ?? 0.5f) * 0.5, 0);
             var to = center.Sub(eye);
             double dist = to.Length();
-            if (dist < 0.5 || dist > range) continue;
+            if (dist < 0.4) continue;
 
-            var dir = to.Normalize();
-            double dot = dir.X * look.X + dir.Y * look.Y + dir.Z * look.Z;
-            // ~7 deg cone up close widening slightly with range, so aiming still matters.
-            double minDot = 1.0 - 0.012 - dist / (range * 220.0);
-            if (dot < minDot) continue;
+            if (dist < nearestDist) { nearestDist = dist; nearest = e; }
 
-            if (dist < bestDist) { bestDist = dist; best = e; }
+            if (dist <= range)
+            {
+                var dir = to.Normalize();
+                double dot = dir.X * look.X + dir.Y * look.Y + dir.Z * look.Z;
+                if (dot >= 0.991 && dist < aimedDist) { aimedDist = dist; aimed = e; } // ~7.6 deg cone
+            }
         }
-        return best;
+
+        if (aimed != null) return ReadQuarry(aimed, aimedDist, tier);
+        if (nearest != null) return SenseLine(plr, nearest, tier);
+        return "";
+    }
+
+    // ------------------------------------------------------------ the aimed read
+
+    private string ReadQuarry(Entity e, double dist, int tier)
+    {
+        sb.Clear();
+        string name = e.GetName();
+        string paren = Descriptors(e, name);
+        sb.Append(paren.Length > 0 ? Lang.Get("almanactcm:track-quarry", name, paren, (int)Math.Round(dist))
+                                   : Lang.Get("almanactcm:track-quarry-plain", name, (int)Math.Round(dist)));
+
+        if (tier >= 2)
+        {
+            float hp = HealthPct(e);
+            if (hp >= 0)
+            {
+                string cond = hp > 0.7f ? "track-cond-healthy" : hp > 0.3f ? "track-cond-wounded" : "track-cond-neardeath";
+                sb.Append('\n').Append(Lang.Get("almanactcm:" + cond));
+                if (e.WatchedAttributes?.GetFloat("stressLevel", 0) > 0.1f)
+                    sb.Append(' ').Append(Lang.Get("almanactcm:track-agitated"));
+            }
+        }
+
+        if (tier >= 3)
+        {
+            if (e.WatchedAttributes?.GetBool("isBleeding") == true)
+                sb.Append('\n').Append(Lang.Get("almanactcm:track-bleeding"));
+            string? head = Heading(e);
+            if (head != null)
+                sb.Append('\n').Append(Lang.Get("almanactcm:track-moving", head));
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>"(male, young, large)" from what is confidently known; parts omitted otherwise.
+    /// Age is dropped when the name already implies it (fawn/chick/etc.).</summary>
+    private static string Descriptors(Entity e, string name)
+    {
+        string g = Gender(e);
+        string age = Age(e);
+        if (age.Length > 0 && name.ToLowerInvariant().Contains(Lang.Get("almanactcm:track-age-young").ToLowerInvariant()))
+            age = "";
+        string size = Size(e);
+        var parts = new[] { g, age, size }.Where(s => s.Length > 0).ToArray();
+        return string.Join(", ", parts);
+    }
+
+    // ------------------------------------------------------------ the sense line
+
+    private string SenseLine(EntityPlayer plr, Entity e, int tier)
+    {
+        string bearing = Bearing(plr, e);
+        string? head = tier >= 3 ? Heading(e) : null; // Master I+ adds run heading
+        return head != null
+            ? Lang.Get("almanactcm:track-sense-moving", bearing, head)
+            : Lang.Get("almanactcm:track-sense", bearing);
+    }
+
+    // ------------------------------------------------------------ helpers
+
+    private static bool IsAnimal(Entity e)
+    {
+        if (e.GetBehavior<EntityBehaviorHarvestable>() == null) return false;
+        // Animals eat; temporal hostiles (drifter/shiver/bowtorn/bells) have no diet.
+        return e.Properties?.Attributes?["creatureDiet"]?.Exists == true;
     }
 
     private static float HealthPct(Entity e)
@@ -146,18 +195,51 @@ public class HunTrackerEye : HudElement
         return max <= 0 ? -1 : GameMath.Clamp(tree.GetFloat("currenthealth", 0) / max, 0, 1);
     }
 
-    private static string SizeWord(Entity e)
+    private static string Gender(Entity e)
+    {
+        var parts = e.Code?.Path?.Split('-') ?? Array.Empty<string>();
+        if (parts.Contains("female")) return Lang.Get("almanactcm:track-gender-female");
+        if (parts.Contains("male")) return Lang.Get("almanactcm:track-gender-male");
+        string? g = e.WatchedAttributes?.GetString("gender");
+        if (g == "female") return Lang.Get("almanactcm:track-gender-female");
+        if (g == "male") return Lang.Get("almanactcm:track-gender-male");
+        return "";
+    }
+
+    private static readonly string[] YoungMarkers =
+        { "baby", "child", "chick", "calf", "cub", "kit", "kitten", "piglet", "fawn", "lamb", "foal", "pup", "joey" };
+
+    private static string Age(Entity e)
+    {
+        var parts = e.Code?.Path?.Split('-') ?? Array.Empty<string>();
+        if (parts.Any(p => YoungMarkers.Contains(p))) return Lang.Get("almanactcm:track-age-young");
+        return ""; // adults carry no age word
+    }
+
+    private static string Size(Entity e)
     {
         float h = e.SelectionBox?.Y2 ?? 1f;
-        string key = h < 0.6f ? "track-size-small" : h < 1.3f ? "track-size-mid" : "track-size-large";
+        string key = h < 0.6f ? "track-size-small" : h < 1.3f ? "track-size-grown" : "track-size-large";
         return Lang.Get("almanactcm:" + key);
     }
 
+    /// <summary>Compass bearing of the entity relative to the player (where it is).</summary>
+    private static string Bearing(EntityPlayer plr, Entity e)
+    {
+        double dx = e.Pos.X - plr.Pos.X, dz = e.Pos.Z - plr.Pos.Z;
+        return Compass(Math.Atan2(-dx, -dz));
+    }
+
+    /// <summary>Compass heading of the entity's own motion (where it is going), null if still.</summary>
     private static string? Heading(Entity e)
     {
         var m = e.Pos.Motion;
-        if (m == null || m.Length() < 0.003) return null; // standing
-        double ang = Math.Atan2(-m.X, -m.Z); // world yaw of travel
+        if (m == null || m.Length() < 0.003) return null;
+        return Compass(Math.Atan2(-m.X, -m.Z));
+    }
+
+    private static string Compass(double ang)
+    {
         string[] pts = { "track-dir-n", "track-dir-ne", "track-dir-e", "track-dir-se",
                          "track-dir-s", "track-dir-sw", "track-dir-w", "track-dir-nw" };
         int idx = (int)Math.Round(ang / (Math.PI / 4)) & 7;
