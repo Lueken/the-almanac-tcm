@@ -143,7 +143,7 @@ public static class HunPatches
             if (entity == null) continue;
             int level = HunDomain.LevelOf(player);
             double yield = HunDomain.RankLinear(level,
-                HunDomain.Knob(HunDomain.AnimalYieldUntrained, 0.9),
+                HunDomain.Knob(HunDomain.AnimalYieldUntrained, 0.70),
                 HunDomain.Knob(HunDomain.AnimalYieldGm, 1.15));
             double seek = HunDomain.RankLinear(level,
                 HunDomain.Knob(HunDomain.SeekRangeUntrained, 1.15),

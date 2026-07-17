@@ -55,7 +55,12 @@ public static class HunDomain
         },
         Bonus = new Dictionary<string, double>
         {
-            [AnimalYieldUntrained] = 0.9,
+            // Ruled 2026-07-17: Untrained widened to 0.70 (from 0.9) — Butchering's own drop
+            // formula stacks stationTier (0.8-1.2) x animalWeight x THIS stat, so a green hand
+            // needs a real penalty to feel it against a weight-inflated haul. GM stays a modest
+            // 1.15 so the multiplicative ceiling (advanced table x heavy carcass x rank) stays
+            // sane. Same normal hook: Untrained ~3-4 pelts, GM ~6.
+            [AnimalYieldUntrained] = 0.70,
             [AnimalYieldGm] = 1.15,
             [SeekRangeUntrained] = 1.15,
             [SeekRangeGm] = 0.75,
