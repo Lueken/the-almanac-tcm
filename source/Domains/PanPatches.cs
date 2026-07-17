@@ -260,7 +260,7 @@ public static class PanPatches
     {
         if (!api.ModLoader.IsModEnabled("bettererprospecting")) return;
 
-        var pick = AccessTools.TypeByName("BetterErProspecting.ItemBetterErProspectingPick");
+        var pick = AccessTools.TypeByName("BetterErProspecting.Item.ItemBetterErProspectingPick");
         int hooked = 0;
         foreach (string mode in new[] { "ProbeNode", "ProbeProximity", "ProbeBorehole" })
         {
