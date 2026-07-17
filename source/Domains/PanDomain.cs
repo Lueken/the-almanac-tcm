@@ -32,13 +32,6 @@ public static class PanDomain
     /// low-rank doubling).</summary>
     public const string PanYieldUntrained = "panYieldUntrained";
     public const string PanYieldGm = "panYieldGm";
-    /// <summary>Untrained readings are degraded IN THE RECORDED DATA (the DidProbe prefix), so
-    /// the ore map and every ProspectTogether share holds the degraded read: the map remembers
-    /// the skill of the surveyor. Redesigned 2026-07-17 against IOG's real density scale
-    /// (workable deposits commonly read 0.1-1 permille on The Quire): the density word
-    /// UNDERSTATES by this many bands (weakest lines demote to the visible trace list, nothing
-    /// is hidden) and ppt keeps one significant figure. Novice+ records exactly vanilla.</summary>
-    public const string UntrainedBandsDown = "untrainedBandsDown";
     /// <summary>Placer-tracing (the crown jewel, ruled): the pan reads the ore maps under the
     /// wash and biases the drop table toward what is ACTUALLY below. Strength scales Apprentice
     /// -> GM; below Master the trace is noisy (a faint signal), Master+ reads clean. Novice and
@@ -66,7 +59,6 @@ public static class PanDomain
         {
             [PanYieldUntrained] = 0.85,
             [PanYieldGm] = 1.25,
-            [UntrainedBandsDown] = 1.0,
             [TraceStrengthApprentice] = 0.35,
             [TraceStrengthGm] = 1.5,
         }

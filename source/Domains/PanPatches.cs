@@ -121,38 +121,12 @@ public static class PanPatches
     [HarmonyPatch(typeof(ModSystemOreMap), nameof(ModSystemOreMap.DidProbe))]
     public static class DidProbePatch
     {
-        /// <summary>The CLARITY LADDER (ruled 2026-07-17, the mode-workflow ruling): density is
-        /// the chunk survey and rank gates how truly you read it. BP's density is a real block
-        /// census, so degradation always UNDERSTATES — it never invents richness and never
-        /// hides an ore outright (weakest lines demote to the visible traces list at worst).
-        ///   Untrained: two density words down, ppt to one significant figure.
-        ///   Novice: one word down, one significant figure.
-        ///   Apprentice: the true word, ppt still one significant figure.
-        ///   Journeyman+: the full census, exactly as the mod reports it.
-        /// The recorded data carries the degradation, so every PT share remembers the skill of
-        /// the surveyor who took it.</summary>
-        public static void Prefix(PropickReading results, IServerPlayer splr)
-        {
-            if (results?.OreReadings == null || splr == null) return;
-            int level = PanDomain.LevelOf(splr);
-            if (level >= 9) return; // Journeyman I+: full truth
-
-            int bandsDown = level <= 0 ? 2 : level <= 4 ? 1 : 0;
-            const double band = 1.0 / 7.5; // one density-word band (names index = tf * 7.5)
-            foreach (var reading in results.OreReadings.Values)
-            {
-                if (bandsDown > 0)
-                    reading.TotalFactor = Math.Max(0.003, reading.TotalFactor - bandsDown * band);
-                reading.PartsPerThousand = OneSigFig(reading.PartsPerThousand);
-            }
-        }
-
-        private static double OneSigFig(double v)
-        {
-            if (v <= 0) return 0;
-            double mag = Math.Pow(10, Math.Floor(Math.Log10(v)));
-            return Math.Round(v / mag) * mag;
-        }
+        // DENSITY IS NEVER DEGRADED (final ruling 2026-07-17, superseding two coarsening
+        // attempts the same day): players act on RELATIVE deltas at any scale ("0.03 permille
+        // higher than my last spot"), so rounding either changes nothing or corrupts the
+        // decision — masking with no benefit. Vanilla/BP density data reads true for every
+        // hand; PAN's information payoff lives in the BORE (measured depth, Master+), the
+        // placer trace, and the pan yield.
 
         /// <summary>Every recorded reading is prospecting practice, whatever tool took it
         /// (vanilla propick, BP density, BP stone scan). Context = the chunk column, so
