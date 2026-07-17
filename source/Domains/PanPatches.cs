@@ -118,9 +118,13 @@ public static class PanPatches
     [HarmonyPatch(typeof(ModSystemOreMap), nameof(ModSystemOreMap.DidProbe))]
     public static class DidProbePatch
     {
-        /// <summary>Axis 1, the data end: an Untrained reading quantizes to a coarse grid
-        /// before it is recorded, so the map (and every share of it) remembers that an
-        /// unpracticed hand took it. Novice I+ records exactly vanilla.</summary>
+        /// <summary>Axis 1, the data end: an Untrained reading degrades BEFORE it is recorded,
+        /// so the map (and every share of it) remembers that an unpracticed hand took it.
+        /// Degradation FLOORS, never rounds (live feedback 2026-07-17: nearest-rounding barely
+        /// touched the density word, could even bump it a band UP, and printed absurd "0"
+        /// ppt lines): the unpracticed eye understates what is there, misses faint signals
+        /// entirely (floored-to-zero ores drop from the reading), and a line that survives
+        /// never reads zero (ppt floors at the grid step). Novice I+ records exactly vanilla.</summary>
         public static void Prefix(PropickReading results, IServerPlayer splr)
         {
             if (results?.OreReadings == null || splr == null) return;
@@ -128,11 +132,23 @@ public static class PanPatches
 
             double fStep = PanDomain.Knob(PanDomain.CoarsenFactorStep, 0.1);
             double pStep = PanDomain.Knob(PanDomain.CoarsenPptStep, 0.5);
-            foreach (var reading in results.OreReadings.Values)
+            List<string>? missed = null;
+            foreach (var kv in results.OreReadings)
             {
-                if (fStep > 0) reading.TotalFactor = Math.Round(reading.TotalFactor / fStep) * fStep;
-                if (pStep > 0) reading.PartsPerThousand = Math.Round(reading.PartsPerThousand / pStep) * pStep;
+                var reading = kv.Value;
+                if (fStep > 0) reading.TotalFactor = Math.Floor(reading.TotalFactor / fStep) * fStep;
+                if (reading.TotalFactor <= 0)
+                {
+                    (missed ??= new List<string>()).Add(kv.Key);
+                    continue;
+                }
+                if (pStep > 0)
+                {
+                    reading.PartsPerThousand =
+                        Math.Max(pStep, Math.Floor(reading.PartsPerThousand / pStep) * pStep);
+                }
             }
+            if (missed != null) foreach (string key in missed) results.OreReadings.Remove(key);
         }
 
         /// <summary>Every recorded reading is prospecting practice, whatever tool took it
