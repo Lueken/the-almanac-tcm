@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.69-dev")]
+    Version = "0.3.70-dev")]
 
 namespace AlmanacTcm;
 
@@ -69,6 +69,7 @@ public class AlmanacTcmModSystem : ModSystem
             Domains.ForAcaPatches.PatchConditional(api, harmony);
             Domains.FisPsPatches.PatchConditional(api, harmony);
             Domains.FisTrapPatches.PatchConditional(api, harmony);
+            Domains.FisEcologyPatches.PatchConditional(api, harmony);
             Domains.WooColliderPatches.PatchAll(api, harmony);
             Domains.WooColliersMark.PatchAll(api, harmony);
             Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
@@ -101,6 +102,10 @@ public class AlmanacTcmModSystem : ModSystem
         // FIS trap owners persist in a side map (no trap BE stores an owner); needs the server
         // API for its save file.
         Domains.FisTrapPatches.RegisterServer(sapi);
+
+        // The single fish population needs the server calendar for its gradual-recovery tick
+        // (the vanilla restore patch no-ops until this runs).
+        Domains.FisEcologyPatches.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for

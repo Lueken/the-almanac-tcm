@@ -509,14 +509,15 @@ public class AlmanacSpotsLayer : MarkerMapLayer
         float harvested = depletion?.GetHarvestAmount(pos) ?? 0;
         float stock = GameMath.Clamp(1f - harvested / ModSystemFishDepletion.MaxHarvestablePerLocation, 0f, 1f);
 
+        // Gradual-recovery model (single-population build): the pond regains
+        // MaxHarvestable/RestoreDays fish per day, so days-to-full is just the remaining debt
+        // over the regen rate.
         float eta = 0;
-        if (harvested > 0 && depletion != null && fishDictRef != null)
+        if (harvested > 0)
         {
-            var dict = fishDictRef(depletion);
-            if (dict.TryGetValue(pos / depletion.Scale, out var harvest))
-            {
-                eta = (float)Math.Max(0, ModSystemFishDepletion.RestoreFishAfterDays - (nowDays - harvest.TotalDays));
-            }
+            double regen = ModSystemFishDepletion.MaxHarvestablePerLocation
+                / Math.Max(0.01, ModSystemFishDepletion.RestoreFishAfterDays);
+            eta = (float)(harvested / regen);
         }
         return (stock < 0.5f ? 1 : 2, stock * 100f, eta);
     }

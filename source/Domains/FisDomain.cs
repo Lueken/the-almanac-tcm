@@ -21,6 +21,7 @@ public static class FisDomain
     public const string TechAngling = "angling";   // rod and line: cast, bite, reel
     public const string TechSpearing = "spearing"; // PS fishing spear: thrust + retrieve
     public const string TechTrapping = "trapping"; // basket/weir/trotline/Ithania trap (Phase 1b)
+    public const string TechProcessing = "processing"; // dressing the catch (PS filleting; FIS-by-target ruling)
 
     // Bonus knob keys (DomainConfig.Bonus).
     /// <summary>The one that got away — RE-RULED 2026-07-16 (same day): a PERMANENT risk curve,
@@ -41,6 +42,10 @@ public static class FisDomain
     /// a spot ALWAYS depletes some; never infinite free fish).</summary>
     public const string DepletionUntrained = "depletionUntrained";
     public const string DepletionGm = "depletionGm";
+    /// <summary>Roe restock (the steward verb, single-population build 2026-07-16): ovulated
+    /// fish eggs thrown into water restock the VANILLA fish map. Base value for anyone; a
+    /// ranked steward's roe counts for up to this multiple at GM (careful-hands shape).</summary>
+    public const string RoeRestockGmMultiplier = "roeRestockGmMultiplier";
 
     public static DomainConfig Defaults() => new()
     {
@@ -59,6 +64,8 @@ public static class FisDomain
             [TechSpearing] = new() { Raw = 3, K = 30 },
             // Phase 1b: per-session trapline shape, small K (one sweep is most of the bank).
             [TechTrapping] = new() { Raw = 4, K = 15 },
+            // Dressing the catch: low raw, batch-crafting dedups inside the ledger window.
+            [TechProcessing] = new() { Raw = 1, K = 20 },
         },
         Bonus = new Dictionary<string, double>
         {
@@ -69,8 +76,19 @@ public static class FisDomain
             [SizeSkewGm] = 0.35,
             [DepletionUntrained] = 1.5,
             [DepletionGm] = 0.5,
+            [RoeRestockGmMultiplier] = 2.0,
         }
     };
+
+    /// <summary>Roe restock multiplier: 1.0 for Untrained AND Novice hands (roe always works;
+    /// stewardship makes it work harder), linear to the GM multiple.</summary>
+    public static double RoeMultiplierFor(int level)
+    {
+        if (level <= 0) return 1.0;
+        double gm = Knob(RoeRestockGmMultiplier, 2.0);
+        int max = Leveling.Domain.MaxLevelDefault;
+        return 1.0 + (gm - 1.0) * (level - 1) / (double)(max - 1);
+    }
 
     /// <summary>General rank curve: untrained value at level 0, exactly 1.0 at Novice I,
     /// linear to the GM value at max level (shared shape with MET/MIN/WOO/FOR).</summary>

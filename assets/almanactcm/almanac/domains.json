@@ -33,11 +33,12 @@
     "tagline": "Their waters never go barren.",
     "identity": "Not the biggest catch, but the longest-lived water. A steward reads a pond's stock at a glance, fishes it with a light hand, and seeds roe to bring a tired pool back to life.",
     "mastery": "A novice fishes a pond dead in an afternoon. A Grandmaster's waters stay stocked for years, and a place to fish them is worth trading for. They take what a water can spare, and never more.",
-    "tip": "A pond remembers every fish you take. Fish a spot hard and it goes quiet; leave it be and it comes back. A green hand loses bites, lands the small ones, and empties a water without noticing. A steward takes the big fish with a light touch and always knows which of their waters is resting.",
+    "tip": "A pond remembers every fish you take, whether it left on a hook, a spear, or in a basket overnight. Fish a spot hard and it goes quiet; left alone it recovers a little each day, never all at once. Roe cast on tired waters brings fish back sooner, and a steward's roe goes further. A green hand loses bites, lands the small ones, and empties a water without noticing.",
     "techniques": [
       "Rod and line",
       "Spearfishing",
-      "Trapping"
+      "Trapping",
+      "Processing the catch"
     ]
   },
   "COO": {
