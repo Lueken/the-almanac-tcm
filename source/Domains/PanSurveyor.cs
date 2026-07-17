@@ -32,10 +32,8 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class PanSurveyor
 {
-    /// <summary>Master I: the rank where the strata start speaking (ruled ladder).</summary>
+    /// <summary>Master I: the rank where the drill starts speaking (ruled ladder).</summary>
     public const int MasterLevel = 13;
-    private const double MentionThreshold = 0.025;
-    private const int MaxBandsPerReading = 5;
 
     private static ICoreServerAPI? sapi;
     private static ICoreClientAPI? capi;
@@ -128,85 +126,22 @@ public static class PanSurveyor
 
     // ------------------------------------------------------------ the depth read (server)
 
-    /// <summary>Called for every recorded reading (PanPatches.DidProbePatch). From Master I,
-    /// asks each read ore's own deposit generator for its Y range at this column and records
-    /// the band as depth-below-surface. Also answers the surveyor in chat: the read should
-    /// FEEL like rank, PT or not.</summary>
-    public static void OnReading(PropickReading results, IServerPlayer splr)
+    /// <summary>Records MEASURED depth bands from a GM bore (the mode-workflow ruling
+    /// 2026-07-17: the survey estimates, the drill measures — depth on the shared map is
+    /// something a Grandmaster physically drilled, not a worldgen estimate). Keyed to PT's
+    /// chunk mapping; rides shares exactly like before.</summary>
+    public static void RecordBoreBands(IServerPlayer splr, BlockPos pos, List<PanOreBand> bands)
     {
-        if (sapi == null || results?.Position == null) return;
-        if (PanDomain.LevelOf(splr) < MasterLevel) return;
+        if (sapi == null || splr == null || bands == null || bands.Count == 0) return;
 
-        var ppws = ObjectCacheUtil.TryGet<ProPickWorkSpace>(sapi, "propickworkspace");
-        if (ppws?.depositsByCode == null) return;
-
-        int surfaceY = (int)results.Position.Y;
-        var pos = new BlockPos((int)results.Position.X, surfaceY, (int)results.Position.Z);
-        int[]? column = null;
-        try { column = ppws.GetRockColumn(pos.X, pos.Z); } catch { }
-        var bands = new List<PanOreBand>();
-
-        foreach (var kv in results.OreReadings)
-        {
-            if (bands.Count >= MaxBandsPerReading) break;
-            if (kv.Value.TotalFactor <= MentionThreshold) continue;
-            if (!ppws.depositsByCode.TryGetValue(kv.Key, out var variant) || variant?.GeneratorInst == null) continue;
-            try
-            {
-                variant.GeneratorInst.GetYMinMax(pos, out double miny, out double maxy);
-                if (miny > maxy) continue; // generator answered with its "unknown" sentinel
-                int yLo = (int)Math.Max(0, miny);
-                int yHi = (int)Math.Min(surfaceY, maxy);
-                if (yHi < yLo) continue;
-
-                // IOG's "anywhere" discs span half the world in raw Y range — useless as a
-                // band. Its generators expose their bearing rocks, so narrow the range to the
-                // rows of THIS column that can actually carry the ore: the local truth.
-                var bearingMethod = AccessTools.Method(variant.GeneratorInst.GetType(), "GetBearingBlocks");
-                if (bearingMethod != null && column != null
-                    && bearingMethod.Invoke(variant.GeneratorInst, null) is int[] bearing && bearing.Length > 0)
-                {
-                    var set = new HashSet<int>(bearing);
-                    int lo = -1, hi = -1;
-                    for (int y = yLo; y <= Math.Min(yHi, column.Length - 1); y++)
-                    {
-                        if (!set.Contains(column[y])) continue;
-                        if (lo < 0) lo = y;
-                        hi = y;
-                    }
-                    if (lo < 0) continue; // the carrying rock never crosses this column here
-                    yLo = lo; yHi = hi;
-                }
-
-                int minDepth = Math.Max(0, surfaceY - yHi);
-                int maxDepth = Math.Max(minDepth, surfaceY - yLo);
-                if (maxDepth <= 0) continue;
-                bool wide = maxDepth - minDepth > surfaceY * 0.8;
-                bands.Add(new PanOreBand { OreKey = kv.Key, MinDepth = minDepth, MaxDepth = maxDepth, Wide = wide });
-            }
-            catch { /* a generator without placement math (throws NotImplemented); honest skip */ }
-        }
-        if (bands.Count == 0) return;
-
-        int cx = (int)results.Position.X / 32, cz = (int)results.Position.Z / 32; // PT's own chunk mapping
+        int cx = pos.X / 32, cz = pos.Z / 32; // PT's own chunk mapping
         long key = Key(cx, cz);
         bool wasShared = serverDepth.TryGetValue(key, out var prev) && prev.Shared;
         var record = new PanChunkDepth { Cx = cx, Cz = cz, Bands = bands, ProberUid = splr.PlayerUID, Shared = wasShared };
         serverDepth[key] = record;
 
         serverChannel?.SendPacket(new PanDepthPacket { Chunks = new List<PanChunkDepth> { record } }, splr);
-
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine(Lang.GetL(splr.LanguageCode, "almanactcm:depth-title"));
-        foreach (var b in bands)
-        {
-            string ore = Lang.GetL(splr.LanguageCode, "ore-" + b.OreKey);
-            sb.AppendLine(b.Wide
-                ? Lang.GetL(splr.LanguageCode, "almanactcm:depth-read-wide", ore)
-                : Lang.GetL(splr.LanguageCode, "almanactcm:depth-read", ore, b.MinDepth, b.MaxDepth));
-        }
-        splr.SendMessage(GlobalConstants.InfoLogChatGroup, sb.ToString().TrimEnd(), EnumChatType.Notification);
-        TcmLog.Cat(sapi, TcmLog.Hooks, $"PAN surveyor: {splr.PlayerName} recorded {bands.Count} depth band(s) at chunk {cx},{cz}");
+        TcmLog.Cat(sapi, TcmLog.Hooks, $"PAN surveyor: {splr.PlayerName} bored {bands.Count} depth band(s) at chunk {cx},{cz}");
     }
 
     // ------------------------------------------------------------ ProspectTogether bridge

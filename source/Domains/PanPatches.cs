@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using HarmonyLib;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.API.Util;
@@ -118,25 +121,28 @@ public static class PanPatches
     [HarmonyPatch(typeof(ModSystemOreMap), nameof(ModSystemOreMap.DidProbe))]
     public static class DidProbePatch
     {
-        /// <summary>Axis 1, the data end: an Untrained reading degrades BEFORE it is recorded,
-        /// so the map (and every share of it) remembers that an unpracticed hand took it.
-        /// Redesigned twice against live feedback (2026-07-17): grid-quantizing was wrong on
-        /// BOTH ends for this pack — the density word barely moved while IOG's real ppt scale
-        /// (workable deposits commonly 0.1-1 permille here; verified in the IOG generator's
-        /// own reading math) was crushed to "0" or inflated to the grid step. Now the eye
-        /// simply UNDERSTATES: the density word drops one band (the weakest full lines demote
-        /// into the visible "miniscule traces" list — demoted, never hidden), and ppt keeps
-        /// ONE significant figure, honest at every scale. Novice I+ records exactly vanilla.</summary>
+        /// <summary>The CLARITY LADDER (ruled 2026-07-17, the mode-workflow ruling): density is
+        /// the chunk survey and rank gates how truly you read it. BP's density is a real block
+        /// census, so degradation always UNDERSTATES — it never invents richness and never
+        /// hides an ore outright (weakest lines demote to the visible traces list at worst).
+        ///   Untrained: two density words down, ppt to one significant figure.
+        ///   Novice: one word down, one significant figure.
+        ///   Apprentice: the true word, ppt still one significant figure.
+        ///   Journeyman+: the full census, exactly as the mod reports it.
+        /// The recorded data carries the degradation, so every PT share remembers the skill of
+        /// the surveyor who took it.</summary>
         public static void Prefix(PropickReading results, IServerPlayer splr)
         {
             if (results?.OreReadings == null || splr == null) return;
-            if (PanDomain.LevelOf(splr) > 0) return;
+            int level = PanDomain.LevelOf(splr);
+            if (level >= 9) return; // Journeyman I+: full truth
 
-            double bandsDown = PanDomain.Knob(PanDomain.UntrainedBandsDown, 1.0);
+            int bandsDown = level <= 0 ? 2 : level <= 4 ? 1 : 0;
             const double band = 1.0 / 7.5; // one density-word band (names index = tf * 7.5)
             foreach (var reading in results.OreReadings.Values)
             {
-                reading.TotalFactor = Math.Max(0.003, reading.TotalFactor - bandsDown * band);
+                if (bandsDown > 0)
+                    reading.TotalFactor = Math.Max(0.003, reading.TotalFactor - bandsDown * band);
                 reading.PartsPerThousand = OneSigFig(reading.PartsPerThousand);
             }
         }
@@ -150,14 +156,13 @@ public static class PanPatches
 
         /// <summary>Every recorded reading is prospecting practice, whatever tool took it
         /// (vanilla propick, BP density, BP stone scan). Context = the chunk column, so
-        /// re-reading the same ground dedups inside the window. Master+ readings also record
-        /// the depth band (the Surveyor, Phase 2).</summary>
+        /// re-reading the same ground dedups inside the window. Depth information moved to
+        /// the BORE (the mode-workflow ruling): the drill measures, the survey estimates.</summary>
         public static void Postfix(PropickReading results, IServerPlayer splr)
         {
             if (splr == null || results?.Position == null) return;
             Core?.Ledger?.Log(splr, PanDomain.Code, PanDomain.TechProspecting,
                 HashCode.Combine((int)results.Position.X >> 5, (int)results.Position.Z >> 5));
-            PanSurveyor.OnReading(results, splr);
         }
     }
 
@@ -269,7 +274,123 @@ public static class PanPatches
             TcmLog.Warn(api, "bettererprospecting present but its probe modes were not found; search-mode practice inactive (density/stone still credit via DidProbe)");
             return;
         }
-        TcmLog.Info(api, $"PAN prospecting hooked to bettererprospecting ({hooked} search mode(s); density/stone credit via the DidProbe funnel)");
+
+        // Mode order = the taught workflow (ruled 2026-07-17): survey the chunk, drill before
+        // you dig, then the pick tools. Dispatch is name-based, so reordering the SkillItem
+        // array is safe; the postfix re-applies whenever BP regenerates its modes.
+        var regen = pick == null ? null : AccessTools.Method(pick, "RegenerateToolModes");
+        if (regen != null)
+            harmony.Patch(regen, postfix: new HarmonyMethod(AccessTools.Method(typeof(ModeOrderPatch), "Postfix")));
+
+        // The bore is the depth tool (the mode-workflow ruling): Master+ measures the drilled
+        // column and reads how deep each ore actually sits.
+        var bore = pick == null ? null : AccessTools.Method(pick, "ProbeBorehole");
+        BoreDepthPatch.isOreMethod = pick == null ? null : AccessTools.Method(pick, "IsOre",
+            new[] { typeof(Block), typeof(Dictionary<string, string>), typeof(string).MakeByRefType(), typeof(string).MakeByRefType() });
+        if (bore != null && BoreDepthPatch.isOreMethod != null)
+            harmony.Patch(bore, postfix: new HarmonyMethod(AccessTools.Method(typeof(BoreDepthPatch), "Postfix")));
+
+        TcmLog.Info(api, $"PAN prospecting hooked to bettererprospecting ({hooked} search mode(s); mode order = workflow; Master+ bore measures depth)");
+    }
+
+    /// <summary>Reorders the propick modes to the taught workflow: density (survey), borehole
+    /// (drill before digging), node search and proximity (at the face), stone scan last.</summary>
+    public static class ModeOrderPatch
+    {
+        private static readonly string[] order = { "density", "borehole", "node", "proximity", "stone" };
+
+        public static void Postfix(object __instance)
+        {
+            if (Traverse.Create(__instance).Field("toolModes").GetValue() is not SkillItem[] modes || modes.Length < 2) return;
+            var sorted = modes.OrderBy(m =>
+            {
+                int i = Array.IndexOf(order, m?.Code?.Path);
+                return i < 0 ? 99 : i;
+            }).ToArray();
+            for (int i = 0; i < modes.Length; i++) modes[i] = sorted[i]; // in place: field and cache share this array
+        }
+    }
+
+    /// <summary>Master+ bore depth: rescans the same cylinder the drill walked, recording the
+    /// depth of every ore it passed. Master hears a coarse first strike ("near 32 down"); GM
+    /// reads the exact band and it is RECORDED to the chunk's depth store — the Surveyor's
+    /// shared maps carry depths a GM physically measured, not worldgen estimates.</summary>
+    public static class BoreDepthPatch
+    {
+        internal static System.Reflection.MethodInfo? isOreMethod;
+
+        public static void Postfix(object __instance, IServerPlayer serverPlayer, BlockSelection blockSel)
+        {
+            if (sapi == null || serverPlayer == null || blockSel?.Position == null || isOreMethod == null) return;
+            if (blockSel.Face != BlockFacing.UP) return; // the drill itself refused sideways bores
+            int level = PanDomain.LevelOf(serverPlayer);
+            if (level < PanSurveyor.MasterLevel) return;
+
+            int radius = 1;
+            try
+            {
+                var cfg = Traverse.Create(__instance).Field("config").GetValue();
+                if (cfg != null)
+                {
+                    var t = Traverse.Create(cfg);
+                    radius = t.Field("BoreholeRadius").FieldExists() ? t.Field("BoreholeRadius").GetValue<int>()
+                        : t.Property("BoreholeRadius").GetValue<int>();
+                }
+            }
+            catch { }
+            radius = Math.Max(1, radius);
+
+            var ba = sapi.World.BlockAccessor;
+            int startX = blockSel.Position.X, startY = blockSel.Position.Y, startZ = blockSel.Position.Z;
+            var cache = new Dictionary<string, string>();
+            var found = new Dictionary<string, (int min, int max)>();
+            var args = new object?[4];
+            var probe = new BlockPos(0);
+            for (int y = startY; y > 0; y--)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    for (int dz = -radius; dz <= radius; dz++)
+                    {
+                        if (dx * dx + dz * dz > radius * radius) continue;
+                        probe.Set(startX + dx, y, startZ + dz);
+                        var block = ba.GetBlock(probe);
+                        if (block == null) continue;
+                        args[0] = block; args[1] = cache; args[2] = null; args[3] = null;
+                        if (isOreMethod.Invoke(null, args) is not true) continue;
+                        string? oreKey = args[3] as string;
+                        if (string.IsNullOrEmpty(oreKey)) continue;
+                        int depth = startY - y;
+                        found[oreKey!] = found.TryGetValue(oreKey!, out var band)
+                            ? (Math.Min(band.min, depth), Math.Max(band.max, depth))
+                            : (depth, depth);
+                    }
+                }
+            }
+            if (found.Count == 0) return;
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(Lang.GetL(serverPlayer.LanguageCode, "almanactcm:bore-title"));
+            var stored = new List<PanSurveyor.PanOreBand>();
+            int listed = 0;
+            foreach (var kv in found)
+            {
+                if (listed++ >= 5) break;
+                string ore = Lang.GetL(serverPlayer.LanguageCode, "ore-" + kv.Key);
+                if (level >= 17)
+                {
+                    sb.AppendLine(Lang.GetL(serverPlayer.LanguageCode, "almanactcm:bore-exact", ore, kv.Value.min, kv.Value.max));
+                    stored.Add(new PanSurveyor.PanOreBand { OreKey = kv.Key, MinDepth = kv.Value.min, MaxDepth = kv.Value.max });
+                }
+                else
+                {
+                    int near = Math.Max(4, (int)Math.Round(kv.Value.min / 8.0) * 8);
+                    sb.AppendLine(Lang.GetL(serverPlayer.LanguageCode, "almanactcm:bore-near", ore, near));
+                }
+            }
+            serverPlayer.SendMessage(GlobalConstants.InfoLogChatGroup, sb.ToString().TrimEnd(), EnumChatType.Notification);
+            if (stored.Count > 0) PanSurveyor.RecordBoreBands(serverPlayer, blockSel.Position, stored);
+        }
     }
 
     /// <summary>Node/proximity/borehole write no readings but are real prospecting work.
