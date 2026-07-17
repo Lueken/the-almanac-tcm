@@ -641,6 +641,41 @@ public class SpotMapComponent : MapComponent
 
     private static float AlphaFor(int st) => st == 2 ? 0.60f : st == 1 ? 0.40f : 0.50f;
 
+    private bool HitsVisibleShape(MouseEvent args, GuiElementMap mapElem)
+    {
+        var probe = new Vec3d();
+        var p1 = new Vec2f();
+        var p2 = new Vec2f();
+
+        if (tier >= 4 && cells.Count > 0)
+        {
+            foreach (var (cx, cz, _) in cells)
+            {
+                probe.Set(cx * (double)cellSize, center.Y, cz * (double)cellSize);
+                mapElem.TranslateWorldPosToViewPos(probe, ref p1);
+                probe.Set((cx + 1) * (double)cellSize, center.Y, (cz + 1) * (double)cellSize);
+                mapElem.TranslateWorldPosToViewPos(probe, ref p2);
+                double x1 = mapElem.Bounds.renderX + Math.Min(p1.X, p2.X), x2 = mapElem.Bounds.renderX + Math.Max(p1.X, p2.X);
+                double y1 = mapElem.Bounds.renderY + Math.Min(p1.Y, p2.Y), y2 = mapElem.Bounds.renderY + Math.Max(p1.Y, p2.Y);
+                if (args.X >= x1 && args.X <= x2 && args.Y >= y1 && args.Y <= y2) return true;
+            }
+            return false;
+        }
+
+        foreach (var m in members)
+        {
+            probe.Set(m.X, m.Y, m.Z);
+            mapElem.TranslateWorldPosToViewPos(probe, ref p1);
+            probe.Set(m.X + m.RadiusBlocks, m.Y, m.Z);
+            mapElem.TranslateWorldPosToViewPos(probe, ref p2);
+            float r = Math.Max(6, Math.Abs(p2.X - p1.X));
+            double mdx = args.X - (p1.X + mapElem.Bounds.renderX);
+            double mdy = args.Y - (p1.Y + mapElem.Bounds.renderY);
+            if (mdx * mdx + mdy * mdy <= r * r) return true;
+        }
+        return false;
+    }
+
     public override void Render(GuiElementMap map, float dt)
     {
         map.TranslateWorldPosToViewPos(center, ref viewPos);
@@ -714,12 +749,16 @@ public class SpotMapComponent : MapComponent
 
     public override void OnMouseMove(MouseEvent args, GuiElementMap mapElem, System.Text.StringBuilder hoverText)
     {
+        // Cheap reject against the cluster's enclosing circle, then the REAL test: the pointer
+        // must be inside a visible shape — a member circle below GM, an outline cell at GM —
+        // not merely inside the invisible bounding disc (live feedback).
         mapElem.TranslateWorldPosToViewPos(center, ref viewPos);
         double dx = args.X - (viewPos.X + mapElem.Bounds.renderX);
         double dy = args.Y - (viewPos.Y + mapElem.Bounds.renderY);
         mapElem.TranslateWorldPosToViewPos(new Vec3d(center.X + enclosingRadius, center.Y, center.Z), ref edgePos);
         float pixelRadius = Math.Max(6, Math.Abs(edgePos.X - viewPos.X));
         if (dx * dx + dy * dy > pixelRadius * pixelRadius) return;
+        if (!HitsVisibleShape(args, mapElem)) return;
 
         if (kind == (int)AlmanacSpotsLayer.SpotKind.Water)
         {
