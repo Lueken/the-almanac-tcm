@@ -85,6 +85,19 @@ public static class ForAcaPatches
             if (owner == null) return; // owner offline; the sap still drips, practice waits
 
             Core?.Ledger?.Log(owner, ForDomain.Code, ForDomain.TechTapping, be.Pos.GetHashCode());
+
+            // Stewardship liability: an Untrained-placed tapline runs SLOW, never dry. Pushing
+            // the drip timer ahead of the calendar delays future drips (~two-thirds output at
+            // the default 0.5); it cannot kill the spile, the log segment, or a resin node —
+            // those are worldgen-precious (ruled 2026-07-16).
+            if (ForDomain.LevelOf(owner) == 0)
+            {
+                double slow = ForDomain.Knob(ForDomain.UntrainedTapSlowdown, 0.5);
+                if (slow > 0)
+                {
+                    Traverse.Create(__instance).Field("timer").SetValue(now + (now - __state) * slow);
+                }
+            }
         }
     }
 }

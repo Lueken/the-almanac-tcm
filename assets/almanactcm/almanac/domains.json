@@ -96,11 +96,12 @@
     "tagline": "Walks a harvest circuit nobody else can see.",
     "identity": "Private knowledge of the living land. A forager's map is a constellation of small, timed circles: which patches renew, and exactly when each is ready. The knowledge itself is the trade good.",
     "mastery": "A Grandmaster walks a harvest circuit no one else can see or find twice, and they corner the foraged market by selling access to it. What they know is worth more than what they carry.",
-    "tip": "Range wide: the first time you take a new species teaches you far more than stripping the same bush ever will. And mind your feet. A harvest circuit walked the same way every day wears a trail straight to your best patches, and a trail can be followed. A wise forager varies the route.",
+    "tip": "Range wide: the first time you take a new species teaches you far more than stripping the same bush ever will. Carry a watering can on your circuit: tended ground comes back sooner, and only you know which ground is yours. And mind your feet. A harvest circuit walked the same way every day wears a trail straight to your best patches, and a trail can be followed. A wise forager varies the route.",
     "techniques": [
       "Wild harvesting",
       "Wild gathering",
-      "Tapping"
+      "Tapping",
+      "Tending"
     ]
   },
   "ALC": {

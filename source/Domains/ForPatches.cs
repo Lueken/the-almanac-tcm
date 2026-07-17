@@ -233,6 +233,15 @@ public static class ForPatches
             // The Forager's Memory: a plucked bush is a renewable patch worth remembering.
             Overlay.AlmanacSpotsLayer.Instance?.Record(byPlayer, __instance.Pos,
                 Overlay.AlmanacSpotsLayer.SpotKind.Bush, SpotName(__instance.Block));
+
+            // Stewardship liability: Untrained hands wound the bush — the fresh regrow cycle
+            // (Ripe just flipped to Mature above) starts late. Never destroys anything.
+            if (ForDomain.LevelOf(byPlayer) == 0)
+            {
+                double wound = Knob(ForDomain.WoundDays, 1.5);
+                __instance.BState.TransitionHoursLeft += wound * world.Calendar.HoursPerDay;
+                __instance.Blockentity?.MarkDirty(true);
+            }
         }
     }
 
@@ -262,6 +271,12 @@ public static class ForPatches
             {
                 Overlay.AlmanacSpotsLayer.Instance?.Record(byPlayer, pos,
                     Overlay.AlmanacSpotsLayer.SpotKind.Mushroom, SpotName(__instance));
+
+                // Stewardship liability: an Untrained pick wounds the network's regrow clock.
+                if (ForDomain.LevelOf(byPlayer) == 0)
+                {
+                    Overlay.AlmanacSpotsLayer.Instance?.WoundMushroomNear(pos, Knob(ForDomain.WoundDays, 1.5));
+                }
             }
         }
 
