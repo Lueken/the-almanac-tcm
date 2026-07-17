@@ -120,35 +120,32 @@ public static class PanPatches
     {
         /// <summary>Axis 1, the data end: an Untrained reading degrades BEFORE it is recorded,
         /// so the map (and every share of it) remembers that an unpracticed hand took it.
-        /// Degradation FLOORS, never rounds (live feedback 2026-07-17: nearest-rounding barely
-        /// touched the density word, could even bump it a band UP, and printed absurd "0"
-        /// ppt lines): the unpracticed eye understates what is there, misses faint signals
-        /// entirely (floored-to-zero ores drop from the reading), and a line that survives
-        /// never reads zero (ppt floors at the grid step). Novice I+ records exactly vanilla.</summary>
+        /// Redesigned twice against live feedback (2026-07-17): grid-quantizing was wrong on
+        /// BOTH ends for this pack — the density word barely moved while IOG's real ppt scale
+        /// (workable deposits commonly 0.1-1 permille here; verified in the IOG generator's
+        /// own reading math) was crushed to "0" or inflated to the grid step. Now the eye
+        /// simply UNDERSTATES: the density word drops one band (the weakest full lines demote
+        /// into the visible "miniscule traces" list — demoted, never hidden), and ppt keeps
+        /// ONE significant figure, honest at every scale. Novice I+ records exactly vanilla.</summary>
         public static void Prefix(PropickReading results, IServerPlayer splr)
         {
             if (results?.OreReadings == null || splr == null) return;
             if (PanDomain.LevelOf(splr) > 0) return;
 
-            double fStep = PanDomain.Knob(PanDomain.CoarsenFactorStep, 0.1);
-            double pStep = PanDomain.Knob(PanDomain.CoarsenPptStep, 0.5);
-            List<string>? missed = null;
-            foreach (var kv in results.OreReadings)
+            double bandsDown = PanDomain.Knob(PanDomain.UntrainedBandsDown, 1.0);
+            const double band = 1.0 / 7.5; // one density-word band (names index = tf * 7.5)
+            foreach (var reading in results.OreReadings.Values)
             {
-                var reading = kv.Value;
-                if (fStep > 0) reading.TotalFactor = Math.Floor(reading.TotalFactor / fStep) * fStep;
-                if (reading.TotalFactor <= 0)
-                {
-                    (missed ??= new List<string>()).Add(kv.Key);
-                    continue;
-                }
-                if (pStep > 0)
-                {
-                    reading.PartsPerThousand =
-                        Math.Max(pStep, Math.Floor(reading.PartsPerThousand / pStep) * pStep);
-                }
+                reading.TotalFactor = Math.Max(0.003, reading.TotalFactor - bandsDown * band);
+                reading.PartsPerThousand = OneSigFig(reading.PartsPerThousand);
             }
-            if (missed != null) foreach (string key in missed) results.OreReadings.Remove(key);
+        }
+
+        private static double OneSigFig(double v)
+        {
+            if (v <= 0) return 0;
+            double mag = Math.Pow(10, Math.Floor(Math.Log10(v)));
+            return Math.Round(v / mag) * mag;
         }
 
         /// <summary>Every recorded reading is prospecting practice, whatever tool took it

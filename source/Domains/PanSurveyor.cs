@@ -49,6 +49,9 @@ public static class PanSurveyor
         [ProtoMember(1)] public string OreKey = "";
         [ProtoMember(2)] public int MinDepth; // blocks below the probed surface
         [ProtoMember(3)] public int MaxDepth;
+        /// <summary>True when the band could not be narrowed and spans most of the column —
+        /// phrased honestly rather than printing a uselessly precise-looking range.</summary>
+        [ProtoMember(4)] public bool Wide;
     }
 
     [ProtoContract]
@@ -139,6 +142,8 @@ public static class PanSurveyor
 
         int surfaceY = (int)results.Position.Y;
         var pos = new BlockPos((int)results.Position.X, surfaceY, (int)results.Position.Z);
+        int[]? column = null;
+        try { column = ppws.GetRockColumn(pos.X, pos.Z); } catch { }
         var bands = new List<PanOreBand>();
 
         foreach (var kv in results.OreReadings)
@@ -150,10 +155,34 @@ public static class PanSurveyor
             {
                 variant.GeneratorInst.GetYMinMax(pos, out double miny, out double maxy);
                 if (miny > maxy) continue; // generator answered with its "unknown" sentinel
-                int minDepth = Math.Max(0, surfaceY - (int)maxy);
-                int maxDepth = Math.Max(minDepth, surfaceY - (int)miny);
+                int yLo = (int)Math.Max(0, miny);
+                int yHi = (int)Math.Min(surfaceY, maxy);
+                if (yHi < yLo) continue;
+
+                // IOG's "anywhere" discs span half the world in raw Y range — useless as a
+                // band. Its generators expose their bearing rocks, so narrow the range to the
+                // rows of THIS column that can actually carry the ore: the local truth.
+                var bearingMethod = AccessTools.Method(variant.GeneratorInst.GetType(), "GetBearingBlocks");
+                if (bearingMethod != null && column != null
+                    && bearingMethod.Invoke(variant.GeneratorInst, null) is int[] bearing && bearing.Length > 0)
+                {
+                    var set = new HashSet<int>(bearing);
+                    int lo = -1, hi = -1;
+                    for (int y = yLo; y <= Math.Min(yHi, column.Length - 1); y++)
+                    {
+                        if (!set.Contains(column[y])) continue;
+                        if (lo < 0) lo = y;
+                        hi = y;
+                    }
+                    if (lo < 0) continue; // the carrying rock never crosses this column here
+                    yLo = lo; yHi = hi;
+                }
+
+                int minDepth = Math.Max(0, surfaceY - yHi);
+                int maxDepth = Math.Max(minDepth, surfaceY - yLo);
                 if (maxDepth <= 0) continue;
-                bands.Add(new PanOreBand { OreKey = kv.Key, MinDepth = minDepth, MaxDepth = maxDepth });
+                bool wide = maxDepth - minDepth > surfaceY * 0.8;
+                bands.Add(new PanOreBand { OreKey = kv.Key, MinDepth = minDepth, MaxDepth = maxDepth, Wide = wide });
             }
             catch { /* a generator without placement math (throws NotImplemented); honest skip */ }
         }
@@ -170,8 +199,12 @@ public static class PanSurveyor
         var sb = new System.Text.StringBuilder();
         sb.AppendLine(Lang.GetL(splr.LanguageCode, "almanactcm:depth-title"));
         foreach (var b in bands)
-            sb.AppendLine(Lang.GetL(splr.LanguageCode, "almanactcm:depth-read",
-                Lang.GetL(splr.LanguageCode, "ore-" + b.OreKey), b.MinDepth, b.MaxDepth));
+        {
+            string ore = Lang.GetL(splr.LanguageCode, "ore-" + b.OreKey);
+            sb.AppendLine(b.Wide
+                ? Lang.GetL(splr.LanguageCode, "almanactcm:depth-read-wide", ore)
+                : Lang.GetL(splr.LanguageCode, "almanactcm:depth-read", ore, b.MinDepth, b.MaxDepth));
+        }
         splr.SendMessage(GlobalConstants.InfoLogChatGroup, sb.ToString().TrimEnd(), EnumChatType.Notification);
         TcmLog.Cat(sapi, TcmLog.Hooks, $"PAN surveyor: {splr.PlayerName} recorded {bands.Count} depth band(s) at chunk {cx},{cz}");
     }
@@ -270,7 +303,12 @@ public static class PanSurveyor
             sb.AppendLine();
             sb.AppendLine(Lang.Get("almanactcm:depth-title"));
             foreach (var b in cd.Bands)
-                sb.AppendLine(Lang.Get("almanactcm:depth-read", Lang.Get("ore-" + b.OreKey), b.MinDepth, b.MaxDepth));
+            {
+                string ore = Lang.Get("ore-" + b.OreKey);
+                sb.AppendLine(b.Wide
+                    ? Lang.Get("almanactcm:depth-read-wide", ore)
+                    : Lang.Get("almanactcm:depth-read", ore, b.MinDepth, b.MaxDepth));
+            }
             __result = sb.ToString();
         }
     }

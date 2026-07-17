@@ -37,6 +37,7 @@
   "almanactcm:spot-more": "And {0} more patches in this stretch.",
   "almanactcm:depth-title": "The strata speak to practiced hands:",
   "almanactcm:depth-read": "{0}: roughly {1} to {2} blocks down.",
+  "almanactcm:depth-read-wide": "{0}: runs through most depths here.",
   "almanactcm:spot-mushrooms": "Mushrooms",
   "almanactcm:spot-berries": "Berries",
   "almanactcm:spot-ready": "{0} here look ready.",
