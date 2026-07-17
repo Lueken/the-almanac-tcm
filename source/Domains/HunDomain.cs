@@ -1,0 +1,91 @@
+using AlmanacTcm.Config;
+using System.Collections.Generic;
+using Vintagestory.API.Common;
+
+namespace AlmanacTcm.Domains;
+
+/// <summary>
+/// HUN — "The Master Hunter" defaults (rank-bonus-design.md §HUN, RULED 2026-07-10 with
+/// hun-tracking-study adopted 7/7; technique-maps §HUN). Server-config seeds; playtest tunes.
+///
+/// Phase 1 (this build): the four verbs (hunting = player kills of wild game, dressing = the
+/// field harvest, trapping = PS snares/deadfalls owner-at-placement, butchery = the Butchering
+/// stations, by-target ruling), the two verified vanilla stat anchors (animalLootDropRate
+/// yield, animalSeekingRange stealth/spook), and the PER-SPECIES KILL LEDGER recorded from day
+/// one so the Phase 3 Hunter's Map knowledge gate has history the moment it ships.
+/// Phase 2: the Tracker's Eye + blood-read. Phase 3: the Hunter's Map (habitat layer).
+/// </summary>
+public static class HunDomain
+{
+    public const string Code = "HUN";
+
+    public const string TechHunting = "hunting";   // a wild kill, credited to the causing player
+    public const string TechDressing = "dressing"; // the field harvest at the carcass
+    public const string TechTrapping = "trapping"; // PS snare/deadfall (owner-at-placement)
+    public const string TechButchery = "butchery"; // Butchering stations (by-target ruling)
+
+    // Bonus knob keys (DomainConfig.Bonus).
+    /// <summary>Axis 1 + 4: the vanilla per-player harvest yield stat. Untrained wastes hide
+    /// and meat to clumsy dressing; GM ~x1.15 rolls the fraction as a bonus-cut chance.</summary>
+    public const string AnimalYieldUntrained = "animalYieldUntrained";
+    public const string AnimalYieldGm = "animalYieldGm";
+    /// <summary>The Stalker curve: the vanilla stat animal AI reads to decide how far away it
+    /// notices you. Untrained above 1.0 (game flees the beginner from further out); GM floored
+    /// ABOVE zero (ruled: no invisible hunter).</summary>
+    public const string SeekRangeUntrained = "seekRangeUntrained";
+    public const string SeekRangeGm = "seekRangeGm";
+
+    public static DomainConfig Defaults() => new()
+    {
+        Code = Code,
+        Smax = 100,
+        M = 3,
+        // The wild-country pairing: the forager shares the ground, the handler shares the beasts.
+        Adjacency = new List<string> { "FOR", "ANI" },
+        Techniques = new Dictionary<string, TechniqueConfig>
+        {
+            // The marquee verb; species+second bucketed so a pack kill credits once.
+            [TechHunting] = new() { Raw = 4, K = 30 },
+            // Per-carcass; the dedup window absorbs double-fires, K caps the day.
+            [TechDressing] = new() { Raw = 2, K = 30 },
+            // Per-session trapline shape, small K (one sweep is most of the bank).
+            [TechTrapping] = new() { Raw = 4, K = 15 },
+            // Station work: low raw, batch processing dedups inside the ledger window.
+            [TechButchery] = new() { Raw = 1, K = 20 },
+        },
+        Bonus = new Dictionary<string, double>
+        {
+            [AnimalYieldUntrained] = 0.9,
+            [AnimalYieldGm] = 1.15,
+            [SeekRangeUntrained] = 1.15,
+            [SeekRangeGm] = 0.75,
+        }
+    };
+
+    /// <summary>General rank curve: untrained value at level 0, exactly 1.0 at Novice I,
+    /// linear to the GM value at max level (shared shape with the other domains).</summary>
+    public static double RankLinear(int level, double untrained, double gm)
+    {
+        if (level <= 0) return untrained;
+        int max = Leveling.Domain.MaxLevelDefault;
+        double t = (level - 1) / (double)(max - 1);
+        return 1.0 + t * (gm - 1.0);
+    }
+
+    /// <summary>Server-side HUN level for a player (0 = Untrained when unknown).</summary>
+    public static int LevelOf(IPlayer? player)
+    {
+        if (player == null) return 0;
+        var set = AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player);
+        return set?.FindDomain(Code)?.Level ?? 0;
+    }
+
+    /// <summary>A Bonus knob, falling back to the shipped default if the server dropped it.</summary>
+    public static double Knob(string key, double fallback)
+    {
+        var configs = AlmanacTcmModSystem.Instance?.Ledger?.DomainConfigs;
+        if (configs != null && configs.TryGetValue(Code, out var dc)
+            && dc.Bonus.TryGetValue(key, out double v)) return v;
+        return fallback;
+    }
+}

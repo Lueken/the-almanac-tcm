@@ -89,7 +89,14 @@
     "title": "The Master Hunter",
     "tagline": "Knows the country they have hunted.",
     "identity": "The reader of living country. A hunter learns to see an animal at range for what it is, to move unseen, and to carry in their head a map of where every quarry they have chased is likely to be found.",
-    "mastery": "A novice sees a deer, spooks it, and loses it. A Grandmaster reads its size, its condition, and its heading at a glance, stalks it unseen, and knows the country well enough to find its kind again."
+    "mastery": "A novice sees a deer, spooks it, and loses it. A Grandmaster reads its size, its condition, and its heading at a glance, stalks it unseen, and knows the country well enough to find its kind again.",
+    "tip": "Green hands spook the game from twice as far and waste half the carcass to clumsy knife work; practiced hands walk closer, dress cleaner, and their snares hold what they catch. Every animal you take teaches you its kind. Hunt widely: the country you have hunted is country you will one day know by heart.",
+    "techniques": [
+      "The hunt",
+      "Field dressing",
+      "Trapping",
+      "Butchery"
+    ]
   },
   "ANI": {
     "title": "The Master's Line",
