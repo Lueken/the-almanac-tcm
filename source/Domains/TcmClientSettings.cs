@@ -38,9 +38,12 @@ public static class TcmClientSettings
     public static void Register(ICoreClientAPI capi)
     {
         Load(capi);
-        // ConfigLib re-broadcasts this whenever a setting changes in its menu.
+        // ConfigLib pushes "configlib:{domain}:config-saved" (ConfigLibModSystem.OnConfigSaved) the
+        // moment its menu saves a setting, so we re-read live. NOTE: "configlib:config-reload" is the
+        // INBOUND event ConfigLib itself listens to; broadcasting on it never fires our read (the bug
+        // that left every slider stuck on its default until a full relaunch).
         capi.Event.RegisterEventBusListener(
-            (string name, ref EnumHandling h, IAttribute data) => Load(capi), 0.5, "configlib:config-reload");
+            (string name, ref EnumHandling h, IAttribute data) => Load(capi), 0.5, "configlib:almanactcm:config-saved");
     }
 
     private static void Load(ICoreClientAPI capi)
