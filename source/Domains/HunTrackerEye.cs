@@ -40,11 +40,6 @@ public class HunTrackerEye : HudElement
     private double diagAccum;
     private bool diagNow;
 
-    // True only when the read is an actual quarry/sense of a nearby animal, false for the
-    // "nothing nearby" fallback. The focus vignette rides this, so an empty sweep does not darken
-    // the screen (you concentrate on GAME, not on absence).
-    private bool sensedAnimal;
-
     /// <summary>0..1 focus progress, published for the vignette to darken the edges AS the
     /// hunter concentrates (0 = nothing, 1 = read resolved). One local player, so static.</summary>
     public static float FocusFraction { get; private set; }
@@ -129,11 +124,11 @@ public class HunTrackerEye : HudElement
         // Focusing: hold the read back until the hunter has concentrated for the focus delay.
         double focusDelay = TcmClientSettings.FocusDelay;
         focusAccum += dt;
-        // The vignette concentrates on a real quarry/sense only; the "nothing nearby" fallback
-        // still shows (after the same hold) but never darkens the screen.
-        FocusFraction = !sensedAnimal ? 0f
-                      : focusDelay <= 0.01 ? 1f
-                      : (float)Math.Min(1.0, focusAccum / focusDelay);
+        // The vignette rides concentration itself: it builds whenever the hunter holds the crouched
+        // sense, animal or not, so it is reliably visible and matches the "focus" fantasy. (Re-
+        // coupled 2026-07-17: the animal-only gate made it near-impossible to ever see, since it
+        // needed a beast inside scan range at the exact moment.)
+        FocusFraction = focusDelay <= 0.01 ? 1f : (float)Math.Min(1.0, focusAccum / focusDelay);
         if (focusAccum < focusDelay)
         {
             if (IsOpened()) { lastText = ""; TryClose(); }
@@ -195,12 +190,11 @@ public class HunTrackerEye : HudElement
             $"read scan: tier={tier} range={range:0} senseRange={senseRange:0} " +
             $"aimed={(aimed != null ? aimedDist : -1):0.0} nearest={(nearest != null ? nearestDist : -1):0.0} loaded={capi.World.LoadedEntities.Count}");
 
-        if (aimed != null) { sensedAnimal = true; return ReadQuarry(aimed, aimedDist, tier); }
-        if (nearest != null) { sensedAnimal = true; return SenseLine(plr, nearest, tier); }
+        if (aimed != null) return ReadQuarry(aimed, aimedDist, tier);
+        if (nearest != null) return SenseLine(plr, nearest, tier);
 
         // Sneaking at Apprentice+ but the country reads empty: say so, so the sense never looks
-        // broken for want of a target. This is NOT a quarry read, so the vignette stays off.
-        sensedAnimal = false;
+        // broken for want of a target.
         return Lang.Get("almanactcm:track-none");
     }
 

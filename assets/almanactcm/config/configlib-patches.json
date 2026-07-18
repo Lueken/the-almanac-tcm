@@ -23,8 +23,8 @@
       "clientSide": true,
       "ingui": "almanactcm:cfg-vignette-intensity",
       "comment": "almanactcm:cfg-vignette-intensity-c",
-      "default": 0.42,
-      "range": { "min": 0.0, "max": 0.8, "step": 0.02 },
+      "default": 0.6,
+      "range": { "min": 0.0, "max": 1.0, "step": 0.02 },
       "weight": 0.3
     },
     {
@@ -33,7 +33,7 @@
       "clientSide": true,
       "ingui": "almanactcm:cfg-vignette-reach",
       "comment": "almanactcm:cfg-vignette-reach-c",
-      "default": 0.6,
+      "default": 0.45,
       "range": { "min": 0.2, "max": 0.85, "step": 0.05 },
       "weight": 0.4
     },

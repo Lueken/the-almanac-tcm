@@ -15,8 +15,8 @@ namespace AlmanacTcm.Domains;
 public static class TcmClientSettings
 {
     public static float FocusDelay = 2.5f;        // seconds of held sneak-look before the read resolves
-    public static float VignetteIntensity = 0.42f; // max corner darkening alpha
-    public static float VignetteReach = 0.6f;      // radial stop where darkening begins (0 tunnel .. 1 edges only)
+    public static float VignetteIntensity = 0.6f;  // max corner darkening alpha
+    public static float VignetteReach = 0.45f;     // radial stop where darkening begins (0 tunnel .. 1 edges only)
 
     // Blood-trail vibrancy spreads: how far HUN rank swings BloodTrail's trail around its stock
     // look, which is anchored at Journeyman I. 0 = no rank effect (stock for everyone); 0.5 =
@@ -29,8 +29,8 @@ public static class TcmClientSettings
     private class Data
     {
         public float focusDelay { get; set; } = 2.5f;
-        public float vignetteIntensity { get; set; } = 0.42f;
-        public float vignetteReach { get; set; } = 0.6f;
+        public float vignetteIntensity { get; set; } = 0.6f;
+        public float vignetteReach { get; set; } = 0.45f;
         public float bloodVisibility { get; set; } = 0.5f;
         public float bloodPersistence { get; set; } = 0.5f;
     }
