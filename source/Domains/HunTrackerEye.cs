@@ -29,20 +29,19 @@ public class HunTrackerEye : HudElement
 {
     private readonly StringBuilder sb = new();
     private string lastText = "";
-    private int lastLines = -1;
 
     // Focus delay: the hunter must hold the sneak-look for this long before the read resolves,
     // so it reads as concentration and never flashes on a quick crouch (ruled 2026-07-17).
     private const double FocusDelay = 2.5;
     private double focusAccum;
 
-    private const double PanelWidth = 400;
     private const double LineHeight = 26;   // per text line at WhiteSmallText
     private const double PadX = 16, PadY = 11;
+    private const double MinWidth = 120, MaxWidth = 520;
 
     public HunTrackerEye(ICoreClientAPI capi) : base(capi)
     {
-        Compose(1);
+        Compose("");
         capi.Gui.RegisterDialog(this); // without this a GuiDialog never enters the render loop
         capi.Event.RegisterGameTickListener(OnTick, 100);
     }
@@ -52,15 +51,23 @@ public class HunTrackerEye : HudElement
     public override bool Focusable => false;
     public override double DrawOrder => 0.05;
 
-    /// <summary>Panel is rebuilt to hug exactly N lines: height tracks the content so a short
-    /// read gets a short box, text filling it with even padding (ruled 2026-07-17).</summary>
-    private void Compose(int lines)
+    /// <summary>Panel is rebuilt to hug the content in BOTH axes: height tracks the line count,
+    /// width tracks the widest line (measured, clamped), so a short read gets a small snug box
+    /// instead of a fixed slab (ruled 2026-07-17).</summary>
+    private void Compose(string text)
     {
-        double h = lines * LineHeight + 2 * PadY;
         var font = CairoFont.WhiteSmallText().WithStroke(new double[] { 0, 0, 0, 1 }, 2.0);
         font.Orientation = EnumTextOrientation.Center;
-        var panel = ElementBounds.Fixed(0, 0, PanelWidth, h);
-        var textBounds = ElementBounds.Fixed(PadX, PadY, PanelWidth - 2 * PadX, lines * LineHeight);
+
+        var lines = text.Length == 0 ? new[] { " " } : text.Split('\n');
+        double scaledW = 0;
+        foreach (var ln in lines) scaledW = Math.Max(scaledW, font.GetTextExtents(ln).Width);
+        double textW = scaledW / RuntimeEnv.GUIScale; // extents are scaled; bounds are unscaled
+        double w = GameMath.Clamp(textW + 2 * PadX, MinWidth, MaxWidth);
+        double h = lines.Length * LineHeight + 2 * PadY;
+
+        var panel = ElementBounds.Fixed(0, 0, w, h);
+        var textBounds = ElementBounds.Fixed(PadX, PadY, w - 2 * PadX, lines.Length * LineHeight);
         var dialogBounds = panel.ForkBoundingParent()
             .WithAlignment(EnumDialogArea.CenterMiddle)
             .WithFixedAlignmentOffset(0, 150);
@@ -102,8 +109,8 @@ public class HunTrackerEye : HudElement
         if (text == lastText) return;
         lastText = text;
 
-        int lines = text.Count(c => c == '\n') + 1;
-        if (lines != lastLines) { lastLines = lines; Compose(lines); }
+        // Width and height both depend on the content, so rebuild the box each new read.
+        Compose(text);
         SingleComposer?.GetDynamicText("read")?.SetNewText(text);
         if (!IsOpened()) TryOpen();
     }
@@ -157,7 +164,12 @@ public class HunTrackerEye : HudElement
     private string ReadQuarry(Entity e, double dist, int tier)
     {
         sb.Clear();
-        string name = e.GetName();
+        // The display name already carries the gender in its own parenthetical ("Wolf (male)");
+        // strip it so our fuller descriptor doesn't repeat it ("Wolf (male, grown)", not
+        // "Wolf (male) (male, grown)").
+        string rawName = e.GetName();
+        int cut = rawName.IndexOf(" (", StringComparison.Ordinal);
+        string name = cut > 0 ? rawName.Substring(0, cut) : rawName;
         string paren = Descriptors(e, name);
         sb.Append(paren.Length > 0 ? Lang.Get("almanactcm:track-quarry", name, paren, (int)Math.Round(dist))
                                    : Lang.Get("almanactcm:track-quarry-plain", name, (int)Math.Round(dist)));
