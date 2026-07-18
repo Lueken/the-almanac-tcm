@@ -29,12 +29,22 @@ public class HunTrackerEye : HudElement
 {
     private readonly StringBuilder sb = new();
     private string lastText = "";
+    private int lastLines = -1;
+
+    // Focus delay: the hunter must hold the sneak-look for this long before the read resolves,
+    // so it reads as concentration and never flashes on a quick crouch (ruled 2026-07-17).
+    private const double FocusDelay = 2.5;
+    private double focusAccum;
+
+    private const double PanelWidth = 400;
+    private const double LineHeight = 26;   // per text line at WhiteSmallText
+    private const double PadX = 16, PadY = 11;
 
     public HunTrackerEye(ICoreClientAPI capi) : base(capi)
     {
-        Compose();
+        Compose(1);
         capi.Gui.RegisterDialog(this); // without this a GuiDialog never enters the render loop
-        capi.Event.RegisterGameTickListener(OnTick, 150);
+        capi.Event.RegisterGameTickListener(OnTick, 100);
     }
 
     public override string ToggleKeyCombinationCode => null!;
@@ -42,12 +52,15 @@ public class HunTrackerEye : HudElement
     public override bool Focusable => false;
     public override double DrawOrder => 0.05;
 
-    private void Compose()
+    /// <summary>Panel is rebuilt to hug exactly N lines: height tracks the content so a short
+    /// read gets a short box, text filling it with even padding (ruled 2026-07-17).</summary>
+    private void Compose(int lines)
     {
+        double h = lines * LineHeight + 2 * PadY;
         var font = CairoFont.WhiteSmallText().WithStroke(new double[] { 0, 0, 0, 1 }, 2.0);
         font.Orientation = EnumTextOrientation.Center;
-        var panel = ElementBounds.Fixed(0, 0, 400, 116);
-        var textBounds = ElementBounds.Fixed(14, 12, 372, 92);
+        var panel = ElementBounds.Fixed(0, 0, PanelWidth, h);
+        var textBounds = ElementBounds.Fixed(PadX, PadY, PanelWidth - 2 * PadX, lines * LineHeight);
         var dialogBounds = panel.ForkBoundingParent()
             .WithAlignment(EnumDialogArea.CenterMiddle)
             .WithFixedAlignmentOffset(0, 150);
@@ -69,10 +82,28 @@ public class HunTrackerEye : HudElement
     private void OnTick(float dt)
     {
         string text = BuildRead();
+
+        // Nothing to read: reset the focus timer and hide.
+        if (text.Length == 0)
+        {
+            focusAccum = 0;
+            if (lastText.Length != 0) { lastText = ""; TryClose(); }
+            return;
+        }
+
+        // Focusing: hold the read back until the hunter has concentrated for FocusDelay.
+        focusAccum += dt;
+        if (focusAccum < FocusDelay)
+        {
+            if (IsOpened()) { lastText = ""; TryClose(); }
+            return;
+        }
+
         if (text == lastText) return;
         lastText = text;
 
-        if (text.Length == 0) { TryClose(); return; }
+        int lines = text.Count(c => c == '\n') + 1;
+        if (lines != lastLines) { lastLines = lines; Compose(lines); }
         SingleComposer?.GetDynamicText("read")?.SetNewText(text);
         if (!IsOpened()) TryOpen();
     }
