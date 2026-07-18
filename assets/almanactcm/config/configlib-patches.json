@@ -36,6 +36,31 @@
       "default": 0.6,
       "range": { "min": 0.2, "max": 0.85, "step": 0.05 },
       "weight": 0.4
+    },
+    {
+      "type": "separator",
+      "title": "almanactcm:cfg-sep-blood",
+      "weight": 0.5
+    },
+    {
+      "code": "bloodVisibility",
+      "type": "float",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-blood-visibility",
+      "comment": "almanactcm:cfg-blood-visibility-c",
+      "default": 0.5,
+      "range": { "min": 0.0, "max": 0.8, "step": 0.05 },
+      "weight": 0.6
+    },
+    {
+      "code": "bloodPersistence",
+      "type": "float",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-blood-persistence",
+      "comment": "almanactcm:cfg-blood-persistence-c",
+      "default": 0.5,
+      "range": { "min": 0.0, "max": 0.8, "step": 0.05 },
+      "weight": 0.7
     }
   ]
 }

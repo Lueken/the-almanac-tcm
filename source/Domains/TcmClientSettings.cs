@@ -18,6 +18,12 @@ public static class TcmClientSettings
     public static float VignetteIntensity = 0.42f; // max corner darkening alpha
     public static float VignetteReach = 0.6f;      // radial stop where darkening begins (0 tunnel .. 1 edges only)
 
+    // Blood-trail vibrancy spreads: how far HUN rank swings BloodTrail's trail around its stock
+    // look, which is anchored at Journeyman I. 0 = no rank effect (stock for everyone); 0.5 =
+    // Novice sees half, Grandmaster one and a half. Visibility drives drop count (size rides half).
+    public static float BloodVisibility = 0.5f;
+    public static float BloodPersistence = 0.5f;
+
     private const string FileName = "almanactcm-client.json";
 
     private class Data
@@ -25,6 +31,8 @@ public static class TcmClientSettings
         public float focusDelay { get; set; } = 2.5f;
         public float vignetteIntensity { get; set; } = 0.42f;
         public float vignetteReach { get; set; } = 0.6f;
+        public float bloodVisibility { get; set; } = 0.5f;
+        public float bloodPersistence { get; set; } = 0.5f;
     }
 
     public static void Register(ICoreClientAPI capi)
@@ -44,6 +52,8 @@ public static class TcmClientSettings
             FocusDelay = Math.Max(0f, d.focusDelay);
             VignetteIntensity = d.vignetteIntensity;
             VignetteReach = d.vignetteReach;
+            BloodVisibility = Math.Max(0f, d.bloodVisibility);
+            BloodPersistence = Math.Max(0f, d.bloodPersistence);
         }
         catch { /* malformed file: keep whatever we had */ }
     }
