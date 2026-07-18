@@ -45,8 +45,7 @@ public class HuntersMapLayer : MarkerMapLayer
     private const int JourneymanLevel = 9; // fidelity climb starts here (Jeffrey, 2026-07-18)
     private const int KnowledgeN = 3;       // kills per species before its habitat is knowable
     private const int P1CellSize = 32;      // coarse single-fidelity cell (P2 varies this by rank)
-    private const int MaxCellsPerView = 4000;
-    private const int MaxViewSpan = 3072;   // clip a zoomed-out view so the server sample stays bounded
+    private const int MaxCellsPerView = 6000; // sample budget; cell size coarsens to stay under it
 
     // server
     private ICoreServerAPI? sapi;
@@ -121,20 +120,24 @@ public class HuntersMapLayer : MarkerMapLayer
         int chunkSize = GlobalConstants.ChunkSize;
         x1 *= chunkSize; z1 *= chunkSize; x2 *= chunkSize; z2 *= chunkSize;
 
-        // Clip an over-wide view so a zoomed-out map does not sample the whole world in one pass.
-        if (x2 - x1 > MaxViewSpan) { int m = (x1 + x2) / 2; x1 = m - MaxViewSpan / 2; x2 = m + MaxViewSpan / 2; }
-        if (z2 - z1 > MaxViewSpan) { int m = (z1 + z2) / 2; z1 = m - MaxViewSpan / 2; z2 = m + MaxViewSpan / 2; }
-
         var ba = sapi!.World.BlockAccessor;
         int regionSize = ba.RegionSize;
         int seaLevel = sapi.World.SeaLevel;
         int refY = (int)(seaLevel * 1.09);      // the reference height the engine spawner reads climate at
         int distToSea = refY - seaLevel;
 
+        // Adaptive cell size: coarsen until the whole visible view fits the sample budget. A fixed
+        // cell size plus a hard cell cap filled from the top-left and stopped, cutting the right and
+        // bottom edges off the painted country (live feedback 2026-07-18).
+        int spanX = Math.Max(1, x2 - x1), spanZ = Math.Max(1, z2 - z1);
         int cs = P1CellSize;
-        for (int cx = (int)Math.Floor((double)x1 / cs); cx <= x2 / cs && v.Cells.Count < MaxCellsPerView; cx++)
+        while ((long)(spanX / cs + 1) * (spanZ / cs + 1) > MaxCellsPerView) cs *= 2;
+        v.CellSize = cs;
+
+        int cxTo = (int)Math.Floor((double)x2 / cs), czTo = (int)Math.Floor((double)z2 / cs);
+        for (int cx = (int)Math.Floor((double)x1 / cs); cx <= cxTo; cx++)
         {
-            for (int cz = (int)Math.Floor((double)z1 / cs); cz <= z2 / cs && v.Cells.Count < MaxCellsPerView; cz++)
+            for (int cz = (int)Math.Floor((double)z1 / cs); cz <= czTo; cz++)
             {
                 int bx = cx * cs + cs / 2;
                 int bz = cz * cs + cs / 2;
@@ -226,7 +229,9 @@ public class HuntersMapLayer : MarkerMapLayer
         prog.Uniform("applyColor", 0);
         prog.Uniform("noTexture", 1f);
         prog.UniformMatrix("projectionMatrix", api.Render.CurrentProjectionMatrix);
-        color.W = 0.32f;
+        // Light wash: the habitat is context, not the subject. Kept translucent so other overlays
+        // (ProspectTogether's heatmap especially) still read through it (live feedback 2026-07-18).
+        color.W = 0.20f;
         prog.Uniform("rgbaIn", color);
 
         int cs = view.CellSize;
