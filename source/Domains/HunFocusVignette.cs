@@ -60,12 +60,21 @@ public class HunFocusVignette : IRenderer
         ctx.Rectangle(0, 0, size, size);
         ctx.Fill();
 
+        // CRITICAL: commit the drawing to the surface's pixel buffer BEFORE uploading.
+        // LoadOrUpdateCairoTexture reads surface.DataPtr directly and never flushes, so a
+        // still-buffered Context leaves the backing buffer all-zero and the texture uploads
+        // fully transparent (the 0.3.90-0.3.93 invisible-vignette bug: the draw executed with a
+        // valid tex id and alpha, but composited nothing). Every working Cairo-texture path in the
+        // codebase disposes/flushes the Context before upload (IconOverlayDialog, TextTextureUtil);
+        // this one uploaded first. Flush, then dispose the Context, THEN upload.
+        surface.Flush();
+        grad.Dispose();
+        ctx.Dispose();
+
         tex = new LoadedTexture(capi);
         capi.Gui.LoadOrUpdateCairoTexture(surface, true, ref tex);
         builtReach = reach;
 
-        grad.Dispose();
-        ctx.Dispose();
         surface.Dispose();
     }
 
