@@ -27,8 +27,15 @@ public class HunFocusVignette : IRenderer
         capi.Event.RegisterRenderer(this, EnumRenderStage.Ortho, "hunfocusvignette");
     }
 
-    public double RenderOrder => 0.4; // over the world, under the HUD text + crosshair
+    // MUST be ~0.95, not a low value. Render2DTexture(Premultiplied) sets uniforms on the
+    // engine's guiShaderProg and draws WITHOUT calling Use() — it assumes that shader is already
+    // the bound program, which only becomes true late in the Ortho stage once the GUI pass binds
+    // it. At a low RenderOrder (the 0.3.90-0.3.92 bug) the vignette runs before that bind, so the
+    // quad draws with the wrong/no shader and paints nothing. 0.95 matches VS's own sleep overlay.
+    public double RenderOrder => 0.95;
     public int RenderRange => 1;
+
+    private float logAccum; // throttles the verbose draw-trace to ~once every 2s
 
     /// <summary>Radial gradient from dead centre out to the corner: transparent through
     /// <paramref name="reach"/> of the half-diagonal, then darkening to solid black at the
@@ -75,6 +82,16 @@ public class HunFocusVignette : IRenderer
         current += (target - current) * Math.Min(1f, rate * dt);
         if (current <= 0.003f) { current = 0; return; }
         if (tex == null) return;
+
+        // Throttled draw-trace: confirms the renderer runs, the focus signal, and the drawn alpha.
+        logAccum += dt;
+        if (logAccum >= 2f)
+        {
+            logAccum = 0;
+            TcmLog.Cat(capi, "hun",
+                $"vignette draw: focus={HunTrackerEye.FocusFraction:0.00} current={current:0.00} " +
+                $"alpha={current * TcmClientSettings.VignetteIntensity:0.00} reach={builtReach:0.00} tex={tex.TextureId}");
+        }
 
         // The texture is Cairo-sourced (premultiplied alpha), so it MUST go through the
         // premultiplied render path — the plain Render2DTexture path silently fails to paint in
