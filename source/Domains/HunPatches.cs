@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using Newtonsoft.Json;
+using ProtoBuf;
 using System.IO;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
@@ -56,6 +58,44 @@ public static class HunPatches
             if (kv.Value >= minKills) yield return kv.Key;
     }
 
+    // ---- known-species sync: the ledger is server-side, but the Hunter's Map now computes its
+    // habitat on the CLIENT (off the client's own map regions), so the viewer needs to know which
+    // species they have earned. Small packet on join and whenever a species crosses the threshold.
+
+    public const int HuntersMapKnowledgeN = 3;
+
+    [ProtoContract]
+    public class HunKnownPacket
+    {
+        [ProtoMember(1)] public List<string>? Species;
+    }
+
+    private static IServerNetworkChannel? hunChannel;
+
+    /// <summary>Client mirror of the species this player has earned. Bumped version lets the map
+    /// layer discard its cached habitat and recompute when the set changes.</summary>
+    public static HashSet<string> ClientKnownSpecies { get; private set; } = new();
+    public static int ClientKnownVersion { get; private set; }
+
+    public static void RegisterClient(ICoreClientAPI api)
+    {
+        api.Network.RegisterChannel("almanactcmhun").RegisterMessageType<HunKnownPacket>()
+            .SetMessageHandler<HunKnownPacket>(p =>
+            {
+                ClientKnownSpecies = new HashSet<string>(p.Species ?? new List<string>());
+                ClientKnownVersion++;
+                TcmLog.Cat(api, "hun", $"hunter's map: known species synced ({ClientKnownSpecies.Count}): [{string.Join(", ", ClientKnownSpecies)}]");
+            });
+    }
+
+    private static void SendKnown(IServerPlayer player)
+    {
+        hunChannel?.SendPacket(new HunKnownPacket
+        {
+            Species = new List<string>(KnownSpecies(player, HuntersMapKnowledgeN))
+        }, player);
+    }
+
     // ------------------------------------------------------------ trap owner side-state
 
     private static Dictionary<string, string> trapOwners = new();
@@ -82,6 +122,9 @@ public static class HunPatches
         api.Event.GameWorldSave += Save;
         api.Event.OnEntityDeath += OnEntityDeath;
         api.Event.RegisterGameTickListener(ReconcileHunStats, 2000);
+
+        hunChannel = api.Network.RegisterChannel("almanactcmhun").RegisterMessageType<HunKnownPacket>();
+        api.Event.PlayerJoin += SendKnown;
     }
 
     private static void Load()
@@ -137,6 +180,10 @@ public static class HunPatches
 
         var per = kills.TryGetValue(player.PlayerUID, out var p) ? p : kills[player.PlayerUID] = new();
         per[species] = per.TryGetValue(species, out int n) ? n + 1 : 1;
+
+        // The moment a species crosses the knowledge gate, push the new set so the Hunter's Map
+        // can paint its country without waiting for a relog.
+        if (per[species] == HuntersMapKnowledgeN && player is IServerPlayer splr) SendKnown(splr);
     }
 
     // ------------------------------------------------------------ stat reconcile

@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.108-dev")]
+    Version = "0.3.109-dev")]
 
 namespace AlmanacTcm;
 
@@ -178,6 +178,10 @@ public class AlmanacTcmModSystem : ModSystem
 
         // The Surveyor's depth bands arrive on their own channel (the PT tooltip reads them).
         Domains.PanSurveyor.RegisterClient(capi);
+
+        // The Hunter's Map computes its habitat client-side, so the viewer needs the synced set of
+        // species they have hunted enough of (the kill ledger itself stays server-side).
+        Domains.HunPatches.RegisterClient(capi);
 
         // Client cosmetic settings (ConfigLib GUI -> almanactcm-client.json); load before the
         // tracker + vignette so they pick up the tuned values.
