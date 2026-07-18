@@ -27,6 +27,9 @@
 
   "almanactcm:maplayer-workedground": "Worked ground",
   "game:maplayer-almanacworkedground": "Worked ground",
+  "almanactcm:huntersmap-title": "Hunter's Map",
+  "game:maplayer-almanachuntersmap": "Hunter's Map",
+  "almanactcm:huntersmap-country": "Big-game country.",
   "almanactcm:spot-count": "{0} patches worked in this stretch.",
   "almanactcm:spot-line-ready": "{0}: ready to pick.",
   "almanactcm:spot-line-ready-caps": "{0}: ready, {1} caps standing.",

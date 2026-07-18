@@ -47,6 +47,15 @@ public static class HunPatches
     public static int KillCount(IPlayer player, string species) =>
         kills.TryGetValue(player.PlayerUID, out var per) && per.TryGetValue(species, out int n) ? n : 0;
 
+    /// <summary>Species this player has hunted at least <paramref name="minKills"/> times. The
+    /// Hunter's Map knowledge gate (N=3) reads this to decide whose habitat the viewer may see.</summary>
+    public static IEnumerable<string> KnownSpecies(IPlayer player, int minKills)
+    {
+        if (!kills.TryGetValue(player.PlayerUID, out var per)) yield break;
+        foreach (var kv in per)
+            if (kv.Value >= minKills) yield return kv.Key;
+    }
+
     // ------------------------------------------------------------ trap owner side-state
 
     private static Dictionary<string, string> trapOwners = new();
