@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 using Cairo;
 using Vintagestory.API.Client;
 using Vintagestory.API.MathTools;
@@ -8,45 +7,46 @@ namespace AlmanacTcm.Domains;
 
 /// <summary>
 /// HUN Phase 2 flourish — THE FOCUS VIGNETTE. As the hunter holds the sneak-look and concentration
-/// builds (HunTrackerEye.FocusFraction 0..1 over the focus delay), the screen edges darken, landing
-/// full as the read resolves; it eases back out when the hunter stands or looks away. Cosmetic only.
+/// builds (HunTrackerEye.FocusFraction 0..1), the screen edges darken, easing back out when the
+/// hunter stands or looks away. Cosmetic only.
 ///
-/// Rendered as an always-open HUD <see cref="GuiDialog"/>, NOT a raw IRenderer. The engine's
-/// Render2DTexture(Premultiplied) sets uniforms on guiShaderProg and draws WITHOUT binding it, so it
-/// only paints inside the GUI render pass. A raw Ortho renderer runs outside that pass: the draw
-/// call executed with a valid texture and alpha but composited nothing (the 0.3.90-0.3.97 invisible-
-/// vignette bug, proven by a draw-trace showing focus=1 alpha=0.42 tex=346 while the texture itself
-/// sampled correctly, corner A233 -> centre A0). OnRenderGUI of a HUD dialog runs inside the pass,
-/// where the shader is bound; that is the path the tracker panel and Illuminated's overlay use.
+/// Rendered as an always-open <see cref="HudElement"/> — the SAME vehicle as the tracker panel,
+/// which provably paints. The engine's Render2DTexture(Premultiplied) only composites inside the
+/// GUI render pass (it never binds guiShaderProg itself), so the earlier raw Ortho IRenderer drew
+/// nothing despite a valid texture and alpha. OnRenderGUI of an open HudElement runs inside that
+/// pass. The draw-trace here is UNCONDITIONAL so we can confirm the method runs and the open state.
 /// </summary>
-public class HunFocusVignette : GuiDialog
+public class HunFocusVignette : HudElement
 {
     private LoadedTexture? tex;
     private float current;         // eased 0..1
     private float builtReach = -1; // the reach the current texture was built for
-    private float logAccum;        // throttles the verbose draw-trace to ~once every 2s
+    private float logAccum;        // throttles the trace to ~once every 2s
 
     public HunFocusVignette(ICoreClientAPI capi) : base(capi)
     {
         BuildTexture(TcmClientSettings.VignetteReach);
+        ComposeStub();
         capi.Gui.RegisterDialog(this);
-        // Always open so OnRenderGUI runs every frame; it draws nothing while focus is ~0. A HUD
-        // dialog neither grabs the mouse nor pauses the game, so this is invisible to gameplay.
+        // Keep it open so OnRenderGUI runs every frame. A HUD element neither grabs the mouse nor
+        // pauses the game, so an always-open one is invisible to gameplay.
         capi.Event.RegisterGameTickListener(_ => { if (!IsOpened()) TryOpen(); }, 500);
     }
 
-    public override string ToggleKeyCombinationCode => null!;
-    public override EnumDialogType DialogType => EnumDialogType.HUD;
-    public override bool Focusable => false;
-    public override bool PrefersUngrabbedMouse => false;
-    public override bool ShouldReceiveKeyboardEvents() => false;
-    // Under the tracker text panel (0.05) and the crosshair, over the world.
-    public override double DrawOrder => 0.04;
+    /// <summary>A 1x1 composer so the HUD element has something to open with; the vignette itself
+    /// is painted directly in OnRenderGUI, not by the composer.</summary>
+    private void ComposeStub()
+    {
+        var panel = ElementBounds.Fixed(0, 0, 1, 1);
+        var dialogBounds = panel.ForkBoundingParent().WithAlignment(EnumDialogArea.LeftTop);
+        SingleComposer = capi.Gui.CreateCompo("hunfocusvignette", dialogBounds).Compose();
+    }
 
-    /// <summary>Radial gradient from dead centre out to the corner: transparent through
-    /// <paramref name="reach"/> of the half-diagonal, then darkening to solid black at the corners.
-    /// MUST start at centre (r=0) so the clear core falls inside the visible frame. MUST flush the
-    /// surface before upload, else LoadOrUpdateCairoTexture reads an all-zero buffer.</summary>
+    public override string ToggleKeyCombinationCode => null!;
+    public override bool ShouldReceiveKeyboardEvents() => false;
+    public override bool Focusable => false;
+    public override double DrawOrder => 0.04; // under the tracker text panel (0.05), over the world
+
     private void BuildTexture(float reach)
     {
         const int size = 512;
@@ -61,7 +61,7 @@ public class HunFocusVignette : GuiDialog
         ctx.SetSource(grad);
         ctx.Rectangle(0, 0, size, size);
         ctx.Fill();
-        surface.Flush();
+        surface.Flush(); // commit the draw before upload, else the texture uploads all-zero
 
         grad.Dispose();
         ctx.Dispose();
@@ -74,28 +74,29 @@ public class HunFocusVignette : GuiDialog
 
     public override void OnRenderGUI(float dt)
     {
-        // Rebuild only when the reach setting actually changed (rare: a config edit).
+        base.OnRenderGUI(dt); // renders the 1x1 stub composer
+
         if (Math.Abs(TcmClientSettings.VignetteReach - builtReach) > 0.001f)
             BuildTexture(TcmClientSettings.VignetteReach);
 
         float target = HunTrackerEye.FocusFraction;
-        // Ease toward the target: fade-in tracks the focus build, fade-out is a soft glide.
         float rate = target > current ? 6f : 3f;
         current += (target - current) * Math.Min(1f, rate * dt);
-        if (current <= 0.003f) { current = 0; return; }
-        if (tex == null) return;
 
+        // UNCONDITIONAL trace: proves OnRenderGUI runs and reports the open + focus state even
+        // when nothing is drawn, so we can tell "not rendering" from "rendering but invisible".
         logAccum += dt;
         if (logAccum >= 2f)
         {
             logAccum = 0;
             TcmLog.Cat(capi, "hun",
-                $"vignette draw: focus={HunTrackerEye.FocusFraction:0.00} current={current:0.00} " +
-                $"alpha={current * TcmClientSettings.VignetteIntensity:0.00} reach={builtReach:0.00} tex={tex.TextureId}");
+                $"vignette gui: opened={IsOpened()} focus={target:0.00} current={current:0.00} " +
+                $"alpha={current * TcmClientSettings.VignetteIntensity:0.00} tex={(tex?.TextureId ?? -1)} fw={capi.Render.FrameWidth}");
         }
 
-        // Cairo-sourced (premultiplied) texture, drawn inside the GUI pass where guiShaderProg is
-        // bound, so this actually composites (unlike the old raw-Ortho renderer).
+        if (current <= 0.003f) { current = 0; return; }
+        if (tex == null) return;
+
         capi.Render.Render2DTexturePremultipliedAlpha(tex.TextureId, 0, 0,
             capi.Render.FrameWidth, capi.Render.FrameHeight, 50f,
             new Vec4f(1, 1, 1, current * TcmClientSettings.VignetteIntensity));
