@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.103-dev")]
+    Version = "0.3.106-dev")]
 
 namespace AlmanacTcm;
 
@@ -57,8 +57,11 @@ public class AlmanacTcmModSystem : ModSystem
 
         // HUN Phase 3 — the Hunter's Map: a per-player habitat overlay of species the viewer has
         // hunted (knowledge gate N=3, Journeyman+). Same MapLayer machinery as the worked ground.
-        api.ModLoader.GetModSystem<Vintagestory.GameContent.WorldMapManager>()
-            ?.RegisterMapLayer<Overlay.HuntersMapLayer>("almanachuntersmap", 0.75);
+        var mapMgr = api.ModLoader.GetModSystem<Vintagestory.GameContent.WorldMapManager>();
+        mapMgr?.RegisterMapLayer<Overlay.HuntersMapLayer>("almanachuntersmap", 0.75);
+        TcmLog.Info(api, mapMgr == null
+            ? "map layers NOT registered: WorldMapManager mod system not found"
+            : "map layers registered: worked ground + hunter's map");
 
         if (harmony == null)
         {

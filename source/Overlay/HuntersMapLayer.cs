@@ -65,6 +65,7 @@ public class HuntersMapLayer : MarkerMapLayer
 
     public HuntersMapLayer(ICoreAPI api, IWorldMapManager mapSink) : base(api, mapSink)
     {
+        TcmLog.Info(api, $"hunter's map layer constructed ({api.Side}), group={LayerGroupCode}");
         if (api.Side == EnumAppSide.Server)
         {
             sapi = (ICoreServerAPI)api;
@@ -91,15 +92,34 @@ public class HuntersMapLayer : MarkerMapLayer
     {
         var v = new HabitatView { CellSize = P1CellSize, Cells = new List<long>() };
 
-        if (Domains.HunDomain.LevelOf(player) < JourneymanLevel) return v; // reading not yet learned
+        int level = Domains.HunDomain.LevelOf(player);
+        if (level < JourneymanLevel)
+        {
+            TcmLog.Cat(sapi!, "hun", $"hunter's map: HUN level {level} is below Journeyman {JourneymanLevel}, nothing sent");
+            return v; // reading not yet learned
+        }
 
         var envs = new List<ClimateSpawnCondition>();
+        var known = new List<string>();
         foreach (string species in Domains.HunPatches.KnownSpecies(player, KnowledgeN))
         {
+            known.Add(species);
             var env = ResolveEnvelope(species);
             if (env != null) envs.Add(env);
+            else TcmLog.Cat(sapi!, "hun", $"hunter's map: no spawn envelope resolved for species '{species}'");
         }
-        if (envs.Count == 0) return v; // nothing hunted enough yet
+        if (envs.Count == 0)
+        {
+            TcmLog.Cat(sapi!, "hun", $"hunter's map: level {level} ok, but 0 usable envelopes (known>={KnowledgeN}: [{string.Join(", ", known)}])");
+            return v; // nothing hunted enough yet
+        }
+
+        // The map system hands this rect in CHUNK coords, not block coords. The worked-ground layer
+        // never noticed because it ignores the rect entirely and sends every recorded spot; this is
+        // the first layer that actually samples the viewed area, so it must convert. Reading them as
+        // blocks sampled a ~30x20 patch near world origin (ungenerated, null region, zero cells).
+        int chunkSize = GlobalConstants.ChunkSize;
+        x1 *= chunkSize; z1 *= chunkSize; x2 *= chunkSize; z2 *= chunkSize;
 
         // Clip an over-wide view so a zoomed-out map does not sample the whole world in one pass.
         if (x2 - x1 > MaxViewSpan) { int m = (x1 + x2) / 2; x1 = m - MaxViewSpan / 2; x2 = m + MaxViewSpan / 2; }
@@ -130,6 +150,9 @@ public class HuntersMapLayer : MarkerMapLayer
                 }
             }
         }
+        TcmLog.Cat(sapi!, "hun",
+            $"hunter's map: level={level} species=[{string.Join(", ", known)}] envelopes={envs.Count} " +
+            $"cells={v.Cells.Count} rect=({x1},{z1})-({x2},{z2}) cellSize={cs}");
         return v;
     }
 
