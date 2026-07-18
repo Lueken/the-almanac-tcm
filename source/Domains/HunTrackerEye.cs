@@ -35,6 +35,11 @@ public class HunTrackerEye : HudElement
     // tunable in-game via ConfigLib, TcmClientSettings.FocusDelay).
     private double focusAccum;
 
+    // DIAG (temporary): throttles the read-gate trace to ~once a second so we can see, while the
+    // hunter holds sneak, exactly which gate stops a read (grab/sneak/level/range/detection).
+    private double diagAccum;
+    private bool diagNow;
+
     /// <summary>0..1 focus progress, published for the vignette to darken the edges AS the
     /// hunter concentrates (0 = nothing, 1 = read resolved). One local player, so static.</summary>
     public static float FocusFraction { get; private set; }
@@ -101,6 +106,10 @@ public class HunTrackerEye : HudElement
 
     private void OnTick(float dt)
     {
+        diagAccum += dt;
+        diagNow = diagAccum >= 1.0;
+        if (diagNow) diagAccum = 0;
+
         string text = BuildRead();
 
         // Nothing to read: reset the focus timer and hide.
@@ -133,6 +142,9 @@ public class HunTrackerEye : HudElement
 
     private string BuildRead()
     {
+        if (diagNow) TcmLog.Cat(capi, "hun",
+            $"read gate: grabbed={capi.Input.MouseGrabbed} sneak={capi.World?.Player?.Entity?.Controls.Sneak} level={HunDomain.ClientLevel()}");
+
         // Only while actively playing: the moment any menu/inventory opens the mouse ungrabs,
         // so the panel closes and never overlays (or blocks) the escape menu's buttons.
         if (!capi.Input.MouseGrabbed) return "";
@@ -169,6 +181,10 @@ public class HunTrackerEye : HudElement
                 if (dot >= 0.991 && dist < aimedDist) { aimedDist = dist; aimed = e; } // ~7.6 deg cone
             }
         }
+
+        if (diagNow) TcmLog.Cat(capi, "hun",
+            $"read scan: tier={tier} range={range:0} senseRange={senseRange:0} " +
+            $"aimed={(aimed != null ? aimedDist : -1):0.0} nearest={(nearest != null ? nearestDist : -1):0.0} loaded={capi.World.LoadedEntities.Count}");
 
         if (aimed != null) return ReadQuarry(aimed, aimedDist, tier);
         if (nearest != null) return SenseLine(plr, nearest, tier);

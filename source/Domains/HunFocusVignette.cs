@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using Cairo;
 using Vintagestory.API.Client;
 using Vintagestory.API.MathTools;
@@ -68,6 +69,23 @@ public class HunFocusVignette : IRenderer
         // codebase disposes/flushes the Context before upload (IconOverlayDialog, TextTextureUtil);
         // this one uploaded first. Flush, then dispose the Context, THEN upload.
         surface.Flush();
+
+        // DIAG: sample the real pixels of the built surface so we can tell blank-texture from
+        // render-path failure. Cairo Argb32 is stored BGRA premultiplied. Corner should be near
+        // opaque black (A high), centre fully transparent (A 0).
+        try
+        {
+            IntPtr p = surface.DataPtr;
+            int stride = surface.Stride;
+            string Px(int x, int y)
+            {
+                int i = y * stride + x * 4;
+                return $"B{Marshal.ReadByte(p, i)} G{Marshal.ReadByte(p, i + 1)} R{Marshal.ReadByte(p, i + 2)} A{Marshal.ReadByte(p, i + 3)}";
+            }
+            TcmLog.Cat(capi, "hun", $"vignette tex build: reach={reach:0.00} stride={stride} corner(4,4)=[{Px(4, 4)}] mid(256,4)=[{Px(size / 2, 4)}] centre(256,256)=[{Px(size / 2, size / 2)}]");
+        }
+        catch (Exception e) { TcmLog.Warn(capi, $"vignette tex sample failed: {e.Message}"); }
+
         grad.Dispose();
         ctx.Dispose();
 
