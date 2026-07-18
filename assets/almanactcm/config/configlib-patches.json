@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "file": "almanactcm-client.json",
+  "settings": [
+    {
+      "type": "separator",
+      "title": "almanactcm:cfg-sep-hunter",
+      "weight": 0.1
+    },
+    {
+      "code": "focusDelay",
+      "type": "float",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-focus-delay",
+      "comment": "almanactcm:cfg-focus-delay-c",
+      "default": 2.5,
+      "range": { "min": 0.0, "max": 6.0, "step": 0.5 },
+      "weight": 0.2
+    },
+    {
+      "code": "vignetteIntensity",
+      "type": "float",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-vignette-intensity",
+      "comment": "almanactcm:cfg-vignette-intensity-c",
+      "default": 0.42,
+      "range": { "min": 0.0, "max": 0.8, "step": 0.02 },
+      "weight": 0.3
+    },
+    {
+      "code": "vignetteReach",
+      "type": "float",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-vignette-reach",
+      "comment": "almanactcm:cfg-vignette-reach-c",
+      "default": 0.6,
+      "range": { "min": 0.2, "max": 0.85, "step": 0.05 },
+      "weight": 0.4
+    }
+  ]
+}

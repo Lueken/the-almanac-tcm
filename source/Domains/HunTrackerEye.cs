@@ -31,8 +31,8 @@ public class HunTrackerEye : HudElement
     private string lastText = "";
 
     // Focus delay: the hunter must hold the sneak-look for this long before the read resolves,
-    // so it reads as concentration and never flashes on a quick crouch (ruled 2026-07-17).
-    private const double FocusDelay = 2.5;
+    // so it reads as concentration and never flashes on a quick crouch (ruled 2026-07-17;
+    // tunable in-game via ConfigLib, TcmClientSettings.FocusDelay).
     private double focusAccum;
 
     /// <summary>0..1 focus progress, published for the vignette to darken the edges AS the
@@ -112,10 +112,11 @@ public class HunTrackerEye : HudElement
             return;
         }
 
-        // Focusing: hold the read back until the hunter has concentrated for FocusDelay.
+        // Focusing: hold the read back until the hunter has concentrated for the focus delay.
+        double focusDelay = TcmClientSettings.FocusDelay;
         focusAccum += dt;
-        FocusFraction = (float)Math.Min(1.0, focusAccum / FocusDelay);
-        if (focusAccum < FocusDelay)
+        FocusFraction = focusDelay <= 0.01 ? 1f : (float)Math.Min(1.0, focusAccum / focusDelay);
+        if (focusAccum < focusDelay)
         {
             if (IsOpened()) { lastText = ""; TryClose(); }
             return;
