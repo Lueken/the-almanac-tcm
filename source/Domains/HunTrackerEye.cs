@@ -59,15 +59,24 @@ public class HunTrackerEye : HudElement
         var font = CairoFont.WhiteSmallText().WithStroke(new double[] { 0, 0, 0, 1 }, 2.0);
         font.Orientation = EnumTextOrientation.Center;
 
-        var lines = text.Length == 0 ? new[] { " " } : text.Split('\n');
+        string measure = text.Length == 0 ? " " : text;
+        // Widest line, measured. GetTextExtents does NOT count the 2px glyph stroke, so the
+        // rendered text is a few px wider than measured; the +20 margin covers the stroke and
+        // keeps single lines from wrapping (the clip in 0.3.88).
         double scaledW = 0;
-        foreach (var ln in lines) scaledW = Math.Max(scaledW, font.GetTextExtents(ln).Width);
+        foreach (var ln in measure.Split('\n')) scaledW = Math.Max(scaledW, font.GetTextExtents(ln).Width);
         double textW = scaledW / RuntimeEnv.GUIScale; // extents are scaled; bounds are unscaled
-        double w = GameMath.Clamp(textW + 2 * PadX, MinWidth, MaxWidth);
-        double h = lines.Length * LineHeight + 2 * PadY;
+        double w = GameMath.Clamp(textW + 2 * PadX + 20, MinWidth, MaxWidth);
+        double innerW = w - 2 * PadX;
+
+        // Height from the TRUE wrapped line count at this width, so anything that still wraps
+        // (a long Master read past MaxWidth) gets a tall enough box instead of clipping.
+        double hScaled = capi.Gui.Text.GetMultilineTextHeight(font, measure, innerW * RuntimeEnv.GUIScale);
+        double textH = hScaled / RuntimeEnv.GUIScale;
+        double h = textH + 2 * PadY;
 
         var panel = ElementBounds.Fixed(0, 0, w, h);
-        var textBounds = ElementBounds.Fixed(PadX, PadY, w - 2 * PadX, lines.Length * LineHeight);
+        var textBounds = ElementBounds.Fixed(PadX, PadY, innerW, textH);
         var dialogBounds = panel.ForkBoundingParent()
             .WithAlignment(EnumDialogArea.CenterMiddle)
             .WithFixedAlignmentOffset(0, 150);
