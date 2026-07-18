@@ -69,6 +69,7 @@
   "almanactcm:track-moving": "Moving {0}.",
   "almanactcm:track-sense": "Sign of an animal to the {0}.",
   "almanactcm:track-sense-moving": "Sign of an animal to the {0}, moving {1}.",
+  "almanactcm:track-none": "No sign of animals nearby.",
   "almanactcm:track-dir-n": "north",
   "almanactcm:track-dir-ne": "northeast",
   "almanactcm:track-dir-e": "east",
