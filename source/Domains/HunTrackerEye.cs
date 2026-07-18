@@ -35,6 +35,10 @@ public class HunTrackerEye : HudElement
     private const double FocusDelay = 2.5;
     private double focusAccum;
 
+    /// <summary>0..1 focus progress, published for the vignette to darken the edges AS the
+    /// hunter concentrates (0 = nothing, 1 = read resolved). One local player, so static.</summary>
+    public static float FocusFraction { get; private set; }
+
     private const double LineHeight = 26;   // per text line at WhiteSmallText
     private const double PadX = 16, PadY = 11;
     private const double MinWidth = 120, MaxWidth = 520;
@@ -103,12 +107,14 @@ public class HunTrackerEye : HudElement
         if (text.Length == 0)
         {
             focusAccum = 0;
+            FocusFraction = 0;
             if (lastText.Length != 0) { lastText = ""; TryClose(); }
             return;
         }
 
         // Focusing: hold the read back until the hunter has concentrated for FocusDelay.
         focusAccum += dt;
+        FocusFraction = (float)Math.Min(1.0, focusAccum / FocusDelay);
         if (focusAccum < FocusDelay)
         {
             if (IsOpened()) { lastText = ""; TryClose(); }
