@@ -217,8 +217,12 @@ public static class HunPatches
             foreach (string be in new[] { "BESnare", "BEDeadfall" })
             {
                 var t = AccessTools.TypeByName("PrimitiveSurvival.ModSystem." + be);
-                var m = t == null ? null : AccessTools.Method(t, "OnInteract");
-                if (m == null) { TcmLog.Warn(api, $"primitivesurvival {be}.OnInteract not found; that trap is uncredited"); continue; }
+                // BESnare/BEDeadfall both declare a one-arg OnInteract(IPlayer); the untyped
+                // AccessTools.Method resolves the name across the hierarchy and threw
+                // "Ambiguous match" (0.3.85 crash: aborted TCM's whole Start phase, half-loading
+                // the mod client+server). Pin the exact signature.
+                var m = t == null ? null : AccessTools.Method(t, "OnInteract", new[] { typeof(IPlayer) });
+                if (m == null) { TcmLog.Warn(api, $"primitivesurvival {be}.OnInteract(IPlayer) not found; that trap is uncredited"); continue; }
                 harmony.Patch(m,
                     prefix: new HarmonyMethod(AccessTools.Method(typeof(LandTrapCollectPatch), "Prefix")),
                     postfix: new HarmonyMethod(AccessTools.Method(typeof(LandTrapCollectPatch), "Postfix")));

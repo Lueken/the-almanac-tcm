@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.85-dev")]
+    Version = "0.3.86-dev")]
 
 namespace AlmanacTcm;
 
@@ -59,23 +59,37 @@ public class AlmanacTcmModSystem : ModSystem
         {
             harmony = new HarmonyLib.Harmony("almanactcm");
             harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
-            Domains.MetConditionalPatches.PatchAllPresent(api, harmony);
-            Domains.MetGatePatches.PatchConditional(api, harmony);
-            Domains.MetSignaturePatches.PatchConditional(api, harmony);
-            Domains.MinConditionalPatches.PatchAllPresent(api, harmony);
-            Domains.WooFallingTreePatches.PatchConditional(api, harmony);
-            Domains.WooIdgPatches.PatchConditional(api, harmony);
-            Domains.WooIwPatches.PatchConditional(api, harmony);
-            Domains.ForAcaPatches.PatchConditional(api, harmony);
-            Domains.FisPsPatches.PatchConditional(api, harmony);
-            Domains.FisTrapPatches.PatchConditional(api, harmony);
-            Domains.FisEcologyPatches.PatchConditional(api, harmony);
-            Domains.PanPatches.PatchConditional(api, harmony);
-            Domains.PanSurveyor.PatchConditional(api, harmony);
-            Domains.HunPatches.PatchConditional(api, harmony);
-            Domains.WooColliderPatches.PatchAll(api, harmony);
-            Domains.WooColliersMark.PatchAll(api, harmony);
-            Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony);
+
+            // Each conditional patch is isolated: a single bad mod-seam (an ambiguous match, a
+            // renamed type) must WARN and skip its own domain, never abort Start and half-load
+            // the mod (0.3.85 lesson: an ambiguous BESnare.OnInteract match crashed the whole
+            // mod client+server and ping-timed-out every join).
+            void Try(string label, System.Action patch)
+            {
+                try { patch(); }
+                catch (System.Exception e)
+                {
+                    TcmLog.Error(api, $"conditional patch '{label}' failed ({e.Message}); that domain's seam is inactive, rest of the mod loads");
+                }
+            }
+
+            Try("MET-conditional", () => Domains.MetConditionalPatches.PatchAllPresent(api, harmony));
+            Try("MET-gate", () => Domains.MetGatePatches.PatchConditional(api, harmony));
+            Try("MET-signature", () => Domains.MetSignaturePatches.PatchConditional(api, harmony));
+            Try("MIN-conditional", () => Domains.MinConditionalPatches.PatchAllPresent(api, harmony));
+            Try("WOO-fallingtree", () => Domains.WooFallingTreePatches.PatchConditional(api, harmony));
+            Try("WOO-idg", () => Domains.WooIdgPatches.PatchConditional(api, harmony));
+            Try("WOO-iw", () => Domains.WooIwPatches.PatchConditional(api, harmony));
+            Try("FOR-aca", () => Domains.ForAcaPatches.PatchConditional(api, harmony));
+            Try("FIS-ps", () => Domains.FisPsPatches.PatchConditional(api, harmony));
+            Try("FIS-trap", () => Domains.FisTrapPatches.PatchConditional(api, harmony));
+            Try("FIS-ecology", () => Domains.FisEcologyPatches.PatchConditional(api, harmony));
+            Try("PAN", () => Domains.PanPatches.PatchConditional(api, harmony));
+            Try("PAN-surveyor", () => Domains.PanSurveyor.PatchConditional(api, harmony));
+            Try("HUN", () => Domains.HunPatches.PatchConditional(api, harmony));
+            Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));
+            Try("WOO-colliersmark", () => Domains.WooColliersMark.PatchAll(api, harmony));
+            Try("alloy-ledger-furnace", () => Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony));
             TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate, mining, cave-in, felling + conditionals)");
         }
     }
