@@ -53,7 +53,12 @@ public class HuntersMapLayer : MarkerMapLayer
 
     // client
     private ICoreClientAPI? capi;
-    private HabitatView? view;
+    /// <summary>Everything the hunter has had painted so far this session, keyed by packed chunk
+    /// cell. ACCUMULATED, never replaced: the server only computes the viewed rect, so replacing
+    /// would erase everything outside the current view and cut the map at the view edge (the border
+    /// bug, 2026-07-18). This mirrors ProspectTogether's per-chunk component dictionary.</summary>
+    private readonly HashSet<long> knownCells = new();
+    private int cellSize = P1CellSize;
     public MeshRef? quadModel;
     private readonly Vec4f color = new();
 
@@ -126,18 +131,15 @@ public class HuntersMapLayer : MarkerMapLayer
         int refY = (int)(seaLevel * 1.09);      // the reference height the engine spawner reads climate at
         int distToSea = refY - seaLevel;
 
-        // Adaptive cell size: coarsen until the whole visible view fits the sample budget. A fixed
-        // cell size plus a hard cell cap filled from the top-left and stopped, cutting the right and
-        // bottom edges off the painted country (live feedback 2026-07-18).
-        int spanX = Math.Max(1, x2 - x1), spanZ = Math.Max(1, z2 - z1);
+        // One cell == one chunk (32 blocks), so cells are chunk-aligned and can be ACCUMULATED on
+        // the client the way ProspectTogether keeps a per-chunk component dictionary. The server
+        // only ever computes the currently viewed rect; the client merges it into what it already
+        // knows, so panning fills the map in and nothing is cut at the view edge.
         int cs = P1CellSize;
-        while ((long)(spanX / cs + 1) * (spanZ / cs + 1) > MaxCellsPerView) cs *= 2;
-        v.CellSize = cs;
-
         int cxTo = (int)Math.Floor((double)x2 / cs), czTo = (int)Math.Floor((double)z2 / cs);
-        for (int cx = (int)Math.Floor((double)x1 / cs); cx <= cxTo; cx++)
+        for (int cx = (int)Math.Floor((double)x1 / cs); cx <= cxTo && v.Cells.Count < MaxCellsPerView; cx++)
         {
-            for (int cz = (int)Math.Floor((double)z1 / cs); cz <= czTo; cz++)
+            for (int cz = (int)Math.Floor((double)z1 / cs); cz <= czTo && v.Cells.Count < MaxCellsPerView; cz++)
             {
                 int bx = cx * cs + cs / 2;
                 int bz = cz * cs + cs / 2;
@@ -214,14 +216,18 @@ public class HuntersMapLayer : MarkerMapLayer
 
     public override void OnDataFromServer(byte[] data)
     {
-        view = SerializerUtil.Deserialize<HabitatView>(data);
+        var incoming = SerializerUtil.Deserialize<HabitatView>(data);
+        if (incoming == null) return;
+        cellSize = incoming.CellSize > 0 ? incoming.CellSize : P1CellSize;
+        if (incoming.Cells == null) return;
+        foreach (long packed in incoming.Cells) knownCells.Add(packed); // merge, never replace
     }
 
     public override void OnMapOpenedClient() { }
 
     public override void Render(GuiElementMap map, float dt)
     {
-        if (!Active || view?.Cells == null || quadModel == null) return;
+        if (!Active || knownCells.Count == 0 || quadModel == null) return;
 
         var api = map.Api;
         var prog = api.Render.GetEngineShader(EnumShaderProgram.Gui);
@@ -234,13 +240,13 @@ public class HuntersMapLayer : MarkerMapLayer
         color.W = 0.20f;
         prog.Uniform("rgbaIn", color);
 
-        int cs = view.CellSize;
+        int cs = cellSize;
         var corner = new Vec3d();
         var cornerPos = new Vec2f();
         var edgePos = new Vec2f();
         var mvMat = new Matrixf();
 
-        foreach (long packed in view.Cells)
+        foreach (long packed in knownCells)
         {
             int cx = (int)(packed >> 32), cz = (int)packed;
             corner.Set(cx * (double)cs, 0, cz * (double)cs);
@@ -264,13 +270,13 @@ public class HuntersMapLayer : MarkerMapLayer
 
     public override void OnMouseMoveClient(MouseEvent args, GuiElementMap mapElem, System.Text.StringBuilder hoverText)
     {
-        if (!Active || view?.Cells == null) return;
+        if (!Active || knownCells.Count == 0) return;
 
-        int cs = view.CellSize;
+        int cs = cellSize;
         var corner = new Vec3d();
         var cornerPos = new Vec2f();
         var edgePos = new Vec2f();
-        foreach (long packed in view.Cells)
+        foreach (long packed in knownCells)
         {
             int cx = (int)(packed >> 32), cz = (int)packed;
             corner.Set(cx * (double)cs, 0, cz * (double)cs);
