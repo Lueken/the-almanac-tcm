@@ -30,17 +30,22 @@ public class HunFocusVignette : IRenderer
     public double RenderOrder => 0.4; // over the world, under the HUD text + crosshair
     public int RenderRange => 1;
 
-    /// <summary>Radial gradient: transparent through <paramref name="reach"/> of the radius,
-    /// then darkening to solid black at the corners. Higher reach = darkening hugs the edges;
-    /// lower = it creeps toward centre (more tunnel).</summary>
+    /// <summary>Radial gradient from dead centre out to the corner: transparent through
+    /// <paramref name="reach"/> of the half-diagonal, then darkening to solid black at the
+    /// corners. Higher reach = darkening hugs the very edges; lower = it creeps toward centre
+    /// (more tunnel). The gradient MUST start at centre (r=0), not partway out — otherwise its
+    /// clear core blankets the whole visible screen cross and only the extreme corner pixels
+    /// darken, which reads as nothing on a normal display (the 0.3.91 invisible-vignette bug).</summary>
     private void BuildTexture(float reach)
     {
         const int size = 512;
-        float clear = GameMath.Clamp(reach, 0.05f, 0.95f);
+        float clear = GameMath.Clamp(reach, 0.05f, 0.9f);
         var surface = new ImageSurface(Format.Argb32, size, size);
         var ctx = new Context(surface);
-        var grad = new RadialGradient(size / 2.0, size / 2.0, size * 0.30,
-                                      size / 2.0, size / 2.0, size * 0.75);
+        // Outer radius 0.72*size ~ the square's half-diagonal, so the four corners land on full
+        // black and the clear stop falls inside the visible frame instead of beyond it.
+        var grad = new RadialGradient(size / 2.0, size / 2.0, 0,
+                                      size / 2.0, size / 2.0, size * 0.72);
         grad.AddColorStop(0, new Color(0, 0, 0, 0));
         grad.AddColorStop(clear, new Color(0, 0, 0, 0));
         grad.AddColorStop(1, new Color(0, 0, 0, 1));
@@ -71,7 +76,10 @@ public class HunFocusVignette : IRenderer
         if (current <= 0.003f) { current = 0; return; }
         if (tex == null) return;
 
-        capi.Render.Render2DTexture(tex.TextureId, 0, 0,
+        // The texture is Cairo-sourced (premultiplied alpha), so it MUST go through the
+        // premultiplied render path — the plain Render2DTexture path silently fails to paint in
+        // this HUD-overlay stage (same lesson as Codex Illuminated's IconOverlayDialog).
+        capi.Render.Render2DTexturePremultipliedAlpha(tex.TextureId, 0, 0,
             capi.Render.FrameWidth, capi.Render.FrameHeight, 50f,
             new Vec4f(1, 1, 1, current * TcmClientSettings.VignetteIntensity));
     }
