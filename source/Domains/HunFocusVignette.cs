@@ -21,7 +21,6 @@ public class HunFocusVignette : HudElement
     private LoadedTexture? tex;
     private float current;         // eased 0..1
     private float builtReach = -1; // the reach the current texture was built for
-    private float logAccum;        // throttles the trace to ~once every 2s
 
     public HunFocusVignette(ICoreClientAPI capi) : base(capi)
     {
@@ -82,18 +81,6 @@ public class HunFocusVignette : HudElement
         float target = HunTrackerEye.FocusFraction;
         float rate = target > current ? 6f : 3f;
         current += (target - current) * Math.Min(1f, rate * dt);
-
-        // UNCONDITIONAL trace: proves OnRenderGUI runs and reports the open + focus state even
-        // when nothing is drawn, so we can tell "not rendering" from "rendering but invisible".
-        logAccum += dt;
-        if (logAccum >= 2f)
-        {
-            logAccum = 0;
-            TcmLog.Cat(capi, "hun",
-                $"vignette gui: opened={IsOpened()} focus={target:0.00} current={current:0.00} " +
-                $"alpha={current * TcmClientSettings.VignetteIntensity:0.00} tex={(tex?.TextureId ?? -1)} fw={capi.Render.FrameWidth}");
-        }
-
         if (current <= 0.003f) { current = 0; return; }
         if (tex == null) return;
 
