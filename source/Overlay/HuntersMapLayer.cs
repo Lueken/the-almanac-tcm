@@ -9,7 +9,25 @@ using Vintagestory.GameContent;
 
 namespace AlmanacTcm.Overlay;
 
-/// <summary>
+/// SHELVED 2026-07-18. The layer is fully wired and does paint habitat, but two problems were not
+/// solved and Jeffrey parked it to move on. Registration is commented out in
+/// AlmanacTcmModSystem.Start (plus the envelope sync in HunPatches.RegisterServer/RegisterClient);
+/// re-enable those three call sites to bring it back. The kill ledger keeps recording meanwhile.
+///
+/// OPEN PROBLEM 1 — the border. The painted country is still cut at a hard edge on the leading side
+/// of the view, and it survived every architecture: server per-view build, client-side accumulation,
+/// and the full client-side per-chunk model copied from ProspectTogether. Leading hypothesis, not
+/// yet proven: OnViewChangedClient only reports chunks the map considers fully visible, so the
+/// outermost ring is never handed to us and the frontier always lags the viewport by a chunk or two.
+/// Next thing to try: ignore the view-change list entirely and evaluate chunks from the map's own
+/// current block view bounds (GuiElementMap.CurrentBlockViewBounds) during Render, or walk the
+/// client's loaded map regions directly rather than waiting to be told what is visible.
+///
+/// OPEN PROBLEM 2 — coverage is far too broad. Four merged species with permissive envelopes blanket
+/// most of the map, which also buries other overlays. The fix is the planned P2 work: per-species
+/// cell data plus a filter dropdown so one beast's country shows at a time, and per-species hues at
+/// Master+. Consider also tightening the test beyond climate/forest.
+///
 /// THE HUNTER'S MAP (HUN Phase 3) — the Master-Hunter capstone: a world-map overlay painting WHERE
 /// a species can live (its worldgen habitat/range), never where an animal is.
 ///

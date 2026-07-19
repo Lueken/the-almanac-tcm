@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.110-dev")]
+    Version = "0.3.111-dev")]
 
 namespace AlmanacTcm;
 
@@ -55,13 +55,12 @@ public class AlmanacTcmModSystem : ModSystem
         api.ModLoader.GetModSystem<Vintagestory.GameContent.WorldMapManager>()
             ?.RegisterMapLayer<Overlay.AlmanacSpotsLayer>("almanacworkedground", 0.7);
 
-        // HUN Phase 3 — the Hunter's Map: a per-player habitat overlay of species the viewer has
-        // hunted (knowledge gate N=3, Journeyman+). Same MapLayer machinery as the worked ground.
-        var mapMgr = api.ModLoader.GetModSystem<Vintagestory.GameContent.WorldMapManager>();
-        mapMgr?.RegisterMapLayer<Overlay.HuntersMapLayer>("almanachuntersmap", 0.75);
-        TcmLog.Info(api, mapMgr == null
-            ? "map layers NOT registered: WorldMapManager mod system not found"
-            : "map layers registered: worked ground + hunter's map");
+        // HUN Phase 3 — the Hunter's Map: SHELVED 2026-07-18, see source/Overlay/HuntersMapLayer.cs
+        // for the state of play. The layer works end to end but two problems remain unsolved: the
+        // painted country is cut at a hard border on the leading edge of the view, and four merged
+        // species blanket most of the map. Re-enable this line to bring it back.
+        // api.ModLoader.GetModSystem<Vintagestory.GameContent.WorldMapManager>()
+        //     ?.RegisterMapLayer<Overlay.HuntersMapLayer>("almanachuntersmap", 0.75);
 
         if (harmony == null)
         {
@@ -179,9 +178,8 @@ public class AlmanacTcmModSystem : ModSystem
         // The Surveyor's depth bands arrive on their own channel (the PT tooltip reads them).
         Domains.PanSurveyor.RegisterClient(capi);
 
-        // The Hunter's Map computes its habitat client-side, so the viewer needs the synced set of
-        // species they have hunted enough of (the kill ledger itself stays server-side).
-        Domains.HunPatches.RegisterClient(capi);
+        // Hunter's Map envelope sync — dormant with the shelved layer (see Start).
+        // Domains.HunPatches.RegisterClient(capi);
 
         // Client cosmetic settings (ConfigLib GUI -> almanactcm-client.json); load before the
         // tracker + vignette so they pick up the tuned values.

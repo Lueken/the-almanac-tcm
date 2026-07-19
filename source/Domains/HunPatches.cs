@@ -175,8 +175,11 @@ public static class HunPatches
         api.Event.OnEntityDeath += OnEntityDeath;
         api.Event.RegisterGameTickListener(ReconcileHunStats, 2000);
 
-        hunChannel = api.Network.RegisterChannel("almanactcmhun").RegisterMessageType<HunKnownPacket>();
-        api.Event.PlayerJoin += SendKnown;
+        // Hunter's Map envelope sync — dormant with the shelved layer (see AlmanacTcmModSystem.Start).
+        // The per-species kill ledger above keeps recording either way, so nothing is lost while it
+        // is shelved and the knowledge gate will be satisfied the moment it comes back.
+        // hunChannel = api.Network.RegisterChannel("almanactcmhun").RegisterMessageType<HunKnownPacket>();
+        // api.Event.PlayerJoin += SendKnown;
     }
 
     private static void Load()
