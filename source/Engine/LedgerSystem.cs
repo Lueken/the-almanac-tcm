@@ -103,21 +103,42 @@ public class LedgerSystem
                 // file additively; values the server already tuned are never touched.
                 DomainConfig defaults = factory();
                 bool changed = false;
-                foreach (var (name, tech) in defaults.Techniques)
+                if (domainConfig.Techniques.Count == 0 && defaults.Techniques.Count > 0)
                 {
-                    if (!domainConfig.Techniques.ContainsKey(name))
-                    {
-                        domainConfig.Techniques[name] = tech;
-                        changed = true;
-                        TcmLog.Cat(sapi, TcmLog.Config, $"{domain.Code}: new technique '{name}' merged into config");
-                    }
+                    // A techniqueless file is the first-boot scaffold every roster domain
+                    // gets before its build ships — nothing in it was ever live to tune,
+                    // so the shipped defaults (M, adjacency, knobs) replace it wholesale.
+                    TcmLog.Cat(sapi, TcmLog.Config, $"{domain.Code}: scaffold config replaced by shipped defaults");
+                    domainConfig = defaults;
+                    changed = true;
                 }
-                foreach (var (knob, value) in defaults.Bonus)
+                else
                 {
-                    if (!domainConfig.Bonus.ContainsKey(knob))
+                    foreach (var (name, tech) in defaults.Techniques)
                     {
-                        domainConfig.Bonus[knob] = value;
+                        if (!domainConfig.Techniques.ContainsKey(name))
+                        {
+                            domainConfig.Techniques[name] = tech;
+                            changed = true;
+                            TcmLog.Cat(sapi, TcmLog.Config, $"{domain.Code}: new technique '{name}' merged into config");
+                        }
+                    }
+                    foreach (var (knob, value) in defaults.Bonus)
+                    {
+                        if (!domainConfig.Bonus.ContainsKey(knob))
+                        {
+                            domainConfig.Bonus[knob] = value;
+                            changed = true;
+                        }
+                    }
+                    if (domainConfig.Adjacency.Count == 0 && defaults.Adjacency.Count > 0)
+                    {
+                        // An empty adjacency is scaffold too (a live domain ships with its
+                        // matrix row); adopting the shipped row heals configs whose build
+                        // merged techniques before this migration existed (HUN).
+                        domainConfig.Adjacency = new List<string>(defaults.Adjacency);
                         changed = true;
+                        TcmLog.Cat(sapi, TcmLog.Config, $"{domain.Code}: adjacency [{string.Join(",", defaults.Adjacency)}] adopted from defaults");
                     }
                 }
                 if (changed) sapi.StoreModConfig(domainConfig, path);
