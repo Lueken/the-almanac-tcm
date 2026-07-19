@@ -27,8 +27,7 @@ public static class RanDomain
     /// through the raw multiplier, never breadth.</summary>
     public const string TechShooting = "shooting";
 
-    // Bonus knob keys (DomainConfig.Bonus) — Phase 1 ships the difficulty-scaling knobs; the
-    // Phase 2 stat-curve knobs join them when the levers build.
+    // Bonus knob keys (DomainConfig.Bonus).
     /// <summary>Extra raw per drifter tier step above surface (deep, tainted, corrupt,
     /// nightmare, double-headed) — the xSkills xpByType shape, ours to tune.</summary>
     public const string RawDrifterTierStep = "rawDrifterTierStep";
@@ -36,6 +35,30 @@ public static class RanDomain
     public const string RawLocustMul = "rawLocustMul";
     /// <summary>Resonating bells guard the swarm; downing one is real practice.</summary>
     public const string RawBellMul = "rawBellMul";
+
+    // Phase 2 curve knobs. ALL RAN curves anchor vanilla (1.0) at APPRENTICE I, not Novice
+    // (ruled 2026-07-18: vanilla aim is already comfortable, so parity is itself an earned
+    // rank; Novice parity would make GM a laser). Untrained is the deep dock, the penalty
+    // fades across Novice, and the above-vanilla band runs Apprentice I -> GM, modest.
+    /// <summary>CO aim steadiness (drift/twitch divide by steadyAim squared, engine-clamped
+    /// so sway never vanishes). Untrained shakes; GM is steady, never still.</summary>
+    public const string SteadyAimUntrained = "steadyAimUntrained";
+    public const string SteadyAimGm = "steadyAimGm";
+    /// <summary>Nock/draw/reload cadence (per-stack CO reloadSpeed; vanilla floor
+    /// rangedWeaponsSpeed). Ranged-only by construction. GM ~low-teens % (ruled cap).</summary>
+    public const string ReloadUntrained = "reloadUntrained";
+    public const string ReloadGm = "reloadGm";
+    /// <summary>Ammo recovery: multiplies each projectile's OWN material drop chance (a
+    /// flint arrow still breaks more than steel at every rank), absolute-capped below
+    /// certainty — some arrows always shatter.</summary>
+    public const string RecoveryUntrained = "recoveryUntrained";
+    public const string RecoveryGm = "recoveryGm";
+    public const string RecoveryCap = "recoveryCap";
+    /// <summary>Vanilla-floor accuracy stats when CO is absent (kept conservative: the
+    /// rangedWeaponsAcc -> aimingAccuracy read site is client-core, unverified in-assembly).</summary>
+    public const string VanAccUntrained = "vanAccUntrained";
+    public const string VanAccGm = "vanAccGm";
+    public const string VanDrawGm = "vanDrawGm";
 
     public static DomainConfig Defaults() => new()
     {
@@ -56,8 +79,30 @@ public static class RanDomain
             [RawDrifterTierStep] = 0.5,
             [RawLocustMul] = 0.75,
             [RawBellMul] = 2.0,
+            [SteadyAimUntrained] = 0.80,
+            [SteadyAimGm] = 1.35,
+            [ReloadUntrained] = 0.75,
+            [ReloadGm] = 1.12,
+            [RecoveryUntrained] = 0.80,
+            [RecoveryGm] = 1.50,
+            [RecoveryCap] = 0.90,
+            [VanAccUntrained] = 0.90,
+            [VanAccGm] = 1.05,
+            [VanDrawGm] = 1.05,
         }
     };
+
+    /// <summary>The RAN curve (ruled 2026-07-18): untrained at level 0, penalty fading
+    /// linearly across Novice, exactly 1.0 at APPRENTICE I (level 5), then linear to the
+    /// GM value at max level. Contrast HunDomain.RankLinear's Novice anchor.</summary>
+    public static double ApprenticeAnchored(int level, double untrained, double gm)
+    {
+        const int anchor = 5; // Apprentice I
+        if (level <= 0) return untrained;
+        int max = Leveling.Domain.MaxLevelDefault;
+        if (level < anchor) return untrained + (1.0 - untrained) * level / anchor;
+        return 1.0 + (gm - 1.0) * (level - anchor) / (double)(max - anchor);
+    }
 
     /// <summary>Server-side RAN level for a player (0 = Untrained when unknown).</summary>
     public static int LevelOf(IPlayer? player)

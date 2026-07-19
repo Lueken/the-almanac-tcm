@@ -227,6 +227,11 @@ public static class HunPatches
 
         Entity? cause = damageSource.GetCauseEntity() ?? damageSource.SourceEntity;
         IPlayer? player = (cause as EntityPlayer)?.Player;
+        // Bleed-out fallback (2026-07-18): a wounded animal that bleeds out carries no player
+        // cause at death, but the shared combat store knows who wounded it — that hunter's
+        // kill, banked and counted toward the species ledger like any other.
+        if (player == null && MelRanKillPatches.TryPeekLastAttacker(entity.EntityId, out string lastUid))
+            player = sapi.World.PlayerByUid(lastUid);
         if (player == null) return; // wolves, falls, traps-by-AI: nobody's practice
 
         string species = entity.Code?.FirstCodePart() ?? "unknown";

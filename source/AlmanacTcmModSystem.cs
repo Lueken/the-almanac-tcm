@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.112-dev")]
+    Version = "0.3.113-dev")]
 
 namespace AlmanacTcm;
 
@@ -94,6 +94,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("PAN", () => Domains.PanPatches.PatchConditional(api, harmony));
             Try("PAN-surveyor", () => Domains.PanSurveyor.PatchConditional(api, harmony));
             Try("HUN", () => Domains.HunPatches.PatchConditional(api, harmony));
+            Try("RAN-recovery", () => Domains.RanPatches.PatchConditional(api, harmony));
             Try("HUN-bloodtrail", () => Domains.HunBloodTrailPatches.PatchConditional(api, harmony));
             Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));
             Try("WOO-colliersmark", () => Domains.WooColliersMark.PatchAll(api, harmony));
@@ -148,6 +149,10 @@ public class AlmanacTcmModSystem : ModSystem
         // The shared MEL/RAN combat kill listener (death hook + bleed last-attacker store).
         // RAN grants this build; the MEL branch goes live when MelDomain registers.
         Domains.MelRanKillPatches.RegisterServer(sapi);
+
+        // RAN's rank levers: steadyAim + held-launcher reloadSpeed stamp (CO) or the vanilla
+        // stat floor, reconciled on a slow tick like HUN's.
+        Domains.RanPatches.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for

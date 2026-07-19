@@ -48,8 +48,25 @@ public static class MelRanKillPatches
     private readonly record struct LastHit(string Uid, bool Ranged, long Ms);
 
     /// <summary>victim entityId -> the last player hit it took (uid, weapon shape, when).
-    /// Pruned on death and by a slow sweep so despawned entities do not accumulate.</summary>
+    /// Cleaned by the slow prune sweep only — death handlers never remove entries, so
+    /// every OnEntityDeath subscriber (HUN's hunting grant included) can read the store
+    /// regardless of handler registration order.</summary>
     private static readonly Dictionary<long, LastHit> lastAttacker = new();
+
+    /// <summary>The bleed-out attribution, shared: the last player to wound this entity
+    /// inside the window, if any. HUN's kill handler uses this so a bleed-out kill still
+    /// banks hunting practice and counts toward the species ledger.</summary>
+    public static bool TryPeekLastAttacker(long entityId, out string uid)
+    {
+        if (sapi != null && lastAttacker.TryGetValue(entityId, out LastHit hit)
+            && sapi.World.ElapsedMilliseconds - hit.Ms <= LastAttackerWindowMs)
+        {
+            uid = hit.Uid;
+            return true;
+        }
+        uid = "";
+        return false;
+    }
 
     public static void RegisterServer(ICoreServerAPI api)
     {
@@ -98,7 +115,7 @@ public static class MelRanKillPatches
     {
         if (sapi == null || entity == null) return;
 
-        bool hadStored = lastAttacker.Remove(entity.EntityId, out LastHit stored);
+        bool hadStored = lastAttacker.TryGetValue(entity.EntityId, out LastHit stored);
 
         if (entity is EntityPlayer) return;          // PvP zero, by construction (ruling 4)
         if (entity is not EntityAgent) return;       // falling blocks, item stacks: not combat
