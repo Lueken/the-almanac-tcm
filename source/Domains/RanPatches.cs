@@ -13,10 +13,11 @@ namespace AlmanacTcm.Domains;
 /// anchor ruled 2026-07-18: vanilla parity at APPRENTICE I, see RanDomain.ApprenticeAnchored).
 ///
 /// With Combat Overhaul present (The Quire):
-///   • steadyAim — the CO accuracy spine. Server writes the rank factor into the synced
-///     stats tree (EntityStats.Set marks "stats" dirty -> WatchedAttributes sync); the
-///     client-side ClientAimingSystem divides drift/twitch by steadyAim squared, clamped
-///     0.25-4 by the engine so sway never vanishes (OLC:30716).
+///   • steadyAim — the CO accuracy spine, written CLIENT-side (RegisterClient below): CO
+///     registers and reads the stat in its client aiming behavior, and that Register call
+///     wipes server-synced values. ClientAimingSystem divides drift/twitch by steadyAim
+///     squared, clamped 0.25-4 by the engine so sway never vanishes (OLC:30716); the 0.50
+///     Untrained dock rides the clamp floor for the full 4x wobble.
 ///   • reloadSpeed — the nock/draw/reload handling lever (2026-07-10 amendment). Stamped as
 ///     a per-stack attribute on the HELD launcher (the seam ItemStackRangedStats reads,
 ///     OLC:24840); ranged-only by construction (melee swing rides a separate multiplier the
@@ -65,38 +66,63 @@ public static class RanPatches
             if (entity == null) continue;
             int level = RanDomain.LevelOf(player);
 
-            double steady = RanDomain.ApprenticeAnchored(level,
-                RanDomain.Knob(RanDomain.SteadyAimUntrained, 0.80),
-                RanDomain.Knob(RanDomain.SteadyAimGm, 1.35));
             double reload = RanDomain.ApprenticeAnchored(level,
                 RanDomain.Knob(RanDomain.ReloadUntrained, 0.75),
                 RanDomain.Knob(RanDomain.ReloadGm, 1.12));
 
             // The held-launcher stamp must run every tick (the held ITEM changes without the
-            // level changing); only the entity-stat writes are change-gated.
-            if (coPresent) StampHeldLauncher(player, (float)reload);
+            // level changing); the vanilla-floor stat writes are change-gated.
+            if (coPresent)
+            {
+                StampHeldLauncher(player, (float)reload);
+                continue; // steadyAim is written CLIENT-side under CO (see RegisterClient)
+            }
 
             if (!lastSteady.TryGetValue(player.PlayerUID, out double prev)
-                || Math.Abs(prev - steady) >= 0.001)
+                || Math.Abs(prev - reload) >= 0.001)
             {
-                if (coPresent)
-                {
-                    entity.Stats.Set("steadyAim", "almanactcm", (float)(steady - 1.0), false);
-                }
-                else
-                {
-                    double acc = RanDomain.ApprenticeAnchored(level,
-                        RanDomain.Knob(RanDomain.VanAccUntrained, 0.90),
-                        RanDomain.Knob(RanDomain.VanAccGm, 1.05));
-                    double draw = RanDomain.ApprenticeAnchored(level,
-                        1.0, RanDomain.Knob(RanDomain.VanDrawGm, 1.05));
-                    entity.Stats.Set("rangedWeaponsAcc", "almanactcm", (float)(acc - 1.0), false);
-                    entity.Stats.Set("bowDrawingStrength", "almanactcm", (float)(draw - 1.0), false);
-                    entity.Stats.Set("rangedWeaponsSpeed", "almanactcm", (float)(reload - 1.0), false);
-                }
-                lastSteady[player.PlayerUID] = steady;
+                double acc = RanDomain.ApprenticeAnchored(level,
+                    RanDomain.Knob(RanDomain.VanAccUntrained, 0.90),
+                    RanDomain.Knob(RanDomain.VanAccGm, 1.05));
+                double draw = RanDomain.ApprenticeAnchored(level,
+                    1.0, RanDomain.Knob(RanDomain.VanDrawGm, 1.05));
+                entity.Stats.Set("rangedWeaponsAcc", "almanactcm", (float)(acc - 1.0), false);
+                entity.Stats.Set("bowDrawingStrength", "almanactcm", (float)(draw - 1.0), false);
+                entity.Stats.Set("rangedWeaponsSpeed", "almanactcm", (float)(reload - 1.0), false);
+                lastSteady[player.PlayerUID] = reload;
             }
         }
+    }
+
+    // ------------------------------------------------------------ client steadyAim write
+
+    private static float lastClientSteady = float.NaN;
+
+    /// <summary>The CO accuracy spine runs on the CLIENT: CO registers steadyAim in its
+    /// client aiming behavior and reads it there every aim tick — and that Register call
+    /// REPLACES the stat category, wiping anything the server synced in before it (why the
+    /// 0.3.113 server-side write showed no sway difference). So the client writes its own
+    /// rank factor every second, unconditionally: a wipe heals within a tick, and a client
+    /// Stats.Set is purely local (no network traffic). Curve endpoints are the compile
+    /// defaults — the client cannot read RAN.json (server-side by design).</summary>
+    public static void RegisterClient(Vintagestory.API.Client.ICoreClientAPI capi)
+    {
+        if (!capi.ModLoader.IsModEnabled("combatoverhaulfork")) return;
+        capi.Event.RegisterGameTickListener(_ =>
+        {
+            var entity = capi.World.Player?.Entity;
+            if (entity == null) return;
+            float steady = (float)RanDomain.ApprenticeAnchored(RanDomain.ClientLevel(),
+                RanDomain.Knob(RanDomain.SteadyAimUntrained, 0.50),
+                RanDomain.Knob(RanDomain.SteadyAimGm, 1.35));
+            entity.Stats.Set("steadyAim", "almanactcm", steady - 1f, false);
+            if (Math.Abs(steady - lastClientSteady) >= 0.001f)
+            {
+                lastClientSteady = steady;
+                TcmLog.Cat(capi, "ran", $"steadyAim {steady:0.###} (RAN level {RanDomain.ClientLevel()}, " +
+                    $"drift x{1f / Math.Clamp(steady * steady, 0.25f, 4f):0.##})");
+            }
+        }, 1000);
     }
 
     /// <summary>Writes the rank reload factor onto the held CO launcher's stack. The stack

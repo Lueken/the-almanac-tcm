@@ -79,7 +79,13 @@ public static class RanDomain
             [RawDrifterTierStep] = 0.5,
             [RawLocustMul] = 0.75,
             [RawBellMul] = 2.0,
-            [SteadyAimUntrained] = 0.80,
+            // 0.50 squared hits CO's 0.25 clamp floor: a full 4x drift/twitch for the
+            // Untrained hand (ruled 2026-07-19: 0.80 was barely felt — CO's per-weapon base
+            // sway is small, so the dock has to be deep before the multiplier shows).
+            // NOTE: under CO the steadyAim curve runs CLIENT-side off these compile defaults
+            // (the client cannot read RAN.json); these two knobs govern only the vanilla
+            // floor until a knob-sync ships.
+            [SteadyAimUntrained] = 0.50,
             [SteadyAimGm] = 1.35,
             [ReloadUntrained] = 0.75,
             [ReloadGm] = 1.12,
@@ -110,6 +116,17 @@ public static class RanDomain
         if (player == null) return 0;
         var set = AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player);
         return set?.FindDomain(Code)?.Level ?? 0;
+    }
+
+    /// <summary>Client-side RAN level from the synced domain state (0 when unknown). The
+    /// steadyAim write runs on the client — CO registers and reads the stat there, and its
+    /// register call wipes anything the server synced in earlier (the 0.3.113 lesson).</summary>
+    public static int ClientLevel()
+    {
+        var core = AlmanacTcmModSystem.Instance;
+        var dom = core?.Template?.FindDomain(Code);
+        if (dom == null || core?.Client == null) return 0;
+        return core.Client.Domains.TryGetValue(dom.Id, out var st) ? st.Level : 0;
     }
 
     /// <summary>A Bonus knob, falling back to the shipped default if the server dropped it.</summary>

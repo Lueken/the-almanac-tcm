@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.113-dev")]
+    Version = "0.3.114-dev")]
 
 namespace AlmanacTcm;
 
@@ -190,6 +190,10 @@ public class AlmanacTcmModSystem : ModSystem
 
         // Hunter's Map envelope sync — dormant with the shelved layer (see Start).
         // Domains.HunPatches.RegisterClient(capi);
+
+        // RAN steadyAim rides the client under CO (CO registers/reads it client-side, and
+        // its Register wipes server-synced values — the 0.3.113 lesson).
+        Domains.RanPatches.RegisterClient(capi);
 
         // Client cosmetic settings (ConfigLib GUI -> almanactcm-client.json); load before the
         // tracker + vignette so they pick up the tuned values.

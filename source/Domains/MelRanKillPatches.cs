@@ -96,6 +96,9 @@ public static class MelRanKillPatches
             bool ranged = damageSource!.SourceEntity != null && damageSource.SourceEntity != cause;
             lastAttacker[__instance.EntityId] =
                 new LastHit(attacker.PlayerUID, ranged, __instance.World.ElapsedMilliseconds);
+            if (sapi != null)
+                TcmLog.Cat(sapi, "combat",
+                    $"wound recorded: {__instance.Code?.FirstCodePart()} #{__instance.EntityId} by {attacker.Player?.PlayerName} ({(ranged ? "ranged" : "melee")}, {damage:0.#} dmg)");
         }
     }
 
@@ -123,6 +126,7 @@ public static class MelRanKillPatches
 
         IPlayer? player = null;
         bool ranged = false;
+        string via = "direct";
 
         Entity? cause = damageSource?.GetCauseEntity() ?? damageSource?.SourceEntity;
         if (cause is EntityPlayer killer)
@@ -130,15 +134,26 @@ public static class MelRanKillPatches
             player = killer.Player;
             ranged = damageSource!.SourceEntity != null && damageSource.SourceEntity != cause;
         }
-        else if (hadStored && sapi.World.ElapsedMilliseconds - stored.Ms <= LastAttackerWindowMs)
+        else if (cause == null && hadStored
+            && sapi.World.ElapsedMilliseconds - stored.Ms <= LastAttackerWindowMs)
         {
-            // Bleed-out / unattributed DoT: the killing source carries no player, but a player
-            // landed the wound inside the window — theirs (ruling 6), with the weapon shape of
-            // the hit that started it.
+            // Bleed-out / unattributed DoT: the killing source carries NO entity at all (the
+            // bleed tick ships SourceEntity=null, CauseEntity=null), but a player landed the
+            // wound inside the window — theirs (ruling 6), with the weapon shape of the hit
+            // that started it. The cause==null gate matters: a wolf finishing a player-wounded
+            // animal has cause=wolf, and that kill is the wolf's, never the player's.
             player = sapi.World.PlayerByUid(stored.Uid);
             ranged = stored.Ranged;
+            via = "bleed-fallback";
         }
-        if (player == null) return; // wolves, falls, wild-on-wild: nobody's practice
+        if (player == null)
+        {
+            TcmLog.Cat(sapi, "combat", $"kill unattributed: {entity.Code?.FirstCodePart()} #{entity.EntityId}, " +
+                $"cause={(cause == null ? "null" : cause.Code?.ToString() ?? "?")}, stored={(hadStored ? $"{stored.Uid} {(sapi.World.ElapsedMilliseconds - stored.Ms) / 1000}s ago" : "none")}");
+            return; // wolves, falls, wild-on-wild: nobody's practice
+        }
+        TcmLog.Cat(sapi, "combat", $"kill: {entity.Code?.FirstCodePart()} #{entity.EntityId} -> " +
+            $"{player.PlayerName} ({(ranged ? "RAN" : "MEL")}, {via})");
 
         double mult = DifficultyMult(entity);
         string species = entity.Code?.FirstCodePart() ?? "unknown";
