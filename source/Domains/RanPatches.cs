@@ -96,33 +96,43 @@ public static class RanPatches
 
     // ------------------------------------------------------------ client steadyAim write
 
-    private static float lastClientSteady = float.NaN;
+    private static float lastClientSteady = -1f;
+    private static int clientTickCount;
 
     /// <summary>The CO accuracy spine runs on the CLIENT: CO registers steadyAim in its
     /// client aiming behavior and reads it there every aim tick — and that Register call
     /// REPLACES the stat category, wiping anything the server synced in before it (why the
-    /// 0.3.113 server-side write showed no sway difference). So the client writes its own
-    /// rank factor every second, unconditionally: a wipe heals within a tick, and a client
-    /// Stats.Set is purely local (no network traffic). Curve endpoints are the compile
-    /// defaults — the client cannot read RAN.json (server-side by design).</summary>
+    /// 0.3.113 server-side write showed no sway difference). A second wipe cycle exists:
+    /// EVERY server-side stat sync rebuilds the client's stats tree from the server's own
+    /// map, which never holds this client-written entry — so the write repeats fast (250ms,
+    /// purely local, no network traffic) to keep the gap shorter than any aim hold. Curve
+    /// endpoints are the compile defaults — the client cannot read RAN.json (by design).</summary>
     public static void RegisterClient(Vintagestory.API.Client.ICoreClientAPI capi)
     {
         if (!capi.ModLoader.IsModEnabled("combatoverhaulfork")) return;
+        TcmLog.Cat(capi, "ran", "client steadyAim writer registered (CO present)");
         capi.Event.RegisterGameTickListener(_ =>
         {
             var entity = capi.World.Player?.Entity;
             if (entity == null) return;
-            float steady = (float)RanDomain.ApprenticeAnchored(RanDomain.ClientLevel(),
+            int level = RanDomain.ClientLevel();
+            float steady = (float)RanDomain.ApprenticeAnchored(level,
                 RanDomain.Knob(RanDomain.SteadyAimUntrained, 0.50),
                 RanDomain.Knob(RanDomain.SteadyAimGm, 1.35));
             entity.Stats.Set("steadyAim", "almanactcm", steady - 1f, false);
-            if (Math.Abs(steady - lastClientSteady) >= 0.001f)
+
+            // Diagnosis-mode logging (stripped once the sway lever is confirmed felt): the
+            // read-back blended value proves whether the entry survives to CO's read side.
+            bool changed = Math.Abs(steady - lastClientSteady) >= 0.001f;
+            if (changed || ++clientTickCount >= 20) // every change, else every ~5s
             {
+                clientTickCount = 0;
                 lastClientSteady = steady;
-                TcmLog.Cat(capi, "ran", $"steadyAim {steady:0.###} (RAN level {RanDomain.ClientLevel()}, " +
-                    $"drift x{1f / Math.Clamp(steady * steady, 0.25f, 4f):0.##})");
+                float blended = entity.Stats.GetBlended("steadyAim");
+                TcmLog.Cat(capi, "ran", $"steadyAim want {steady:0.###}, blended {blended:0.###} " +
+                    $"(RAN level {level}, drift x{1f / Math.Clamp(blended * blended, 0.25f, 4f):0.##})");
             }
-        }, 1000);
+        }, 250);
     }
 
     /// <summary>Writes the rank reload factor onto the held CO launcher's stack. The stack
