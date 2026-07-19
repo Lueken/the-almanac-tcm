@@ -64,17 +64,36 @@ public static class HunPatches
 
     public const int HuntersMapKnowledgeN = 3;
 
+    /// <summary>A species' habitat envelope, flattened for the wire. SpawnConditions hang off
+    /// EntityProperties.Server, which is server config and is NOT populated client-side, so the
+    /// client cannot resolve these itself. The server resolves them once and ships the numbers;
+    /// the habitat computation still happens entirely on the client.</summary>
+    [ProtoContract]
+    public class SpeciesEnvelope
+    {
+        [ProtoMember(1)] public string? Species;
+        [ProtoMember(2)] public float MinTemp;
+        [ProtoMember(3)] public float MaxTemp;
+        [ProtoMember(4)] public float MinRain;
+        [ProtoMember(5)] public float MaxRain;
+        [ProtoMember(6)] public float MinForest;
+        [ProtoMember(7)] public float MaxForest;
+        [ProtoMember(8)] public float MinShrubs;
+        [ProtoMember(9)] public float MaxShrubs;
+        [ProtoMember(10)] public float MinForestOrShrubs;
+    }
+
     [ProtoContract]
     public class HunKnownPacket
     {
-        [ProtoMember(1)] public List<string>? Species;
+        [ProtoMember(1)] public List<SpeciesEnvelope>? Envelopes;
     }
 
     private static IServerNetworkChannel? hunChannel;
 
-    /// <summary>Client mirror of the species this player has earned. Bumped version lets the map
+    /// <summary>Client mirror of the envelopes this player has earned. Bumped version lets the map
     /// layer discard its cached habitat and recompute when the set changes.</summary>
-    public static HashSet<string> ClientKnownSpecies { get; private set; } = new();
+    public static List<SpeciesEnvelope> ClientEnvelopes { get; private set; } = new();
     public static int ClientKnownVersion { get; private set; }
 
     public static void RegisterClient(ICoreClientAPI api)
@@ -82,18 +101,51 @@ public static class HunPatches
         api.Network.RegisterChannel("almanactcmhun").RegisterMessageType<HunKnownPacket>()
             .SetMessageHandler<HunKnownPacket>(p =>
             {
-                ClientKnownSpecies = new HashSet<string>(p.Species ?? new List<string>());
+                ClientEnvelopes = p.Envelopes ?? new List<SpeciesEnvelope>();
                 ClientKnownVersion++;
-                TcmLog.Cat(api, "hun", $"hunter's map: known species synced ({ClientKnownSpecies.Count}): [{string.Join(", ", ClientKnownSpecies)}]");
+                TcmLog.Cat(api, "hun", $"hunter's map: {ClientEnvelopes.Count} species envelope(s) synced: " +
+                    $"[{string.Join(", ", ClientEnvelopes.ConvertAll(e => e.Species ?? "?"))}]");
             });
     }
 
     private static void SendKnown(IServerPlayer player)
     {
-        hunChannel?.SendPacket(new HunKnownPacket
+        var list = new List<SpeciesEnvelope>();
+        foreach (string species in KnownSpecies(player, HuntersMapKnowledgeN))
         {
-            Species = new List<string>(KnownSpecies(player, HuntersMapKnowledgeN))
-        }, player);
+            var env = ResolveEnvelope(species);
+            if (env == null) continue;
+            list.Add(new SpeciesEnvelope
+            {
+                Species = species,
+                MinTemp = env.MinTemp, MaxTemp = env.MaxTemp,
+                MinRain = env.MinRain, MaxRain = env.MaxRain,
+                MinForest = env.MinForest, MaxForest = env.MaxForest,
+                MinShrubs = env.MinShrubs, MaxShrubs = env.MaxShrubs,
+                MinForestOrShrubs = env.MinForestOrShrubs
+            });
+        }
+        TcmLog.Cat(sapi!, "hun", $"hunter's map: sending {list.Count} envelope(s) to {player.PlayerName}");
+        hunChannel?.SendPacket(new HunKnownPacket { Envelopes = list }, player);
+    }
+
+    private static readonly Dictionary<string, ClimateSpawnCondition?> envelopeCache = new();
+
+    /// <summary>Server-side envelope lookup: any registered entity of that species carrying a
+    /// worldgen (or runtime) spawn envelope. Only the server has EntityProperties.Server.</summary>
+    private static ClimateSpawnCondition? ResolveEnvelope(string species)
+    {
+        if (envelopeCache.TryGetValue(species, out var cached)) return cached;
+        ClimateSpawnCondition? found = null;
+        foreach (EntityProperties t in sapi!.World.EntityTypes)
+        {
+            if (t?.Code == null || t.Code.FirstCodePart() != species) continue;
+            var sc = t.Server?.SpawnConditions;
+            ClimateSpawnCondition? env = (ClimateSpawnCondition?)sc?.Worldgen ?? sc?.Runtime;
+            if (env != null) { found = env; break; }
+        }
+        envelopeCache[species] = found;
+        return found;
     }
 
     // ------------------------------------------------------------ trap owner side-state

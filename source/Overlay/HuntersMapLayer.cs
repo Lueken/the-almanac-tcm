@@ -43,8 +43,7 @@ public class HuntersMapLayer : MapLayer
     /// <summary>Chunks that ARE habitat for at least one known species. Accumulated, never cleared
     /// except when the hunter's knowledge or rank changes.</summary>
     private readonly HashSet<long> habitat = new();
-    private readonly Dictionary<string, ClimateSpawnCondition?> envelopeCache = new();
-    private readonly List<ClimateSpawnCondition> activeEnvelopes = new();
+    private List<Domains.HunPatches.SpeciesEnvelope> activeEnvelopes = new();
     private int builtForKnownVersion = -1;
     private int builtForLevel = -1;
 
@@ -96,19 +95,15 @@ public class HuntersMapLayer : MapLayer
 
         builtForLevel = level;
         builtForKnownVersion = version;
-        activeEnvelopes.Clear();
         tested.Clear();
         habitat.Clear();
+        activeEnvelopes = level < JourneymanLevel
+            ? new List<Domains.HunPatches.SpeciesEnvelope>()   // the reading is not yet learned
+            : Domains.HunPatches.ClientEnvelopes;
 
-        if (level < JourneymanLevel) return false; // the reading is not yet learned
-
-        foreach (string species in Domains.HunPatches.ClientKnownSpecies)
-        {
-            var env = ResolveEnvelope(species);
-            if (env != null) activeEnvelopes.Add(env);
-        }
         TcmLog.Cat(capi!, "hun",
-            $"hunter's map: level={level} known=[{string.Join(", ", Domains.HunPatches.ClientKnownSpecies)}] envelopes={activeEnvelopes.Count}");
+            $"hunter's map: level={level} envelopes={activeEnvelopes.Count} " +
+            $"[{string.Join(", ", activeEnvelopes.ConvertAll(e => e.Species ?? "?"))}]");
         return activeEnvelopes.Count > 0;
     }
 
@@ -122,7 +117,7 @@ public class HuntersMapLayer : MapLayer
 
         foreach (var env in activeEnvelopes)
         {
-            if (env.MatchesClimate(cc) && MatchesForestation(env, cc, shrubKnown))
+            if (Matches(env, cc, shrubKnown))
             {
                 habitat.Add(key);
                 return;
@@ -130,10 +125,13 @@ public class HuntersMapLayer : MapLayer
         }
     }
 
-    /// <summary>Forest test that tolerates the client's missing ShrubMap: forest is always checked,
-    /// shrub constraints only when the data is actually present.</summary>
-    private static bool MatchesForestation(ClimateSpawnCondition env, ClimateCondition cc, bool shrubKnown)
+    /// <summary>The habitat test, mirroring ClimateSpawnCondition.MatchesClimate + MatchesForestation
+    /// but tolerating the client's missing ShrubMap: temp, rain and forest are always checked, shrub
+    /// constraints only when that data is actually present.</summary>
+    private static bool Matches(Domains.HunPatches.SpeciesEnvelope env, ClimateCondition cc, bool shrubKnown)
     {
+        if (env.MinTemp > cc.WorldGenTemperature || env.MaxTemp < cc.WorldGenTemperature) return false;
+        if (env.MinRain > cc.Rainfall || env.MaxRain < cc.Rainfall) return false;
         if (env.MinForest > cc.ForestDensity || env.MaxForest < cc.ForestDensity) return false;
         if (shrubKnown)
         {
@@ -183,23 +181,6 @@ public class HuntersMapLayer : MapLayer
         return cc;
     }
 
-    /// <summary>The species' habitat envelope. Ledger keys are the entity code first part ("boar");
-    /// find any registered entity of that species carrying a worldgen (or runtime) spawn envelope.</summary>
-    private ClimateSpawnCondition? ResolveEnvelope(string species)
-    {
-        if (envelopeCache.TryGetValue(species, out var cached)) return cached;
-
-        ClimateSpawnCondition? found = null;
-        foreach (EntityProperties t in capi!.World.EntityTypes)
-        {
-            if (t?.Code == null || t.Code.FirstCodePart() != species) continue;
-            var sc = t.Server?.SpawnConditions;
-            ClimateSpawnCondition? env = (ClimateSpawnCondition?)sc?.Worldgen ?? sc?.Runtime;
-            if (env != null) { found = env; break; }
-        }
-        envelopeCache[species] = found;
-        return found;
-    }
 
     // ------------------------------------------------------------ render
 
