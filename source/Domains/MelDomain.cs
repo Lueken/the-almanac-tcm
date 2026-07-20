@@ -38,6 +38,19 @@ public static class MelDomain
     /// skill act (quality-of-practice, the kill-difficulty logic on the defensive verb).</summary>
     public const string RawParryMul = "rawParryMul";
 
+    // Phase 2 curve knobs. ALL MEL curves anchor vanilla at NOVICE I (ruled 2026-07-20 —
+    // vanilla parry timing is genuinely hard, so parity is not itself an earned rank the way
+    // RAN's comfortable aim was). Untrained is the only sub-vanilla band.
+    /// <summary>meleeWeaponsDamage at Untrained — the ONLY appearance of the damage lever in
+    /// all of MEL, penalty-only (NERF-FIRST: it never climbs above 1.0). Clears at Novice I.</summary>
+    public const string DamageUntrained = "damageUntrained";
+    /// <summary>Master-at-Arms: the armor-affectedness DELTA at Untrained (positive = the
+    /// beginner wears armor clumsily, more drag than vanilla) and at GM (negative = the veteran
+    /// sheds the drag toward the unarmored baseline, never past it). Applied to
+    /// armorWalkSpeedAffectedness and, under CO, armorManipulation/HungerRateAffectedness.</summary>
+    public const string ArmorUntrained = "armorUntrained";
+    public const string ArmorGm = "armorGm";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -56,8 +69,30 @@ public static class MelDomain
         Bonus = new Dictionary<string, double>
         {
             [RawParryMul] = 1.5,
+            [DamageUntrained] = 0.85,
+            [ArmorUntrained] = 0.30,
+            [ArmorGm] = -0.50,
         }
     };
+
+    /// <summary>The Novice-anchored FACTOR curve: untrained at level 0, exactly 1.0 from
+    /// Novice I (level 1) on, then linear to gm at max. For a penalty-only lever gm stays 1.0.</summary>
+    public static double NoviceFactor(int level, double untrained, double gm)
+    {
+        if (level <= 0) return untrained;
+        int max = Leveling.Domain.MaxLevelDefault;
+        return 1.0 + (gm - 1.0) * (level - 1) / (double)(max - 1);
+    }
+
+    /// <summary>The Novice-anchored DELTA curve: untrained delta at level 0, exactly 0 at
+    /// Novice I, then linear to the gm delta at max. Used for the armor-affectedness eases,
+    /// which are additive contributions (not factors) stacking on CO's class traits.</summary>
+    public static double NoviceDelta(int level, double untrained, double gm)
+    {
+        if (level <= 0) return untrained;
+        int max = Leveling.Domain.MaxLevelDefault;
+        return gm * (level - 1) / (double)(max - 1);
+    }
 
     /// <summary>Server-side MEL level for a player (0 = Untrained when unknown).</summary>
     public static int LevelOf(IPlayer? player)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -32,7 +33,56 @@ public static class MelPatches
     private static PropertyInfo? argBlocked;
     private static PropertyInfo? argKind;
 
-    public static void RegisterServer(ICoreServerAPI api) => sapi = api;
+    private static bool coPresent;
+
+    public static void RegisterServer(ICoreServerAPI api)
+    {
+        sapi = api;
+        coPresent = api.ModLoader.IsModEnabled("combatoverhaulfork");
+        api.Event.RegisterGameTickListener(ReconcileMelStats, 2000);
+    }
+
+    // ------------------------------------------------------------ Phase 2 stat reconcile
+
+    private static readonly Dictionary<string, (double dmg, double armor)> lastStats = new();
+
+    /// <summary>The penalty dock (meleeWeaponsDamage, Untrained only) and Master-at-Arms armor
+    /// familiarity (armorWalkSpeedAffectedness + CO's manipulation/hunger set), reconciled on a
+    /// slow tick like HUN/RAN. Zero-Harmony stat writes; our rank delta stacks on CO class
+    /// traits, never re-scaling them (principle 4, the steadyAim posture).</summary>
+    private static void ReconcileMelStats(float dt)
+    {
+        if (sapi == null) return;
+        foreach (IServerPlayer player in sapi.World.AllOnlinePlayers)
+        {
+            var entity = player.Entity;
+            if (entity == null) continue;
+            int level = MelDomain.LevelOf(player);
+
+            double dmg = MelDomain.NoviceFactor(level,
+                MelDomain.Knob(MelDomain.DamageUntrained, 0.85), 1.0);
+            double armor = MelDomain.NoviceDelta(level,
+                MelDomain.Knob(MelDomain.ArmorUntrained, 0.30),
+                MelDomain.Knob(MelDomain.ArmorGm, -0.50));
+
+            if (lastStats.TryGetValue(player.PlayerUID, out var prev)
+                && Math.Abs(prev.dmg - dmg) < 0.001 && Math.Abs(prev.armor - armor) < 0.001) continue;
+
+            entity.Stats.Set("meleeWeaponsDamage", "almanactcm", (float)(dmg - 1.0), false);
+            // The affectedness stat multiplies armor's own walkspeed penalty (blended default 1;
+            // lower = less drag, 0 = the unarmored baseline). Our delta shifts it; a CO class
+            // trait, if any, stacks. The GM delta (-0.5) alone leaves blended at 0.5 — still a
+            // real penalty, never inverted into a speed buff; only a stacked class trait reaches
+            // the baseline, which is that class's own identity (a blackguard shrugs off plate).
+            entity.Stats.Set("armorWalkSpeedAffectedness", "almanactcm", (float)armor, false);
+            if (coPresent)
+            {
+                entity.Stats.Set("armorManipulationSpeedAffectedness", "almanactcm", (float)armor, false);
+                entity.Stats.Set("armorHungerRateAffectedness", "almanactcm", (float)armor, false);
+            }
+            lastStats[player.PlayerUID] = (dmg, armor);
+        }
+    }
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
