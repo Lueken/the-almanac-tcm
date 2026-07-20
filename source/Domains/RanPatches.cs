@@ -39,6 +39,7 @@ public static class RanPatches
     private static ICoreServerAPI? sapi;
     private static bool coPresent;
     private static Type? rangedWeaponIface; // CombatOverhaul.RangedSystems.IHasRangedWeaponLogic
+    private static Type? meleeWeaponBehavior; // CombatOverhaul.Implementations.MeleeWeaponBehavior
 
     public static void RegisterServer(ICoreServerAPI api)
     {
@@ -47,6 +48,9 @@ public static class RanPatches
         if (coPresent)
         {
             rangedWeaponIface = AccessTools.TypeByName("CombatOverhaul.RangedSystems.IHasRangedWeaponLogic");
+            // CO melee weapons implement IHasRangedWeaponLogic for their THROW mode, so the
+            // reloadSpeed stamp must exclude them or it leaks onto swords (0.3.126 lesson).
+            meleeWeaponBehavior = AccessTools.TypeByName("CombatOverhaul.Implementations.MeleeWeaponBehavior");
             if (rangedWeaponIface == null)
                 TcmLog.Warn(api, "CO present but IHasRangedWeaponLogic not found; RAN reloadSpeed stamp inactive");
         }
@@ -146,10 +150,20 @@ public static class RanPatches
         var slot = player.InventoryManager?.ActiveHotbarSlot;
         var stack = slot?.Itemstack;
         if (stack?.Collectible == null || !rangedWeaponIface.IsInstanceOfType(stack.Collectible)) return;
+        // Exclude CO melee weapons (they implement the ranged interface only for a throw mode) —
+        // reloadSpeed is meaningless on a sword and just pollutes its attributes.
+        if (meleeWeaponBehavior != null && HasBehavior(stack, meleeWeaponBehavior)) return;
         if (Math.Abs(stack.Attributes.GetFloat("reloadSpeed", 1f) - reload) < 0.001f) return;
         stack.Attributes.SetFloat("reloadSpeed", reload);
         slot!.MarkDirty();
         TcmLog.Cat(sapi!, "ran", $"{player.PlayerName}: reloadSpeed {reload:0.###} stamped on {stack.Collectible.Code}");
+    }
+
+    private static bool HasBehavior(ItemStack stack, Type behaviorType)
+    {
+        foreach (var b in stack.Collectible.CollectibleBehaviors)
+            if (behaviorType.IsInstanceOfType(b)) return true;
+        return false;
     }
 
     // ------------------------------------------------------------ CO ammo recovery

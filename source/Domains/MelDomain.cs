@@ -61,6 +61,20 @@ public static class MelDomain
     public const string BlockTierLevel = "blockTierLevel";
     public const string BlockTierBonus = "blockTierBonus";
 
+    // Phase 4 — the perfect-parry-to-pierce (RULED 2026-07-20). A PERFECT parry (a tight,
+    // FIXED just-frame near true impact, unchanged by rank — mastery is always precision)
+    // stamps armor-pierce on the riposte strike: it lands as if a tier sharper, cutting
+    // through the foe's resist (the actual governor). NERF-FIRST clean — no damage stat, it
+    // rides CO's own ArmorPiercingTier lever. Rank scales the DEPTH, not the window.
+    /// <summary>The fixed perfect-catch window (ms from the parry opening to the blow landing).
+    /// Small = a reactive just-frame. Same at every rank.</summary>
+    public const string PerfectWindowMs = "perfectWindowMs";
+    /// <summary>Armor-pierce tiers a perfect riposte cuts at GM. Journeyman I starts at 1.</summary>
+    public const string PierceGm = "pierceGm";
+    /// <summary>How long the stamped pierce lasts after a perfect parry (CO's riposte window
+    /// is 300ms; the pierce rides the riposte strike inside it).</summary>
+    public const string RiposteWindowMs = "riposteWindowMs";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -85,8 +99,24 @@ public static class MelDomain
             [ParryGraceGmMs] = 180,
             [BlockTierLevel] = 13, // Master I
             [BlockTierBonus] = 1,
+            [PerfectWindowMs] = 150,
+            [PierceGm] = 3,
+            [RiposteWindowMs] = 300,
         }
     };
+
+    /// <summary>Armor-pierce depth a perfect riposte cuts, by rank: 0 below Journeyman I (the
+    /// capability isn't learned), 1 at Journeyman I, linear to the GM cap at max level. Int —
+    /// CO's ArmorPiercingTier is integer tiers.</summary>
+    public static int PierceDepth(int level)
+    {
+        const int start = 9; // Journeyman I
+        if (level < start) return 0;
+        int max = Leveling.Domain.MaxLevelDefault;
+        int gm = (int)Knob(PierceGm, 3);
+        double t = (level - start) / (double)(max - start);
+        return (int)System.Math.Round(1 + t * (gm - 1));
+    }
 
     /// <summary>The defensive block/parry tier bonus for a level: 0 until the ruled threshold
     /// (Master I), then the capped bonus. Int by nature — CO's BlockTier dict is integer tiers.</summary>

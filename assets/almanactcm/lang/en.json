@@ -97,6 +97,7 @@
   "almanactcm:misfire-flash": "A flash in the pan. The piece doesn't go off.",
   "almanactcm:powder-spared": "Practiced hands waste nothing. The reload cost you no powder.",
   "almanactcm:powder-spilled": "A clumsy pour. Powder scatters from the flask.",
+  "almanactcm:perfect-parry": "A perfect parry. Your riposte finds the gap in the plates.",
   "almanactcm:colliers-mark": "Collier's Mark: burned by {0}. Takes a hotter, longer fire.",
 
   "game:deathmsg-blockfalling-1": "{0}, the tree did not appreciate that.",
