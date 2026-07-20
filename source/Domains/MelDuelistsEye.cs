@@ -175,11 +175,13 @@ public class MelDuelistsEye : HudElement
         if (collidersProp!.GetValue(beh) is not System.Collections.IDictionary colliders) return;
         if (colliderTypesProp!.GetValue(beh) is not System.Collections.IDictionary types) return;
 
-        // First pass: find the single best strike collider (Critical > Head), and mark Resistants.
+        // Best strike collider (Critical > Head) among names that ACTUALLY have a collider object
+        // (types has more zone entries than there are colliders), and mark Resistants likewise.
         string? bestStrike = null; int bestRank = -1; int marks = 0;
         foreach (System.Collections.DictionaryEntry e in types)
         {
             string name = (string)e.Key;
+            if (!colliders.Contains(name)) continue; // no collider object -> nothing to place
             string zone = e.Value?.ToString() ?? "";
             if (zone == "Resistant")
             {
@@ -193,11 +195,19 @@ public class MelDuelistsEye : HudElement
         }
         bool centered = false;
         if (bestStrike != null && TryCenter(colliders, bestStrike, out Vec3d sc)) { DrawMark(strikeMark!, sc); marks++; centered = true; }
+
         if (dbgDraw)
         {
             dbgDraw = false;
+            string detail = "";
+            if (bestStrike != null && colliders[bestStrike] is object col
+                && inworldVertsProp!.GetValue(col) is Array verts && verts.Length > 0 && verts.GetValue(0) is object v0)
+            {
+                var vt = v0.GetType();
+                detail = $" strike={bestStrike} verts={verts.Length} v0=({ReadD(v0, vt, "X"):0.#},{ReadD(v0, vt, "Y"):0.#},{ReadD(v0, vt, "Z"):0.#}) memberType={vt.Name}";
+            }
             TcmLog.Cat(capi, "duel", $"draw {mob.Code?.FirstCodePart()}: colliders={colliders.Count} types={types.Count} " +
-                $"bestStrike={bestStrike ?? "none"} centered={centered} marksDrawn={marks}");
+                $"bestStrike={bestStrike ?? "none"} centered={centered} marks={marks}{detail}");
         }
     }
 
