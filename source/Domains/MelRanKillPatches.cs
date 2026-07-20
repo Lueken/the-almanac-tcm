@@ -1,11 +1,21 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using ProtoBuf;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Server;
 
 namespace AlmanacTcm.Domains;
+
+/// <summary>Server -> client "you are in combat with this creature" ping, driving the Duelist's
+/// Eye learn-over-time (the overlay reveals a foe you actually FIGHT, not one you glance at
+/// through terrain). Sent on any damage exchanged either direction.</summary>
+[ProtoContract]
+public class MelEngagedPacket
+{
+    [ProtoMember(1)] public long MobId;
+}
 
 /// <summary>
 /// The shared MEL/RAN combat kill listener (technique-maps §MEL/§RAN, ruled 2026-07-08;
@@ -69,11 +79,20 @@ public static class MelRanKillPatches
         return false;
     }
 
+    private static IServerNetworkChannel? engagedChannel;
+
     public static void RegisterServer(ICoreServerAPI api)
     {
         sapi = api;
         api.Event.OnEntityDeath += OnEntityDeath;
         api.Event.RegisterGameTickListener(PruneLastAttackers, 30_000);
+        engagedChannel = api.Network.RegisterChannel("almanactcmmel").RegisterMessageType<MelEngagedPacket>();
+    }
+
+    private static void SendEngaged(IPlayer? player, long mobId)
+    {
+        if (player is IServerPlayer sp && engagedChannel != null)
+            engagedChannel.SendPacket(new MelEngagedPacket { MobId = mobId }, sp);
     }
 
     // ------------------------------------------------------------ bleed attribution store
@@ -89,14 +108,24 @@ public static class MelRanKillPatches
         {
             if (!__result || damage <= 0f) return;
             if (__instance.World?.Side != EnumAppSide.Server) return;
-            if (__instance is EntityPlayer || __instance is not EntityAgent) return;
 
             Entity? cause = damageSource?.GetCauseEntity() ?? damageSource?.SourceEntity;
+
+            // Mob -> player: the hit player is now in combat with that creature.
+            if (__instance is EntityPlayer victim && cause is EntityAgent aggressor && aggressor is not EntityPlayer)
+            {
+                SendEngaged(victim.Player, aggressor.EntityId);
+                return;
+            }
+
+            if (__instance is not EntityAgent) return;
             if (cause is not EntityPlayer attacker || attacker.PlayerUID == null) return;
 
+            // Player -> mob: record the wound (bleed attribution) AND engage the hitter.
             bool ranged = damageSource!.SourceEntity != null && damageSource.SourceEntity != cause;
             lastAttacker[__instance.EntityId] =
                 new LastHit(attacker.PlayerUID, ranged, __instance.World.ElapsedMilliseconds);
+            SendEngaged(attacker.Player, __instance.EntityId);
         }
     }
 

@@ -37,8 +37,13 @@ public class MelDuelistsEye : HudElement
     private LoadedTexture? strikeMark;  // the vital point: strike here
     private LoadedTexture? avoidMark;   // resistant: wasted hits
 
-    // Learn-over-time: mob entityId -> engagement seconds accumulated this encounter.
-    private readonly Dictionary<long, float> learned = new();
+    // Learn-over-time, driven by COMBAT CONTACT (server pings via MelEngagedPacket when you hit a
+    // mob or it hits you). A foe you actually fight reveals; one you glance at through terrain does
+    // not. Learn accrues only while contact is recent; the overlay draws while it stays recent.
+    private sealed class Engage { public float Learn; public long LastContactMs; }
+    private readonly Dictionary<long, Engage> engaged = new();
+    private const long ContactActiveMs = 8000;  // still "in combat" this long after the last hit
+    private const long ContactPruneMs = 15000;  // forget the encounter after this quiet
 
     // The condition card (crouch-look): its own tiny panel, rebuilt on text change.
     private string lastCard = "";
@@ -55,6 +60,8 @@ public class MelDuelistsEye : HudElement
         this.capi = capi;
         BuildMarks();
         ComposeCard("");
+        capi.Network.RegisterChannel("almanactcmmel").RegisterMessageType<MelEngagedPacket>()
+            .SetMessageHandler<MelEngagedPacket>(OnEngaged);
         capi.Gui.RegisterDialog(this);
         capi.Event.RegisterGameTickListener(_ => { if (!IsOpened()) TryOpen(); }, 500);
     }
@@ -107,47 +114,49 @@ public class MelDuelistsEye : HudElement
         if (plr == null) { SetCard(""); return; }
 
         int level = MelDomain.ClientLevel();
-        if (level < 5) { SetCard(""); PruneLearned(); return; } // pre-Apprentice: nothing learned
+        if (level < 5) { SetCard(""); PruneEngaged(); return; } // pre-Apprentice: nothing learned
 
         var eye = plr.Pos.XYZ.Add(plr.LocalEyePos.X, plr.LocalEyePos.Y, plr.LocalEyePos.Z);
         var look = plr.Pos.GetViewVector().Normalize();
         var lookD = new Vec3d(look.X, look.Y, look.Z);
 
-        Entity? aimed = PickHostile(plr, eye, lookD);
+        // The condition card: crouch + look at a hostile is the deliberate size-up gesture.
+        Entity? aimed = plr.Controls.Sneak ? PickHostile(plr, eye, lookD) : null;
+        SetCard(aimed != null ? ConditionLine(aimed) : "");
 
-        // The condition card: only while crouched and looking (a deliberate size-up gesture).
-        SetCard(aimed != null && plr.Controls.Sneak ? ConditionLine(aimed) : "");
+        // The vital overlay: Master+, learned over time by FIGHTING the creature (contact-driven).
+        if (level >= 13) UpdateAndDrawOverlay(dt, level);
+        PruneEngaged();
+    }
 
-        // The vital overlay: Master+, learned over time by fighting the creature.
-        if (level >= 13) UpdateAndDrawOverlay(dt, aimed, level);
-        PruneLearned();
-
-        // TEMP DEBUG (0.3.129): throttled trace of the overlay chain. Strip once marks appear.
-        dbgAccum += dt;
-        if (dbgAccum >= 1f)
-        {
-            dbgAccum = 0;
-            dbgDraw = true; // make the next DrawVitalMarks log its detail
-            TcmLog.Cat(capi, "duel", $"level={level} aimed={aimed?.Code?.FirstCodePart() ?? "null"} " +
-                $"learned={learned.Count} reveal={RevealSeconds(level):0.#}s co={ResolveCo()}");
-        }
+    private void OnEngaged(MelEngagedPacket p)
+    {
+        if (!engaged.TryGetValue(p.MobId, out var e)) engaged[p.MobId] = e = new Engage();
+        e.LastContactMs = capi.World.ElapsedMilliseconds;
     }
 
     private float dbgAccum;
 
-    private void UpdateAndDrawOverlay(float dt, Entity? aimed, int level)
+    private void UpdateAndDrawOverlay(float dt, int level)
     {
-        // Accrue engagement on the aimed hostile; reveal once the read is learned.
-        if (aimed != null)
-        {
-            learned.TryGetValue(aimed.EntityId, out float t);
-            learned[aimed.EntityId] = t + dt;
-        }
-
+        long now = capi.World.ElapsedMilliseconds;
         float reveal = RevealSeconds(level);
-        foreach (var kv in learned)
+
+        // TEMP DEBUG (0.3.130): confirm contact-driven engagement. Strip once trigger is confirmed.
+        dbgAccum += dt;
+        if (dbgAccum >= 1f && engaged.Count > 0)
         {
-            if (kv.Value < reveal) continue;
+            dbgAccum = 0; dbgDraw = true;
+            var e0 = System.Linq.Enumerable.First(engaged);
+            TcmLog.Cat(capi, "duel", $"engaged={engaged.Count} first#{e0.Key} learn={e0.Value.Learn:0.#}/{reveal:0.#}s " +
+                $"contactAge={(now - e0.Value.LastContactMs) / 1000}s");
+        }
+        foreach (var kv in engaged)
+        {
+            var e = kv.Value;
+            bool active = now - e.LastContactMs <= ContactActiveMs;
+            if (active) e.Learn += dt;              // learn only while actively fighting it
+            if (!active || e.Learn < reveal) continue;
             var mob = capi.World.GetEntityById(kv.Key);
             if (mob == null || !mob.Alive) continue;
             DrawVitalMarks(mob);
@@ -292,16 +301,18 @@ public class MelDuelistsEye : HudElement
         return (float)(5.0 - t * 3.0);
     }
 
-    private void PruneLearned()
+    private void PruneEngaged()
     {
-        if (learned.Count == 0) return;
+        if (engaged.Count == 0) return;
+        long now = capi.World.ElapsedMilliseconds;
         List<long>? gone = null;
-        foreach (var kv in learned)
+        foreach (var kv in engaged)
         {
-            var e = capi.World.GetEntityById(kv.Key);
-            if (e == null || !e.Alive) (gone ??= new()).Add(kv.Key);
+            var mob = capi.World.GetEntityById(kv.Key);
+            if (mob == null || !mob.Alive || now - kv.Value.LastContactMs > ContactPruneMs)
+                (gone ??= new()).Add(kv.Key);
         }
-        if (gone != null) foreach (var id in gone) learned.Remove(id);
+        if (gone != null) foreach (var id in gone) engaged.Remove(id);
     }
 
     // ------------------------------------------------------------ card panel
