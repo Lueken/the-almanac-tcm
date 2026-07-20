@@ -75,8 +75,41 @@ public class MelDuelistsEye : HudElement
 
     private void BuildMarks()
     {
-        strikeMark = MakeRing(1.0, 0.85, 0.30, 0.95); // gold: strike here
-        avoidMark = MakeRing(0.55, 0.55, 0.6, 0.55);  // dim slate: resistant, avoid
+        strikeMark = MakeStar(1.0, 0.85, 0.30, 0.98); // gold 4-point star: strike here
+        avoidMark = MakeRing(0.55, 0.55, 0.6, 0.5);   // dim slate ring: resistant, avoid
+    }
+
+    /// <summary>A 4-pointed star (the Illuminated affinity-callout shape), to read distinctly
+    /// from the bow's ring: gold fill with a dark outline for legibility on bright sky.</summary>
+    private LoadedTexture MakeStar(double r, double g, double b, double a)
+    {
+        const int size = 40;
+        var surface = new ImageSurface(Format.Argb32, size, size);
+        var ctx = new Context(surface);
+        double c = size / 2.0, outer = 17, inner = 5.0;
+        void StarPath()
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                double ang = -Math.PI / 2 + i * Math.PI / 4;   // tips up/right/down/left
+                double rad = (i % 2 == 0) ? outer : inner;
+                double px = c + rad * Math.Cos(ang), py = c + rad * Math.Sin(ang);
+                if (i == 0) ctx.MoveTo(px, py); else ctx.LineTo(px, py);
+            }
+            ctx.ClosePath();
+        }
+        StarPath();
+        ctx.SetSourceRGBA(0, 0, 0, 0.6);
+        ctx.LineWidth = 3.0;
+        ctx.StrokePreserve();
+        ctx.SetSourceRGBA(r, g, b, a);
+        ctx.Fill();
+        surface.Flush();
+        ctx.Dispose();
+        var tex = new LoadedTexture(capi);
+        capi.Gui.LoadOrUpdateCairoTexture(surface, true, ref tex);
+        surface.Dispose();
+        return tex;
     }
 
     private LoadedTexture MakeRing(double r, double g, double b, double a)
@@ -135,22 +168,10 @@ public class MelDuelistsEye : HudElement
         e.LastContactMs = capi.World.ElapsedMilliseconds;
     }
 
-    private float dbgAccum;
-
     private void UpdateAndDrawOverlay(float dt, int level)
     {
         long now = capi.World.ElapsedMilliseconds;
         float reveal = RevealSeconds(level);
-
-        // TEMP DEBUG (0.3.130): confirm contact-driven engagement. Strip once trigger is confirmed.
-        dbgAccum += dt;
-        if (dbgAccum >= 1f && engaged.Count > 0)
-        {
-            dbgAccum = 0; dbgDraw = true;
-            var e0 = System.Linq.Enumerable.First(engaged);
-            TcmLog.Cat(capi, "duel", $"engaged={engaged.Count} first#{e0.Key} learn={e0.Value.Learn:0.#}/{reveal:0.#}s " +
-                $"contactAge={(now - e0.Value.LastContactMs) / 1000}s");
-        }
         foreach (var kv in engaged)
         {
             var e = kv.Value;
@@ -159,25 +180,23 @@ public class MelDuelistsEye : HudElement
             if (!active || e.Learn < reveal) continue;
             var mob = capi.World.GetEntityById(kv.Key);
             if (mob == null || !mob.Alive) continue;
-            DrawVitalMarks(mob);
+            DrawVitalMarks(mob, dt);
         }
     }
 
-    /// <summary>Paints a strike mark on the mob's vital collider (Critical, else the head) and a
-    /// dim mark on each Resistant collider, at their world-space centres.</summary>
-    internal bool dbgDraw;
-
-    private void DrawVitalMarks(Entity mob)
+    /// <summary>Paints a strike star on the mob's vital collider (Critical, else the head) and a
+    /// dim ring on each Resistant collider, at their world-space centres (position-smoothed).</summary>
+    private void DrawVitalMarks(Entity mob, float dt)
     {
-        if (!ResolveCo()) { if (dbgDraw) TcmLog.Cat(capi, "duel", "draw: ResolveCo false"); return; }
+        if (!ResolveCo()) return;
         object? beh = FindBehavior(mob, collidersBehType);
-        if (beh == null) { if (dbgDraw) TcmLog.Cat(capi, "duel", "draw: no CollidersEntityBehavior on mob"); return; }
+        if (beh == null) return;
         if (collidersProp!.GetValue(beh) is not System.Collections.IDictionary colliders) return;
         if (colliderTypesProp!.GetValue(beh) is not System.Collections.IDictionary types) return;
 
         // Best strike collider (Critical > Head) among names that ACTUALLY have a collider object
         // (types has more zone entries than there are colliders), and mark Resistants likewise.
-        string? bestStrike = null; int bestRank = -1; int marks = 0;
+        string? bestStrike = null; int bestRank = -1;
         foreach (System.Collections.DictionaryEntry e in types)
         {
             string name = (string)e.Key;
@@ -185,7 +204,7 @@ public class MelDuelistsEye : HudElement
             string zone = e.Value?.ToString() ?? "";
             if (zone == "Resistant")
             {
-                if (TryCenter(colliders, name, out Vec3d rc)) { DrawMark(avoidMark!, rc); marks++; }
+                if (TryCenter(colliders, name, out Vec3d rc)) DrawMark(avoidMark!, rc, mob.EntityId, name, dt);
             }
             else
             {
@@ -193,22 +212,8 @@ public class MelDuelistsEye : HudElement
                 if (rank > bestRank) { bestRank = rank; bestStrike = name; }
             }
         }
-        bool centered = false;
-        if (bestStrike != null && TryCenter(colliders, bestStrike, out Vec3d sc)) { DrawMark(strikeMark!, sc); marks++; centered = true; }
-
-        if (dbgDraw)
-        {
-            dbgDraw = false;
-            string detail = "";
-            if (bestStrike != null && colliders[bestStrike] is object col
-                && inworldVertsProp!.GetValue(col) is Array verts && verts.Length > 0 && verts.GetValue(0) is object v0)
-            {
-                var vt = v0.GetType();
-                detail = $" strike={bestStrike} verts={verts.Length} v0=({ReadD(v0, vt, "X"):0.#},{ReadD(v0, vt, "Y"):0.#},{ReadD(v0, vt, "Z"):0.#}) memberType={vt.Name}";
-            }
-            TcmLog.Cat(capi, "duel", $"draw {mob.Code?.FirstCodePart()}: colliders={colliders.Count} types={types.Count} " +
-                $"bestStrike={bestStrike ?? "none"} centered={centered} marks={marks}{detail}");
-        }
+        if (bestStrike != null && TryCenter(colliders, bestStrike, out Vec3d sc))
+            DrawMark(strikeMark!, sc, mob.EntityId, bestStrike, dt);
     }
 
     private bool TryCenter(System.Collections.IDictionary colliders, string name, out Vec3d center)
@@ -251,9 +256,28 @@ public class MelDuelistsEye : HudElement
         return val == null ? 0 : Convert.ToDouble(val);
     }
 
-    private void DrawMark(LoadedTexture tex, Vec3d worldCenter)
+    // Position smoothing: the collider centre bobs with the mob's animation, so the mark is
+    // eased toward it (~90ms time constant) to take the jitter off without visibly trailing.
+    // Keyed per mob+zone; large jumps (teleport / chunk pop) snap instead of lerp.
+    private readonly Dictionary<string, Vec3d> smooth = new();
+
+    private void DrawMark(LoadedTexture tex, Vec3d worldCenter, long mobId, string zone, float dt)
     {
-        var screen = MatrixToolsd.Project(worldCenter,
+        string key = mobId + ":" + zone;
+        if (!smooth.TryGetValue(key, out var sp) || worldCenter.DistanceTo(sp) > 3.0)
+        {
+            sp = worldCenter.Clone();
+        }
+        else
+        {
+            double f = Math.Min(1.0, dt * 11.0);
+            sp = new Vec3d(sp.X + (worldCenter.X - sp.X) * f,
+                           sp.Y + (worldCenter.Y - sp.Y) * f,
+                           sp.Z + (worldCenter.Z - sp.Z) * f);
+        }
+        smooth[key] = sp;
+
+        var screen = MatrixToolsd.Project(sp,
             capi.Render.PerspectiveProjectionMat, capi.Render.PerspectiveViewMat,
             capi.Render.FrameWidth, capi.Render.FrameHeight);
         if (screen.Z <= 0) return; // behind camera
@@ -322,7 +346,15 @@ public class MelDuelistsEye : HudElement
             if (mob == null || !mob.Alive || now - kv.Value.LastContactMs > ContactPruneMs)
                 (gone ??= new()).Add(kv.Key);
         }
-        if (gone != null) foreach (var id in gone) engaged.Remove(id);
+        if (gone != null)
+            foreach (var id in gone)
+            {
+                engaged.Remove(id);
+                string prefix = id + ":";
+                List<string>? keys = null;
+                foreach (var k in smooth.Keys) if (k.StartsWith(prefix)) (keys ??= new()).Add(k);
+                if (keys != null) foreach (var k in keys) smooth.Remove(k);
+            }
     }
 
     // ------------------------------------------------------------ card panel
