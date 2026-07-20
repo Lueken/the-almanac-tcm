@@ -34,11 +34,14 @@ public static class MelPatches
     private static PropertyInfo? argKind;
 
     private static bool coPresent;
+    private static Type? meleeWeaponBehavior; // CombatOverhaul MeleeWeaponBehavior (stamp gate)
 
     public static void RegisterServer(ICoreServerAPI api)
     {
         sapi = api;
         coPresent = api.ModLoader.IsModEnabled("combatoverhaulfork");
+        if (coPresent)
+            meleeWeaponBehavior = AccessTools.TypeByName("CombatOverhaul.Implementations.MeleeWeaponBehavior");
         api.Event.RegisterGameTickListener(ReconcileMelStats, 2000);
     }
 
@@ -58,6 +61,11 @@ public static class MelPatches
             var entity = player.Entity;
             if (entity == null) continue;
             int level = MelDomain.LevelOf(player);
+
+            // The defensive tier stamp rides the HELD guard, which changes without the level
+            // changing, so it stamps every tick (outside the change-gate). CO composes it into
+            // the block/parry tier at block start (OLC:19809/:19825).
+            if (coPresent) StampGuard(player, MelDomain.TierBonus(level));
 
             double dmg = MelDomain.NoviceFactor(level,
                 MelDomain.Knob(MelDomain.DamageUntrained, 0.85), 1.0);
@@ -82,6 +90,33 @@ public static class MelPatches
             }
             lastStats[player.PlayerUID] = (dmg, armor);
         }
+    }
+
+    /// <summary>Stamps the defensive block/parry tier bonus on the held CO melee weapon's stack
+    /// (the reloadSpeed-stamp pattern). CO reads these per-stack int attributes when composing the
+    /// block/parry tier (ItemStackMeleeWeaponStats, OLC:22266). DEFENSIVE only — never touches
+    /// GetToolTier, damage, or armor tier. Gated to CO melee weapons so no other item is polluted.</summary>
+    private static void StampGuard(IServerPlayer player, int tier)
+    {
+        var slot = player.InventoryManager?.ActiveHotbarSlot;
+        var stack = slot?.Itemstack;
+        if (stack?.Collectible == null) return;
+        if (meleeWeaponBehavior == null || !HasBehavior(stack, meleeWeaponBehavior))
+        {
+            return; // not a CO melee weapon: nothing parries with it
+        }
+        if (stack.Attributes.GetInt("blockTierBonus", 0) == tier
+            && stack.Attributes.GetInt("parryTierBonus", 0) == tier) return;
+        stack.Attributes.SetInt("blockTierBonus", tier);
+        stack.Attributes.SetInt("parryTierBonus", tier);
+        slot!.MarkDirty();
+    }
+
+    private static bool HasBehavior(ItemStack stack, Type behaviorType)
+    {
+        foreach (var b in stack.Collectible.CollectibleBehaviors)
+            if (behaviorType.IsInstanceOfType(b)) return true;
+        return false;
     }
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)

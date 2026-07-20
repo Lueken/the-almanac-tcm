@@ -51,6 +51,16 @@ public static class MelDomain
     public const string ArmorUntrained = "armorUntrained";
     public const string ArmorGm = "armorGm";
 
+    // Phase 3 knobs.
+    /// <summary>The parry catch-window grace at GM, milliseconds (0 at Novice, ruled modest).
+    /// Read directly by MelParryPatches.GraceMs via Knob().</summary>
+    public const string ParryGraceGmMs = "parryGraceGmMs";
+    /// <summary>Defensive block/parry tier bonus: the level at which a master's guard gains
+    /// +1 block tier (fully stops what a novice only partially blocks), and the bonus value.
+    /// Ruled DEFENSIVE only (what you can stop), never GetToolTier/damage/armor tier.</summary>
+    public const string BlockTierLevel = "blockTierLevel";
+    public const string BlockTierBonus = "blockTierBonus";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -72,8 +82,19 @@ public static class MelDomain
             [DamageUntrained] = 0.85,
             [ArmorUntrained] = 0.30,
             [ArmorGm] = -0.50,
+            [ParryGraceGmMs] = 180,
+            [BlockTierLevel] = 13, // Master I
+            [BlockTierBonus] = 1,
         }
     };
+
+    /// <summary>The defensive block/parry tier bonus for a level: 0 until the ruled threshold
+    /// (Master I), then the capped bonus. Int by nature — CO's BlockTier dict is integer tiers.</summary>
+    public static int TierBonus(int level)
+    {
+        int threshold = (int)Knob(BlockTierLevel, 13);
+        return level >= threshold ? (int)Knob(BlockTierBonus, 1) : 0;
+    }
 
     /// <summary>The Novice-anchored FACTOR curve: untrained at level 0, exactly 1.0 from
     /// Novice I (level 1) on, then linear to gm at max. For a penalty-only lever gm stays 1.0.</summary>

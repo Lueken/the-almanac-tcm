@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.123-dev")]
+    Version = "0.3.124-dev")]
 
 namespace AlmanacTcm;
 
@@ -97,6 +97,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("RAN-recovery", () => Domains.RanPatches.PatchConditional(api, harmony));
             Try("RAN-firearms", () => Domains.RanFirearmsPatches.PatchConditional(api, harmony));
             Try("MEL-block", () => Domains.MelPatches.PatchConditional(api, harmony));
+            Try("MEL-parry", () => Domains.MelParryPatches.PatchConditional(api, harmony));
             Try("HUN-bloodtrail", () => Domains.HunBloodTrailPatches.PatchConditional(api, harmony));
             Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));
             Try("WOO-colliersmark", () => Domains.WooColliersMark.PatchAll(api, harmony));
@@ -160,6 +161,8 @@ public class AlmanacTcmModSystem : ModSystem
         // MEL's blocking verb needs the server API for its grant; the kill verb rides the
         // shared listener already registered above.
         Domains.MelPatches.RegisterServer(sapi);
+        // The parry-widen grace tracks parry closes per defender.
+        Domains.MelParryPatches.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
