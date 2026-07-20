@@ -32,8 +32,9 @@ namespace AlmanacTcm.Domains;
 ///   • Spawner fence: contextHash = target type + 64-block area, so a camp collapses to a
 ///     few contexts inside the dedup window while a roaming hunt banks each new ground.
 ///
-/// Phase 1 wires the RAN grant. The MEL branch is classified and ready — it starts logging
-/// the moment MelDomain registers (kept dark until then so no unconfigured-technique warns).
+/// Both branches live: RAN since 0.3.112, MEL since 0.3.122 (MelDomain registration). The
+/// difficulty table is shared and reads the RAN knobs — one xpByType shape for both halves
+/// of the combat pair.
 /// </summary>
 public static class MelRanKillPatches
 {
@@ -161,11 +162,9 @@ public static class MelRanKillPatches
             (int)(entity.ServerPos.X / 64), (int)(entity.ServerPos.Z / 64));
 
         if (ranged)
-        {
             Core?.Ledger?.Log(player, RanDomain.Code, RanDomain.TechShooting, ctx, mult);
-        }
-        // else: MEL — classified and fenced identically; grant lands when MelDomain registers.
-        // (Logging RAN-side only this build keeps MEL's ledger clean of pre-config grants.)
+        else
+            Core?.Ledger?.Log(player, MelDomain.Code, MelDomain.TechFighting, ctx, mult);
     }
 
     // ------------------------------------------------------------ ruled fences
