@@ -60,6 +60,20 @@ public static class RanDomain
     public const string VanAccGm = "vanAccGm";
     public const string VanDrawGm = "vanDrawGm";
 
+    // Phase 3 firearms knobs (dependsOn firearmsfork). The misfire is an INTRODUCED failure
+    // (FA guns fire deterministically, stated plainly per the penalty-band pattern), ruled
+    // KEPT even at GM as a never-zero floor: period and modern firearms misfire on bad luck.
+    /// <summary>Flash-in-the-pan chance at level 0 (the Untrained fumble, the felt half).</summary>
+    public const string MisfireUntrained = "misfireUntrained";
+    /// <summary>Misfire at Apprentice I, the curve's knee: the worst is over by parity.</summary>
+    public const string MisfireApprentice = "misfireApprentice";
+    /// <summary>The GM floor, never zero (ruled 2026-07-11).</summary>
+    public const string MisfireGm = "misfireGm";
+    /// <summary>Powder/wadding thrift: chance a reload spends nothing. Zero through
+    /// Apprentice I (nothing above vanilla below parity), climbing to this GM cap,
+    /// capped well below certainty.</summary>
+    public const string ThriftGm = "thriftGm";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -95,8 +109,35 @@ public static class RanDomain
             [VanAccUntrained] = 0.90,
             [VanAccGm] = 1.05,
             [VanDrawGm] = 1.05,
+            [MisfireUntrained] = 0.08,
+            [MisfireApprentice] = 0.03,
+            [MisfireGm] = 0.01,
+            [ThriftGm] = 0.25,
         }
     };
+
+    /// <summary>The misfire curve: the Untrained fumble falls fast across Novice to the
+    /// Apprentice-I knee, then eases slowly to the GM floor. Never zero at any rank.</summary>
+    public static double MisfireChance(int level)
+    {
+        double u = Knob(MisfireUntrained, 0.08);
+        double a = Knob(MisfireApprentice, 0.03);
+        double g = Knob(MisfireGm, 0.01);
+        const int anchor = 5;
+        int max = Leveling.Domain.MaxLevelDefault;
+        if (level <= 0) return u;
+        if (level < anchor) return u + (a - u) * level / anchor;
+        return a + (g - a) * (level - anchor) / (double)(max - anchor);
+    }
+
+    /// <summary>The thrift curve: zero through Apprentice I, linear to the GM cap.</summary>
+    public static double ThriftChance(int level)
+    {
+        const int anchor = 5;
+        int max = Leveling.Domain.MaxLevelDefault;
+        if (level <= anchor) return 0;
+        return Knob(ThriftGm, 0.25) * (level - anchor) / (double)(max - anchor);
+    }
 
     /// <summary>The RAN curve (ruled 2026-07-18): untrained at level 0, penalty fading
     /// linearly across Novice, exactly 1.0 at APPRENTICE I (level 5), then linear to the

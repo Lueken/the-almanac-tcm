@@ -94,6 +94,8 @@
   "almanactcm:spot-names": "({0})",
   "almanactcm:spot-names-more": "and more",
   "almanactcm:fish-escaped": "The line goes slack. It got away, and it took the bait with it.",
+  "almanactcm:misfire-flash": "A flash in the pan. The charge stays seated. Prime it again.",
+  "almanactcm:powder-spared": "Practiced hands waste nothing. The reload cost you no powder.",
   "almanactcm:colliers-mark": "Collier's Mark: burned by {0}. Takes a hotter, longer fire.",
 
   "game:deathmsg-blockfalling-1": "{0}, the tree did not appreciate that.",
