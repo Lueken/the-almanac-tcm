@@ -73,6 +73,11 @@ public static class RanDomain
     /// Apprentice I (nothing above vanilla below parity), climbing to this GM cap,
     /// capped well below certainty.</summary>
     public const string ThriftGm = "thriftGm";
+    /// <summary>The penalty half of the powder economy (ruled 2026-07-20): chance an
+    /// Untrained reload spills an extra powder unit (the clumsy overpour), fading to
+    /// zero at Apprentice I. The felt story is the beginner wasting, not just the
+    /// master saving.</summary>
+    public const string SpillUntrained = "spillUntrained";
 
     public static DomainConfig Defaults() => new()
     {
@@ -113,6 +118,7 @@ public static class RanDomain
             [MisfireApprentice] = 0.03,
             [MisfireGm] = 0.01,
             [ThriftGm] = 0.25,
+            [SpillUntrained] = 0.25,
         }
     };
 
@@ -137,6 +143,16 @@ public static class RanDomain
         int max = Leveling.Domain.MaxLevelDefault;
         if (level <= anchor) return 0;
         return Knob(ThriftGm, 0.25) * (level - anchor) / (double)(max - anchor);
+    }
+
+    /// <summary>The spill curve, thrift's mirror: full at Untrained, fading linearly to
+    /// zero at Apprentice I. The two bands never overlap.</summary>
+    public static double SpillChance(int level)
+    {
+        const int anchor = 5;
+        if (level >= anchor) return 0;
+        double u = Knob(SpillUntrained, 0.25);
+        return level <= 0 ? u : u * (1.0 - level / (double)anchor);
     }
 
     /// <summary>The RAN curve (ruled 2026-07-18): untrained at level 0, penalty fading

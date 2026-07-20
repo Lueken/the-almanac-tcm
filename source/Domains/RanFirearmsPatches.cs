@@ -47,8 +47,17 @@ public static class RanFirearmsPatches
         if (!api.ModLoader.IsModEnabled("firearmsfork")) return;
 
         var t = AccessTools.TypeByName("Firearms.MuzzleloaderServer");
-        var shoot = t == null ? null : AccessTools.Method(t, "Shoot");
-        var reload = t == null ? null : AccessTools.Method(t, "Reload");
+        var shotPacket = AccessTools.TypeByName("CombatOverhaul.RangedSystems.ShotPacket");
+        var reloadPacket = AccessTools.TypeByName("CombatOverhaul.RangedSystems.ReloadPacket");
+        // Signatures spelled out: the OLC base carries (ICoreAPI, ...) overloads of both
+        // methods, and a name-only lookup is an ambiguous match (the 0.3.117 failure that
+        // left the whole layer inactive).
+        var shoot = t == null || shotPacket == null ? null
+            : AccessTools.DeclaredMethod(t, "Shoot",
+                new[] { typeof(IServerPlayer), typeof(ItemSlot), shotPacket, typeof(Entity) });
+        var reload = t == null || reloadPacket == null ? null
+            : AccessTools.DeclaredMethod(t, "Reload",
+                new[] { typeof(IServerPlayer), typeof(ItemSlot), typeof(ItemSlot), reloadPacket });
         if (shoot == null || reload == null)
         {
             TcmLog.Warn(api, "firearmsfork present but MuzzleloaderServer.Shoot/Reload not found; RAN firearms layer inactive");
@@ -142,15 +151,39 @@ public static class RanFirearmsPatches
             if (sapi == null) return;
 
             int level = RanDomain.LevelOf(player);
+            var flaskStack = __state.Flask?.Itemstack;
+            bool powderSpent = flaskStack != null
+                && flaskStack.Collectible.GetRemainingDurability(flaskStack) < __state.FlaskDur;
+
+            // The penalty half (below Apprentice I): the clumsy overpour spills an extra
+            // unit on top of what the reload consumed. Only fires when powder was actually
+            // poured this stage, and never empties past zero.
+            double spill = RanDomain.SpillChance(level);
+            if (spill > 0)
+            {
+                if (powderSpent && rand.NextDouble() < spill)
+                {
+                    int now = flaskStack!.Collectible.GetRemainingDurability(flaskStack);
+                    if (now > 0)
+                    {
+                        flaskStack.Attributes.SetInt("durability", now - 1);
+                        __state.Flask!.MarkDirty();
+                        player!.SendMessage(GlobalConstants.InfoLogChatGroup,
+                            Lang.GetL(player.LanguageCode, "almanactcm:powder-spilled"), EnumChatType.Notification);
+                        TcmLog.Cat(sapi, "ran", $"{player.PlayerName}: clumsy pour spilled powder (RAN {level}, chance {spill:P1})");
+                    }
+                }
+                return; // the bands never overlap: no thrift below Apprentice I
+            }
+
+            // The bonus half (above Apprentice I): the measured charge spends nothing.
             double chance = RanDomain.ThriftChance(level);
             if (chance <= 0 || rand.NextDouble() >= chance) return;
 
             bool spared = false;
-            var flaskStack = __state.Flask?.Itemstack;
-            if (flaskStack != null
-                && flaskStack.Collectible.GetRemainingDurability(flaskStack) < __state.FlaskDur)
+            if (powderSpent)
             {
-                flaskStack.Attributes.SetInt("durability", __state.FlaskDur);
+                flaskStack!.Attributes.SetInt("durability", __state.FlaskDur);
                 __state.Flask!.MarkDirty();
                 spared = true;
             }
