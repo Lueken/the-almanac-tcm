@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.127-dev")]
+    Version = "0.3.128-dev")]
 
 namespace AlmanacTcm;
 
@@ -209,6 +209,11 @@ public class AlmanacTcmModSystem : ModSystem
         // meaningless without CO's aiming system, so gated on it.
         if (capi.ModLoader.IsModEnabled("combatoverhaulfork"))
             new Domains.RanMarksmansEye(capi);
+
+        // The Duelist's Eye (MEL P4): condition read + vital-point overlay, reads CO's client
+        // collider/zone data, so gated on CO.
+        if (capi.ModLoader.IsModEnabled("combatoverhaulfork"))
+            new Domains.MelDuelistsEye(capi);
 
         // Client cosmetic settings (ConfigLib GUI -> almanactcm-client.json); load before the
         // tracker + vignette so they pick up the tuned values.
