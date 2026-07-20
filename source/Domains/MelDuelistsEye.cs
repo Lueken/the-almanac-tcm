@@ -121,7 +121,19 @@ public class MelDuelistsEye : HudElement
         // The vital overlay: Master+, learned over time by fighting the creature.
         if (level >= 13) UpdateAndDrawOverlay(dt, aimed, level);
         PruneLearned();
+
+        // TEMP DEBUG (0.3.129): throttled trace of the overlay chain. Strip once marks appear.
+        dbgAccum += dt;
+        if (dbgAccum >= 1f)
+        {
+            dbgAccum = 0;
+            dbgDraw = true; // make the next DrawVitalMarks log its detail
+            TcmLog.Cat(capi, "duel", $"level={level} aimed={aimed?.Code?.FirstCodePart() ?? "null"} " +
+                $"learned={learned.Count} reveal={RevealSeconds(level):0.#}s co={ResolveCo()}");
+        }
     }
+
+    private float dbgAccum;
 
     private void UpdateAndDrawOverlay(float dt, Entity? aimed, int level)
     {
@@ -144,23 +156,25 @@ public class MelDuelistsEye : HudElement
 
     /// <summary>Paints a strike mark on the mob's vital collider (Critical, else the head) and a
     /// dim mark on each Resistant collider, at their world-space centres.</summary>
+    internal bool dbgDraw;
+
     private void DrawVitalMarks(Entity mob)
     {
-        if (!ResolveCo()) return;
+        if (!ResolveCo()) { if (dbgDraw) TcmLog.Cat(capi, "duel", "draw: ResolveCo false"); return; }
         object? beh = FindBehavior(mob, collidersBehType);
-        if (beh == null) return;
+        if (beh == null) { if (dbgDraw) TcmLog.Cat(capi, "duel", "draw: no CollidersEntityBehavior on mob"); return; }
         if (collidersProp!.GetValue(beh) is not System.Collections.IDictionary colliders) return;
         if (colliderTypesProp!.GetValue(beh) is not System.Collections.IDictionary types) return;
 
         // First pass: find the single best strike collider (Critical > Head), and mark Resistants.
-        string? bestStrike = null; int bestRank = -1;
+        string? bestStrike = null; int bestRank = -1; int marks = 0;
         foreach (System.Collections.DictionaryEntry e in types)
         {
             string name = (string)e.Key;
             string zone = e.Value?.ToString() ?? "";
             if (zone == "Resistant")
             {
-                if (TryCenter(colliders, name, out Vec3d rc)) DrawMark(avoidMark!, rc);
+                if (TryCenter(colliders, name, out Vec3d rc)) { DrawMark(avoidMark!, rc); marks++; }
             }
             else
             {
@@ -168,7 +182,14 @@ public class MelDuelistsEye : HudElement
                 if (rank > bestRank) { bestRank = rank; bestStrike = name; }
             }
         }
-        if (bestStrike != null && TryCenter(colliders, bestStrike, out Vec3d sc)) DrawMark(strikeMark!, sc);
+        bool centered = false;
+        if (bestStrike != null && TryCenter(colliders, bestStrike, out Vec3d sc)) { DrawMark(strikeMark!, sc); marks++; centered = true; }
+        if (dbgDraw)
+        {
+            dbgDraw = false;
+            TcmLog.Cat(capi, "duel", $"draw {mob.Code?.FirstCodePart()}: colliders={colliders.Count} types={types.Count} " +
+                $"bestStrike={bestStrike ?? "none"} centered={centered} marksDrawn={marks}");
+        }
     }
 
     private bool TryCenter(System.Collections.IDictionary colliders, string name, out Vec3d center)
@@ -237,8 +258,10 @@ public class MelDuelistsEye : HudElement
             var to = center.Sub(eye);
             double dist = to.Length();
             if (dist < 1.0 || dist >= bestDist) continue;
+            // A generous cone: at melee range you are close to a big target, so small aim
+            // offsets are large angles. ~35 deg keeps the foe you are fighting picked.
             var dir = to.Normalize();
-            if (dir.X * look.X + dir.Y * look.Y + dir.Z * look.Z >= 0.99) { bestDist = dist; best = e; }
+            if (dir.X * look.X + dir.Y * look.Y + dir.Z * look.Z >= 0.82) { bestDist = dist; best = e; }
         }
         return best;
     }
