@@ -18,11 +18,11 @@ namespace AlmanacTcm.Domains;
 /// Misfire — an INTRODUCED failure, stated plainly: FA guns fire deterministically (the server
 /// Shoot rolls no chance, FA:4337), so the Untrained flash-in-the-pan is Copybook's own, and it
 /// is rank-reduced but NEVER eliminated (GM floor ruled 2026-07-11: period and modern firearms
-/// misfire on bad luck). On a flash the prime burns without discharge: the loading stage drops
-/// from Priming back to Loading (the ball stays seated, the pan needs fresh powder), the
-/// flintlock strikes audibly, and the shot never spawns. Skipping the original is safe: the
-/// OLC base Shoot only marks the stack (OLC:30419), and the stage write + MarkDirty here
-/// covers the sync.
+/// misfire on bad luck). A flash cancels the CURRENT pull only — flintlock snap, no discharge,
+/// piece stays primed, next pull re-rolls. The gun's loading stage is deliberately untouched
+/// (see the prefix note: FA's client ignores server rejections, so any server-side stage
+/// change strands the client in an unfireable-but-firing loop). Skipping the original is
+/// safe: the OLC base Shoot only marks the stack (OLC:30419).
 ///
 /// Powder/wadding thrift — the firearms MET-fuel twin: at reload/prime completion a
 /// rank-weighted roll refunds what the reload just consumed (flask powder durability, wadding
@@ -39,7 +39,6 @@ public static class RanFirearmsPatches
     /// MuzzleloaderLoadingStage enum: 0 Unloaded, 1 Loading, 2 Priming (= ready to fire;
     /// the musket's extended enum shares the first three values, FA:1675/:2461).</summary>
     private const string StageAttr = "CombatOverhaul:loading-stage";
-    private const int StageLoading = 1;
     private const int StagePrimed = 2;
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
@@ -90,9 +89,12 @@ public static class RanFirearmsPatches
             double chance = RanDomain.MisfireChance(level);
             if (rand.NextDouble() >= chance) return true;
 
-            // The prime burns, the charge stays seated: back to Loading, re-prime to fire.
-            slot.Itemstack.Attributes.SetInt(StageAttr, StageLoading);
-            slot.MarkDirty();
+            // The flash cancels THIS pull only; the piece stays primed and the next pull
+            // re-rolls. The stage must NOT be knocked back: FA's client ignores server
+            // rejections entirely (ShootServerCallback is empty, FA:3760) and its in-memory
+            // MuzzleloaderState decides fire-eligibility from the magazine, not the loading
+            // stage - a server-side stage change strands the client hammering a trigger the
+            // server always refuses (the 0.3.118 infinite-blank-fire bug).
             sapi.World.PlaySoundAt(new AssetLocation("maltiezfirearms", "sounds/musket/flintlock-strike"),
                 player!.Entity, null, randomizePitch: true, 24f);
             player.SendMessage(GlobalConstants.InfoLogChatGroup,
