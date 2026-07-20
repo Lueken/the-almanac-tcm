@@ -148,6 +148,7 @@ public class RanMarksmansEye : HudElement
         foreach (var e in capi.World.LoadedEntities.Values)
         {
             if (e == null || !e.Alive || e == plr || e is not EntityAgent) continue;
+            if (!IsMarkTarget(e)) continue;
             var center = e.Pos.XYZ.Add(0, (e.SelectionBox?.Y2 ?? 0.5f) * 0.5, 0);
             var to = center.Sub(eye);
             double dist = to.Length();
@@ -159,6 +160,16 @@ public class RanMarksmansEye : HudElement
             if (dot >= 0.981) { best = dist; aimed = e; }
         }
         return aimed;
+    }
+
+    /// <summary>Quarry worth a marksman's lead (ruled 2026-07-20: animals and rust monsters,
+    /// never butterflies): anything harvestable — which covers game AND the temporal hostiles
+    /// (drifters/bells carry the behavior; critters do not) — plus rustboundmagic's creatures
+    /// by domain in case theirs skip it.</summary>
+    private static bool IsMarkTarget(Entity e)
+    {
+        if (e.GetBehavior<Vintagestory.GameContent.EntityBehaviorHarvestable>() != null) return true;
+        return e.Code?.Domain == "rustboundmagic";
     }
 
     /// <summary>Velocity from position sampling (client Motion on server-driven entities is
