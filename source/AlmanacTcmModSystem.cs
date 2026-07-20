@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.133-dev")]
+    Version = "0.3.134-dev")]
 
 namespace AlmanacTcm;
 
@@ -98,6 +98,9 @@ public class AlmanacTcmModSystem : ModSystem
             Try("RAN-firearms", () => Domains.RanFirearmsPatches.PatchConditional(api, harmony));
             Try("MEL-block", () => Domains.MelPatches.PatchConditional(api, harmony));
             Try("MEL-parry", () => Domains.MelParryPatches.PatchConditional(api, harmony));
+            Try("FAR", () => Domains.FarPatches.PatchConditional(api, harmony));
+            Try("COO", () => Domains.CooPatches.PatchConditional(api, harmony));
+            Try("ANI", () => Domains.AniPatches.PatchConditional(api, harmony));
             Try("HUN-bloodtrail", () => Domains.HunBloodTrailPatches.PatchConditional(api, harmony));
             Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));
             Try("WOO-colliersmark", () => Domains.WooColliersMark.PatchAll(api, harmony));
@@ -118,6 +121,10 @@ public class AlmanacTcmModSystem : ModSystem
         Engine.LedgerSystem.DefaultFactories[Domains.HunDomain.Code] = Domains.HunDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.RanDomain.Code] = Domains.RanDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.MelDomain.Code] = Domains.MelDomain.Defaults;
+        // The farm-to-table trio (one incumbent design lineage, one shared owner stamp).
+        Engine.LedgerSystem.DefaultFactories[Domains.FarDomain.Code] = Domains.FarDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.CooDomain.Code] = Domains.CooDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.AniDomain.Code] = Domains.AniDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
@@ -163,6 +170,13 @@ public class AlmanacTcmModSystem : ModSystem
         Domains.MelPatches.RegisterServer(sapi);
         // The parry-widen grace tracks parry closes per defender.
         Domains.MelParryPatches.RegisterServer(sapi);
+
+        // The farm-to-table trio's server hooks (vanilla-floor verb grants, the shared trough
+        // owner stamp FAR writes and ANI reads, the unattended cooking/birth completion sinks).
+        // Registered after the ledger is live like every other domain.
+        Domains.FarPatches.RegisterServer(sapi);
+        Domains.CooPatches.RegisterServer(sapi);
+        Domains.AniPatches.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
