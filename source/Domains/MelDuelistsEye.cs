@@ -75,7 +75,7 @@ public class MelDuelistsEye : HudElement
 
     private void BuildMarks()
     {
-        strikeMark = MakeStar(1.0, 0.85, 0.30, 0.98); // gold 4-point star: strike here
+        strikeMark = MakeStar(1.0, 0.85, 0.30, 0.80); // gold 4-point star, 80% opacity: strike here
         avoidMark = MakeRing(0.55, 0.55, 0.6, 0.5);   // dim slate ring: resistant, avoid
     }
 
