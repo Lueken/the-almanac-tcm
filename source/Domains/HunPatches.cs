@@ -216,10 +216,18 @@ public static class HunPatches
 
     // ------------------------------------------------------------ hunting (the kill)
 
+    /// <summary>Wild game only: harvestable AND carries a creatureDiet. Animals eat; temporal
+    /// hostiles (drifter/shiver/bowtorn/bell) do not, and although CO makes them carvable they
+    /// are COMBAT quarry (MEL/RAN), never the hunt. Matches the Tracker's Eye IsAnimal test.
+    /// (Fix 2026-07-20: rust-mob kills+carving were wrongly banking HUN.)</summary>
+    private static bool IsHuntableGame(Entity e) =>
+        e.GetBehavior<EntityBehaviorHarvestable>() != null
+        && e.Properties?.Attributes?["creatureDiet"]?.Exists == true;
+
     private static void OnEntityDeath(Entity entity, DamageSource? damageSource)
     {
         if (sapi == null || entity == null || damageSource == null) return;
-        if (entity.GetBehavior<EntityBehaviorHarvestable>() == null) return; // not huntable game
+        if (!IsHuntableGame(entity)) return; // wild game only, never rust monsters
 
         // Tamed/owned beasts are ANI's world, not the hunt's (petai/wolftaming/genelib guards).
         var wa = entity.WatchedAttributes;
@@ -281,10 +289,14 @@ public static class HunPatches
     [HarmonyPatch(typeof(EntityBehaviorHarvestable), nameof(EntityBehaviorHarvestable.GenerateDrops))]
     public static class DressingPatch
     {
-        public static void Postfix(IPlayer byPlayer)
+        public static void Postfix(EntityBehaviorHarvestable __instance, IPlayer byPlayer)
         {
             var world = byPlayer?.Entity?.World;
             if (world == null || world.Side != EnumAppSide.Server) return;
+            // Carving a rust monster is not dressing game (fix 2026-07-20): gate on the same
+            // wild-game test as the kill grant, so only animals bank HUN dressing.
+            var carcass = HarmonyLib.AccessTools.Field(typeof(EntityBehavior), "entity")?.GetValue(__instance) as Entity;
+            if (carcass == null || !IsHuntableGame(carcass)) return;
             Core?.Ledger?.Log(byPlayer!, HunDomain.Code, HunDomain.TechDressing,
                 HashCode.Combine(HunDomain.TechDressing, world.ElapsedMilliseconds / 1000));
         }

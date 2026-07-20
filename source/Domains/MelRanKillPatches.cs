@@ -97,59 +97,7 @@ public static class MelRanKillPatches
             bool ranged = damageSource!.SourceEntity != null && damageSource.SourceEntity != cause;
             lastAttacker[__instance.EntityId] =
                 new LastHit(attacker.PlayerUID, ranged, __instance.World.ElapsedMilliseconds);
-            if (sapi != null)
-                TcmLog.Cat(sapi, "combat",
-                    $"wound recorded: {__instance.Code?.FirstCodePart()} #{__instance.EntityId} by {attacker.Player?.PlayerName} " +
-                    $"({(ranged ? "ranged" : "melee")}, {damage:0.#} dmg){(ranged ? "" : " " + ZoneDebug(__instance, damageSource))}");
         }
-    }
-
-    // TEMP DEBUG (0.3.125): resolve which collider/zone a melee hit landed on, to settle whether
-    // vanilla rust mobs carry usable zones (head 1.25x vs torso 1x) or are single-hitbox. Reads
-    // CO's DirectionalTypedDamageSource.Collider + the mob's collider->zone->multiplier maps by
-    // reflection (soft, best-effort). Strip once the zone question is answered.
-    private static System.Reflection.PropertyInfo? colliderProp;
-    private static System.Type? collidersBehType;   // CollidersEntityBehavior
-    private static System.Type? damageModelBehType;  // EntityDamageModelBehavior
-    private static System.Reflection.PropertyInfo? collidersTypesProp; // .CollidersTypes
-    private static System.Reflection.PropertyInfo? damageMultsProp;    // .DamageMultipliers
-
-    private static string ZoneDebug(Entity mob, DamageSource src)
-    {
-        try
-        {
-            colliderProp ??= src.GetType().GetProperty("Collider");
-            string collider = colliderProp?.GetValue(src) as string ?? "";
-            if (collider == "") return "zone=<none> (no collider -> Torso 1x, single-hitbox mob)";
-
-            collidersBehType ??= HarmonyLib.AccessTools.TypeByName("CombatOverhaul.Colliders.CollidersEntityBehavior")
-                ?? HarmonyLib.AccessTools.TypeByName("CombatOverhaul.RangedSystems.CollidersEntityBehavior");
-            damageModelBehType ??= HarmonyLib.AccessTools.TypeByName("CombatOverhaul.DamageSystems.EntityDamageModelBehavior");
-
-            object? cBeh = FindBehaviorByType(mob, collidersBehType);
-            object? dBeh = FindBehaviorByType(mob, damageModelBehType);
-            if (cBeh == null || dBeh == null) return $"collider={collider} (zone maps unavailable)";
-
-            collidersTypesProp ??= cBeh.GetType().GetProperty("CollidersTypes");
-            damageMultsProp ??= dBeh.GetType().GetProperty("DamageMultipliers");
-            var typesDict = collidersTypesProp?.GetValue(cBeh) as System.Collections.IDictionary;
-            var multsDict = damageMultsProp?.GetValue(dBeh) as System.Collections.IDictionary;
-            if (typesDict == null || !typesDict.Contains(collider))
-                return $"collider={collider} zone=UNMAPPED (-> Torso 1x)";
-
-            object zone = typesDict[collider]!;
-            object? mult = multsDict != null && multsDict.Contains(zone) ? multsDict[zone] : null;
-            return $"collider={collider} zone={zone} mult={mult ?? "?"}";
-        }
-        catch (System.Exception e) { return $"(zone debug failed: {e.Message})"; }
-    }
-
-    private static object? FindBehaviorByType(Entity entity, System.Type? t)
-    {
-        if (t == null) return null;
-        foreach (var b in entity.SidedProperties?.Behaviors ?? new List<EntityBehavior>())
-            if (t.IsInstanceOfType(b)) return b;
-        return null;
     }
 
     private static void PruneLastAttackers(float dt)
