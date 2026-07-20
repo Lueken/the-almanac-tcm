@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.119-dev")]
+    Version = "0.3.120-dev")]
 
 namespace AlmanacTcm;
 
@@ -195,6 +195,11 @@ public class AlmanacTcmModSystem : ModSystem
         // RAN steadyAim rides the client under CO (CO registers/reads it client-side, and
         // its Register wipes server-synced values — the 0.3.113 lesson).
         Domains.RanPatches.RegisterClient(capi);
+
+        // The Marksman's Eye lead marker (P4, amended ruling 2026-07-20): client-only,
+        // meaningless without CO's aiming system, so gated on it.
+        if (capi.ModLoader.IsModEnabled("combatoverhaulfork"))
+            new Domains.RanMarksmansEye(capi);
 
         // Client cosmetic settings (ConfigLib GUI -> almanactcm-client.json); load before the
         // tracker + vignette so they pick up the tuned values.
