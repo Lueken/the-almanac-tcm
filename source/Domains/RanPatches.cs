@@ -97,7 +97,6 @@ public static class RanPatches
     // ------------------------------------------------------------ client steadyAim write
 
     private static float lastClientSteady = -1f;
-    private static int clientTickCount;
 
     /// <summary>The CO accuracy spine runs on the CLIENT: CO registers steadyAim in its
     /// client aiming behavior and reads it there every aim tick — and that Register call
@@ -106,7 +105,14 @@ public static class RanPatches
     /// EVERY server-side stat sync rebuilds the client's stats tree from the server's own
     /// map, which never holds this client-written entry — so the write repeats fast (250ms,
     /// purely local, no network traffic) to keep the gap shorter than any aim hold. Curve
-    /// endpoints are the compile defaults — the client cannot read RAN.json (by design).</summary>
+    /// endpoints are the compile defaults — the client cannot read RAN.json (by design).
+    ///
+    /// RULED 2026-07-19: CO class traits and gear STACK on top of the rank contribution
+    /// (the CO fork gives the hunter class a +0.5 steadyAim trait — hunters are natural
+    /// archers). Copybook writes only its own rank delta and never re-scales what the
+    /// class granted (the TEM/archivist posture, governing principle 4). A hunter-class
+    /// character therefore never feels the Untrained wobble — consistent with hunter's
+    /// Apprentice-I RAN affinity start; the wobble arc belongs to every other class.</summary>
     public static void RegisterClient(Vintagestory.API.Client.ICoreClientAPI capi)
     {
         if (!capi.ModLoader.IsModEnabled("combatoverhaulfork")) return;
@@ -121,16 +127,12 @@ public static class RanPatches
                 RanDomain.Knob(RanDomain.SteadyAimGm, 1.35));
             entity.Stats.Set("steadyAim", "almanactcm", steady - 1f, false);
 
-            // Diagnosis-mode logging (stripped once the sway lever is confirmed felt): the
-            // read-back blended value proves whether the entry survives to CO's read side.
-            bool changed = Math.Abs(steady - lastClientSteady) >= 0.001f;
-            if (changed || ++clientTickCount >= 20) // every change, else every ~5s
+            if (Math.Abs(steady - lastClientSteady) >= 0.001f)
             {
-                clientTickCount = 0;
                 lastClientSteady = steady;
                 float blended = entity.Stats.GetBlended("steadyAim");
-                TcmLog.Cat(capi, "ran", $"steadyAim want {steady:0.###}, blended {blended:0.###} " +
-                    $"(RAN level {level}, drift x{1f / Math.Clamp(blended * blended, 0.25f, 4f):0.##})");
+                TcmLog.Cat(capi, "ran", $"steadyAim rank contribution {steady:0.###}, blended {blended:0.###} " +
+                    $"(RAN level {level}; class traits/gear stack on top by ruling 2026-07-19)");
             }
         }, 250);
     }
