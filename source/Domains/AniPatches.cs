@@ -37,6 +37,13 @@ public static class AniPatches
         // Vanilla birth (fires for non-genelib animals, or all animals where genelib is absent).
         Hook(api, harmony, "Vintagestory.GameContent.EntityBehaviorMultiply", "GiveBirth", nameof(BirthPostfix), "ANI gen-raising (vanilla)");
 
+        // Taming — the saddle-break completion (verified 1.22.3: EntityBehaviorRideable
+        // .ConvertToTamedAnimal fires once when RemainingSaddleBreaks hits zero, the WILD/feral ->
+        // TAME crossing; partial progress banks nothing). Covers horses and any rideable that tames
+        // by breaking. The petai feed-to-domesticate path (wolves/foxes) is the next increment (it
+        // needs petai's own before/after transition capture).
+        Hook(api, harmony, "Vintagestory.GameContent.EntityBehaviorRideable", "ConvertToTamedAnimal", nameof(SaddleBreakPostfix), "ANI taming (saddle-break)");
+
         // genelib overrides GiveBirth, so its animals never reach the base patch — hook the
         // override too. The namespace is best-effort; a miss just leaves genelib births uncredited
         // (warned) until the exact type name is confirmed in-game.
@@ -69,6 +76,36 @@ public static class AniPatches
     /// <summary>EntityBehavior.entity is protected; read it by reflection (the HunPatches pattern).</summary>
     private static Entity? BehaviorEntity(EntityBehavior beh) =>
         AccessTools.Field(typeof(EntityBehavior), "entity")?.GetValue(beh) as Entity;
+
+    /// <summary>The mounted player on a rideable behaviour (EntityBehaviorRideable :
+    /// EntityBehaviorSeatable). Reads Seats -> each seat's Passenger by reflection, returning the
+    /// first player rider — who tamed the animal by breaking it.</summary>
+    private static IPlayer? RiderOf(EntityBehavior beh)
+    {
+        if (Traverse.Create(beh).Property("Seats").GetValue() is not System.Collections.IEnumerable seats) return null;
+        foreach (object? seat in seats)
+        {
+            if (seat == null) continue;
+            if (Traverse.Create(seat).Property("Passenger").GetValue() is EntityPlayer ep) return ep.Player;
+        }
+        return null;
+    }
+
+    // ------------------------------------------------------------ taming (saddle-break)
+
+    /// <summary>A wild/feral rideable just tamed by breaking. Credit the rider ANI taming and stamp
+    /// them as the animal's raiser (the tamer raised it), so its future offspring attribute cleanly
+    /// even before it ever eats from a trough.</summary>
+    public static void SaddleBreakPostfix(EntityBehavior __instance)
+    {
+        Entity? animal = __instance == null ? null : BehaviorEntity(__instance);
+        if (animal?.World?.Side != EnumAppSide.Server) return;
+        IPlayer? rider = RiderOf(__instance!);
+        if (rider == null) return;
+        animal.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, rider.PlayerUID);
+        Core?.Ledger?.Log(rider, AniDomain.Code, AniDomain.TechTaming,
+            HashCode.Combine("break", animal.EntityId, animal.World.ElapsedMilliseconds / 1000));
+    }
 
     // ------------------------------------------------------------ gen-raising (the birth)
 

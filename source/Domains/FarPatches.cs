@@ -61,15 +61,28 @@ public static class FarPatches
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFruitTreePart", "OnBlockInteractStop", nameof(OrchardPostfix), "FAR orchard");
         Hook(api, harmony, "Vintagestory.GameContent.BlockSkep", "OnBlockBroken", nameof(BeekeepPostfix), "FAR beekeeping");
 
-        // The feeding loop: two hooks on the trough — store the filler, then credit + stamp at
-        // the portion consume.
-        Hook(api, harmony, "Vintagestory.GameContent.BlockEntityTrough", "OnInteract", nameof(TroughFillPostfix), "FAR trough fill");
+        // The feeding loop: the filler is stamped at the trough BLOCK interaction (verified
+        // 1.22.3: BlockTroughBase.OnBlockInteractStart is the fill seam — the BE has no
+        // OnInteract, the 0.3.134 miss that left the whole raisedBy spine dark), then credited +
+        // stamped at the portion consume on the BE.
+        Hook(api, harmony, "Vintagestory.GameContent.BlockTroughBase", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityTrough", "ConsumeOnePortion", nameof(TroughConsumePostfix), "FAR feeding");
 
         // Shearing — shearlib's library verb (success-gated: a clean shear only; the damaging
         // shear = zero XP lever is Phase 2).
         if (api.ModLoader.IsModEnabled("shearlib"))
             Hook(api, harmony, "ShearLib.EntityBehaviorShearable", "DoShear", nameof(ShearPostfix), "FAR shearing");
+
+        // Beekeeping under From Golden Combs: FGC swaps populated skeps to its own BE and makes
+        // apiculture a repeatable HARVEST-BY-INTERACTION (ceramic pots, Langstroth frames, frame
+        // racks), so the vanilla BlockSkep break below only fires on the public-release fallback.
+        // Credit the tending interaction on each FGC hive BE (heavy dedup: one credit per hive per
+        // ~30s, so idle clicks collapse to a tending session). Verified against FGC 2.0.8.
+        if (api.ModLoader.IsModEnabled("fromgoldencombs"))
+        {
+            foreach (string be in new[] { "BECeramicBroodPot", "BEFrameRack", "BELangstrothStack", "BELangstrothSuper", "BEFGCBeehive" })
+                Hook(api, harmony, "FromGoldenCombs.BlockEntities." + be, "OnInteract", nameof(FgcHivePostfix), "FAR beekeeping (FGC)");
+        }
     }
 
     /// <summary>Resolve a type+method by name and patch a postfix onto it, warning-and-skipping
@@ -123,10 +136,17 @@ public static class FarPatches
     {
         if (byPlayer == null || !ServerSide(world) || __instance?.Code == null) return;
 
+        // CROP GUARD (verified 1.22.3): BlockCrop does NOT override OnBlockBroken, so this patch
+        // resolves to the inherited Block.OnBlockBroken and fires on EVERY block break. Only a real
+        // crop carries CropProps — without this guard, breaking rock/wood would bank FAR harvesting
+        // (the 0.3.134 bug). No CropProps -> not a crop -> not our practice.
+        object? cropProps = Traverse.Create(__instance).Property("CropProps").GetValue();
+        if (cropProps == null) return;
+
         double ripeFrac = 1.0;
         if (int.TryParse(__instance.LastCodePart(), out int stage))
         {
-            object? stages = Traverse.Create(__instance).Property("CropProps").Property("GrowthStages").GetValue();
+            object? stages = Traverse.Create(cropProps).Property("GrowthStages").GetValue();
             if (stages is int total && total > 0) ripeFrac = Math.Min(1.0, stage / (double)total);
         }
         if (ripeFrac <= 0.01) return; // an immature seed-only break banks nothing (anti-farm)
@@ -177,11 +197,27 @@ public static class FarPatches
 
     // ------------------------------------------------------------ feeding + the raisedBy stamp
 
-    /// <summary>A player filling a trough is the feed owner for the animals that eat from it.</summary>
-    public static void TroughFillPostfix(BlockEntity __instance, IPlayer byPlayer)
+    /// <summary>A player interacting with a trough (the fill seam) is the feed owner for the
+    /// animals that eat from it. Patched on BlockTroughBase.OnBlockInteractStart; guarded on the
+    /// trough code so that, if the method resolves to the base Block, non-trough interactions do
+    /// not grow the owner map (only trough positions are ever read at ConsumeOnePortion).</summary>
+    public static void TroughFillPostfix(Block __instance, IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
+    {
+        if (byPlayer == null || world?.Side != EnumAppSide.Server || blockSel == null) return;
+        if (__instance?.Code?.Path?.Contains("trough") != true) return;
+        troughOwners[PosKey(blockSel.Position)] = byPlayer.PlayerUID;
+    }
+
+    // ------------------------------------------------------------ beekeeping (FGC re-point)
+
+    /// <summary>Tending an FGC hive (ceramic pot, Langstroth frame/rack, or a populated skep's FGC
+    /// BE) banks FAR beekeeping. FGC OnInteract fires on any interaction, so a wide pos+time bucket
+    /// collapses idle clicks and the harvest itself into one tending credit per hive per ~30s.</summary>
+    public static void FgcHivePostfix(BlockEntity __instance, IPlayer byPlayer)
     {
         if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
-        troughOwners[PosKey(__instance.Pos)] = byPlayer.PlayerUID;
+        Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechBeekeeping,
+            HashCode.Combine("fgchive", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 30000));
     }
 
     /// <summary>An animal eats a portion: bank FAR feeding to the trough's owner AND stamp the
