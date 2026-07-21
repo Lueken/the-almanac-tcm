@@ -79,8 +79,34 @@ public static class CooPatches
 
         // --- player-attributed verbs (1a, unchanged) ---------------------------------------
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFruitPress", "OnBlockInteractStop", nameof(JuicePostfix), "COO juicing");
+
+        // --- the seafarer stations (all seams verified against seafarer 0.5.15, 2026-07-21) ---
         if (api.ModLoader.IsModEnabled("seafarer"))
+        {
             Hook(api, harmony, "Seafarer.BlockEntityPrepTable", "OnInteract", nameof(PrepPostfix), "COO prep-table");
+            // Griddle: player-attributed load (TryPutFood :868) stamps the cook; the hearth tick
+            // completes unattended (CompleteCooking :1015) and credits the stamp.
+            HookDeclared(api, harmony, "Seafarer.BlockEntityGriddleHearth", "TryPutFood", nameof(GriddleLoadPostfix), "COO griddle cook-stamp");
+            HookDeclared(api, harmony, "Seafarer.BlockEntityGriddleHearth", "CompleteCooking", nameof(GriddleCompletePostfix), "COO griddling");
+            // Rack drying: credit at take-out of a TRANSITIONED stack (placement grants nothing,
+            // the anti-farm ruling; a fresh item taken straight back is still pending its dry).
+            HookPairDeclared(api, harmony, "Seafarer.BlockEntityDryingFrame", "TryTake",
+                nameof(DryTakePrefix), nameof(DryTakePostfix), "COO rack drying (frame)");
+            // Salt evaporation: TryHarvest (:2244) is CanHarvest-gated, player in scope.
+            HookDeclared(api, harmony, "Seafarer.BlockEntitySaltPan", "TryHarvest", nameof(SaltHarvestPostfix), "COO salt evaporation");
+        }
+
+        // --- the ACA stations (verified against ACA 2.0.0-dev.21, 2026-07-21) ---------------
+        if (api.ModLoader.IsModEnabled("aculinaryartillery"))
+        {
+            // Mixing bowl: the quern shape exactly — the BE tracks its cranking players
+            // (playersMixing :778) and an automated flag; mixInput (:1034) fires on completion.
+            HookDeclared(api, harmony, "ACulinaryArtillery.BlockEntityMixingBowl", "mixInput", nameof(MixingPostfix), "COO bowl mixing");
+            // Meat hooks: the second rack-drying BE (one verb, two racks — the casting-merge
+            // precedent). Same TryTake signature as the seafarer frame, one shared pair.
+            HookPairDeclared(api, harmony, "ACulinaryArtillery.BlockEntityMeatHooks", "TryTake",
+                nameof(DryTakePrefix), nameof(DryTakePostfix), "COO rack drying (meat hooks)");
+        }
     }
 
     private static void Hook(ICoreAPI api, Harmony harmony, string typeName, string method, string postfix, string label)
@@ -103,6 +129,28 @@ public static class CooPatches
         TcmLog.Info(api, $"{label} hooked ({typeName}.{method})");
     }
 
+    /// <summary>DECLARED-strict single postfix (the trough lesson: never let AccessTools walk
+    /// silently up the hierarchy on an override-sensitive seam).</summary>
+    private static void HookDeclared(ICoreAPI api, Harmony harmony, string typeName, string method, string postfix, string label)
+    {
+        var t = AccessTools.TypeByName(typeName);
+        var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
+        if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName} does not DECLARE {method}); that verb is inactive this build"); return; }
+        harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(CooPatches), postfix)));
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
+    }
+
+    private static void HookPairDeclared(ICoreAPI api, Harmony harmony, string typeName, string method, string prefix, string postfix, string label)
+    {
+        var t = AccessTools.TypeByName(typeName);
+        var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
+        if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName} does not DECLARE {method}); that verb is inactive this build"); return; }
+        harmony.Patch(m,
+            prefix: new HarmonyMethod(AccessTools.Method(typeof(CooPatches), prefix)),
+            postfix: new HarmonyMethod(AccessTools.Method(typeof(CooPatches), postfix)));
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
+    }
+
     // ------------------------------------------------------------ the cook stamp
 
     /// <summary>Right-clicking a firepit (opening it to load, adding fuel) marks the player as
@@ -112,8 +160,11 @@ public static class CooPatches
     {
         if (byPlayer == null || blockSel == null || world?.Side != EnumAppSide.Server) return;
         if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is not BlockEntityFirepit be) return;
-        lastCook[PosKey(be.Pos)] = byPlayer.PlayerUID;
-        TcmLog.Cat(world.Api, "coo", $"firepit cook stamp: {be.Pos} -> {byPlayer.PlayerName}");
+        string key = PosKey(be.Pos);
+        bool changed = !lastCook.TryGetValue(key, out string? prev) || prev != byPlayer.PlayerUID;
+        lastCook[key] = byPlayer.PlayerUID;
+        if (changed) // one line per cook change, not one per click
+            TcmLog.Cat(world.Api, "coo", $"firepit cook stamp: {be.Pos} -> {byPlayer.PlayerName}");
     }
 
     public static void OvenInteractPostfix(BlockEntity __instance, IPlayer byPlayer)
@@ -272,5 +323,77 @@ public static class CooPatches
         if (!__result || byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
         Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechPrep,
             HashCode.Combine("prep", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 10000));
+    }
+
+    // ------------------------------------------------------------ griddle (seafarer)
+
+    /// <summary>Laying food on the griddle stamps the cook; the hearth tick finishes unattended.</summary>
+    public static void GriddleLoadPostfix(BlockEntity __instance, IPlayer byPlayer, bool __result)
+    {
+        if (!__result || byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        lastCook[PosKey(__instance.Pos)] = byPlayer.PlayerUID;
+    }
+
+    public static void GriddleCompletePostfix(BlockEntity __instance)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        IPlayer? cook = CookAt(__instance.Api.World, __instance.Pos);
+        if (cook == null) return;
+        Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechGriddling,
+            HashCode.Combine("griddle", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 30000));
+    }
+
+    // ------------------------------------------------------------ rack drying (seafarer frame + ACA meat hooks)
+
+    /// <summary>Capture the stack in the clicked rack slot BEFORE the take.</summary>
+    public static void DryTakePrefix(BlockEntity __instance, BlockSelection blockSel, out ItemStack? __state)
+    {
+        __state = null;
+        int idx = blockSel?.SelectionBoxIndex ?? -1;
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        if (inv != null && idx >= 0 && idx < inv.Count) __state = inv[idx]?.Itemstack;
+    }
+
+    /// <summary>Credit only a TRANSITIONED retrieval: a stack still carrying a pending dry/cure
+    /// transition is the fresh item taken straight back, which is not preservation practice.
+    /// One shared pair for both racks (the casting-merge precedent: one verb, two BEs).</summary>
+    public static void DryTakePostfix(BlockEntity __instance, IPlayer byPlayer, bool __result, ItemStack? __state)
+    {
+        if (!__result || byPlayer == null || __state == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        var props = __state.Collectible?.GetTransitionableProperties(__instance.Api.World, __state, null);
+        if (props != null)
+            foreach (var p in props)
+                if (p?.Type == EnumTransitionType.Dry || p?.Type == EnumTransitionType.Cure) return; // still fresh
+        Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechDrying,
+            HashCode.Combine("dry", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 30000));
+    }
+
+    // ------------------------------------------------------------ salt evaporation (seafarer)
+
+    public static void SaltHarvestPostfix(BlockEntity __instance, IPlayer byPlayer, bool __result)
+    {
+        if (!__result || byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechSalting,
+            HashCode.Combine("salt", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 30000));
+    }
+
+    // ------------------------------------------------------------ bowl mixing (ACA)
+
+    /// <summary>One mix completion: credit every cranking player (the BE's own playersMixing
+    /// dict, the quern shape). The mechanized bowl credits nobody (automation stays vanilla;
+    /// the ENG co-grant waits for the ENG domain).</summary>
+    public static void MixingPostfix(BlockEntity __instance)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        if (Traverse.Create(__instance).Field("automated").GetValue<bool>()) return;
+        if (Traverse.Create(__instance).Field("playersMixing").GetValue() is not Dictionary<string, long> mixing
+            || mixing.Count == 0) return;
+
+        int ctx = HashCode.Combine("mix", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 4000);
+        foreach (string uid in mixing.Keys)
+        {
+            IPlayer? player = __instance.Api.World.PlayerByUid(uid);
+            if (player != null) Core?.Ledger?.Log(player, CooDomain.Code, CooDomain.TechMixing, ctx);
+        }
     }
 }

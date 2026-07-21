@@ -77,6 +77,30 @@ public static class FarPatches
         if (api.ModLoader.IsModEnabled("shearlib"))
             Hook(api, harmony, "ShearLib.EntityBehaviorShearable", "DoShear", nameof(ShearPostfix), "FAR shearing");
 
+        if (api.ModLoader.IsModEnabled("primitivesurvival"))
+        {
+            // PS replaces every hoe's item class with ItemHoeExtended, whose DoTill is an
+            // OVERRIDE (:14941, verified PS 5.0.6) — so the vanilla ItemHoe.DoTill hook above
+            // never fires on a PS-hoed field (the override rule again). One postfix covers both
+            // of the override's branches: the result block tells us whether this till made
+            // farmland (tilling) or a furrow channel (the furrow verb).
+            HookDeclared(api, harmony, "PrimitiveSurvival.ModSystem.ItemHoeExtended", "DoTill", nameof(TillExtendedPostfix), "FAR tilling/furrow (PS hoe)");
+
+            // Furrow maintenance: clearing debris keeps the channels watering (recurring raw).
+            HookDeclared(api, harmony, "PrimitiveSurvival.ModSystem.BEFurrowedLand", "OnInteract", nameof(FurrowMaintainPostfix), "FAR furrow maintenance");
+        }
+
+        // Vermiculture — ithania's worm bin (verified V1.1.1, 2026-07-21): the owner is whoever
+        // last maintained the bin (bedding/seed/feed via OnInteract, watering via WaterStep);
+        // the colony mints worms unattended (TrySpawnWorm from the server tick) and credits the
+        // maintainer. The trough shape: owner-at-action, bank-at-unattended-event.
+        if (api.ModLoader.IsModEnabled("ithaniaexpandedfishing"))
+        {
+            HookDeclared(api, harmony, "IthaniaExpandedFishing.BlockEntities.BlockEntityWormBin", "OnInteract", nameof(WormTouchPostfix), "FAR worm-bin maintain");
+            HookDeclared(api, harmony, "IthaniaExpandedFishing.BlockEntities.BlockEntityWormBin", "WaterStep", nameof(WormTouchPostfix), "FAR worm-bin watering");
+            HookDeclared(api, harmony, "IthaniaExpandedFishing.BlockEntities.BlockEntityWormBin", "TrySpawnWorm", nameof(WormMintPostfix), "FAR vermiculture");
+        }
+
         // Beekeeping under From Golden Combs: FGC swaps populated skeps to its own BE and makes
         // apiculture a repeatable HARVEST-BY-INTERACTION (ceramic pots, Langstroth frames, frame
         // racks), so the vanilla BlockSkep break below only fires on the public-release fallback.
@@ -129,6 +153,52 @@ public static class FarPatches
         if (player == null || blockSel == null || !ServerSide(byEntity?.World)) return;
         Core?.Ledger?.Log(player, FarDomain.Code, FarDomain.TechTilling,
             HashCode.Combine(blockSel.Position.X, blockSel.Position.Y, blockSel.Position.Z));
+    }
+
+    /// <summary>The PS hoe override, both branches: after the till, the block on the ground says
+    /// which work was done — a furrow channel banks the furrow verb, farmland banks tilling.</summary>
+    public static void TillExtendedPostfix(EntityAgent byEntity, BlockSelection blockSel)
+    {
+        IPlayer? player = PlayerOf(byEntity);
+        if (player == null || blockSel == null || !ServerSide(byEntity?.World)) return;
+        Block? now = byEntity!.World.BlockAccessor.GetBlock(blockSel.Position);
+        string tech = now?.Code?.Path?.StartsWith("furrowedland") == true ? FarDomain.TechFurrow : FarDomain.TechTilling;
+        Core?.Ledger?.Log(player, FarDomain.Code, tech,
+            HashCode.Combine(blockSel.Position.X, blockSel.Position.Y, blockSel.Position.Z));
+    }
+
+    // ------------------------------------------------------------ furrow maintenance (PS)
+
+    public static void FurrowMaintainPostfix(BlockEntity __instance, IPlayer byPlayer, bool __result)
+    {
+        if (!__result || byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        // Debris clearing along a channel network: one wide bucket per stretch and minute.
+        Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechFurrow,
+            HashCode.Combine("furrowfix", __instance.Pos.X >> 3, __instance.Pos.Z >> 3, __instance.Api.World.ElapsedMilliseconds / 60000));
+    }
+
+    // ------------------------------------------------------------ vermiculture (ithania)
+
+    /// <summary>Bin pos -> last maintainer. In-memory (the trough pattern): a restart forgets the
+    /// maintainer until the next touch, and only the interim mints go uncredited.</summary>
+    private static readonly Dictionary<string, string> wormBinOwners = new();
+
+    public static void WormTouchPostfix(BlockEntity __instance, IPlayer byPlayer, bool __result)
+    {
+        if (!__result || byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        wormBinOwners[PosKey(__instance.Pos)] = byPlayer.PlayerUID;
+    }
+
+    /// <summary>A worm minted by the maintained colony: bank to the last maintainer. Bucketed per
+    /// hour so a healthy bin is steady, small practice, not a ticker.</summary>
+    public static void WormMintPostfix(BlockEntity __instance)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        if (!wormBinOwners.TryGetValue(PosKey(__instance.Pos), out string? uid) || uid == null) return;
+        IPlayer? owner = __instance.Api.World.PlayerByUid(uid);
+        if (owner == null) return;
+        Core?.Ledger?.Log(owner, FarDomain.Code, FarDomain.TechVermiculture,
+            HashCode.Combine("worm", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 60000));
     }
 
     // ------------------------------------------------------------ planting
@@ -235,8 +305,11 @@ public static class FarPatches
                 pos = mate;
             else return; // no trough BE reachable from this click; nothing to stamp
         }
-        troughOwners[PosKey(pos)] = byPlayer.PlayerUID;
-        TcmLog.Cat(world.Api, "far", $"trough feed-owner stamp: {pos} -> {byPlayer.PlayerName} (silent by design; credit lands when an animal eats)");
+        string key = PosKey(pos);
+        bool changed = !troughOwners.TryGetValue(key, out string? prev) || prev != byPlayer.PlayerUID;
+        troughOwners[key] = byPlayer.PlayerUID;
+        if (changed) // one line per ownership change, not one per click (the 8-lines-a-fill spam)
+            TcmLog.Cat(world.Api, "far", $"trough feed-owner stamp: {pos} -> {byPlayer.PlayerName} (silent by design; credit lands when an animal eats)");
     }
 
     // ------------------------------------------------------------ beekeeping (FGC re-point)
