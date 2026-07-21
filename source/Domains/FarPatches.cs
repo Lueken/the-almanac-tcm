@@ -47,6 +47,35 @@ public static class FarPatches
     public static void RegisterServer(ICoreServerAPI api)
     {
         sapi = api;
+        // The graft owner map is the one FAR store that MUST persist: the take-or-die roll can
+        // land days after placement, across restarts, with the placer offline (agent report
+        // far-graft-seams-1.22.3.md; the HunPatches savegame pattern).
+        api.Event.SaveGameLoaded += LoadGraftOwners;
+        api.Event.GameWorldSave += SaveGraftOwners;
+    }
+
+    // ------------------------------------------------------------ graft owner persistence
+
+    /// <summary>Cutting pos -> placer uid. Persisted in the savegame; ExchangeBlock at success
+    /// keeps the same BE at the same pos, so pos-keying is stable placement-to-outcome.</summary>
+    private static Dictionary<string, string> graftOwners = new();
+
+    private static void LoadGraftOwners()
+    {
+        try
+        {
+            byte[]? data = sapi!.WorldManager.SaveGame.GetData("almanacFarGraftOwners");
+            if (data != null)
+                graftOwners = Vintagestory.API.Util.SerializerUtil.Deserialize<Dictionary<string, string>>(data) ?? new();
+            TcmLog.Cat(sapi, TcmLog.Config, $"FAR graft owners loaded: {graftOwners.Count} pending cutting(s)");
+        }
+        catch (Exception e) { TcmLog.Error(sapi, $"graft owner map unreadable ({e.Message}); starting empty"); }
+    }
+
+    private static void SaveGraftOwners()
+    {
+        sapi!.WorldManager.SaveGame.StoreData("almanacFarGraftOwners",
+            Vintagestory.API.Util.SerializerUtil.Serialize(graftOwners));
     }
 
     // ------------------------------------------------------------ seam wiring
@@ -89,6 +118,16 @@ public static class FarPatches
             // Furrow maintenance: clearing debris keeps the channels watering (recurring raw).
             HookDeclared(api, harmony, "PrimitiveSurvival.ModSystem.BEFurrowedLand", "OnInteract", nameof(FurrowMaintainPostfix), "FAR furrow maintenance");
         }
+
+        // Grafting — the pass's headline success-gate (seams re-verified 2026-07-21, agent report
+        // far-graft-seams-1.22.3.md): owner stored at TryPlaceBlock (:160762, byPlayer in scope
+        // there and ONLY there), outcome at FruitTreeGrowingBranchBH.TryGrow's cutting case —
+        // one roll against CuttingRootingChance (ground, 0.25) or CuttingGraftChance (graft,
+        // 0.5); win exchanges to a live Branch, loss sets FoliageState.Dead. XP only on the
+        // take; a dead cutting banks zero.
+        HookDeclared(api, harmony, "Vintagestory.GameContent.BlockFruitTreeBranch", "TryPlaceBlock", nameof(GraftPlacePostfix), "FAR graft placement");
+        HookPairDeclared(api, harmony, "Vintagestory.GameContent.FruitTreeGrowingBranchBH", "TryGrow",
+            nameof(GraftGrowPrefix), nameof(GraftGrowPostfix), "FAR grafting outcome");
 
         // Vermiculture — ithania's worm bin (verified V1.1.1, 2026-07-21): the owner is whoever
         // last maintained the bin (bedding/seed/feed via OnInteract, watering via WaterStep);
@@ -139,6 +178,17 @@ public static class FarPatches
         TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
     }
 
+    private static void HookPairDeclared(ICoreAPI api, Harmony harmony, string typeName, string method, string prefix, string postfix, string label)
+    {
+        var t = AccessTools.TypeByName(typeName);
+        var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
+        if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName} does not DECLARE {method}); that verb is inactive this build"); return; }
+        harmony.Patch(m,
+            prefix: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), prefix)),
+            postfix: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), postfix)));
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
+    }
+
     private static IPlayer? PlayerOf(EntityAgent? agent) => (agent as EntityPlayer)?.Player;
 
     private static bool ServerSide(IWorldAccessor? world) => world?.Side == EnumAppSide.Server;
@@ -178,6 +228,61 @@ public static class FarPatches
         // Debris clearing along a channel network: one wide bucket per stretch and minute.
         Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechFurrow,
             HashCode.Combine("furrowfix", __instance.Pos.X >> 3, __instance.Pos.Z >> 3, __instance.Api.World.ElapsedMilliseconds / 60000));
+    }
+
+    // ------------------------------------------------------------ grafting (success-gated)
+
+    /// <summary>Owner at placement: byPlayer is in scope HERE and only here (the outcome fires
+    /// on an unattended tick, possibly days and restarts later). Persisted map, pos-keyed.</summary>
+    public static void GraftPlacePostfix(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, bool __result)
+    {
+        if (!__result || byPlayer == null || blockSel == null || !ServerSide(world)) return;
+        graftOwners[PosKey(blockSel.Position)] = byPlayer.PlayerUID;
+        TcmLog.Cat(world.Api, "far", $"cutting placed at {blockSel.Position} by {byPlayer.PlayerName}; take-or-die pending (silent until the outcome)");
+    }
+
+    public readonly record struct GraftState(bool WasCutting, BlockPos? Pos);
+
+    /// <summary>TryGrow fires for every tree part; only a LIVE CUTTING entering it faces the
+    /// take-or-die roll. Capture that state so the postfix reads the verdict.</summary>
+    public static void GraftGrowPrefix(BlockEntityBehavior __instance, out GraftState __state)
+    {
+        var be = __instance?.Blockentity as Vintagestory.GameContent.BlockEntityFruitTreeBranch;
+        bool wasCutting = be != null
+            && be.PartType == Vintagestory.GameContent.EnumTreePartType.Cutting
+            && be.FoliageState != Vintagestory.GameContent.EnumFoliageState.Dead;
+        __state = new GraftState(wasCutting, be?.Pos);
+    }
+
+    /// <summary>The verdict (ruled, the pass's headline success-gate): Cutting -> Branch is the
+    /// take, credit the stored placer; FoliageState.Dead is the loss, zero practice, entry
+    /// dropped. Still-waiting ticks do nothing.</summary>
+    public static void GraftGrowPostfix(BlockEntityBehavior __instance, GraftState __state)
+    {
+        if (!__state.WasCutting || __state.Pos == null) return;
+        var be = __instance?.Blockentity as Vintagestory.GameContent.BlockEntityFruitTreeBranch;
+        if (be == null || be.Api?.Side != EnumAppSide.Server) return;
+
+        string key = PosKey(__state.Pos);
+        if (be.PartType == Vintagestory.GameContent.EnumTreePartType.Branch)
+        {
+            graftOwners.TryGetValue(key, out string? uid);
+            graftOwners.Remove(key);
+            IPlayer? owner = uid == null ? null : be.Api.World.PlayerByUid(uid);
+            if (owner == null)
+            {
+                TcmLog.Cat(be.Api, "far", $"cutting TOOK at {__state.Pos} but the placer is unknown or offline; uncredited");
+                return;
+            }
+            TcmLog.Cat(be.Api, "far", $"cutting TOOK at {__state.Pos} -> grafting credit for {owner.PlayerName}");
+            Core?.Ledger?.Log(owner, FarDomain.Code, FarDomain.TechGrafting,
+                HashCode.Combine("graft", __state.Pos.X, __state.Pos.Y, __state.Pos.Z));
+        }
+        else if (be.FoliageState == Vintagestory.GameContent.EnumFoliageState.Dead)
+        {
+            graftOwners.Remove(key);
+            TcmLog.Cat(be.Api, "far", $"cutting DIED at {__state.Pos}; no practice (success-gated by ruling)");
+        }
     }
 
     // ------------------------------------------------------------ vermiculture (ithania)
