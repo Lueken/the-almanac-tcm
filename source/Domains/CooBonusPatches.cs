@@ -91,16 +91,29 @@ public static class CooBonusPatches
     /// Known gap this build: a pot that was PLACED and picked back up loses its stamp on the
     /// roundtrip (the BE keeps only vanilla meal attrs) — BE-tree carriage is the P2b item, so
     /// serve off the firepit or from the carried pot to keep the mark.</summary>
-    public static void ServePostfix(ItemSlot bowlSlot, ItemSlot potslot, bool __result)
+    public static void ServePostfix(ItemSlot bowlSlot, ItemSlot potslot, IWorldAccessor world, bool __result)
     {
-        if (!__result) return;
+        if (!__result || world?.Side != EnumAppSide.Server) return; // the client early-returns without building (:65397)
         var src = potslot?.Itemstack?.Attributes;
-        var dst = bowlSlot?.Itemstack?.Attributes;
-        if (src == null || dst == null || !src.HasAttribute(CookTierAttr)) return;
-        dst.SetString(CookByAttr, src.GetString(CookByAttr) ?? "");
-        dst.SetString(CookByNameAttr, src.GetString(CookByNameAttr) ?? "");
-        dst.SetInt(CookTierAttr, src.GetInt(CookTierAttr));
-        dst.SetInt(CookCxAttr, src.GetInt(CookCxAttr));
+        var dstStack = bowlSlot?.Itemstack;
+        if (src == null || !src.HasAttribute(CookTierAttr))
+        {
+            TcmLog.Cat(world.Api, "coo", $"serve: pot carries no cook stamp ({potslot?.Itemstack?.Collectible?.Code?.Path ?? "null"}); nothing to propagate");
+            return;
+        }
+        if (dstStack == null)
+        {
+            TcmLog.Cat(world.Api, "coo", "serve: pot is stamped but the destination slot is EMPTY post-serve; the filled bowl went elsewhere — propagation missed");
+            return;
+        }
+        dstStack.Attributes.SetString(CookByAttr, src.GetString(CookByAttr) ?? "");
+        dstStack.Attributes.SetString(CookByNameAttr, src.GetString(CookByNameAttr) ?? "");
+        dstStack.Attributes.SetInt(CookTierAttr, src.GetInt(CookTierAttr));
+        dstStack.Attributes.SetInt(CookCxAttr, src.GetInt(CookCxAttr));
+        // The vanilla MarkDirty fired BEFORE this postfix ran; flag again so the stamped attrs
+        // are what actually serialize to the client.
+        bowlSlot!.MarkDirty();
+        TcmLog.Cat(world.Api, "coo", $"serve: cook stamp propagated -> {dstStack.Collectible?.Code?.Path} (tier {src.GetInt(CookTierAttr)})");
     }
 
     // ------------------------------------------------------------ the stamp
