@@ -66,8 +66,41 @@ public static class CooBonusPatches
             TcmLog.Info(api, "COO char clock hooked (IncrementallyBake dt, perfect stage only)");
         }
 
+        // The stamp must TRAVEL with the food (Jeffrey's serving-path walkthrough, 2026-07-21):
+        // a meal is stamped on the POT, but what is eaten is a BOWL served from it (or a crock
+        // stored from it). All three common serving paths funnel through ServeIntoStack (the
+        // firepit bowl right-click :69567, the placed-pot fill, and the in-inventory held-bowl
+        // click via TryMergeStacks :65239), and BlockCrock inherits the same base, so pot->crock
+        // rides it too. One postfix propagates the stamp source -> destination.
+        var tb = AccessTools.TypeByName("Vintagestory.GameContent.BlockCookedContainerBase");
+        var mb = tb == null ? null : AccessTools.DeclaredMethod(tb, "ServeIntoStack");
+        if (mb == null) TcmLog.Warn(api, "COO stamp propagation seam not found (ServeIntoStack); bowls will not carry the Cook's Mark");
+        else
+        {
+            harmony.Patch(mb, postfix: new HarmonyMethod(AccessTools.Method(typeof(CooBonusPatches), nameof(ServePostfix))));
+            TcmLog.Info(api, "COO stamp propagation hooked (ServeIntoStack: pot -> bowl/crock)");
+        }
+
         // The perish postfix (Axis 1 penalty + Axis 6 GM signature) and the provenance tooltip
         // are attribute patches below, applied by the Start PatchAll pass.
+    }
+
+    // ------------------------------------------------------------ stamp propagation
+
+    /// <summary>A serving moved pot -> bowl (or pot -> crock): the mark travels with the food.
+    /// Known gap this build: a pot that was PLACED and picked back up loses its stamp on the
+    /// roundtrip (the BE keeps only vanilla meal attrs) — BE-tree carriage is the P2b item, so
+    /// serve off the firepit or from the carried pot to keep the mark.</summary>
+    public static void ServePostfix(ItemSlot bowlSlot, ItemSlot potslot, bool __result)
+    {
+        if (!__result) return;
+        var src = potslot?.Itemstack?.Attributes;
+        var dst = bowlSlot?.Itemstack?.Attributes;
+        if (src == null || dst == null || !src.HasAttribute(CookTierAttr)) return;
+        dst.SetString(CookByAttr, src.GetString(CookByAttr) ?? "");
+        dst.SetString(CookByNameAttr, src.GetString(CookByNameAttr) ?? "");
+        dst.SetInt(CookTierAttr, src.GetInt(CookTierAttr));
+        dst.SetInt(CookCxAttr, src.GetInt(CookCxAttr));
     }
 
     // ------------------------------------------------------------ the stamp
