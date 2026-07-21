@@ -37,12 +37,23 @@ public static class AniPatches
         // Vanilla birth (fires for non-genelib animals, or all animals where genelib is absent).
         Hook(api, harmony, "Vintagestory.GameContent.EntityBehaviorMultiply", "GiveBirth", nameof(BirthPostfix), "ANI gen-raising (vanilla)");
 
-        // Taming — the saddle-break completion (verified 1.22.3: EntityBehaviorRideable
-        // .ConvertToTamedAnimal fires once when RemainingSaddleBreaks hits zero, the WILD/feral ->
-        // TAME crossing; partial progress banks nothing). Covers horses and any rideable that tames
-        // by breaking. The petai feed-to-domesticate path (wolves/foxes) is the next increment (it
-        // needs petai's own before/after transition capture).
-        Hook(api, harmony, "Vintagestory.GameContent.EntityBehaviorRideable", "ConvertToTamedAnimal", nameof(SaddleBreakPostfix), "ANI taming (saddle-break)");
+        // Taming, saddle-break half — hooked at DoSaddleBreak, NOT ConvertToTamedAnimal, for two
+        // verified 1.22.3 reasons: (a) DoSaddleBreak unmounts the rider BEFORE converting
+        // (:102271 TryUnmount precedes :102283), so a convert-time hook can never see who broke
+        // the animal (the 0.3.135 hole — that hook was dead on arrival); (b) the convert REPLACES
+        // the entity, cloning WatchedAttributes (:102296+), so the raisedBy stamp must land before
+        // the clone to survive onto the tamed animal. Prefix captures rider + count and stamps;
+        // postfix credits when the count crossed to zero (the convert fired).
+        HookPair(api, harmony, "Vintagestory.GameContent.EntityBehaviorRideable", "DoSaddleBreak",
+            nameof(SaddleBreakPrefix), nameof(SaddleBreakPostfix), "ANI taming (saddle-break)");
+
+        // Taming, feed half (petai wolves/foxes) — the DOMESTICATED crossing happens inside
+        // OnInteract with the feeding player in scope (verified petai 5.1.1 :1540-1542:
+        // DomesticationProgress >= 1 flips the level). Prefix captures the level; postfix banks
+        // once on the crossing. Partial progress banks nothing (ruled).
+        if (api.ModLoader.IsModEnabled("petai"))
+            HookPair(api, harmony, "PetAI.EntityBehaviorTameable", "OnInteract",
+                nameof(TamePrefix), nameof(TamePostfix), "ANI taming (petai feed)");
 
         // genelib overrides GiveBirth, so its animals never reach the base patch — hook the
         // override too. The namespace is best-effort; a miss just leaves genelib births uncredited
@@ -73,6 +84,17 @@ public static class AniPatches
         TcmLog.Info(api, $"{label} hooked ({typeName}.{method})");
     }
 
+    private static void HookPair(ICoreAPI api, Harmony harmony, string typeName, string method, string prefix, string postfix, string label)
+    {
+        var t = AccessTools.TypeByName(typeName);
+        var m = t == null ? null : AccessTools.Method(t, method);
+        if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName}.{method}); that verb is inactive this build"); return; }
+        harmony.Patch(m,
+            prefix: new HarmonyMethod(AccessTools.Method(typeof(AniPatches), prefix)),
+            postfix: new HarmonyMethod(AccessTools.Method(typeof(AniPatches), postfix)));
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method})");
+    }
+
     /// <summary>EntityBehavior.entity is protected; read it by reflection (the HunPatches pattern).</summary>
     private static Entity? BehaviorEntity(EntityBehavior beh) =>
         AccessTools.Field(typeof(EntityBehavior), "entity")?.GetValue(beh) as Entity;
@@ -93,32 +115,84 @@ public static class AniPatches
 
     // ------------------------------------------------------------ taming (saddle-break)
 
-    /// <summary>A wild/feral rideable just tamed by breaking. Credit the rider ANI taming and stamp
-    /// them as the animal's raiser (the tamer raised it), so its future offspring attribute cleanly
-    /// even before it ever eats from a trough.</summary>
-    public static void SaddleBreakPostfix(EntityBehavior __instance)
+    public readonly record struct BreakState(string? RiderUid, int BreaksBefore);
+
+    private static int RemainingBreaks(EntityBehavior beh)
+    {
+        var tv = Traverse.Create(beh);
+        if (tv.Property("RemainingSaddleBreaks").PropertyExists()) return tv.Property("RemainingSaddleBreaks").GetValue<int>();
+        if (tv.Field("RemainingSaddleBreaks").FieldExists()) return tv.Field("RemainingSaddleBreaks").GetValue<int>();
+        return int.MaxValue;
+    }
+
+    /// <summary>Capture the rider while they are STILL MOUNTED (DoSaddleBreak unmounts them
+    /// mid-method), and stamp them as raiser now — every break attempt restamps, and on the final
+    /// one the convert's WatchedAttributes clone carries the stamp onto the tamed entity.</summary>
+    public static void SaddleBreakPrefix(EntityBehavior __instance, out BreakState __state)
+    {
+        IPlayer? rider = RiderOf(__instance);
+        __state = new BreakState(rider?.PlayerUID, RemainingBreaks(__instance));
+        Entity? animal = BehaviorEntity(__instance);
+        if (rider != null && animal?.World?.Side == EnumAppSide.Server)
+            animal.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, rider.PlayerUID);
+    }
+
+    /// <summary>Bank taming only when THIS break took the count to zero (the convert fired) —
+    /// the WILD/feral -> TAME crossing. A mid-course throw banks nothing (partial progress rule).</summary>
+    public static void SaddleBreakPostfix(EntityBehavior __instance, BreakState __state)
     {
         Entity? animal = __instance == null ? null : BehaviorEntity(__instance);
-        if (animal?.World?.Side != EnumAppSide.Server) return;
-        IPlayer? rider = RiderOf(__instance!);
+        if (animal?.World?.Side != EnumAppSide.Server || __state.RiderUid == null) return;
+        if (__state.BreaksBefore <= 0 || RemainingBreaks(__instance!) > 0) return; // not the final break
+        IPlayer? rider = animal.World.PlayerByUid(__state.RiderUid);
         if (rider == null) return;
-        animal.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, rider.PlayerUID);
         Core?.Ledger?.Log(rider, AniDomain.Code, AniDomain.TechTaming,
             HashCode.Combine("break", animal.EntityId, animal.World.ElapsedMilliseconds / 1000));
+        TcmLog.Cat(animal.World.Api, "ani", $"saddle-break tamed: {animal.Code?.FirstCodePart()} #{animal.EntityId} -> {rider.PlayerName}");
+    }
+
+    // ------------------------------------------------------------ taming (petai feed)
+
+    private static bool IsDomesticated(EntityBehavior beh) =>
+        Traverse.Create(beh).Property("DomesticationLevel").GetValue()?.ToString() == "DOMESTICATED";
+
+    public static void TamePrefix(EntityBehavior __instance, out bool __state)
+    {
+        __state = IsDomesticated(__instance);
+    }
+
+    /// <summary>The feed-path completion: this interact pushed DomesticationProgress past 1 and
+    /// the level flipped to DOMESTICATED. The feeder is in scope — credit them, and stamp raiser
+    /// (petai's own owner is stored separately; the almanac stamp keeps the birth read uniform).</summary>
+    public static void TamePostfix(EntityBehavior __instance, EntityAgent byEntity, bool __state)
+    {
+        if (__state || !IsDomesticated(__instance)) return; // no crossing this interact
+        Entity? animal = BehaviorEntity(__instance);
+        IPlayer? feeder = (byEntity as EntityPlayer)?.Player;
+        if (animal?.World?.Side != EnumAppSide.Server || feeder == null) return;
+        animal.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, feeder.PlayerUID);
+        Core?.Ledger?.Log(feeder, AniDomain.Code, AniDomain.TechTaming,
+            HashCode.Combine("feed", animal.EntityId, animal.World.ElapsedMilliseconds / 1000));
+        TcmLog.Cat(animal.World.Api, "ani", $"feed tamed: {animal.Code?.FirstCodePart()} #{animal.EntityId} -> {feeder.PlayerName}");
     }
 
     // ------------------------------------------------------------ gen-raising (the birth)
 
-    /// <summary>One birth event: read the dam's `raisedBy` stamp (written by FAR's trough feed),
-    /// credit that breeder ANI gen-raising scaled by the newborn's generation. A feral pair with
-    /// no stamp banks nothing (the claim-owner / petai-owner fallback links are Phase 1b). One
-    /// credit per GiveBirth call, contextHash-deduped on the dam so a litter banks once.</summary>
+    /// <summary>One birth event: read the dam's `raisedBy` stamp (written by FAR's trough feed or
+    /// the taming hooks), falling back to petai's own owner (WatchedAttributes
+    /// domesticationstatus/owner, verified petai 5.1.1 :1291 — the ruled attribution chain).
+    /// Credit that breeder ANI gen-raising scaled by the newborn's generation. A truly feral pair
+    /// banks nothing. The stamp lives on the DAM; a newborn earns its own stamp when it is later
+    /// fed or tamed (the land-claim fallback link is still pending). One credit per GiveBirth
+    /// call, contextHash-deduped on the dam so a litter banks once.</summary>
     public static void BirthPostfix(EntityBehavior __instance)
     {
         Entity? dam = __instance == null ? null : BehaviorEntity(__instance);
         if (dam?.World?.Side != EnumAppSide.Server) return;
 
         string? uid = dam.WatchedAttributes?.GetString(AniDomain.RaisedByAttr);
+        if (string.IsNullOrEmpty(uid))
+            uid = dam.WatchedAttributes?.GetTreeAttribute("domesticationstatus")?.GetString("owner");
         if (string.IsNullOrEmpty(uid)) return; // no husbandry stamp — feral, nobody's practice yet
         IPlayer? owner = dam.World.PlayerByUid(uid);
         if (owner == null) return; // breeder offline; their birth waits for them

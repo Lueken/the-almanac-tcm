@@ -32,10 +32,12 @@ public static class AniDomain
     /// <summary>Domestication: petai feed-to-tame OR vanilla saddle-break, one verb two hooks.</summary>
     public const string TechTaming = "taming";
 
-    /// <summary>The shared owner stamp FAR's trough feed writes on an animal and ANI's birth
-    /// reads. A durable WatchedAttributes string (survives to the unattended birth), copied to
-    /// the newborn so a bred line carries its raiser. Named to avoid clashing with petai OwnerId
-    /// and vanilla ownedby (those are ownership; this is who does the husbandry work).</summary>
+    /// <summary>The shared owner stamp FAR's trough feed (and the taming hooks) write on an
+    /// animal and ANI's birth reads. A durable WatchedAttributes string, so it survives to the
+    /// unattended birth AND rides the WatchedAttributes clone when taming replaces the entity.
+    /// It lives on the animal it was earned on: a newborn earns its own stamp when it is later
+    /// fed or tamed. Named to avoid clashing with petai OwnerId and vanilla ownedby (those are
+    /// ownership; this is who does the husbandry work).</summary>
     public const string RaisedByAttr = "almanacRaisedBy";
 
     // Bonus knob keys.

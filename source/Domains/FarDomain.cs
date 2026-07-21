@@ -41,6 +41,9 @@ public static class FarDomain
     public const string TechShearing = "shearing";     // EntityBehaviorShearable.DoShear (shearlib)
     public const string TechFurrow = "furrow";         // primitivesurvival furrow (DEFERRED to 1b)
     public const string TechVermiculture = "vermiculture"; // ithania worm bin (DEFERRED to 1b)
+    /// <summary>FAR's half of the ruled COO 50 / FAR 50 quern split (technique-maps COO #7).
+    /// Granted by COO's quern listener at 0.5 raw each side; flour is farm produce too.</summary>
+    public const string TechMilling = "milling";
 
     public static DomainConfig Defaults() => new()
     {
@@ -69,6 +72,8 @@ public static class FarDomain
             [TechShearing] = new() { Raw = 2, K = 20 },
             [TechFurrow] = new() { Raw = 2, K = 15 },
             [TechVermiculture] = new() { Raw = 3, K = 12 },
+            // The 50-share of the quern event (COO's listener grants both halves at 0.5 raw).
+            [TechMilling] = new() { Raw = 1, K = 15 },
         },
     };
 

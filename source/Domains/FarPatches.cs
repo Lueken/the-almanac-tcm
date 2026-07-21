@@ -64,8 +64,11 @@ public static class FarPatches
         // The feeding loop: the filler is stamped at the trough BLOCK interaction (verified
         // 1.22.3: BlockTroughBase.OnBlockInteractStart is the fill seam — the BE has no
         // OnInteract, the 0.3.134 miss that left the whole raisedBy spine dark), then credited +
-        // stamped at the portion consume on the BE.
-        Hook(api, harmony, "Vintagestory.GameContent.BlockTroughBase", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill");
+        // stamped at the portion consume on the BE. BlockTroughDoubleBlock (the big livestock
+        // trough) OVERRIDES OnBlockInteractStart (:87507), so per the Harmony override rule it
+        // needs its own hook — without it the main trough never stamps (the 0.3.135 hole).
+        Hook(api, harmony, "Vintagestory.GameContent.BlockTroughBase", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (small)");
+        Hook(api, harmony, "Vintagestory.GameContent.BlockTroughDoubleBlock", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (large)");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityTrough", "ConsumeOnePortion", nameof(TroughConsumePostfix), "FAR feeding");
 
         // Shearing — shearlib's library verb (success-gated: a clean shear only; the damaging
@@ -179,9 +182,12 @@ public static class FarPatches
 
     // ------------------------------------------------------------ orchard (pick + prune)
 
-    public static void OrchardPostfix(BlockEntity __instance, IPlayer byPlayer)
+    public static void OrchardPostfix(BlockEntity __instance, float secondsUsed, IPlayer byPlayer)
     {
         if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        // The vanilla harvest branch requires a held interact past ~1s (the same threshold FGC's
+        // pollination prefix checks); a tap-and-release stop is not a pick and banks nothing.
+        if (secondsUsed <= 1.1f) return;
         Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechOrchard,
             HashCode.Combine("orchard", __instance.Pos.X >> 2, __instance.Pos.Z >> 2, __instance.Api.World.ElapsedMilliseconds / 30000));
     }
@@ -198,14 +204,25 @@ public static class FarPatches
     // ------------------------------------------------------------ feeding + the raisedBy stamp
 
     /// <summary>A player interacting with a trough (the fill seam) is the feed owner for the
-    /// animals that eat from it. Patched on BlockTroughBase.OnBlockInteractStart; guarded on the
-    /// trough code so that, if the method resolves to the base Block, non-trough interactions do
-    /// not grow the owner map (only trough positions are ever read at ConsumeOnePortion).</summary>
+    /// animals that eat from it. Hooked on BOTH declared overrides (BlockTroughBase for the small
+    /// trough, BlockTroughDoubleBlock for the large). The key must be the BE's own position —
+    /// ConsumeOnePortion reads __instance.Pos — but on a double trough the player can click the
+    /// half WITHOUT the BE, so normalize through OtherPartPos before stamping.</summary>
     public static void TroughFillPostfix(Block __instance, IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
     {
         if (byPlayer == null || world?.Side != EnumAppSide.Server || blockSel == null) return;
         if (__instance?.Code?.Path?.Contains("trough") != true) return;
-        troughOwners[PosKey(blockSel.Position)] = byPlayer.PlayerUID;
+
+        BlockPos pos = blockSel.Position;
+        if (world.BlockAccessor.GetBlockEntity(pos) is not Vintagestory.GameContent.BlockEntityTrough)
+        {
+            var otherPart = AccessTools.Method(__instance.GetType(), "OtherPartPos");
+            if (otherPart?.Invoke(__instance, new object[] { pos }) is BlockPos mate
+                && world.BlockAccessor.GetBlockEntity(mate) is Vintagestory.GameContent.BlockEntityTrough)
+                pos = mate;
+            else return; // no trough BE reachable from this click; nothing to stamp
+        }
+        troughOwners[PosKey(pos)] = byPlayer.PlayerUID;
     }
 
     // ------------------------------------------------------------ beekeeping (FGC re-point)
