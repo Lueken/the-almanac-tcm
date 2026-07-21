@@ -108,7 +108,10 @@ public static class FarPatches
         // ~30s, so idle clicks collapse to a tending session). Verified against FGC 2.0.8.
         if (api.ModLoader.IsModEnabled("fromgoldencombs"))
         {
-            foreach (string be in new[] { "BECeramicBroodPot", "BEFrameRack", "BELangstrothStack", "BELangstrothSuper", "BEFGCBeehive" })
+            // The four interactive hive BEs. BEFGCBeehive (the populated skep) declares no
+            // OnInteract — FGC skeps still harvest by BREAKING, which the vanilla
+            // BlockSkep.OnBlockBroken hook above already credits (boot-log verified 0.3.142).
+            foreach (string be in new[] { "BECeramicBroodPot", "BEFrameRack", "BELangstrothStack", "BELangstrothSuper" })
                 Hook(api, harmony, "FromGoldenCombs.BlockEntities." + be, "OnInteract", nameof(FgcHivePostfix), "FAR beekeeping (FGC)");
         }
     }
