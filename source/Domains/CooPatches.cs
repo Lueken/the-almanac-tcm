@@ -164,17 +164,29 @@ public static class CooPatches
     }
 
     /// <summary>Direct-heat: only the kitchen class (Cook/Bake input) banks — an ore nugget or a
-    /// fired ceramic riding some future collectible's base DoSmelt must never credit COO.</summary>
+    /// fired ceramic riding some future collectible's base DoSmelt must never credit COO. The
+    /// charred gate applies here too (ruled 2026-07-21): "charred" is NOT vanilla for meats —
+    /// ExpandedFoods redirects open-flame meat to its own redmeat-charred, the deliberately
+    /// inferior lazy product. Charring food over a bare flame is not cooking practice; the
+    /// domain pays at the pot, the oven, and the griddle.</summary>
     public static void DirectHeatPostfix(IWorldAccessor world, ItemSlot inputSlot, ItemSlot outputSlot, SmeltState __state)
     {
         if (world?.Side != EnumAppSide.Server || !__state.Cookable || !Changed(inputSlot, outputSlot, __state)) return;
+
+        string? outCode = outputSlot?.Itemstack?.Collectible?.Code?.Path ?? inputSlot?.Itemstack?.Collectible?.Code?.Path;
+        if (outCode?.Contains("charred") == true)
+        {
+            TcmLog.Cat(world.Api, "coo", $"direct-heat at {__state.Pos?.ToString() ?? "?"} produced {outCode} — charred, no practice");
+            return;
+        }
+
         IPlayer? cook = CookAt(world, __state.Pos);
         if (cook == null)
         {
             TcmLog.Cat(world.Api, "coo", $"direct-heat completed at {__state.Pos?.ToString() ?? "unknown pos"} but no cook stamped; uncredited");
             return;
         }
-        // The spammiest verb in the domain: one wide bucket so "charred meat x40" is ONE context.
+        // The spammiest verb in the domain: one wide bucket so a stack of cooked roots is ONE context.
         Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechDirectHeat,
             HashCode.Combine("direct", __state.Pos!.X, __state.Pos.Z, world.ElapsedMilliseconds / 60000));
     }
