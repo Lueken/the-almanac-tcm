@@ -62,8 +62,13 @@ public static class CooPatches
         // used the openable-container packet handler, which turned out to be declared only on
         // BlockEntity itself, so that hook warn-skipped at boot and nothing ever stamped.)
         Hook(api, harmony, "Vintagestory.GameContent.BlockFirepit", "OnBlockInteractStart", nameof(FirepitInteractPostfix), "COO firepit cook-stamp");
-        // Oven load/take interact (byPlayer in scope, verified :144284).
-        Hook(api, harmony, "Vintagestory.GameContent.BlockEntityOven", "OnInteract", nameof(OvenInteractPostfix), "COO oven cook-stamp");
+        // Oven baking — credit at PICKUP of the finished good (RULED 2026-07-21, replacing the
+        // in-oven transform crediting which paid per stage and only tagged the first loaf). The
+        // picker is in scope, so no cook-stamp is needed: the interact pair diffs the oven's
+        // slots and credits each finished bake taken (dough/partbaked back out = nothing,
+        // charred = the logged refusal).
+        HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockEntityOven", "OnInteract",
+            nameof(OvenTakePrefix), nameof(OvenTakePostfix), "COO oven baking (credit at pickup)");
 
         // --- the completion sinks ---------------------------------------------------------
         HookPair(api, harmony, "Vintagestory.GameContent.BlockCookingContainer", "DoSmelt",
@@ -73,8 +78,6 @@ public static class CooPatches
         if (api.ModLoader.IsModEnabled("aculinaryartillery"))
             HookPair(api, harmony, "ACulinaryArtillery.ItemExpandedRawFood", "DoSmelt",
                 nameof(SmeltPrefix), nameof(DirectHeatPostfix), "COO direct-heat (ACA)");
-        HookPair(api, harmony, "Vintagestory.GameContent.BlockEntityOven", "IncrementallyBake",
-            nameof(BakePrefix), nameof(BakePostfix), "COO oven baking");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityQuern", "grindInput", nameof(QuernPostfix), "COO+FAR quern milling");
 
         // --- player-attributed verbs (1a, unchanged) ---------------------------------------
@@ -167,10 +170,41 @@ public static class CooPatches
             TcmLog.Cat(world.Api, "coo", $"firepit cook stamp: {be.Pos} -> {byPlayer.PlayerName}");
     }
 
-    public static void OvenInteractPostfix(BlockEntity __instance, IPlayer byPlayer)
+    // ------------------------------------------------------------ oven baking (credit at pickup)
+
+    /// <summary>Snapshot the oven's slots before the interact so the postfix can see what left.</summary>
+    public static void OvenTakePrefix(BlockEntity __instance, out string?[] __state)
+    {
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        __state = new string?[inv?.Count ?? 0];
+        for (int i = 0; i < __state.Length; i++)
+            __state[i] = inv![i]?.Itemstack?.Collectible?.Code?.Path;
+    }
+
+    /// <summary>RULED 2026-07-21: baking XP fires on PICKUP of the finished good, one credit per
+    /// loaf taken. Dough or a par-baked loaf taken back out is unfinished work (nothing); a
+    /// charred pickup is the ruin (logged, nothing). Batches are batch-friendly by construction:
+    /// each slot's take is its own context.</summary>
+    public static void OvenTakePostfix(BlockEntity __instance, IPlayer byPlayer, string?[] __state)
     {
         if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
-        lastCook[PosKey(__instance.Pos)] = byPlayer.PlayerUID;
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        if (inv == null) return;
+
+        for (int i = 0; i < __state.Length && i < inv.Count; i++)
+        {
+            string? before = __state[i];
+            if (before == null || inv[i]?.Itemstack?.Collectible?.Code?.Path == before) continue; // nothing left this slot
+
+            if (before.StartsWith("dough") || before.Contains("partbaked")) continue; // unfinished work back out
+            if (before.Contains("charred"))
+            {
+                TcmLog.Cat(__instance.Api, "coo", $"charred pickup at {__instance.Pos} slot {i}: {before} — ruined, no practice");
+                continue;
+            }
+            Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechBaking,
+                HashCode.Combine("bake", __instance.Pos.X, __instance.Pos.Z, i, __instance.Api.World.ElapsedMilliseconds / 2000));
+        }
     }
 
     private static IPlayer? CookAt(IWorldAccessor world, BlockPos? pos)
@@ -246,42 +280,6 @@ public static class CooPatches
         (inputSlot?.Itemstack?.Collectible?.Id ?? -1) != s.InId || (inputSlot?.Itemstack?.StackSize ?? 0) != s.InSize
         || (outputSlot?.Itemstack?.Collectible?.Id ?? -1) != s.OutId || (outputSlot?.Itemstack?.StackSize ?? 0) != s.OutSize;
 
-    // ------------------------------------------------------------ oven baking
-
-    public readonly record struct BakeState(int CollId);
-
-    /// <summary>IncrementallyBake runs per-tick; the bake only "happens" on the tick where the
-    /// slot's stack converts (dough -> partbaked -> baked). Capture the slot's collectible.</summary>
-    public static void BakePrefix(BlockEntity __instance, int slotIndex, out BakeState __state)
-    {
-        var inv = (__instance as BlockEntityContainer)?.Inventory;
-        __state = new BakeState(inv != null && slotIndex < inv.Count ? inv[slotIndex]?.Itemstack?.Collectible?.Id ?? -1 : -1);
-    }
-
-    public static void BakePostfix(BlockEntity __instance, int slotIndex, BakeState __state)
-    {
-        if (__instance?.Api?.Side != EnumAppSide.Server) return;
-        var inv = (__instance as BlockEntityContainer)?.Inventory;
-        var nowStack = inv != null && slotIndex < inv.Count ? inv[slotIndex]?.Itemstack : null;
-        if ((nowStack?.Collectible?.Id ?? -1) == __state.CollId) return; // still baking, no transform this tick
-
-        // The ruin gate (ruled: burned output grants nothing). The bake ladder is raw ->
-        // partbaked -> perfect -> charred (:82013); a transform INTO the charred stage is an
-        // overbake, the oven's failure state — the opposite of practice. Charred here is not the
-        // firepit's "charred meat" (which IS the successful open-flame cook product).
-        if (nowStack?.Collectible?.Code?.Path?.Contains("charred") == true)
-        {
-            TcmLog.Cat(__instance.Api, "coo", $"oven overbake at {__instance.Pos}: {nowStack.Collectible.Code.Path} — ruined, no practice");
-            return;
-        }
-
-        IPlayer? cook = CookAt(__instance.Api.World, __instance.Pos);
-        if (cook == null) return;
-        // Minute bucket: a multi-stage bake (partbaked then perfect) collapses to one context.
-        Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechBaking,
-            HashCode.Combine("bake", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 60000));
-    }
-
     // ------------------------------------------------------------ quern (the ruled 50/50 split)
 
     /// <summary>One grind completion: credit every player currently cranking (the BE's own
@@ -334,13 +332,16 @@ public static class CooPatches
         lastCook[PosKey(__instance.Pos)] = byPlayer.PlayerUID;
     }
 
-    public static void GriddleCompletePostfix(BlockEntity __instance)
+    /// <summary>Per-SLOT context (playtest 2026-07-21: a four-slot griddle finishes its slots
+    /// near-simultaneously, and a shared pos bucket collapsed the batch to one credit — batches
+    /// must fit through; the K cap is the real governor).</summary>
+    public static void GriddleCompletePostfix(BlockEntity __instance, int slotIndex)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server) return;
         IPlayer? cook = CookAt(__instance.Api.World, __instance.Pos);
         if (cook == null) return;
         Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechGriddling,
-            HashCode.Combine("griddle", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 30000));
+            HashCode.Combine("griddle", __instance.Pos.X, __instance.Pos.Z, slotIndex, __instance.Api.World.ElapsedMilliseconds / 10000));
     }
 
     // ------------------------------------------------------------ rack drying (seafarer frame + ACA meat hooks)
