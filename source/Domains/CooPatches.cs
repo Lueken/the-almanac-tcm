@@ -57,12 +57,11 @@ public static class CooPatches
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
         // --- the cook stamp ---------------------------------------------------------------
-        // Firepit GUI open: the openable-container packet handler is declared on the vsapi base
-        // (BlockEntityFirepit does not override it, verified); the postfix guards to firepits so
-        // chests and other containers never grow the map.
-        HookFirst(api, harmony,
-            new[] { "Vintagestory.API.Common.BlockEntityOpenableContainer", "Vintagestory.GameContent.BlockEntityOpenableContainer" },
-            "OnReceivedClientPacket", nameof(FirepitOpenPostfix), "COO firepit cook-stamp");
+        // The physical right-click on the firepit block (BlockFirepit.OnBlockInteractStart,
+        // declared :69496) — opening the pit to load it IS the cook's touch. (The 0.3.136 attempt
+        // used the openable-container packet handler, which turned out to be declared only on
+        // BlockEntity itself, so that hook warn-skipped at boot and nothing ever stamped.)
+        Hook(api, harmony, "Vintagestory.GameContent.BlockFirepit", "OnBlockInteractStart", nameof(FirepitInteractPostfix), "COO firepit cook-stamp");
         // Oven load/take interact (byPlayer in scope, verified :144284).
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityOven", "OnInteract", nameof(OvenInteractPostfix), "COO oven cook-stamp");
 
@@ -104,28 +103,17 @@ public static class CooPatches
         TcmLog.Info(api, $"{label} hooked ({typeName}.{method})");
     }
 
-    private static void HookFirst(ICoreAPI api, Harmony harmony, string[] typeNames, string method, string postfix, string label)
-    {
-        foreach (string tn in typeNames)
-        {
-            var t = AccessTools.TypeByName(tn);
-            var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
-            if (m == null) continue;
-            harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(CooPatches), postfix)));
-            TcmLog.Info(api, $"{label} hooked ({tn}.{method})");
-            return;
-        }
-        TcmLog.Warn(api, $"{label} seam not found ({method} on any candidate); unattended firepit cooking is uncredited this build");
-    }
-
     // ------------------------------------------------------------ the cook stamp
 
-    /// <summary>Any GUI packet from a player to a FIREPIT marks them the pit's cook. Guard first:
-    /// this method is shared by every openable container and must stay cheap for chests.</summary>
-    public static void FirepitOpenPostfix(BlockEntity __instance, IPlayer player)
+    /// <summary>Right-clicking a firepit (opening it to load, adding fuel) marks the player as
+    /// the pit's cook. Keyed by the firepit BE's position — the same pos InventorySmelting
+    /// carries into DoSmelt, so the completion lookup matches.</summary>
+    public static void FirepitInteractPostfix(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
     {
-        if (__instance is not BlockEntityFirepit || player == null || __instance.Api?.Side != EnumAppSide.Server) return;
-        lastCook[PosKey(__instance.Pos)] = player.PlayerUID;
+        if (byPlayer == null || blockSel == null || world?.Side != EnumAppSide.Server) return;
+        if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is not BlockEntityFirepit be) return;
+        lastCook[PosKey(be.Pos)] = byPlayer.PlayerUID;
+        TcmLog.Cat(world.Api, "coo", $"firepit cook stamp: {be.Pos} -> {byPlayer.PlayerName}");
     }
 
     public static void OvenInteractPostfix(BlockEntity __instance, IPlayer byPlayer)
@@ -142,43 +130,58 @@ public static class CooPatches
 
     // ------------------------------------------------------------ smelt completion (pot + direct)
 
-    public readonly record struct SmeltState(BlockPos? Pos, int OutId, int OutSize, bool Cookable);
+    public readonly record struct SmeltState(BlockPos? Pos, int InId, int InSize, int OutId, int OutSize, bool Cookable);
 
-    /// <summary>Shared DoSmelt prefix: capture the provider BE's pos, the output slot's state, and
-    /// whether the INPUT is kitchen-class (SmeltingType Cook/Bake) before the smelt consumes it.</summary>
+    /// <summary>Shared DoSmelt prefix. The provider the firepit passes is its INVENTORY, not the
+    /// BE (smeltItems :58732 hands over InventorySmelting — the 0.3.136 null-pos bug), so the pos
+    /// comes from InventorySmelting.pos (:106652), with the BE cast kept for providers that do
+    /// pass a block entity. Both slots are captured: the normal meal lands in the OUTPUT slot
+    /// (:142621) but the CooksInto path returns it in the INPUT slot (:142612).</summary>
     public static void SmeltPrefix(ISlotProvider cookingSlotsProvider, ItemSlot inputSlot, ItemSlot outputSlot, out SmeltState __state)
     {
         var props = inputSlot?.Itemstack?.Collectible?.CombustibleProps;
         bool cookable = props != null && (props.SmeltingType == EnumSmeltType.Cook || props.SmeltingType == EnumSmeltType.Bake);
-        __state = new SmeltState((cookingSlotsProvider as BlockEntity)?.Pos,
+        BlockPos? pos = (cookingSlotsProvider as BlockEntity)?.Pos ?? (cookingSlotsProvider as InventorySmelting)?.pos;
+        __state = new SmeltState(pos,
+            inputSlot?.Itemstack?.Collectible?.Id ?? -1, inputSlot?.Itemstack?.StackSize ?? 0,
             outputSlot?.Itemstack?.Collectible?.Id ?? -1, outputSlot?.Itemstack?.StackSize ?? 0, cookable);
     }
 
     /// <summary>Meal pot: the recipe path returns early on a null/burned/invalid match leaving the
-    /// slots untouched, so an output transform IS the success gate (ruled: burned banks nothing).</summary>
-    public static void MealPotPostfix(IWorldAccessor world, ItemSlot outputSlot, SmeltState __state)
+    /// slots untouched, so a slot transform IS the success gate (ruled: burned banks nothing).</summary>
+    public static void MealPotPostfix(IWorldAccessor world, ItemSlot inputSlot, ItemSlot outputSlot, SmeltState __state)
     {
-        if (world?.Side != EnumAppSide.Server || !Changed(outputSlot, __state)) return;
+        if (world?.Side != EnumAppSide.Server || !Changed(inputSlot, outputSlot, __state)) return;
         IPlayer? cook = CookAt(world, __state.Pos);
-        if (cook == null) return;
+        if (cook == null)
+        {
+            TcmLog.Cat(world.Api, "coo", $"meal-pot completed at {__state.Pos?.ToString() ?? "unknown pos"} but no cook stamped; uncredited");
+            return;
+        }
+        TcmLog.Cat(world.Api, "coo", $"meal-pot completed at {__state.Pos} -> {cook.PlayerName}");
         Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechMealPot,
             HashCode.Combine("mealpot", __state.Pos!.X, __state.Pos.Z, world.ElapsedMilliseconds / 30000));
     }
 
     /// <summary>Direct-heat: only the kitchen class (Cook/Bake input) banks — an ore nugget or a
     /// fired ceramic riding some future collectible's base DoSmelt must never credit COO.</summary>
-    public static void DirectHeatPostfix(IWorldAccessor world, ItemSlot outputSlot, SmeltState __state)
+    public static void DirectHeatPostfix(IWorldAccessor world, ItemSlot inputSlot, ItemSlot outputSlot, SmeltState __state)
     {
-        if (world?.Side != EnumAppSide.Server || !__state.Cookable || !Changed(outputSlot, __state)) return;
+        if (world?.Side != EnumAppSide.Server || !__state.Cookable || !Changed(inputSlot, outputSlot, __state)) return;
         IPlayer? cook = CookAt(world, __state.Pos);
-        if (cook == null) return;
+        if (cook == null)
+        {
+            TcmLog.Cat(world.Api, "coo", $"direct-heat completed at {__state.Pos?.ToString() ?? "unknown pos"} but no cook stamped; uncredited");
+            return;
+        }
         // The spammiest verb in the domain: one wide bucket so "charred meat x40" is ONE context.
         Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechDirectHeat,
             HashCode.Combine("direct", __state.Pos!.X, __state.Pos.Z, world.ElapsedMilliseconds / 60000));
     }
 
-    private static bool Changed(ItemSlot? outputSlot, SmeltState s) =>
-        (outputSlot?.Itemstack?.Collectible?.Id ?? -1) != s.OutId || (outputSlot?.Itemstack?.StackSize ?? 0) != s.OutSize;
+    private static bool Changed(ItemSlot? inputSlot, ItemSlot? outputSlot, SmeltState s) =>
+        (inputSlot?.Itemstack?.Collectible?.Id ?? -1) != s.InId || (inputSlot?.Itemstack?.StackSize ?? 0) != s.InSize
+        || (outputSlot?.Itemstack?.Collectible?.Id ?? -1) != s.OutId || (outputSlot?.Itemstack?.StackSize ?? 0) != s.OutSize;
 
     // ------------------------------------------------------------ oven baking
 
@@ -218,7 +221,10 @@ public static class CooPatches
         if (Traverse.Create(__instance).Field("playersGrinding").GetValue() is not Dictionary<string, long> grinding
             || grinding.Count == 0) return;
 
-        int ctx = HashCode.Combine("quern", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 30000);
+        // Per-grind bucket (a hand grind takes several seconds): each completed grind is its own
+        // context and the K cap does the daily throttling. The 0.3.136 30s bucket collapsed a
+        // 5-grain session into one credit, which under-read a per-action verb.
+        int ctx = HashCode.Combine("quern", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 4000);
         foreach (string uid in grinding.Keys)
         {
             IPlayer? player = __instance.Api.World.PlayerByUid(uid);

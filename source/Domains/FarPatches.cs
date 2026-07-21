@@ -223,6 +223,7 @@ public static class FarPatches
             else return; // no trough BE reachable from this click; nothing to stamp
         }
         troughOwners[PosKey(pos)] = byPlayer.PlayerUID;
+        TcmLog.Cat(world.Api, "far", $"trough feed-owner stamp: {pos} -> {byPlayer.PlayerName} (silent by design; credit lands when an animal eats)");
     }
 
     // ------------------------------------------------------------ beekeeping (FGC re-point)
@@ -246,7 +247,8 @@ public static class FarPatches
 
         entity.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, uid);
         IPlayer? owner = __instance.Api.World.PlayerByUid(uid);
-        if (owner == null) return; // owner offline; the stamp still landed, their feeding waits for them
+        if (owner == null) return; // owner offline; the stamp still landed but this portion's credit is lost
+        TcmLog.Cat(__instance.Api, "far", $"trough portion eaten by {entity.Code?.FirstCodePart()} #{entity.EntityId} -> feeding credit + raisedBy stamp for {owner.PlayerName}");
         Core?.Ledger?.Log(owner, FarDomain.Code, FarDomain.TechFeeding,
             HashCode.Combine("feed", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 60000));
     }
