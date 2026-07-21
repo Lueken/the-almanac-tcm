@@ -1,0 +1,179 @@
+using System;
+using HarmonyLib;
+using Vintagestory.API.Common;
+using Vintagestory.API.Config;
+using Vintagestory.API.Server;
+using Vintagestory.GameContent;
+
+namespace AlmanacTcm.Domains;
+
+/// <summary>
+/// COO Phase 2 (rank-bonus-design §COO, RULED 2026-07-09; built 2026-07-21). Proposal B
+/// throughout: no locked doors — the dish's complexity class sets how much rank can express.
+///
+/// ONE cookedBy STAMP, THREE JOBS (the Axis 2 unification ruling): the stamp written at meal
+/// completion carries {uid, name, tier, complexity} and drives
+///   • Axis 1 — the Untrained penalty: stamped food perishes faster (GetTransitionRateMul);
+///   • Axis 6 — the Cook's Mark: tiered provenance in the tooltip (Cooked by / Prepared by /
+///     Signature dish by) and the GM slow-spoil signature on the same perish postfix;
+///   • the satiety/health edge (ruling 4): GetNutritionHealthMul scaled by tier x complexity,
+///     capped ~+12%/+5% at GM on a C3 dish, ~0 on C0.
+/// Axis 2 fuel economy: igniteWithFuel (:58643) scaled by the pit's lastCook rank — more meals
+/// per fuel unit, never faster cooking. Axis 3 reliability: the char clock — a FINISHED bake
+/// sitting in oven heat browns toward charred at a rank-scaled rate (IncrementallyBake dt,
+/// scaled ONLY on the perfect stage so bake speed itself is untouched); Untrained x1.5, GM x0.5
+/// floor, never zero. Axis 4 thrift: the extra-serving proc at meal completion (chance only,
+/// GM-weighted — a master occasionally stretches a pot, never reliably).
+///
+/// Honest v1 scope: the stamp lands on MEAL-POT output (where the satiety virtual lives).
+/// Mixing-bowl output stamping + EF expandedSats scaling need the bowl's output-slot layout
+/// verified first; oven goods carry no stamp yet (bread has no meal-nutrition virtual; its
+/// spoilage mark is a v2 nicety). Vanilla meal-pot/simmer cannot burn (verified) — the char
+/// clock lives on the oven path only this build.
+/// </summary>
+public static class CooBonusPatches
+{
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+
+    public const string CookByAttr = "almanactcm:cookby";
+    public const string CookByNameAttr = "almanactcm:cookbyname";
+    public const string CookTierAttr = "almanactcm:cooktier";
+    public const string CookCxAttr = "almanactcm:cookcx";
+
+    /// <summary>Provenance thresholds (ruled: a mark means something from Journeyman up).</summary>
+    private const int TierJourneyman = 9, TierMaster = 13, TierGm = 17;
+
+    public static void PatchConditional(ICoreAPI api, Harmony harmony)
+    {
+        // Axis 2 — fuel economy on the firepit family (vanilla oven burns its own wood and the
+        // stonebake controller subclasses the firepit; the pit is the family root we hook).
+        var t = AccessTools.TypeByName("Vintagestory.GameContent.BlockEntityFirepit");
+        var m = t == null ? null : AccessTools.DeclaredMethod(t, "igniteWithFuel");
+        if (m == null) TcmLog.Warn(api, "COO fuel economy seam not found (igniteWithFuel); axis inactive");
+        else
+        {
+            harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(CooBonusPatches), nameof(FuelPostfix))));
+            TcmLog.Info(api, "COO fuel economy hooked (igniteWithFuel, lastCook-attributed)");
+        }
+
+        // Axis 1/3 — the char clock on the oven bake tick (dt prefix, perfect-stage only).
+        var to = AccessTools.TypeByName("Vintagestory.GameContent.BlockEntityOven");
+        var mo = to == null ? null : AccessTools.DeclaredMethod(to, "IncrementallyBake");
+        if (mo == null) TcmLog.Warn(api, "COO char-clock seam not found (IncrementallyBake); axis inactive");
+        else
+        {
+            harmony.Patch(mo, prefix: new HarmonyMethod(AccessTools.Method(typeof(CooBonusPatches), nameof(CharClockPrefix))));
+            TcmLog.Info(api, "COO char clock hooked (IncrementallyBake dt, perfect stage only)");
+        }
+
+        // The perish postfix (Axis 1 penalty + Axis 6 GM signature) and the provenance tooltip
+        // are attribute patches below, applied by the Start PatchAll pass.
+    }
+
+    // ------------------------------------------------------------ the stamp
+
+    /// <summary>Write the cook stamp at a completion sink. Called by CooPatches with the verb's
+    /// complexity knob; tier is the cook's COO level at that moment (frozen, like MET's mark).</summary>
+    public static void StampCooked(ItemStack? stack, IPlayer cook, int cxClass)
+    {
+        if (stack == null || cook == null) return;
+        stack.Attributes.SetString(CookByAttr, cook.PlayerUID);
+        stack.Attributes.SetString(CookByNameAttr, cook.PlayerName);
+        stack.Attributes.SetInt(CookTierAttr, CooDomain.LevelOf(cook));
+        stack.Attributes.SetInt(CookCxAttr, cxClass);
+    }
+
+    // ------------------------------------------------------------ Axis 2 — fuel economy
+
+    /// <summary>One shot per fuel load: scale the just-set burn duration by the pit cook's rank
+    /// (Untrained 0.90 wastes fuel, GM 1.15 stretches it). Never touches cooking speed.</summary>
+    public static void FuelPostfix(BlockEntity __instance)
+    {
+        if (__instance is not BlockEntityFirepit || __instance.Api?.Side != EnumAppSide.Server) return;
+        IPlayer? cook = CooPatches.CookAtPublic(__instance.Api.World, __instance.Pos);
+        if (cook == null) return;
+        double f = CooDomain.RankLinear(CooDomain.LevelOf(cook),
+            CooDomain.Knob(CooDomain.FuelUntrained, 0.90), CooDomain.Knob(CooDomain.FuelGm, 1.15));
+        if (Math.Abs(f - 1.0) < 0.001) return;
+        var tv = Traverse.Create(__instance);
+        tv.Field("fuelBurnTime").SetValue((float)(tv.Field("fuelBurnTime").GetValue<float>() * f));
+        tv.Field("maxFuelBurnTime").SetValue((float)(tv.Field("maxFuelBurnTime").GetValue<float>() * f));
+    }
+
+    // ------------------------------------------------------------ Axis 1/3 — the char clock
+
+    /// <summary>Scale the browning tick ONLY when the slot holds a FINISHED bake (not dough, not
+    /// partbaked, not already charred): that dt is purely the march toward charring, so baking
+    /// speed stays vanilla while an Untrained cook's bread chars fast (x1.5) and a master's sits
+    /// long (x0.5 floor — even a GM can burn wildly neglected food).</summary>
+    public static void CharClockPrefix(BlockEntity __instance, ref float dt, int slotIndex)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        string? code = inv != null && slotIndex < inv.Count ? inv[slotIndex]?.Itemstack?.Collectible?.Code?.Path : null;
+        if (code == null || code.StartsWith("dough") || code.Contains("partbaked") || code.Contains("charred")) return;
+
+        IPlayer? cook = CooPatches.CookAtPublic(__instance.Api.World, __instance.Pos);
+        if (cook == null) return;
+        dt *= (float)CooDomain.RankLinear(CooDomain.LevelOf(cook),
+            CooDomain.Knob(CooDomain.CharUntrained, 1.5), CooDomain.Knob(CooDomain.CharGm, 0.5));
+    }
+
+    // ------------------------------------------------------------ Axis 1 + 6 — the perish factor
+
+    /// <summary>Stamped food perishes by its cook: the Untrained end is the penalty (their
+    /// cooking spoils faster), the GM end is the Cook's Mark signature (a GM's rations keep).
+    /// Mid ranks are vanilla — this is a two-ended lever by ruling, not a curve.</summary>
+    [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.GetTransitionRateMul))]
+    public static class PerishPatch
+    {
+        public static void Postfix(ItemSlot inSlot, EnumTransitionType transType, ref float __result)
+        {
+            if (transType != EnumTransitionType.Perish) return;
+            var attrs = inSlot?.Itemstack?.Attributes;
+            if (attrs?.HasAttribute(CookTierAttr) != true) return;
+            int tier = attrs.GetInt(CookTierAttr);
+            if (tier <= 0) __result *= (float)CooDomain.Knob(CooDomain.SpoilUntrained, 1.15);
+            else if (tier >= TierGm) __result *= (float)CooDomain.Knob(CooDomain.SpoilGm, 0.70);
+        }
+    }
+
+    // ------------------------------------------------------------ the satiety/health edge
+
+    /// <summary>Ruling 4: the complexity-weighted reward curve. edge = rankT x (cx/3) x GM cap —
+    /// a GM's touch shows most on chain dishes, never on charred meat. Applied to the whole
+    /// meal's satiety and, smaller, its heal-on-eat (one lever, two effects).</summary>
+    [HarmonyPatch(typeof(BlockMeal), nameof(BlockMeal.GetNutritionHealthMul))]
+    public static class NutritionPatch
+    {
+        public static void Postfix(ItemSlot slot, ref float[] __result)
+        {
+            var attrs = slot?.Itemstack?.Attributes;
+            if (attrs?.HasAttribute(CookTierAttr) != true || __result is not { Length: >= 2 }) return;
+            double t = CooDomain.BonusT(attrs.GetInt(CookTierAttr));
+            if (t <= 0) return;
+            double cxWeight = Math.Clamp(attrs.GetInt(CookCxAttr) / 3.0, 0, 1);
+            __result[0] *= (float)(1.0 + t * cxWeight * CooDomain.Knob(CooDomain.SatietyGmC3, 0.12));
+            __result[1] *= (float)(1.0 + t * cxWeight * CooDomain.Knob(CooDomain.HealthGmC3, 0.05));
+        }
+    }
+
+    // ------------------------------------------------------------ Axis 6 — provenance tooltip
+
+    /// <summary>The Cook's Mark line (from Journeyman up, ruled): Cooked by / Prepared by /
+    /// Signature dish by. The GM line also names the keep (the slow-spoil signature).</summary>
+    [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.GetHeldItemInfo))]
+    public static class ProvenancePatch
+    {
+        public static void Postfix(ItemSlot inSlot, System.Text.StringBuilder dsc)
+        {
+            var attrs = inSlot?.Itemstack?.Attributes;
+            string? name = attrs?.GetString(CookByNameAttr);
+            if (name == null) return;
+            int tier = attrs!.GetInt(CookTierAttr);
+            if (tier >= TierGm) dsc.AppendLine(Lang.Get("almanactcm:signature-by", name));
+            else if (tier >= TierMaster) dsc.AppendLine(Lang.Get("almanactcm:prepared-by", name));
+            else if (tier >= TierJourneyman) dsc.AppendLine(Lang.Get("almanactcm:cooked-by", name));
+        }
+    }
+}

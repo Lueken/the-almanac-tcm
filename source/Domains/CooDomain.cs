@@ -39,6 +39,39 @@ public static class CooDomain
     public const string TechSalting = "salting";       // seafarer salt pan evaporation
     public const string TechPrep = "prep";             // seafarer prep-table assembly
 
+    // ---- Phase 2 knobs (COO ladder RULED 2026-07-09; Proposal B: complexity class is the
+    // rank-bonus ceiling, never a locked door). All live-editable in ModConfig/almanactcm/COO.json.
+
+    // The complexity-class table (C0 bare fire -> C3 chain apparatus), per verb. Ruled as config
+    // so stations can be re-classed without a rebuild.
+    public const string CxMealpot = "cxMealpot";
+    public const string CxDirectheat = "cxDirectheat";
+    public const string CxBaking = "cxBaking";
+    public const string CxGriddling = "cxGriddling";
+    public const string CxMixing = "cxMixing";
+    public const string CxMilling = "cxMilling";
+    public const string CxJuicing = "cxJuicing";
+    public const string CxDrying = "cxDrying";
+    public const string CxSalting = "cxSalting";
+    public const string CxPrep = "cxPrep";
+
+    /// <summary>Axis 2 fuel economy (the MET fuel analog): burn-duration factor at the ends.</summary>
+    public const string FuelUntrained = "fuelUntrained";
+    public const string FuelGm = "fuelGm";
+    /// <summary>Axis 1/3 char clock: how fast a FINISHED bake browns toward charred while it sits
+    /// in heat. Untrained burns fast; GM sits long; floored, never zero.</summary>
+    public const string CharUntrained = "charUntrained";
+    public const string CharGm = "charGm";
+    /// <summary>Axis 1 / Axis 6: perish-rate factor on food carrying the cook stamp. The
+    /// Untrained end is the penalty (spoils faster); the GM end is the Cook's Mark signature.</summary>
+    public const string SpoilUntrained = "spoilUntrained";
+    public const string SpoilGm = "spoilGm";
+    /// <summary>Axis 4 thrift: the extra-serving proc chance at GM (0 below Apprentice, linear).</summary>
+    public const string ServingProcGm = "servingProcGm";
+    /// <summary>The satiety/health edge at GM on a C3 dish (scales by cx/3 and rank; ~0 on C0).</summary>
+    public const string SatietyGmC3 = "satietyGmC3";
+    public const string HealthGmC3 = "healthGmC3";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -62,7 +95,31 @@ public static class CooDomain
             [TechDrying] = new() { Raw = 4, K = 12 },
             [TechSalting] = new() { Raw = 3, K = 12 },
         },
+        Bonus = new Dictionary<string, double>
+        {
+            // The complexity table (tool-gate study census, ruled): C0 bare heat, C1 vessel,
+            // C2 station, C3 chain apparatus.
+            [CxMealpot] = 1, [CxDirectheat] = 0, [CxBaking] = 2, [CxGriddling] = 2,
+            [CxMixing] = 3, [CxMilling] = 2, [CxJuicing] = 2, [CxDrying] = 2,
+            [CxSalting] = 2, [CxPrep] = 3,
+            // The ruled illustrative ends (MET numeric posture, playtest-tuned).
+            [FuelUntrained] = 0.90, [FuelGm] = 1.15,
+            [CharUntrained] = 1.5, [CharGm] = 0.5,
+            [SpoilUntrained] = 1.15, [SpoilGm] = 0.70,
+            [ServingProcGm] = 0.25,
+            [SatietyGmC3] = 0.12, [HealthGmC3] = 0.05,
+        },
     };
+
+    /// <summary>The Apprentice-and-up reward curve: 0 through Novice (vanilla is not a bonus),
+    /// then linear from Apprentice I (level 5) to 1.0 at max. Proposal B's rank half.</summary>
+    public static double BonusT(int level)
+    {
+        const int start = 5;
+        if (level < start) return 0;
+        int max = Leveling.Domain.MaxLevelDefault;
+        return (level - start) / (double)(max - start);
+    }
 
     /// <summary>General rank curve (shared shape). Phase 2's satiety-modifier reward curve reads it.</summary>
     public static double RankLinear(int level, double untrained, double gm)

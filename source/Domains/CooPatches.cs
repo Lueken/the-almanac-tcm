@@ -213,6 +213,10 @@ public static class CooPatches
         return world.PlayerByUid(uid);
     }
 
+    /// <summary>The Phase 2 levers (CooBonusPatches: fuel economy, char clock) read the same
+    /// lastCook stamp this file writes — one attribution, shared.</summary>
+    public static IPlayer? CookAtPublic(IWorldAccessor world, BlockPos? pos) => CookAt(world, pos);
+
     // ------------------------------------------------------------ smelt completion (pot + direct)
 
     public readonly record struct SmeltState(BlockPos? Pos, int InId, int InSize, int OutId, int OutSize, bool Cookable);
@@ -246,6 +250,23 @@ public static class CooPatches
         TcmLog.Cat(world.Api, "coo", $"meal-pot completed at {__state.Pos} -> {cook.PlayerName}");
         Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechMealPot,
             HashCode.Combine("mealpot", __state.Pos!.X, __state.Pos.Z, world.ElapsedMilliseconds / 30000));
+
+        // Phase 2: the cook stamp (one stamp, three jobs) + the Axis 4 extra-serving proc.
+        var meal = outputSlot?.Itemstack ?? inputSlot?.Itemstack;
+        CooBonusPatches.StampCooked(meal, cook, (int)CooDomain.Knob(CooDomain.CxMealpot, 1));
+        double procT = CooDomain.BonusT(CooDomain.LevelOf(cook));
+        if (meal != null && procT > 0
+            && world.Rand.NextDouble() < procT * CooDomain.Knob(CooDomain.ServingProcGm, 0.25))
+        {
+            float servings = (float)meal.Attributes.GetDecimal("quantityServings", 0.0);
+            if (servings >= 1)
+            {
+                meal.Attributes.SetFloat("quantityServings", servings + 1f);
+                TcmLog.Cat(world.Api, "coo", $"exceptional batch at {__state.Pos}: {servings} -> {servings + 1} servings for {cook.PlayerName}");
+                (cook as IServerPlayer)?.SendMessage(Vintagestory.API.Config.GlobalConstants.GeneralChatGroup,
+                    Vintagestory.API.Config.Lang.Get("almanactcm:pot-stretched"), EnumChatType.Notification);
+            }
+        }
     }
 
     /// <summary>Direct-heat: only the kitchen class (Cook/Bake input) banks — an ore nugget or a
