@@ -193,6 +193,14 @@ public static class AniPatches
         string? uid = dam.WatchedAttributes?.GetString(AniDomain.RaisedByAttr);
         if (string.IsNullOrEmpty(uid))
             uid = dam.WatchedAttributes?.GetTreeAttribute("domesticationstatus")?.GetString("owner");
+        if (string.IsNullOrEmpty(uid))
+        {
+            // The last link of the ruled chain: an unstamped birth on CLAIMED land credits the
+            // claim owner — their pen, their husbandry (LandClaim.OwnedByPlayerUid, vsapi
+            // :143037). A truly feral birth in the wild still credits nobody.
+            var claims = dam.World.Claims?.Get(dam.Pos.AsBlockPos);
+            if (claims is { Length: > 0 }) uid = claims[0].OwnedByPlayerUid;
+        }
         // Loud either way (the trough lesson: silent links hide dead hooks) — every birth the
         // patch sees gets one line stating the attribution outcome.
         if (string.IsNullOrEmpty(uid))
