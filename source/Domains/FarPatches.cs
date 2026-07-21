@@ -61,14 +61,15 @@ public static class FarPatches
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFruitTreePart", "OnBlockInteractStop", nameof(OrchardPostfix), "FAR orchard");
         Hook(api, harmony, "Vintagestory.GameContent.BlockSkep", "OnBlockBroken", nameof(BeekeepPostfix), "FAR beekeeping");
 
-        // The feeding loop: the filler is stamped at the trough BLOCK interaction (verified
-        // 1.22.3: BlockTroughBase.OnBlockInteractStart is the fill seam — the BE has no
-        // OnInteract, the 0.3.134 miss that left the whole raisedBy spine dark), then credited +
-        // stamped at the portion consume on the BE. BlockTroughDoubleBlock (the big livestock
-        // trough) OVERRIDES OnBlockInteractStart (:87507), so per the Harmony override rule it
-        // needs its own hook — without it the main trough never stamps (the 0.3.135 hole).
-        Hook(api, harmony, "Vintagestory.GameContent.BlockTroughBase", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (small)");
-        Hook(api, harmony, "Vintagestory.GameContent.BlockTroughDoubleBlock", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (large)");
+        // The feeding loop: the filler is stamped at the trough BLOCK interaction, then credited +
+        // stamped onto the animal at the portion consume on the BE. OnBlockInteractStart is
+        // declared on BlockTrough (:87370, small) and BlockTroughDoubleBlock (:87506, large) —
+        // NOT on BlockTroughBase (the 0.3.137 bug: the base hook silently resolved up to the
+        // global Block method, which both trough classes override, so the small trough never
+        // stamped). DECLARED-strict so a future signature move warns instead of silently
+        // patching the wrong method.
+        HookDeclared(api, harmony, "Vintagestory.GameContent.BlockTrough", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (small)");
+        HookDeclared(api, harmony, "Vintagestory.GameContent.BlockTroughDoubleBlock", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (large)");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityTrough", "ConsumeOnePortion", nameof(TroughConsumePostfix), "FAR feeding");
 
         // Shearing — shearlib's library verb (success-gated: a clean shear only; the damaging
@@ -97,6 +98,18 @@ public static class FarPatches
         if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName}.{method}); that verb is inactive this build"); return; }
         harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), postfix)));
         TcmLog.Info(api, $"{label} hooked ({typeName}.{method})");
+    }
+
+    /// <summary>Like Hook, but the method must be DECLARED on the named type. For override-
+    /// sensitive seams: AccessTools.Method silently walks up the hierarchy, and patching an
+    /// inherited base method misses every subclass override (the trough lesson).</summary>
+    private static void HookDeclared(ICoreAPI api, Harmony harmony, string typeName, string method, string postfix, string label)
+    {
+        var t = AccessTools.TypeByName(typeName);
+        var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
+        if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName} does not DECLARE {method}); that verb is inactive this build"); return; }
+        harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), postfix)));
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
     }
 
     private static IPlayer? PlayerOf(EntityAgent? agent) => (agent as EntityPlayer)?.Player;
@@ -243,7 +256,13 @@ public static class FarPatches
     public static void TroughConsumePostfix(BlockEntity __instance, Entity entity)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server || entity == null) return;
-        if (!troughOwners.TryGetValue(PosKey(__instance.Pos), out string? uid) || uid == null) return;
+        if (!troughOwners.TryGetValue(PosKey(__instance.Pos), out string? uid) || uid == null)
+        {
+            // The diagnostic half of the spine: an eat with no stamped filler is the exact
+            // symptom of a dead fill hook (or a restart since the last fill). Loud on purpose.
+            TcmLog.Cat(__instance.Api, "far", $"trough portion eaten by {entity.Code?.FirstCodePart()} #{entity.EntityId} at {__instance.Pos} but NO feed-owner stamped; uncredited");
+            return;
+        }
 
         entity.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, uid);
         IPlayer? owner = __instance.Api.World.PlayerByUid(uid);

@@ -193,9 +193,20 @@ public static class AniPatches
         string? uid = dam.WatchedAttributes?.GetString(AniDomain.RaisedByAttr);
         if (string.IsNullOrEmpty(uid))
             uid = dam.WatchedAttributes?.GetTreeAttribute("domesticationstatus")?.GetString("owner");
-        if (string.IsNullOrEmpty(uid)) return; // no husbandry stamp — feral, nobody's practice yet
+        // Loud either way (the trough lesson: silent links hide dead hooks) — every birth the
+        // patch sees gets one line stating the attribution outcome.
+        if (string.IsNullOrEmpty(uid))
+        {
+            TcmLog.Cat(dam.World.Api, "ani", $"birth: {dam.Code?.FirstCodePart()} dam #{dam.EntityId} has NO raisedBy stamp (feral or unfed line); uncredited");
+            return;
+        }
         IPlayer? owner = dam.World.PlayerByUid(uid);
-        if (owner == null) return; // breeder offline; their birth waits for them
+        if (owner == null)
+        {
+            TcmLog.Cat(dam.World.Api, "ani", $"birth: {dam.Code?.FirstCodePart()} dam #{dam.EntityId} raisedBy {uid} who is OFFLINE; this birth's credit is lost");
+            return;
+        }
+        TcmLog.Cat(dam.World.Api, "ani", $"birth: {dam.Code?.FirstCodePart()} dam #{dam.EntityId} -> gen-raising credit for {owner.PlayerName}");
 
         int newbornGen = dam.WatchedAttributes!.GetInt("generation", 0) + 1;
         double mult = AniDomain.GenRaiseMult(newbornGen);
