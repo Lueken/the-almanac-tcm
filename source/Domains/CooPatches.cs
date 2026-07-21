@@ -199,12 +199,22 @@ public static class CooPatches
     {
         if (__instance?.Api?.Side != EnumAppSide.Server) return;
         var inv = (__instance as BlockEntityContainer)?.Inventory;
-        int now = inv != null && slotIndex < inv.Count ? inv[slotIndex]?.Itemstack?.Collectible?.Id ?? -1 : -1;
-        if (now == __state.CollId) return; // still baking, no transform this tick
+        var nowStack = inv != null && slotIndex < inv.Count ? inv[slotIndex]?.Itemstack : null;
+        if ((nowStack?.Collectible?.Id ?? -1) == __state.CollId) return; // still baking, no transform this tick
+
+        // The ruin gate (ruled: burned output grants nothing). The bake ladder is raw ->
+        // partbaked -> perfect -> charred (:82013); a transform INTO the charred stage is an
+        // overbake, the oven's failure state — the opposite of practice. Charred here is not the
+        // firepit's "charred meat" (which IS the successful open-flame cook product).
+        if (nowStack?.Collectible?.Code?.Path?.Contains("charred") == true)
+        {
+            TcmLog.Cat(__instance.Api, "coo", $"oven overbake at {__instance.Pos}: {nowStack.Collectible.Code.Path} — ruined, no practice");
+            return;
+        }
 
         IPlayer? cook = CookAt(__instance.Api.World, __instance.Pos);
         if (cook == null) return;
-        // Minute bucket: a multi-stage bake (partbaked then baked) collapses to one context.
+        // Minute bucket: a multi-stage bake (partbaked then perfect) collapses to one context.
         Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechBaking,
             HashCode.Combine("bake", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 60000));
     }
