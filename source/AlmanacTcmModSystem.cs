@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.160-dev")]
+    Version = "0.3.161-dev")]
 
 namespace AlmanacTcm;
 
@@ -107,6 +107,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("POT", () => Domains.PotPatches.PatchConditional(api, harmony));
             Try("POT-bonus", () => Domains.PotBonusPatches.PatchConditional(api, harmony));
             Try("GLA", () => Domains.GlaPatches.PatchConditional(api, harmony));
+            Try("BRE", () => Domains.BrePatches.PatchConditional(api, harmony));
             Try("HUN-bloodtrail", () => Domains.HunBloodTrailPatches.PatchConditional(api, harmony));
             Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));
             Try("WOO-colliersmark", () => Domains.WooColliersMark.PatchAll(api, harmony));
@@ -138,6 +139,9 @@ public class AlmanacTcmModSystem : ModSystem
         // roster). The factory registers regardless; the domain is excluded from breadth/affinity
         // when disabled, and its verbs only patch when the mod is present.
         Engine.LedgerSystem.DefaultFactories[Domains.GlaDomain.Code] = Domains.GlaDomain.Defaults;
+        // The consumables cluster (BRE this build; ALC next). BRE grants at the seal/ignite (the
+        // online skilled act); completion-time effects use the frozen rank.
+        Engine.LedgerSystem.DefaultFactories[Domains.BreDomain.Code] = Domains.BreDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
@@ -201,6 +205,10 @@ public class AlmanacTcmModSystem : ModSystem
         // GLA is stateless server-side (window + provenance ride the stack; no side maps), but it
         // still needs the world handle for grant contextHashes.
         Domains.GlaPatches.RegisterServer(sapi);
+
+        // BRE's persisted seal-owner map (a seal matures across days/restarts; the frozen rank
+        // drives the unattended spoilage/portion/mark effects).
+        Domains.BrePatches.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
