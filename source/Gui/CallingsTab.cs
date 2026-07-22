@@ -239,6 +239,36 @@ public class CallingsTab : IAlmanacBookTab
             comps.Add(new RichTextComponent(capi, di.mastery + "\n", body));
         }
 
+        // ALC: the Grandmaster's Potent/Lasting emphasis toggle — the player's own choice, stamped
+        // onto every remedy they make. Only a live lever at Grandmaster; below it, a note of what waits.
+        if (code == "ALC")
+        {
+            CairoFont chosen = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody)
+                .WithWeight(Cairo.FontWeight.Bold).WithColor(Ink);
+            comps.Add(new ClearFloatTextComponent(capi, 14));
+            comps.Add(new RichTextComponent(capi, "Your emphasis\n", subhead));
+            if (level >= Domains.AlcDomain.ProvGm)
+            {
+                bool potent = Domains.AlcEmphasis.IsPotent(capi.World.Player);
+                comps.Add(potent
+                    ? new RichTextComponent(capi, "Potent", chosen)
+                    : new BookLinkComponent(capi, "Potent", body, _ => { Domains.AlcEmphasis.Set(capi, true); host?.Recompose(); }));
+                comps.Add(new RichTextComponent(capi, "      ", body));
+                comps.Add(!potent
+                    ? new RichTextComponent(capi, "Lasting", chosen)
+                    : new BookLinkComponent(capi, "Lasting", body, _ => { Domains.AlcEmphasis.Set(capi, false); host?.Recompose(); }));
+                comps.Add(new RichTextComponent(capi, "\n", body));
+                comps.Add(new RichTextComponent(capi, potent
+                    ? "Your remedies run stronger, trading a little of how long they hold.\n"
+                    : "Your remedies run longer, trading a little of their strength.\n", mutedItalic));
+            }
+            else
+            {
+                comps.Add(new RichTextComponent(capi,
+                    "At Grandmaster you will choose to brew Potent or Lasting. Until then, your work simply climbs.\n", mutedItalic));
+            }
+        }
+
         if (di?.techniques != null && di.techniques.Length > 0)
         {
             comps.Add(new ClearFloatTextComponent(capi, 14));

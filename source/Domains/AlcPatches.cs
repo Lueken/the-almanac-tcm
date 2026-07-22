@@ -17,12 +17,12 @@ namespace AlmanacTcm.Domains;
 ///     (any CollectibleBehaviorHealingItem output) grants ALC at the real take (GridRecipe.ConsumeInput,
 ///     the PF craft-XP seam) and stamps the maker's Brand on the output batch. The real crafted stack is
 ///     captured at OnCreatedByCrafting (which runs first in CraftSingle) and branded at ConsumeInput
-///     (where the crafter is finally in scope). Fixed-grid quantity = Lasting emphasis.
+///     (where the crafter is finally in scope). Emphasis is the crafter's book choice (AlcEmphasis).
 ///
 ///   • Potion cauldron cook [alchemy, conditional] — the re-pointed potion seam (2.1.11 moved potions
 ///     barrel-seal -> cauldron-cook). Owner captured at the cauldron interact (owner-at-tend, persisted),
 ///     grant + Brand stamp at the unattended firepit completion (BlockEntityFirepit.smeltItems, filtered
-///     to potion output). More key reagent in the cooking slots = Potent emphasis. POT pit-kiln model:
+///     to potion output). Emphasis is the tender's book choice, frozen at tend time. POT pit-kiln model:
 ///     grant if the tender is online, else the credit is lost but the Brand still stamps.
 ///
 ///   • Wet chemistry [industrialstory, conditional] — the deep metal-gated breadth verb + the Axis 2
@@ -170,7 +170,7 @@ public static class AlcPatches
     {
         if (__instance?.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
         cauldronOwners[PosKey(__instance.Pos)] =
-            $"{byPlayer.PlayerUID}|{byPlayer.PlayerName}|{AlcDomain.LevelOf(byPlayer)}";
+            $"{byPlayer.PlayerUID}|{byPlayer.PlayerName}|{AlcDomain.LevelOf(byPlayer)}|{(AlcEmphasis.IsPotent(byPlayer) ? 1 : 0)}";
     }
 
     /// <summary>Grant + Brand stamp at the unattended firepit cook completion, filtered to potion
@@ -187,12 +187,9 @@ public static class AlcPatches
         string[] p = packed.Split('|');
         if (p.Length < 3 || !int.TryParse(p[2], out int level)) return;
 
-        // Emphasis by reagent quantity (RULED 2026-07-22): more key reagent in the cooking slots = Potent.
-        int maxQty = 0;
-        if (fp.Inventory is InventorySmelting invs)
-            foreach (var cs in invs.CookingSlots)
-                if (cs?.Itemstack != null) maxQty = Math.Max(maxQty, cs.Itemstack.StackSize);
-        bool potent = maxQty >= (int)Math.Round(AlcDomain.Knob(AlcDomain.PotentQtyThreshold, 3.0));
+        // Emphasis is the tender's book choice, frozen at tend time (Potent/Lasting), so a cook that
+        // completes offline still honors it. Only bites at Grandmaster (the read gates on level).
+        bool potent = p.Length >= 4 && p[3] == "1";
 
         AlcBrand.Stamp(outStack, p[0], p[1], level, potent);
         fp.MarkDirty(true);
@@ -324,8 +321,8 @@ public static class AlcPatches
     }
 
     /// <summary>The vanilla ALC floor: a real grid-craft of a healing item grants ALC and stamps the
-    /// maker's Brand on the captured output batch. Grid quantity is fixed, so poultices/bandages sit at
-    /// base = Lasting. Server-only, real take only (never previews — ConsumeInput is the PF craft seam).</summary>
+    /// maker's Brand on the captured output batch, with the crafter's book emphasis. Server-only, real
+    /// take only (never previews — ConsumeInput is the PF craft seam).</summary>
     [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
     public static class RemedyGrantPatch
     {
@@ -340,7 +337,7 @@ public static class AlcPatches
 
             if (IsHealingItem(pendingRemedyStack))
                 AlcBrand.Stamp(pendingRemedyStack, byPlayer.PlayerUID, byPlayer.PlayerName,
-                    AlcDomain.LevelOf(byPlayer), potent: false);
+                    AlcDomain.LevelOf(byPlayer), AlcEmphasis.IsPotent(byPlayer));
             pendingRemedyStack = null;
         }
     }

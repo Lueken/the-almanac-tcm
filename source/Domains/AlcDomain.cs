@@ -21,10 +21,11 @@ namespace AlmanacTcm.Domains;
 /// duration, batch-stamped at the creating act, climbing with rank NERF-FIRST (Untrained
 /// below the ingredient tier, Novice = vanilla, Apprentice→GM a modest climb). At
 /// Grandmaster the batch carries an EMPHASIS — Potent (deeper strength) or Lasting
-/// (longer duration) — chosen by INGREDIENT QUANTITY (RULED 2026-07-22, Jeffrey): the
-/// base amount of the key reagent brews Lasting; loading MORE tips it Potent. Fixed-grid
-/// poultices can't vary quantity, so they sit at base = Lasting. Plus the revive-HP climb
-/// (unbranded ~22% → hard 0.80 cap, held even at GM) and exhausted-on-revive (Vigor).
+/// (longer duration) — set by the player's own toggle on the Alchemy page in the Almanac
+/// book (see AlcEmphasis), frozen onto the batch at the creating act. (The original
+/// ingredient-quantity idea was dead: potion recipes are hard-fixed at qty 1, no
+/// concentration lever.) Plus the revive-HP climb (unbranded ~22% → hard 0.80 cap, held
+/// even at GM) and exhausted-on-revive (Vigor).
 ///
 /// Reliability is N/A (ratified) — wet chemistry is deterministic, the potion path a
 /// no-fail cook. No material/rank gate (apparatus + fired-brick self-gate; GLA argument).
@@ -49,11 +50,10 @@ public static class AlcDomain
     public const string DurationUntrained = "durationUntrained";
     /// <summary>Remedy duration at Grandmaster: the modest climb, the second scalable field.</summary>
     public const string DurationGm = "durationGm";
-    /// <summary>The extra GM-emphasis bump: Potent adds it to potency, Lasting to duration.</summary>
+    /// <summary>The extra GM-emphasis bump: Potent adds it to potency, Lasting to duration. The
+    /// choice itself is the player's book toggle (see <see cref="AlcEmphasis"/>), not ingredient
+    /// quantity — potion recipes are hard-fixed at qty 1, so there is no concentration lever to read.</summary>
     public const string EmphasisBonus = "emphasisBonus";
-    /// <summary>Cooking-slot reagent quantity at/above which a GM cauldron/reaction batch reads
-    /// Potent (loading more key reagent); below is Lasting. Grid poultices are fixed = Lasting.</summary>
-    public const string PotentQtyThreshold = "potentQtyThreshold";
 
     // ---- Revive extension (Axis 6, RULED 2026-07-11) knob keys.
     /// <summary>Revive-HP fraction of MaxHealth an unbranded/low remedy wakes a downed player on
@@ -98,7 +98,6 @@ public static class AlcDomain
             [PotencyUntrained] = 0.85, [PotencyGm] = 1.15,
             [DurationUntrained] = 0.85, [DurationGm] = 1.15,
             [EmphasisBonus] = 0.10,
-            [PotentQtyThreshold] = 3.0,
             // Revive HP: unbranded ~22% -> hard 0.80 cap (RULED "80 stands").
             [ReviveUntrained] = 0.22, [ReviveGm] = 0.80,
             // Reaction fuel economy (Axis 2): the MET curve, shared host stove.

@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.164-dev")]
+    Version = "0.3.165-dev")]
 
 namespace AlmanacTcm;
 
@@ -219,6 +219,7 @@ public class AlmanacTcmModSystem : ModSystem
         // rack carries the alchemist for the perish-slow rung). The Brand read is stateless.
         Domains.AlcPatches.RegisterServer(sapi);
         Domains.AlcBrandPatches.RegisterServer(sapi);
+        Domains.AlcEmphasis.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
@@ -253,6 +254,9 @@ public class AlmanacTcmModSystem : ModSystem
 
         // The Surveyor's depth bands arrive on their own channel (the PT tooltip reads them).
         Domains.PanSurveyor.RegisterClient(capi);
+
+        // ALC emphasis: the Callings book's Potent/Lasting toggle sends on this channel.
+        Domains.AlcEmphasis.RegisterClient(capi);
 
         // Hunter's Map envelope sync — dormant with the shelved layer (see Start).
         // Domains.HunPatches.RegisterClient(capi);
