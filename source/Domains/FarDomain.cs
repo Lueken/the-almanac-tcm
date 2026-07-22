@@ -62,6 +62,24 @@ public static class FarDomain
     /// at Novice; NERF-FIRST, no GM reduction (the animal's generation is what shears it clean,
     /// which is the ANI cross-tie). Rides shearlib's own scratchChance field.</summary>
     public const string ShearScratchUntrained = "shearScratchUntrained";
+
+    // ---- The Cultivator's Mark (Axis 6, GM signature, RULED 2026-07-09). Provenance + the
+    // Heirloom Seed recurring economy + GM slow-spoil.
+    /// <summary>Yield bonus a live Heirloom seed grants the harvest, REGARDLESS of who plants it
+    /// (the mastery is bred into the seed). Full while generations remain, gone at zero.</summary>
+    public const string HeirloomYield = "heirloomYield";
+    /// <summary>Heirloom tail length (ruled 3): a GM's fresh seed carries the bonus for this many
+    /// harvest generations, decrementing down the line, then it is an ordinary seed.</summary>
+    public const string HeirloomGenerations = "heirloomGenerations";
+    /// <summary>The GM slow-spoil signature on own-grown produce (mirrors COO's Cook's Mark):
+    /// perish factor for a GM grownBy stamp.</summary>
+    public const string SpoilGrownGm = "spoilGrownGm";
+    /// <summary>Exceptional-harvest proc chance at GM (a bonus seed/unit); 0 below Apprentice.</summary>
+    public const string HarvestProcGm = "harvestProcGm";
+
+    /// <summary>Provenance tiers (a mark means something from Journeyman up): the shared FAR
+    /// grownBy tag. Grown by (J) -> Cultivated by (M) -> Heirloom of (GM).</summary>
+    public const int ProvJourneyman = 9, ProvMaster = 13, ProvGm = 17;
     /// <summary>Graft resilience (the agent-designed lever, vanilla-floored by construction):
     /// chance at GM that a DYING cutting clings to life — the death is reverted and vanilla
     /// re-rolls its own unmodified chance on a later tick. No single graft is ever easier than
@@ -106,6 +124,8 @@ public static class FarDomain
             [FertThriftGm] = 0.20,
             [GraftRetryGm] = 0.50,
             [ShearScratchUntrained] = 1.5,
+            [HeirloomYield] = 0.25, [HeirloomGenerations] = 3,
+            [SpoilGrownGm] = 0.70, [HarvestProcGm] = 0.20,
         },
     };
 

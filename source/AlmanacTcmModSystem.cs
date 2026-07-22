@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.157-dev")]
+    Version = "0.3.158-dev")]
 
 namespace AlmanacTcm;
 
@@ -99,6 +99,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("MEL-block", () => Domains.MelPatches.PatchConditional(api, harmony));
             Try("MEL-parry", () => Domains.MelParryPatches.PatchConditional(api, harmony));
             Try("FAR", () => Domains.FarPatches.PatchConditional(api, harmony));
+            Try("FAR-bonus", () => Domains.FarBonusPatches.PatchConditional(api, harmony));
             Try("COO", () => Domains.CooPatches.PatchConditional(api, harmony));
             Try("COO-bonus", () => Domains.CooBonusPatches.PatchConditional(api, harmony));
             Try("ANI", () => Domains.AniPatches.PatchConditional(api, harmony));
@@ -177,6 +178,7 @@ public class AlmanacTcmModSystem : ModSystem
         // owner stamp FAR writes and ANI reads, the unattended cooking/birth completion sinks).
         // Registered after the ledger is live like every other domain.
         Domains.FarPatches.RegisterServer(sapi);
+        Domains.FarBonusPatches.RegisterServer(sapi);
         Domains.CooPatches.RegisterServer(sapi);
         Domains.CooBonusPatches.RegisterServer(sapi);
         Domains.AniPatches.RegisterServer(sapi);
