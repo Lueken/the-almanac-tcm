@@ -333,19 +333,27 @@ public static class CooBonusPatches
     // ------------------------------------------------------------ Axis 6 — provenance tooltip
 
     /// <summary>The Cook's Mark line (from Journeyman up, ruled): Cooked by / Prepared by /
-    /// Signature dish by. The GM line also names the keep (the slow-spoil signature).</summary>
-    [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.GetHeldItemInfo))]
+    /// Signature dish by. Patched on the OUTERMOST tooltip aggregator (ItemStack.GetDescription,
+    /// vsapi :129295) at last priority, so the mark sits at the very bottom after a blank line —
+    /// meal tooltips are dense (gourmand, nutrition facts) and the mark is a signature, not a
+    /// stat (Jeffrey's placement ruling, 2026-07-21). A GetHeldItemInfo patch would land
+    /// mid-tooltip: the meal's own override calls the base midway through building its text.</summary>
+    [HarmonyPatch(typeof(ItemStack), nameof(ItemStack.GetDescription))]
+    [HarmonyPriority(HarmonyLib.Priority.Last)]
     public static class ProvenancePatch
     {
-        public static void Postfix(ItemSlot inSlot, System.Text.StringBuilder dsc)
+        public static void Postfix(ItemStack __instance, ref string __result)
         {
-            var attrs = inSlot?.Itemstack?.Attributes;
+            var attrs = __instance?.Attributes;
             string? name = attrs?.GetString(CookByNameAttr);
-            if (name == null) return;
+            if (name == null || __result == null) return;
             int tier = attrs!.GetInt(CookTierAttr);
-            if (tier >= TierGm) dsc.AppendLine(Lang.Get("almanactcm:signature-by", name));
-            else if (tier >= TierMaster) dsc.AppendLine(Lang.Get("almanactcm:prepared-by", name));
-            else if (tier >= TierJourneyman) dsc.AppendLine(Lang.Get("almanactcm:cooked-by", name));
+            string? line =
+                tier >= TierGm ? Lang.Get("almanactcm:signature-by", name)
+                : tier >= TierMaster ? Lang.Get("almanactcm:prepared-by", name)
+                : tier >= TierJourneyman ? Lang.Get("almanactcm:cooked-by", name)
+                : null;
+            if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }
     }
 }
