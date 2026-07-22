@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
+using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
@@ -34,11 +36,38 @@ namespace AlmanacTcm.Domains;
 public static class CooBonusPatches
 {
     private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static ICoreServerAPI? sapi;
 
     public const string CookByAttr = "almanactcm:cookby";
     public const string CookByNameAttr = "almanactcm:cookbyname";
     public const string CookTierAttr = "almanactcm:cooktier";
     public const string CookCxAttr = "almanactcm:cookcx";
+
+    /// <summary>Placed-vessel stamp carriage (the 0.3.150 playtest gap): a PLACED pot serves
+    /// bowls through its own BE method with no pot stack in sight, and a picked-up pot's stack
+    /// is rebuilt without custom attrs. This pos-keyed map (packed "uid|name|tier|cx") carries
+    /// the mark across both. Persisted: a placed pot can sit through restarts.</summary>
+    private static Dictionary<string, string> mealStamps = new();
+
+    private static string PosKey(BlockPos pos) => $"{pos.X}/{pos.Y}/{pos.Z}";
+
+    public static void RegisterServer(ICoreServerAPI api)
+    {
+        sapi = api;
+        api.Event.SaveGameLoaded += () =>
+        {
+            try
+            {
+                byte[]? data = api.WorldManager.SaveGame.GetData("almanacCooMealStamps");
+                if (data != null)
+                    mealStamps = Vintagestory.API.Util.SerializerUtil.Deserialize<Dictionary<string, string>>(data) ?? new();
+            }
+            catch (Exception e) { TcmLog.Error(api, $"meal stamp map unreadable ({e.Message}); starting empty"); }
+        };
+        api.Event.GameWorldSave += () =>
+            api.WorldManager.SaveGame.StoreData("almanacCooMealStamps",
+                Vintagestory.API.Util.SerializerUtil.Serialize(mealStamps));
+    }
 
     /// <summary>Provenance thresholds (ruled: a mark means something from Journeyman up).</summary>
     private const int TierJourneyman = 9, TierMaster = 13, TierGm = 17;
@@ -81,8 +110,81 @@ public static class CooBonusPatches
             TcmLog.Info(api, "COO stamp propagation hooked (ServeIntoStack: pot -> bowl/crock)");
         }
 
+        // Placed-vessel carriage (the 0.3.150 gap): store the stamp by POSITION when a marked
+        // vessel is placed; re-apply when its stack is rebuilt at pickup; and mark the bowl
+        // directly when the PLACED vessel's own BE serve runs (no pot stack exists there).
+        HookDeclared2(api, harmony, "Vintagestory.GameContent.BlockEntityCookedContainer", "OnBlockPlaced",
+            nameof(VesselPlacedPostfix), "COO stamp carriage (pot placed)");
+        HookDeclared2(api, harmony, "Vintagestory.GameContent.BlockCookedContainer", "OnPickBlock",
+            nameof(VesselPickPostfix), "COO stamp carriage (pot pickup)");
+        HookDeclared2(api, harmony, "Vintagestory.GameContent.BlockEntityCookedContainer", "ServeInto",
+            nameof(BeServePostfix), "COO stamp carriage (placed-pot serve)");
+        HookDeclared2(api, harmony, "Vintagestory.GameContent.BlockEntityCrock", "ServeInto",
+            nameof(BeServePostfix), "COO stamp carriage (placed-crock serve)");
+        HookDeclared2(api, harmony, "Vintagestory.GameContent.BlockEntityCrock", "OnBlockPlaced",
+            nameof(VesselPlacedPostfix), "COO stamp carriage (crock placed)");
+
         // The perish postfix (Axis 1 penalty + Axis 6 GM signature) and the provenance tooltip
         // are attribute patches below, applied by the Start PatchAll pass.
+    }
+
+    private static void HookDeclared2(ICoreAPI api, Harmony harmony, string typeName, string method, string postfix, string label)
+    {
+        var ht = AccessTools.TypeByName(typeName);
+        var hm = ht == null ? null : AccessTools.DeclaredMethod(ht, method);
+        if (hm == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName} does not DECLARE {method}); that carriage link is inactive"); return; }
+        harmony.Patch(hm, postfix: new HarmonyMethod(AccessTools.Method(typeof(CooBonusPatches), postfix)));
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
+    }
+
+    // ------------------------------------------------------------ placed-vessel carriage
+
+    /// <summary>A marked vessel placed: remember the stamp at this position. An UNMARKED vessel
+    /// placed clears any stale entry (a fresh pot on an old spot must not inherit a dead mark).</summary>
+    public static void VesselPlacedPostfix(BlockEntity __instance, ItemStack? byItemStack)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        string key = PosKey(__instance.Pos);
+        var attrs = byItemStack?.Attributes;
+        if (attrs?.HasAttribute(CookTierAttr) == true)
+        {
+            mealStamps[key] = $"{attrs.GetString(CookByAttr)}|{attrs.GetString(CookByNameAttr)}|{attrs.GetInt(CookTierAttr)}|{attrs.GetInt(CookCxAttr)}";
+            TcmLog.Cat(__instance.Api, "coo", $"vessel placed at {__instance.Pos} carries the mark of {attrs.GetString(CookByNameAttr)}; stored");
+        }
+        else mealStamps.Remove(key);
+    }
+
+    private static void ApplyPacked(ItemStack? stack, string packed)
+    {
+        if (stack == null) return;
+        string[] p = packed.Split('|');
+        if (p.Length < 4) return;
+        stack.Attributes.SetString(CookByAttr, p[0]);
+        stack.Attributes.SetString(CookByNameAttr, p[1]);
+        if (int.TryParse(p[2], out int tier)) stack.Attributes.SetInt(CookTierAttr, tier);
+        if (int.TryParse(p[3], out int cx)) stack.Attributes.SetInt(CookCxAttr, cx);
+    }
+
+    /// <summary>Pickup rebuilds the vessel stack from BE data (custom attrs lost); restore the
+    /// mark from the position store. The entry stays until overwritten or served empty: pickup
+    /// is also called for drops and previews, so consuming it here would strip real pickups.</summary>
+    public static void VesselPickPostfix(IWorldAccessor world, BlockPos pos, ItemStack __result)
+    {
+        if (world?.Side != EnumAppSide.Server || pos == null) return;
+        if (mealStamps.TryGetValue(PosKey(pos), out string? packed) && packed != null)
+            ApplyPacked(__result, packed);
+    }
+
+    /// <summary>The PLACED vessel's own serve: no pot stack exists in this path at all, so mark
+    /// the served bowl straight from the position store.</summary>
+    public static void BeServePostfix(BlockEntity __instance, ItemSlot slot)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server || slot?.Itemstack == null) return;
+        if (!mealStamps.TryGetValue(PosKey(__instance.Pos), out string? packed) || packed == null) return;
+        if (slot.Itemstack.Block is not IBlockMealContainer) return; // only a filled meal container earns the mark
+        ApplyPacked(slot.Itemstack, packed);
+        slot.MarkDirty();
+        TcmLog.Cat(__instance.Api, "coo", $"placed-vessel serve at {__instance.Pos}: mark applied to {slot.Itemstack.Collectible?.Code?.Path}");
     }
 
     // ------------------------------------------------------------ stamp propagation

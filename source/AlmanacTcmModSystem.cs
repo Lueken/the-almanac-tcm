@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.150-dev")]
+    Version = "0.3.151-dev")]
 
 namespace AlmanacTcm;
 
@@ -177,6 +177,7 @@ public class AlmanacTcmModSystem : ModSystem
         // Registered after the ledger is live like every other domain.
         Domains.FarPatches.RegisterServer(sapi);
         Domains.CooPatches.RegisterServer(sapi);
+        Domains.CooBonusPatches.RegisterServer(sapi);
         Domains.AniPatches.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
