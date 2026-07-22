@@ -252,8 +252,18 @@ public static class CooPatches
             HashCode.Combine("mealpot", __state.Pos!.X, __state.Pos.Z, world.ElapsedMilliseconds / 30000));
 
         // Phase 2: the cook stamp (one stamp, three jobs) + the Axis 4 extra-serving proc.
-        var meal = outputSlot?.Itemstack ?? inputSlot?.Itemstack;
+        // The meal is the stack in whichever slot CHANGED: vanilla finishes a meal into the
+        // OUTPUT slot (:142621) on the normal path but into the INPUT slot (:142612) on the
+        // CooksInto path — and a blind output-first pick stamps whatever junk happened to sit
+        // in output while the real pot goes unstamped (the 0.3.149 playtest miss).
+        ItemStack? meal = null;
+        if ((outputSlot?.Itemstack?.Collectible?.Id ?? -1) != __state.OutId
+            || (outputSlot?.Itemstack?.StackSize ?? 0) != __state.OutSize) meal = outputSlot?.Itemstack;
+        if (meal == null && ((inputSlot?.Itemstack?.Collectible?.Id ?? -1) != __state.InId
+            || (inputSlot?.Itemstack?.StackSize ?? 0) != __state.InSize)) meal = inputSlot?.Itemstack;
         CooBonusPatches.StampCooked(meal, cook, (int)CooDomain.Knob(CooDomain.CxMealpot, 1));
+        if (meal != null)
+            TcmLog.Cat(world.Api, "coo", $"cook stamp -> {meal.Collectible?.Code?.Path} (tier {CooDomain.LevelOf(cook)})");
         double procT = CooDomain.BonusT(CooDomain.LevelOf(cook));
         if (meal != null && procT > 0
             && world.Rand.NextDouble() < procT * CooDomain.Knob(CooDomain.ServingProcGm, 0.25))
