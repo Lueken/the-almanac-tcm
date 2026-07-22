@@ -84,7 +84,15 @@ public static class FarPatches
     {
         Hook(api, harmony, "Vintagestory.GameContent.ItemHoe", "DoTill", nameof(TillPostfix), "FAR tilling");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFarmland", "TryPlant", nameof(PlantPostfix), "FAR planting");
-        Hook(api, harmony, "Vintagestory.GameContent.BlockCrop", "OnBlockBroken", nameof(HarvestPostfix), "FAR harvesting");
+        // Harvest: the Phase 2 Untrained dock rides a prefix on the same declared override
+        // (dropQuantityMultiplier is passed by ref into the drop roll).
+        HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockCrop", "OnBlockBroken",
+            nameof(HarvestDockPrefix), nameof(HarvestPostfix), "FAR harvesting");
+        // Fertilizing (the 1a-missing verb, arriving with its Phase 2 thrift): the consume
+        // branch takes one item at :51929; the pair credits the application and rolls the
+        // rank thrift refund.
+        HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockEntitySoilNutrition", "OnBlockInteract",
+            nameof(FertilizePrefix), nameof(FertilizePostfix), "FAR fertilizing");
         Hook(api, harmony, "Vintagestory.GameContent.EntityBehaviorMilkable", "MilkingComplete", nameof(MilkPostfix), "FAR milking");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityHenBox", "OnInteract", nameof(EggPostfix), "FAR eggs");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFruitTreePart", "OnBlockInteractStop", nameof(OrchardPostfix), "FAR orchard");
@@ -101,10 +109,13 @@ public static class FarPatches
         HookDeclared(api, harmony, "Vintagestory.GameContent.BlockTroughDoubleBlock", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (large)");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityTrough", "ConsumeOnePortion", nameof(TroughConsumePostfix), "FAR feeding");
 
-        // Shearing — shearlib's library verb (success-gated: a clean shear only; the damaging
-        // shear = zero XP lever is Phase 2).
+        // Shearing — shearlib's library verb, now success-gated (Phase 2, FAR ruling 4): the
+        // prefix asks shearlib's own public EntityWouldBeDamaged(1.0) BEFORE the shear runs
+        // (:303, verified 1.3.0); a damaging premature shear wounds the animal, yields 1/3
+        // wool, and banks ZERO practice.
         if (api.ModLoader.IsModEnabled("shearlib"))
-            Hook(api, harmony, "ShearLib.EntityBehaviorShearable", "DoShear", nameof(ShearPostfix), "FAR shearing");
+            HookPairDeclared(api, harmony, "ShearLib.EntityBehaviorShearable", "DoShear",
+                nameof(ShearPrefix), nameof(ShearPostfix), "FAR shearing");
 
         if (api.ModLoader.IsModEnabled("primitivesurvival"))
         {
@@ -241,17 +252,18 @@ public static class FarPatches
         TcmLog.Cat(world.Api, "far", $"cutting placed at {blockSel.Position} by {byPlayer.PlayerName}; take-or-die pending (silent until the outcome)");
     }
 
-    public readonly record struct GraftState(bool WasCutting, BlockPos? Pos);
+    public readonly record struct GraftState(bool WasCutting, BlockPos? Pos, int FoliageBefore);
 
     /// <summary>TryGrow fires for every tree part; only a LIVE CUTTING entering it faces the
-    /// take-or-die roll. Capture that state so the postfix reads the verdict.</summary>
+    /// take-or-die roll. Capture that state (and the foliage, for the Phase 2 death-revert)
+    /// so the postfix reads the verdict.</summary>
     public static void GraftGrowPrefix(BlockEntityBehavior __instance, out GraftState __state)
     {
         var be = __instance?.Blockentity as Vintagestory.GameContent.BlockEntityFruitTreeBranch;
         bool wasCutting = be != null
             && be.PartType == Vintagestory.GameContent.EnumTreePartType.Cutting
             && be.FoliageState != Vintagestory.GameContent.EnumFoliageState.Dead;
-        __state = new GraftState(wasCutting, be?.Pos);
+        __state = new GraftState(wasCutting, be?.Pos, (int)(be?.FoliageState ?? 0));
     }
 
     /// <summary>The verdict (ruled, the pass's headline success-gate): Cutting -> Branch is the
@@ -280,9 +292,50 @@ public static class FarPatches
         }
         else if (be.FoliageState == Vintagestory.GameContent.EnumFoliageState.Dead)
         {
+            // Phase 2, the agent-designed resilience retry (vanilla-floored by construction):
+            // a ranked owner's dying cutting may cling to life — the death is REVERTED and
+            // vanilla re-rolls its own unmodified chance on a later tick. No single graft is
+            // ever easier than vanilla, and none is ever certain; the owner entry stays for
+            // the next verdict.
+            graftOwners.TryGetValue(key, out string? ownerUid);
+            IPlayer? keeper = ownerUid == null ? null : be.Api.World.PlayerByUid(ownerUid);
+            double retry = keeper == null ? 0
+                : FarDomain.BonusT(FarDomain.LevelOf(keeper)) * FarDomain.Knob(FarDomain.GraftRetryGm, 0.50);
+            if (retry > 0 && be.Api.World.Rand.NextDouble() < retry)
+            {
+                be.FoliageState = (Vintagestory.GameContent.EnumFoliageState)__state.FoliageBefore;
+                RevertTreeState(be);
+                be.MarkDirty(true);
+                TcmLog.Cat(be.Api, "far", $"cutting at {__state.Pos} was dying but clung to life ({keeper!.PlayerName}'s tended stock); vanilla rolls again later");
+                return;
+            }
             graftOwners.Remove(key);
             TcmLog.Cat(be.Api, "far", $"cutting DIED at {__state.Pos}; no practice (success-gated by ruling)");
         }
+    }
+
+    /// <summary>Undo the failure branch's tree-state kill (:161525 sets the root's per-type
+    /// State to Dead alongside the foliage): find the root BE's FruitTreeRootBH and set the
+    /// cutting's tree type back to Young so the growth machinery keeps ticking.</summary>
+    private static void RevertTreeState(Vintagestory.GameContent.BlockEntityFruitTreeBranch be)
+    {
+        try
+        {
+            var rootBe = be.Api.World.BlockAccessor.GetBlockEntity(be.Pos.AddCopy(be.RootOff))
+                as Vintagestory.GameContent.BlockEntityFruitTreeBranch ?? be;
+            foreach (var beh in rootBe.Behaviors)
+            {
+                if (beh.GetType().Name != "FruitTreeRootBH") continue;
+                if (Traverse.Create(beh).Field("propsByType").GetValue() is not System.Collections.IDictionary props) return;
+                if (be.TreeType != null && props.Contains(be.TreeType))
+                {
+                    var entry = props[be.TreeType];
+                    Traverse.Create(entry).Property("State").SetValue(Vintagestory.GameContent.EnumFruitTreeState.Young);
+                }
+                return;
+            }
+        }
+        catch (Exception e) { TcmLog.Error(be.Api, $"graft retry tree-state revert failed ({e.Message}); the cutting may still read dead"); }
     }
 
     // ------------------------------------------------------------ vermiculture (ithania)
@@ -326,6 +379,49 @@ public static class FarPatches
     /// ripe = full, penultimate = partial, an immature break ~ nothing. Stage parses from the
     /// block's last code part; the total comes from CropProps.GrowthStages by reflection so this
     /// stays a Block-typed patch (BlockCrop need not be a compile-time reference).</summary>
+    /// <summary>Phase 2, the Untrained dock (penalty-only): a level-0 hand bruises the harvest.
+    /// Rides the by-ref drop multiplier the base drop roll consumes; Novice+ is untouched.</summary>
+    public static void HarvestDockPrefix(IPlayer byPlayer, ref float dropQuantityMultiplier)
+    {
+        if (byPlayer?.Entity?.World?.Side != EnumAppSide.Server) return;
+        if (FarDomain.LevelOf(byPlayer) > 0) return;
+        dropQuantityMultiplier *= (float)FarDomain.Knob(FarDomain.HarvestDockUntrained, 0.85);
+    }
+
+    // ------------------------------------------------------------ fertilizing (verb + thrift)
+
+    public readonly record struct FertState(int HeldId, int HeldSize);
+
+    public static void FertilizePrefix(IPlayer byPlayer, out FertState __state)
+    {
+        var held = byPlayer?.InventoryManager?.ActiveHotbarSlot?.Itemstack;
+        __state = new FertState(held?.Collectible?.Id ?? -1, held?.StackSize ?? 0);
+    }
+
+    /// <summary>The consume branch took an item: credit the application; then the Phase 2
+    /// thrift — from Apprentice up, a chance (to 20% at GM) the application costs nothing
+    /// (the spared item is handed back, the powder-thrift shape).</summary>
+    public static void FertilizePostfix(BlockEntity __instance, IPlayer byPlayer, bool __result, FertState __state)
+    {
+        if (!__result || byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        var held = byPlayer.InventoryManager?.ActiveHotbarSlot?.Itemstack;
+        bool consumed = (held?.Collectible?.Id ?? -1) != __state.HeldId || (held?.StackSize ?? 0) < __state.HeldSize;
+        if (!consumed) return;
+
+        Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechFertilizing,
+            HashCode.Combine("fert", __instance.Pos.X >> 2, __instance.Pos.Z >> 2, __instance.Api.World.ElapsedMilliseconds / 30000));
+
+        double chance = FarDomain.BonusT(FarDomain.LevelOf(byPlayer)) * FarDomain.Knob(FarDomain.FertThriftGm, 0.20);
+        if (chance > 0 && __instance.Api.World.Rand.NextDouble() < chance
+            && held != null && held.Collectible?.Id == __state.HeldId)
+        {
+            // Refund one of the held fertilizer (the common from-a-stack case; a fully consumed
+            // last item just misses its thrift roll — rare and harmless).
+            if (byPlayer.InventoryManager!.TryGiveItemstack(new ItemStack(held.Collectible, 1), true))
+                TcmLog.Cat(__instance.Api, "far", $"fertilizer thrift: {byPlayer.PlayerName} spared one {held.Collectible?.Code?.Path}");
+        }
+    }
+
     public static void HarvestPostfix(Block __instance, IWorldAccessor world, BlockPos pos, IPlayer byPlayer)
     {
         if (byPlayer == null || !ServerSide(world) || __instance?.Code == null) return;
@@ -434,9 +530,19 @@ public static class FarPatches
 
     /// <summary>An animal eats a portion: bank FAR feeding to the trough's owner AND stamp the
     /// animal with `raisedBy` = that owner, the durable attribution the unattended ANI birth reads.</summary>
-    public static void TroughConsumePostfix(BlockEntity __instance, Entity entity)
+    public static void TroughConsumePostfix(BlockEntity __instance, Entity entity, ref float __result)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server || entity == null) return;
+        // Phase 2 feed economy (the MET fuel analog): the satiety an animal draws per portion
+        // scales with the FILLER's rank, so a master's trough feeds to the same satiety on
+        // fewer portions and an Untrained hand's feed partly goes to waste.
+        if (troughOwners.TryGetValue(PosKey(__instance.Pos), out string? feedUid) && feedUid != null)
+        {
+            IPlayer? filler = __instance.Api.World.PlayerByUid(feedUid);
+            if (filler != null)
+                __result *= (float)FarDomain.RankLinear(FarDomain.LevelOf(filler),
+                    FarDomain.Knob(FarDomain.FeedUntrained, 0.90), FarDomain.Knob(FarDomain.FeedGm, 1.25));
+        }
         if (!troughOwners.TryGetValue(PosKey(__instance.Pos), out string? uid) || uid == null)
         {
             // The diagnostic half of the spine: an eat with no stamped filler is the exact
@@ -457,11 +563,29 @@ public static class FarPatches
 
     /// <summary>DoShear fires on a shear; Phase 2 adds the damaging-shear = zero XP gate. For now
     /// a shear banks FAR shearing, regrowth-gated by the animal itself (you cannot reshear at will).</summary>
-    public static void ShearPostfix(EntityBehavior __instance, EntityAgent byEntity)
+    /// <summary>Ask shearlib's own damage check BEFORE the shear runs: DoShear evaluates
+    /// EntityWouldBeDamaged(1.0) at :303 to decide the wound, so calling the same public
+    /// method pre-shear captures the verdict the shear is about to act on.</summary>
+    public static void ShearPrefix(EntityBehavior __instance, out bool __state)
+    {
+        __state = false;
+        var m = AccessTools.Method(__instance.GetType(), "EntityWouldBeDamaged");
+        if (m != null)
+            try { __state = (bool)m.Invoke(__instance, new object[] { 1.0 })!; } catch { }
+    }
+
+    public static void ShearPostfix(EntityBehavior __instance, EntityAgent byEntity, bool __state)
     {
         IPlayer? player = PlayerOf(byEntity);
         Entity? animal = __instance == null ? null : BehaviorEntity(__instance);
         if (player == null || animal?.World?.Side != EnumAppSide.Server) return;
+        if (__state)
+        {
+            // FAR ruling 4 (Phase 2): a premature shear wounds the animal and yields 1/3 wool —
+            // the outcome is the practice signal, and this outcome is a botch. Zero XP.
+            TcmLog.Cat(animal.World.Api, "far", $"damaging shear on {animal.Code?.FirstCodePart()} #{animal.EntityId} by {player.PlayerName}: wounded, no practice");
+            return;
+        }
         Core?.Ledger?.Log(player, FarDomain.Code, FarDomain.TechShearing,
             HashCode.Combine("shear", animal.EntityId, animal.World.ElapsedMilliseconds / 60000));
     }

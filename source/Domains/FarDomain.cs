@@ -45,6 +45,24 @@ public static class FarDomain
     /// Granted by COO's quern listener at 0.5 raw each side; flour is farm produce too.</summary>
     public const string TechMilling = "milling";
 
+    // ---- Phase 2 knobs (FAR ladder RULED 2026-07-09). Live in ModConfig/almanactcm/FAR.json.
+    /// <summary>The Untrained harvest dock (penalty-only, ruled: "the penalty end is simply a
+    /// lower return"): crop drop multiplier at level 0. Clears at Novice; no GM bonus.</summary>
+    public const string HarvestDockUntrained = "harvestDockUntrained";
+    /// <summary>Feed economy (the MET fuel analog): satiety an animal draws per trough portion,
+    /// scaled by the FILLER's rank — a master's trough feeds to the same satiety on fewer
+    /// portions; an Untrained hand's feed goes to waste.</summary>
+    public const string FeedUntrained = "feedUntrained";
+    public const string FeedGm = "feedGm";
+    /// <summary>Fertilizer thrift: chance at GM that an application costs no item (the powder-
+    /// thrift shape). 0 below Apprentice.</summary>
+    public const string FertThriftGm = "fertThriftGm";
+    /// <summary>Graft resilience (the agent-designed lever, vanilla-floored by construction):
+    /// chance at GM that a DYING cutting clings to life — the death is reverted and vanilla
+    /// re-rolls its own unmodified chance on a later tick. No single graft is ever easier than
+    /// vanilla, and none is ever certain.</summary>
+    public const string GraftRetryGm = "graftRetryGm";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -75,7 +93,24 @@ public static class FarDomain
             // The 50-share of the quern event (COO's listener grants both halves at 0.5 raw).
             [TechMilling] = new() { Raw = 1, K = 15 },
         },
+        Bonus = new Dictionary<string, double>
+        {
+            // Phase 2 (MET numeric posture, playtest-tuned).
+            [HarvestDockUntrained] = 0.85,
+            [FeedUntrained] = 0.90, [FeedGm] = 1.25,
+            [FertThriftGm] = 0.20,
+            [GraftRetryGm] = 0.50,
+        },
     };
+
+    /// <summary>The Apprentice-and-up reward curve (0 through Novice, linear to 1.0 at max).</summary>
+    public static double BonusT(int level)
+    {
+        const int start = 5;
+        if (level < start) return 0;
+        int max = Leveling.Domain.MaxLevelDefault;
+        return (level - start) / (double)(max - start);
+    }
 
     /// <summary>General rank curve: untrained at level 0, exactly 1.0 at Novice I, linear to the
     /// GM value at max level (the shared domain shape, Phase 2 penalty/feed levers read it).</summary>
