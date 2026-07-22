@@ -560,6 +560,7 @@ public static class FarPatches
         entity.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, uid);
         IPlayer? owner = __instance.Api.World.PlayerByUid(uid);
         if (owner == null) return; // owner offline; the stamp still landed but this portion's credit is lost
+        AniDomain.StampProvenance(entity, owner); // the Master's Line mark, upgrade-only by the tender's ANI tier
         TcmLog.Cat(__instance.Api, "far", $"trough portion eaten by {entity.Code?.FirstCodePart()} #{entity.EntityId} -> feeding credit + raisedBy stamp for {owner.PlayerName}");
         Core?.Ledger?.Log(owner, FarDomain.Code, FarDomain.TechFeeding,
             HashCode.Combine("feed", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 60000));

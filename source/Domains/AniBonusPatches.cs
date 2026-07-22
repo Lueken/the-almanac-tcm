@@ -1,7 +1,9 @@
 using System;
+using System.Text;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Config;
 using Vintagestory.API.Server;
 
 namespace AlmanacTcm.Domains;
@@ -51,6 +53,30 @@ public static class AniBonusPatches
         {
             harmony.Patch(mm, postfix: new HarmonyMethod(AccessTools.Method(typeof(AniBonusPatches), nameof(LitterPostfix))));
             TcmLog.Info(api, "ANI litter depth hooked (ChooseLitterSize)");
+        }
+    }
+
+    // ------------------------------------------------------------ the Master's Line (provenance)
+
+    /// <summary>Append the tiered Master's Line mark to an animal's hover info (Entity.GetInfoText
+    /// aggregates behaviour info, vsapi :156477). Reads the synced provenance stamp, so this runs
+    /// client-side off WatchedAttributes. Journeyman -> Raised by, Master -> Bred by, GM ->
+    /// Master's Line of. Applied by the Start PatchAll pass (attribute patch, both sides).</summary>
+    [HarmonyPatch(typeof(Entity), nameof(Entity.GetInfoText))]
+    public static class ProvenancePatch
+    {
+        public static void Postfix(Entity __instance, ref string __result)
+        {
+            var wa = __instance?.WatchedAttributes;
+            string? name = wa?.GetString(AniDomain.ProvNameAttr);
+            if (string.IsNullOrEmpty(name)) return;
+            int tier = wa!.GetInt(AniDomain.ProvTierAttr, 0);
+            string? line =
+                tier >= AniDomain.ProvGm ? Lang.Get("almanactcm:mastersline-of", name)
+                : tier >= AniDomain.ProvMaster ? Lang.Get("almanactcm:bred-by", name)
+                : tier >= AniDomain.ProvJourneyman ? Lang.Get("almanactcm:raised-by", name)
+                : null;
+            if (line != null) __result = (__result ?? "").TrimEnd() + "\n" + line;
         }
     }
 

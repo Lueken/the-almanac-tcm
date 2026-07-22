@@ -40,6 +40,32 @@ public static class AniDomain
     /// ownership; this is who does the husbandry work).</summary>
     public const string RaisedByAttr = "almanacRaisedBy";
 
+    // ---- The Master's Line (Axis 6, GM signature + provenance, RULED 2026-07-10). The economy
+    // itself is emergent (calm high-gen stock from the gen-raise loop; genetic health from the
+    // bloodline purge). What is authored is the tiered provenance stamp below.
+    /// <summary>The name and the peak ANI tier of whoever raised this animal — the Master's Line
+    /// mark. Upgrade-only (never downgrades when a lesser hand later tends it), so a GM's stock
+    /// keeps advertising its pedigree through a sale. Tiered display from Journeyman up.</summary>
+    public const string ProvNameAttr = "almanacProvName";
+    public const string ProvTierAttr = "almanacProvTier";
+
+    /// <summary>The provenance tier thresholds (a mark means something from Journeyman up).</summary>
+    public const int ProvJourneyman = 9, ProvMaster = 13, ProvGm = 17;
+
+    /// <summary>Stamp (or UPGRADE) an animal's Master's Line provenance from an owner's current
+    /// ANI tier. Upgrade-only: a GM-raised animal stays a Master's Line even after a novice buyer
+    /// feeds it. Below Journeyman leaves no mark. Server-side; rides WatchedAttributes to the
+    /// client for the hover tooltip.</summary>
+    public static void StampProvenance(Vintagestory.API.Common.Entities.Entity? animal, Vintagestory.API.Common.IPlayer? owner)
+    {
+        if (animal?.WatchedAttributes == null || owner == null) return;
+        int tier = LevelOf(owner);
+        if (tier < ProvJourneyman) return;
+        if (animal.WatchedAttributes.GetInt(ProvTierAttr, 0) >= tier) return; // never downgrade
+        animal.WatchedAttributes.SetInt(ProvTierAttr, tier);
+        animal.WatchedAttributes.SetString(ProvNameAttr, owner.PlayerName);
+    }
+
     // Bonus knob keys.
     /// <summary>Gen-raise raw multiplier per generation of the newborn, capped (ruled Q3: quality
     /// of practice over bulk, mirroring MIN depth/rarity). rawMult = min(cap, 1 + step*(gen-1)).</summary>

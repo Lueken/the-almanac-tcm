@@ -169,7 +169,10 @@ public static class AniPatches
         __state = new BreakState(rider?.PlayerUID, RemainingBreaks(__instance), HpOf(rider));
         Entity? animal = BehaviorEntity(__instance);
         if (rider != null && animal?.World?.Side == EnumAppSide.Server)
+        {
             animal.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, rider.PlayerUID);
+            AniDomain.StampProvenance(animal, rider);
+        }
     }
 
     /// <summary>Two jobs after a break: the Phase 2 self-injury ease (the ruled correction — no
@@ -262,6 +265,7 @@ public static class AniPatches
 
         if (__state.WasDomesticated || !IsDomesticated(__instance)) return; // no crossing this interact
         animal.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, feeder.PlayerUID);
+        AniDomain.StampProvenance(animal, feeder);
         Core?.Ledger?.Log(feeder, AniDomain.Code, AniDomain.TechTaming,
             HashCode.Combine("feed", animal.EntityId, animal.World.ElapsedMilliseconds / 1000));
         TcmLog.Cat(animal.World.Api, "ani", $"feed tamed: {animal.Code?.FirstCodePart()} #{animal.EntityId} -> {feeder.PlayerName}");
