@@ -79,7 +79,9 @@ public static class BrePatches
             harmony.Patch(AccessTools.DeclaredMethod(tb, "OnEvery3Second"),
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermentPrefix))),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermentPostfix))));
-            TcmLog.Info(api, "BRE fermentation hooked (barrel seal grant + completion effects)");
+            var brk = AccessTools.DeclaredMethod(tb, "OnBlockBroken");
+            if (brk != null) harmony.Patch(brk, postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(VesselBrokenPostfix))));
+            TcmLog.Info(api, "BRE fermentation hooked (barrel seal grant + completion effects + break cleanup)");
         }
         else TcmLog.Warn(api, "BRE barrel seam not found (BlockEntityBarrel); fermentation verb inactive");
 
@@ -100,10 +102,12 @@ public static class BrePatches
         {
             var pkt = AccessTools.DeclaredMethod(tf, "OnReceivedClientPacket");
             var tick = AccessTools.DeclaredMethod(tf, "OnEvery3Second");
+            var fbrk = AccessTools.DeclaredMethod(tf, "OnBlockBroken");
             if (pkt != null) harmony.Patch(pkt, postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermenterSealPostfix))));
             if (tick != null) harmony.Patch(tick,
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermenterTickPrefix))),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermenterTickPostfix))));
+            if (fbrk != null) harmony.Patch(fbrk, postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(VesselBrokenPostfix))));
             TcmLog.Info(api, "BRE fermentaria clay-fermenter hooked (parallel seal grant + completion)");
         }
         else TcmLog.Cat(api, TcmLog.Config, "BRE fermentaria absent; clay-fermenter variant inactive (barrel unaffected)");
@@ -117,12 +121,25 @@ public static class BrePatches
         || code.Contains("vinegar") || code.Contains("rennet") || code.Contains("cheese")
         || code.Contains("curd") || code.Contains("yogurt") || code.Contains("saltedmeat");
 
+    /// <summary>Barrel recipes that are NOT brewing/fermentation and must grant no BRE: leather
+    /// tanning (hide -> limewater -> tannin) and lime slaking are industrial processes, not
+    /// consumables. Tanning is a future TAI claim, not BRE's. Code-based heuristic, config-widen
+    /// later if a mod adds more non-food barrel work.</summary>
+    private static bool IsNonBrewing(string code) =>
+        code.Contains("leather") || code.Contains("hide") || code.Contains("pelt")
+        || code.Contains("tannin") || code.Contains("limewater") || code.Contains("slakedlime");
+
     /// <summary>The seal is the skilled act: grant BRE (output-classified) to the online sealer and
     /// freeze their rank for the completion-time effects. Called from both barrel and fermenter.</summary>
     private static void StoreAndGrantSeal(ICoreAPI api, BlockPos pos, IPlayer player, BarrelRecipe? recipe)
     {
         if (player == null || recipe?.Output?.ResolvedItemStack?.Collectible == null) return;
         string code = recipe.Output.ResolvedItemStack.Collectible.Code?.ToString() ?? "ferment";
+        if (IsNonBrewing(code)) // leather/lime: a barrel process, but not brewing — grant nothing
+        {
+            TcmLog.Cat(api, "bre", $"seal at {pos}: non-brewing barrel process ({code}); no BRE grant");
+            return;
+        }
         bool preserve = IsPreserve(code);
         int cx = HashCode.Combine("ferment", code, (serverWorld?.ElapsedMilliseconds ?? 0) / 60000);
 
@@ -202,6 +219,17 @@ public static class BrePatches
         // Crafted this tick iff slot 0 now holds the expected output code (was the input before).
         if (outSlot?.Itemstack?.Collectible?.Code?.ToString() != __state) return;
         CompletionEffects(be.Api, be.Pos, outSlot);
+    }
+
+    /// <summary>A sealed vessel destroyed before completion (broken, or burned in a fire) leaves an
+    /// orphaned owner entry — drop it. The sealer keeps the XP already banked at seal (the skilled
+    /// act happened); only the physical contents are lost, exactly as vanilla loses a sealed barrel's
+    /// contents on break. No exploit either way. A no-op if completion already consumed the entry.</summary>
+    public static void VesselBrokenPostfix(BlockEntity __instance)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        if (sealOwners.Remove(PosKey(__instance.Pos)))
+            TcmLog.Cat(__instance.Api, "bre", $"sealed vessel at {__instance.Pos} destroyed pre-completion; owner entry dropped (seal XP kept)");
     }
 
     // ------------------------------------------------------------ boiler (distillation)
