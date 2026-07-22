@@ -22,7 +22,7 @@ public static class DomainRoster
         new("COO", "Cooking"),
         new("MET", "Metalworking"),
         new("POT", "Pottery"),
-        new("GLA", "Glassmaking"),
+        new("GLA", "Glassmaking", "glassmakingfork"),
         new("PAN", "Panning & Prospecting"),
         new("HUN", "Hunting"),
         new("ANI", "Animal Handling"),
