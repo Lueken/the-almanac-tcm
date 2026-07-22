@@ -23,6 +23,12 @@ public static class HunDomain
     public const string TechDressing = "dressing"; // the field harvest at the carcass
     public const string TechTrapping = "trapping"; // PS snare/deadfall (owner-at-placement)
     public const string TechButchery = "butchery"; // Butchering stations (by-target ruling)
+    /// <summary>Leather-making — the sealed barrel tanning chain (soak -> prepare -> tan -> dye).
+    /// Folded into HUN 2026-07-22 (the leatherworking-domain question): the crafts that USE leather
+    /// are grid crafts that grant nothing, so tanning is the only earnable leather verb, and it is
+    /// the natural end of HUN's carcass chain (kill -> skin -> butcher -> tan). Rides the shared
+    /// barrel-seal hook, classified in BrePatches. May re-home when TAI is built.</summary>
+    public const string TechTanning = "tanning";
 
     // Bonus knob keys (DomainConfig.Bonus).
     /// <summary>Axis 1 + 4: the vanilla per-player harvest yield stat. Untrained wastes hide
@@ -52,6 +58,9 @@ public static class HunDomain
             [TechTrapping] = new() { Raw = 4, K = 15 },
             // Station work: low raw, batch processing dedups inside the ledger window.
             [TechButchery] = new() { Raw = 1, K = 20 },
+            // Tanning: a multi-day sealed barrel chain, each stage a seal; modest K, deduped by
+            // the tanning output so the soak/prepare/tan stages bank without farming.
+            [TechTanning] = new() { Raw = 2, K = 15 },
         },
         Bonus = new Dictionary<string, double>
         {

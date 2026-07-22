@@ -121,13 +121,17 @@ public static class BrePatches
         || code.Contains("vinegar") || code.Contains("rennet") || code.Contains("cheese")
         || code.Contains("curd") || code.Contains("yogurt") || code.Contains("saltedmeat");
 
-    /// <summary>Barrel recipes that are NOT brewing/fermentation and must grant no BRE: leather
-    /// tanning (hide -> limewater -> tannin) and lime slaking are industrial processes, not
-    /// consumables. Tanning is a future TAI claim, not BRE's. Code-based heuristic, config-widen
-    /// later if a mod adds more non-food barrel work.</summary>
-    private static bool IsNonBrewing(string code) =>
-        code.Contains("leather") || code.Contains("hide") || code.Contains("pelt")
-        || code.Contains("tannin") || code.Contains("limewater") || code.Contains("slakedlime");
+    /// <summary>The leather-making barrel chain (hide -> soaked -> prepared -> leather -> dyed): a
+    /// sealed barrel process, but NOT brewing. Folded to HUN 2026-07-22 (the leatherworking-domain
+    /// question — the crafts that use leather are grant-less grid crafts, so tanning is the only
+    /// earnable leather verb, and it is the end of HUN's carcass chain). May re-home when TAI ships.</summary>
+    private static bool IsTanning(string code) =>
+        code.Contains("leather") || code.Contains("hide") || code.Contains("pelt");
+
+    /// <summary>Barrel recipes that earn nothing: reagent prep (lime slaking, tannin steeping) that
+    /// FEEDS tanning but is not itself the transformation verb. Skipped by every domain.</summary>
+    private static bool IsNonEarning(string code) =>
+        code.Contains("limewater") || code.Contains("slakedlime") || code.Contains("tannin");
 
     /// <summary>The seal is the skilled act: grant BRE (output-classified) to the online sealer and
     /// freeze their rank for the completion-time effects. Called from both barrel and fermenter.</summary>
@@ -135,13 +139,21 @@ public static class BrePatches
     {
         if (player == null || recipe?.Output?.ResolvedItemStack?.Collectible == null) return;
         string code = recipe.Output.ResolvedItemStack.Collectible.Code?.ToString() ?? "ferment";
-        if (IsNonBrewing(code)) // leather/lime: a barrel process, but not brewing — grant nothing
+        int cx = HashCode.Combine("ferment", code, (serverWorld?.ElapsedMilliseconds ?? 0) / 60000);
+
+        // Leather tanning is a barrel seal, but it is HUN's verb (butchery -> tanning), not BRE.
+        if (IsTanning(code))
         {
-            TcmLog.Cat(api, "bre", $"seal at {pos}: non-brewing barrel process ({code}); no BRE grant");
+            Core?.Ledger?.Log(player, HunDomain.Code, HunDomain.TechTanning, cx);
+            TcmLog.Cat(api, "bre", $"seal at {pos}: leather tanning ({code}) -> HUN tanning for {player.PlayerName}");
+            return; // no BRE grant, no completion effects (tanning has no ruled spoilage/mark)
+        }
+        if (IsNonEarning(code)) // lime/tannin reagent prep: feeds tanning, earns nothing
+        {
+            TcmLog.Cat(api, "bre", $"seal at {pos}: non-earning barrel prep ({code}); no grant");
             return;
         }
         bool preserve = IsPreserve(code);
-        int cx = HashCode.Combine("ferment", code, (serverWorld?.ElapsedMilliseconds ?? 0) / 60000);
 
         // Alcoholic = BRE 100; non-alcoholic preserve = COO 50 / BRE 50 (the ruled pickling split).
         Core?.Ledger?.Log(player, BreDomain.Code, BreDomain.TechFermenting, cx, preserve ? 0.5 : 1.0);
