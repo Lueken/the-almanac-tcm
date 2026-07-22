@@ -243,21 +243,17 @@ public class CallingsTab : IAlmanacBookTab
         // onto every remedy they make. Only a live lever at Grandmaster; below it, a note of what waits.
         if (code == "ALC")
         {
-            CairoFont chosen = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody)
-                .WithWeight(Cairo.FontWeight.Bold).WithColor(Ink);
             comps.Add(new ClearFloatTextComponent(capi, 14));
             comps.Add(new RichTextComponent(capi, "Your emphasis\n", subhead));
             if (level >= Domains.AlcDomain.ProvGm)
             {
                 bool potent = Domains.AlcEmphasis.IsPotent(capi.World.Player);
-                comps.Add(potent
-                    ? new RichTextComponent(capi, "Potent", chosen)
-                    : new BookLinkComponent(capi, "Potent", body, _ => { Domains.AlcEmphasis.Set(capi, true); host?.Recompose(); }));
-                comps.Add(new RichTextComponent(capi, "      ", body));
-                comps.Add(!potent
-                    ? new RichTextComponent(capi, "Lasting", chosen)
-                    : new BookLinkComponent(capi, "Lasting", body, _ => { Domains.AlcEmphasis.Set(capi, false); host?.Recompose(); }));
+                comps.Add(new EmphasisStampComponent(capi, "Potent", potent, body,
+                    potent ? null : () => { Domains.AlcEmphasis.Set(capi, true); host?.Recompose(); }));
+                comps.Add(new EmphasisStampComponent(capi, "Lasting", !potent, body,
+                    !potent ? null : () => { Domains.AlcEmphasis.Set(capi, false); host?.Recompose(); }));
                 comps.Add(new RichTextComponent(capi, "\n", body));
+                comps.Add(new ClearFloatTextComponent(capi, 6));
                 comps.Add(new RichTextComponent(capi, potent
                     ? "Your remedies run stronger, trading a little of how long they hold.\n"
                     : "Your remedies run longer, trading a little of their strength.\n", mutedItalic));
