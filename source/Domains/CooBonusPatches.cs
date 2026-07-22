@@ -196,26 +196,40 @@ public static class CooBonusPatches
     public static void ServePostfix(ItemSlot bowlSlot, ItemSlot potslot, IWorldAccessor world, bool __result)
     {
         if (!__result || world?.Side != EnumAppSide.Server) return; // the client early-returns without building (:65397)
-        var src = potslot?.Itemstack?.Attributes;
         var dstStack = bowlSlot?.Itemstack;
-        if (src == null || !src.HasAttribute(CookTierAttr))
+
+        // Resolve the stamp: the pot stack's own attrs first; failing that, the POSITION store
+        // via the slot's owning inventory (the firepit's InventorySmelting carries its pos) —
+        // which survives the pack's cooked-pot stack conversion.
+        var src = potslot?.Itemstack?.Attributes;
+        bool fromStack = src?.HasAttribute(CookTierAttr) == true;
+        string? packed = fromStack
+            ? $"{src!.GetString(CookByAttr)}|{src.GetString(CookByNameAttr)}|{src.GetInt(CookTierAttr)}|{src.GetInt(CookCxAttr)}"
+            : null;
+        BlockPos? invPos = (potslot?.Inventory as InventorySmelting)?.pos;
+        if (packed == null && invPos != null && mealStamps.TryGetValue(PosKey(invPos), out string? stored))
+            packed = stored;
+
+        if (packed == null)
         {
-            TcmLog.Cat(world.Api, "coo", $"serve: pot carries no cook stamp ({potslot?.Itemstack?.Collectible?.Code?.Path ?? "null"}); nothing to propagate");
+            TcmLog.Cat(world.Api, "coo", $"serve: no cook stamp on pot ({potslot?.Itemstack?.Collectible?.Code?.Path ?? "null"}) and none stored for its position; nothing to propagate");
             return;
         }
         if (dstStack == null)
         {
-            TcmLog.Cat(world.Api, "coo", "serve: pot is stamped but the destination slot is EMPTY post-serve; the filled bowl went elsewhere — propagation missed");
+            TcmLog.Cat(world.Api, "coo", "serve: stamp resolved but the destination slot is EMPTY post-serve; propagation missed");
             return;
         }
-        dstStack.Attributes.SetString(CookByAttr, src.GetString(CookByAttr) ?? "");
-        dstStack.Attributes.SetString(CookByNameAttr, src.GetString(CookByNameAttr) ?? "");
-        dstStack.Attributes.SetInt(CookTierAttr, src.GetInt(CookTierAttr));
-        dstStack.Attributes.SetInt(CookCxAttr, src.GetInt(CookCxAttr));
-        // The vanilla MarkDirty fired BEFORE this postfix ran; flag again so the stamped attrs
-        // are what actually serialize to the client.
-        bowlSlot!.MarkDirty();
-        TcmLog.Cat(world.Api, "coo", $"serve: cook stamp propagated -> {dstStack.Collectible?.Code?.Path} (tier {src.GetInt(CookTierAttr)})");
+        ApplyPacked(dstStack, packed);
+        bowlSlot!.MarkDirty(); // vanilla's dirty flag fired before this postfix; re-flag so the attrs ship
+        // Heal the pot itself when its own mark was stripped by the conversion, so taking and
+        // placing it later carries the mark forward.
+        if (!fromStack && potslot?.Itemstack != null)
+        {
+            ApplyPacked(potslot.Itemstack, packed);
+            potslot.MarkDirty();
+        }
+        TcmLog.Cat(world.Api, "coo", $"serve: cook stamp -> {dstStack.Collectible?.Code?.Path} ({packed.Split('|')[1]}, via {(fromStack ? "stack" : "position store")})");
     }
 
     // ------------------------------------------------------------ the stamp
@@ -229,6 +243,16 @@ public static class CooBonusPatches
         stack.Attributes.SetString(CookByNameAttr, cook.PlayerName);
         stack.Attributes.SetInt(CookTierAttr, CooDomain.LevelOf(cook));
         stack.Attributes.SetInt(CookCxAttr, cxClass);
+    }
+
+    /// <summary>Anchor the completion stamp to the VESSEL'S POSITION as well (the firepit at
+    /// completion). The 0.3.151 playtest proved the pack converts a fresh-cooked pot into a
+    /// differently-coded stack seconds after DoSmelt, discarding stack attrs — so identity
+    /// cannot be trusted; the position can. The serve heals from this store.</summary>
+    public static void StoreStampAt(BlockPos? pos, IPlayer cook, int cxClass)
+    {
+        if (pos == null || cook == null) return;
+        mealStamps[PosKey(pos)] = $"{cook.PlayerUID}|{cook.PlayerName}|{CooDomain.LevelOf(cook)}|{cxClass}";
     }
 
     // ------------------------------------------------------------ Axis 2 — fuel economy

@@ -262,8 +262,11 @@ public static class CooPatches
         if (meal == null && ((inputSlot?.Itemstack?.Collectible?.Id ?? -1) != __state.InId
             || (inputSlot?.Itemstack?.StackSize ?? 0) != __state.InSize)) meal = inputSlot?.Itemstack;
         CooBonusPatches.StampCooked(meal, cook, (int)CooDomain.Knob(CooDomain.CxMealpot, 1));
+        // Anchor the stamp to the firepit's position too: the pack converts fresh-cooked pots
+        // into differently-coded stacks (attrs discarded), so the serve heals from this store.
+        CooBonusPatches.StoreStampAt(__state.Pos, cook, (int)CooDomain.Knob(CooDomain.CxMealpot, 1));
         if (meal != null)
-            TcmLog.Cat(world.Api, "coo", $"cook stamp -> {meal.Collectible?.Code?.Path} (tier {CooDomain.LevelOf(cook)})");
+            TcmLog.Cat(world.Api, "coo", $"cook stamp -> {meal.Collectible?.Code?.Path} (tier {CooDomain.LevelOf(cook)}) + position store");
         double procT = CooDomain.BonusT(CooDomain.LevelOf(cook));
         if (meal != null && procT > 0
             && world.Rand.NextDouble() < procT * CooDomain.Knob(CooDomain.ServingProcGm, 0.25))
