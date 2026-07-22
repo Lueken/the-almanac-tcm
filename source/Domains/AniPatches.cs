@@ -35,7 +35,10 @@ public static class AniPatches
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
         // Vanilla birth (fires for non-genelib animals, or all animals where genelib is absent).
-        Hook(api, harmony, "Vintagestory.GameContent.EntityBehaviorMultiply", "GiveBirth", nameof(BirthPostfix), "ANI gen-raising (vanilla)");
+        // Prefix + postfix: the prefix sets the breeder-level context the Phase 2 bloodline
+        // lever reads (the newborn's genetics finalize runs inside this call stack).
+        HookPair(api, harmony, "Vintagestory.GameContent.EntityBehaviorMultiply", "GiveBirth",
+            nameof(BirthPrefix), nameof(BirthPostfix), "ANI gen-raising (vanilla)");
 
         // Taming, saddle-break half — hooked at DoSaddleBreak, NOT ConvertToTamedAnimal, for two
         // verified 1.22.3 reasons: (a) DoSaddleBreak unmounts the rider BEFORE converting
@@ -66,13 +69,42 @@ public static class AniPatches
                 var m = t == null ? null : AccessTools.Method(t, "GiveBirth");
                 if (m != null)
                 {
-                    harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(AniPatches), nameof(BirthPostfix))));
+                    harmony.Patch(m,
+                        prefix: new HarmonyMethod(AccessTools.Method(typeof(AniPatches), nameof(BirthPrefix))),
+                        postfix: new HarmonyMethod(AccessTools.Method(typeof(AniPatches), nameof(BirthPostfix))));
                     TcmLog.Info(api, $"ANI gen-raising (genelib) hooked ({tn}.GiveBirth)");
                     return;
                 }
             }
             TcmLog.Warn(api, "genelib present but GeneticMultiply.GiveBirth not found; genelib births uncredited this build");
         }
+    }
+
+    /// <summary>The ruled attribution chain, shared by the birth grant, the birth prefix, and
+    /// the litter lever: almanac raisedBy -> petai owner -> land-claim owner at the dam.</summary>
+    public static string? ResolveBreederUid(Entity dam)
+    {
+        string? uid = dam.WatchedAttributes?.GetString(AniDomain.RaisedByAttr);
+        if (string.IsNullOrEmpty(uid))
+            uid = dam.WatchedAttributes?.GetTreeAttribute("domesticationstatus")?.GetString("owner");
+        if (string.IsNullOrEmpty(uid))
+        {
+            var claims = dam.World.Claims?.Get(dam.Pos.AsBlockPos);
+            if (claims is { Length: > 0 }) uid = claims[0].OwnedByPlayerUid;
+        }
+        return string.IsNullOrEmpty(uid) ? null : uid;
+    }
+
+    /// <summary>Set the breeder-level context BEFORE the births spawn: the newborns' genetics
+    /// finalize (the Phase 2 bloodline lever) runs inside this call stack.</summary>
+    public static void BirthPrefix(EntityBehavior __instance)
+    {
+        AniBonusPatches.BreederLevel = 0;
+        Entity? dam = __instance == null ? null : BehaviorEntity(__instance);
+        if (dam?.World?.Side != EnumAppSide.Server) return;
+        string? uid = ResolveBreederUid(dam);
+        IPlayer? breeder = uid == null ? null : dam.World.PlayerByUid(uid);
+        if (breeder != null) AniBonusPatches.BreederLevel = AniDomain.LevelOf(breeder);
     }
 
     private static void Hook(ICoreAPI api, Harmony harmony, string typeName, string method, string postfix, string label)
@@ -115,7 +147,10 @@ public static class AniPatches
 
     // ------------------------------------------------------------ taming (saddle-break)
 
-    public readonly record struct BreakState(string? RiderUid, int BreaksBefore);
+    public readonly record struct BreakState(string? RiderUid, int BreaksBefore, float RiderHp);
+
+    private static float HpOf(IPlayer? player) =>
+        player?.Entity?.WatchedAttributes?.GetTreeAttribute("health")?.GetFloat("currenthealth") ?? -1f;
 
     private static int RemainingBreaks(EntityBehavior beh)
     {
@@ -131,21 +166,38 @@ public static class AniPatches
     public static void SaddleBreakPrefix(EntityBehavior __instance, out BreakState __state)
     {
         IPlayer? rider = RiderOf(__instance);
-        __state = new BreakState(rider?.PlayerUID, RemainingBreaks(__instance));
+        __state = new BreakState(rider?.PlayerUID, RemainingBreaks(__instance), HpOf(rider));
         Entity? animal = BehaviorEntity(__instance);
         if (rider != null && animal?.World?.Side == EnumAppSide.Server)
             animal.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, rider.PlayerUID);
     }
 
-    /// <summary>Bank taming only when THIS break took the count to zero (the convert fired) —
-    /// the WILD/feral -> TAME crossing. A mid-course throw banks nothing (partial progress rule).</summary>
+    /// <summary>Two jobs after a break: the Phase 2 self-injury ease (the ruled correction — no
+    /// failure roll exists, so a skilled rider is simply thrown SOFTER: a rank-scaled fraction
+    /// of the throw damage heals back, never all of it), and the taming credit when THIS break
+    /// took the count to zero. A mid-course throw banks nothing (partial progress rule).</summary>
     public static void SaddleBreakPostfix(EntityBehavior __instance, BreakState __state)
     {
         Entity? animal = __instance == null ? null : BehaviorEntity(__instance);
         if (animal?.World?.Side != EnumAppSide.Server || __state.RiderUid == null) return;
-        if (__state.BreaksBefore <= 0 || RemainingBreaks(__instance!) > 0) return; // not the final break
         IPlayer? rider = animal.World.PlayerByUid(__state.RiderUid);
         if (rider == null) return;
+
+        // The throw-heal (Axis: reduced self-injury). The vanilla throw is a 50% chance of
+        // 1 + Next(8)/4 damage (:102258-102267); heal back BonusT x knob of what landed.
+        float hpAfter = HpOf(rider);
+        if (__state.RiderHp > 0 && hpAfter > 0 && hpAfter < __state.RiderHp)
+        {
+            double healFrac = AniDomain.BonusT(AniDomain.LevelOf(rider)) * AniDomain.Knob(AniDomain.ThrowHealGm, 0.70);
+            float heal = (float)((__state.RiderHp - hpAfter) * Math.Min(0.85, healFrac));
+            if (heal > 0.01f)
+            {
+                rider.Entity.ReceiveDamage(new DamageSource { Source = EnumDamageSource.Internal, Type = EnumDamageType.Heal }, heal);
+                TcmLog.Cat(animal.World.Api, "ani", $"thrown softer: {rider.PlayerName} healed {heal:0.0} of the saddle-break throw (ANI {AniDomain.LevelOf(rider)})");
+            }
+        }
+
+        if (__state.BreaksBefore <= 0 || RemainingBreaks(__instance!) > 0) return; // not the final break
         Core?.Ledger?.Log(rider, AniDomain.Code, AniDomain.TechTaming,
             HashCode.Combine("break", animal.EntityId, animal.World.ElapsedMilliseconds / 1000));
         TcmLog.Cat(animal.World.Api, "ani", $"saddle-break tamed: {animal.Code?.FirstCodePart()} #{animal.EntityId} -> {rider.PlayerName}");
@@ -156,20 +208,59 @@ public static class AniPatches
     private static bool IsDomesticated(EntityBehavior beh) =>
         Traverse.Create(beh).Property("DomesticationLevel").GetValue()?.ToString() == "DOMESTICATED";
 
-    public static void TamePrefix(EntityBehavior __instance, out bool __state)
+    private static float TameProgress(EntityBehavior beh) =>
+        Traverse.Create(beh).Property("DomesticationProgress").PropertyExists()
+            ? Traverse.Create(beh).Property("DomesticationProgress").GetValue<float>() : 0f;
+
+    public readonly record struct TameState(bool WasDomesticated, float Progress);
+
+    /// <summary>State capture + the PREDATOR GATE (ruled Open Q4): a beginner cannot INITIATE
+    /// taming a gated wild predator — returning false blocks the interact entirely. Gates are
+    /// per-species knobs (0 = ungated); already-taming or tamed animals are never blocked.</summary>
+    public static bool TamePrefix(EntityBehavior __instance, EntityAgent byEntity, out TameState __state)
     {
-        __state = IsDomesticated(__instance);
+        __state = new TameState(IsDomesticated(__instance), TameProgress(__instance));
+        Entity? animal = BehaviorEntity(__instance!);
+        IPlayer? feeder = (byEntity as EntityPlayer)?.Player;
+        if (animal?.World?.Side != EnumAppSide.Server || feeder == null) return true;
+        if (Traverse.Create(__instance).Property("DomesticationLevel").GetValue()?.ToString() != "WILD") return true;
+
+        string first = animal.Code?.FirstCodePart() ?? "";
+        double required =
+            first.Contains("wolf") ? AniDomain.Knob(AniDomain.GateWolf, 9)
+            : first.Contains("fox") ? AniDomain.Knob(AniDomain.GateFox, 5)
+            : 0;
+        if (required <= 0 || AniDomain.LevelOf(feeder) >= required) return true;
+
+        (feeder as IServerPlayer)?.SendMessage(Vintagestory.API.Config.GlobalConstants.GeneralChatGroup,
+            Vintagestory.API.Config.Lang.Get("almanactcm:tame-gate"), EnumChatType.Notification);
+        TcmLog.Cat(animal.World.Api, "ani", $"predator gate: {feeder.PlayerName} (ANI {AniDomain.LevelOf(feeder)}) blocked from initiating {first} tame (needs {required})");
+        return false; // the interact never runs: no treat consumed, no taming started
     }
 
-    /// <summary>The feed-path completion: this interact pushed DomesticationProgress past 1 and
-    /// the level flipped to DOMESTICATED. The feeder is in scope — credit them, and stamp raiser
-    /// (petai's own owner is stored separately; the almanac stamp keeps the birth read uniform).</summary>
-    public static void TamePostfix(EntityBehavior __instance, EntityAgent byEntity, bool __state)
+    /// <summary>Two jobs after the interact: the treat economy (Phase 2 Axis 2 — a ranked
+    /// feeder's treat advances progress by a rank factor, so a master domesticates on fewer
+    /// treats) and the completion credit at the DOMESTICATED crossing.</summary>
+    public static void TamePostfix(EntityBehavior __instance, EntityAgent byEntity, TameState __state)
     {
-        if (__state || !IsDomesticated(__instance)) return; // no crossing this interact
         Entity? animal = BehaviorEntity(__instance);
         IPlayer? feeder = (byEntity as EntityPlayer)?.Player;
         if (animal?.World?.Side != EnumAppSide.Server || feeder == null) return;
+
+        // Treat economy: scale the progress THIS treat added (never the stored total).
+        float after = TameProgress(__instance);
+        if (!__state.WasDomesticated && !IsDomesticated(__instance) && after > __state.Progress)
+        {
+            double factor = AniDomain.RankLinear(AniDomain.LevelOf(feeder),
+                AniDomain.Knob(AniDomain.TreatUntrained, 0.90), AniDomain.Knob(AniDomain.TreatGm, 1.40));
+            if (Math.Abs(factor - 1.0) > 0.001)
+            {
+                float adjusted = __state.Progress + (after - __state.Progress) * (float)factor;
+                Traverse.Create(__instance).Property("DomesticationProgress").SetValue(Math.Min(adjusted, 1f));
+            }
+        }
+
+        if (__state.WasDomesticated || !IsDomesticated(__instance)) return; // no crossing this interact
         animal.WatchedAttributes?.SetString(AniDomain.RaisedByAttr, feeder.PlayerUID);
         Core?.Ledger?.Log(feeder, AniDomain.Code, AniDomain.TechTaming,
             HashCode.Combine("feed", animal.EntityId, animal.World.ElapsedMilliseconds / 1000));
@@ -187,20 +278,11 @@ public static class AniPatches
     /// call, contextHash-deduped on the dam so a litter banks once.</summary>
     public static void BirthPostfix(EntityBehavior __instance)
     {
+        AniBonusPatches.BreederLevel = 0; // the bloodline context ends with the birth call
         Entity? dam = __instance == null ? null : BehaviorEntity(__instance);
         if (dam?.World?.Side != EnumAppSide.Server) return;
 
-        string? uid = dam.WatchedAttributes?.GetString(AniDomain.RaisedByAttr);
-        if (string.IsNullOrEmpty(uid))
-            uid = dam.WatchedAttributes?.GetTreeAttribute("domesticationstatus")?.GetString("owner");
-        if (string.IsNullOrEmpty(uid))
-        {
-            // The last link of the ruled chain: an unstamped birth on CLAIMED land credits the
-            // claim owner — their pen, their husbandry (LandClaim.OwnedByPlayerUid, vsapi
-            // :143037). A truly feral birth in the wild still credits nobody.
-            var claims = dam.World.Claims?.Get(dam.Pos.AsBlockPos);
-            if (claims is { Length: > 0 }) uid = claims[0].OwnedByPlayerUid;
-        }
+        string? uid = ResolveBreederUid(dam);
         // Loud either way (the trough lesson: silent links hide dead hooks) — every birth the
         // patch sees gets one line stating the attribution outcome.
         if (string.IsNullOrEmpty(uid))

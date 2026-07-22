@@ -46,6 +46,26 @@ public static class AniDomain
     public const string GenRaiseStep = "genRaiseStep";
     public const string GenRaiseCap = "genRaiseCap";
 
+    // ---- Phase 2 knobs (ANI ladder RULED 2026-07-10, genetics-founded per the ani-line study).
+    /// <summary>Bloodline hygiene (the headline): extra allele-purge resistance a GM breeder's
+    /// newborns enjoy, ADDED to genelib's InbreedingResistance (0.6 stock) during their spawn
+    /// finalize; hard-capped below 1 so loss never reaches zero (principle 3).</summary>
+    public const string PurgeBonusGm = "purgeBonusGm";
+    /// <summary>Litter depth: chance at GM of +1 offspring, capped at the species' own
+    /// SpawnQuantityMax — within genelib's range, never doubling at low rank (ruled).</summary>
+    public const string LitterProcGm = "litterProcGm";
+    /// <summary>Treat economy (the MET fuel analog): progress-per-treat factor at the ends —
+    /// a master reaches DOMESTICATED on fewer treats.</summary>
+    public const string TreatUntrained = "treatUntrained";
+    public const string TreatGm = "treatGm";
+    /// <summary>Reduced saddle-break self-injury (the ruled correction: no failure roll exists,
+    /// so the honest lever is being thrown softer): fraction of throw damage healed back at GM.</summary>
+    public const string ThrowHealGm = "throwHealGm";
+    /// <summary>The predator-taming gate (ruled Open Q4): minimum ANI level to INITIATE taming a
+    /// wild predator. 0 = ungated. Wolf at Journeyman I, fox at Apprentice I by default.</summary>
+    public const string GateWolf = "gateWolf";
+    public const string GateFox = "gateFox";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -63,8 +83,32 @@ public static class AniDomain
         {
             [GenRaiseStep] = 0.35, // +35% raw per generation above the first...
             [GenRaiseCap] = 3.0,   // ...capped at 3x so a high-gen line still tapers.
+            // Phase 2 (MET numeric posture, playtest-tuned).
+            [PurgeBonusGm] = 0.30,   // resistance 0.6 stock -> up to 0.9 for a GM's newborns
+            [LitterProcGm] = 0.35,
+            [TreatUntrained] = 0.90, [TreatGm] = 1.40,
+            [ThrowHealGm] = 0.70,
+            [GateWolf] = 9, [GateFox] = 5,
         },
     };
+
+    /// <summary>The Apprentice-and-up reward curve (0 through Novice, linear to 1.0 at max) —
+    /// the shared Phase 2 shape.</summary>
+    public static double BonusT(int level)
+    {
+        const int start = 5;
+        if (level < start) return 0;
+        int max = Leveling.Domain.MaxLevelDefault;
+        return (level - start) / (double)(max - start);
+    }
+
+    /// <summary>General rank curve: untrained at 0, vanilla at Novice I, linear to gm at max.</summary>
+    public static double RankLinear(int level, double untrained, double gm)
+    {
+        if (level <= 0) return untrained;
+        int max = Leveling.Domain.MaxLevelDefault;
+        return 1.0 + (level - 1) / (double)(max - 1) * (gm - 1.0);
+    }
 
     /// <summary>The generation-scaled raw multiplier for a birth: 1.0 for a gen-1 newborn, rising
     /// by GenRaiseStep per generation to the GenRaiseCap ceiling. Climbing lineages is the skill.</summary>

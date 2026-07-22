@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.153-dev")]
+    Version = "0.3.154-dev")]
 
 namespace AlmanacTcm;
 
@@ -102,6 +102,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("COO", () => Domains.CooPatches.PatchConditional(api, harmony));
             Try("COO-bonus", () => Domains.CooBonusPatches.PatchConditional(api, harmony));
             Try("ANI", () => Domains.AniPatches.PatchConditional(api, harmony));
+            Try("ANI-bonus", () => Domains.AniBonusPatches.PatchConditional(api, harmony));
             Try("HUN-bloodtrail", () => Domains.HunBloodTrailPatches.PatchConditional(api, harmony));
             Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));
             Try("WOO-colliersmark", () => Domains.WooColliersMark.PatchAll(api, harmony));
