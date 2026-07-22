@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.163-dev")]
+    Version = "0.3.164-dev")]
 
 namespace AlmanacTcm;
 
@@ -108,6 +108,8 @@ public class AlmanacTcmModSystem : ModSystem
             Try("POT-bonus", () => Domains.PotBonusPatches.PatchConditional(api, harmony));
             Try("GLA", () => Domains.GlaPatches.PatchConditional(api, harmony));
             Try("BRE", () => Domains.BrePatches.PatchConditional(api, harmony));
+            Try("ALC", () => Domains.AlcPatches.PatchConditional(api, harmony));
+            Try("ALC-brand", () => Domains.AlcBrandPatches.PatchConditional(api, harmony));
             Try("HUN-bloodtrail", () => Domains.HunBloodTrailPatches.PatchConditional(api, harmony));
             Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));
             Try("WOO-colliersmark", () => Domains.WooColliersMark.PatchAll(api, harmony));
@@ -139,9 +141,12 @@ public class AlmanacTcmModSystem : ModSystem
         // roster). The factory registers regardless; the domain is excluded from breadth/affinity
         // when disabled, and its verbs only patch when the mod is present.
         Engine.LedgerSystem.DefaultFactories[Domains.GlaDomain.Code] = Domains.GlaDomain.Defaults;
-        // The consumables cluster (BRE this build; ALC next). BRE grants at the seal/ignite (the
-        // online skilled act); completion-time effects use the frozen rank.
+        // The consumables cluster. BRE grants at the seal/ignite (the online skilled act); completion-
+        // time effects use the frozen rank. ALC is the vanilla-floored other half: remedy crafting is
+        // always-on, the potion (alchemy) + wet-chemistry (industrialstory) layers are conditional, and
+        // the Alchemist's Brand rides both product families.
         Engine.LedgerSystem.DefaultFactories[Domains.BreDomain.Code] = Domains.BreDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.AlcDomain.Code] = Domains.AlcDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
@@ -209,6 +214,11 @@ public class AlmanacTcmModSystem : ModSystem
         // BRE's persisted seal-owner map (a seal matures across days/restarts; the frozen rank
         // drives the unattended spoilage/portion/mark effects).
         Domains.BrePatches.RegisterServer(sapi);
+
+        // ALC's persisted owner side maps (cauldron cooks + reactions complete unattended; the herb
+        // rack carries the alchemist for the perish-slow rung). The Brand read is stateless.
+        Domains.AlcPatches.RegisterServer(sapi);
+        Domains.AlcBrandPatches.RegisterServer(sapi);
 
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
