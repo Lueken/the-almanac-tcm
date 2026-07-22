@@ -57,6 +57,11 @@ public static class FarDomain
     /// <summary>Fertilizer thrift: chance at GM that an application costs no item (the powder-
     /// thrift shape). 0 below Apprentice.</summary>
     public const string FertThriftGm = "fertThriftGm";
+    /// <summary>Shear penalty (ruled "the beginner's shears wound"): the factor an Untrained
+    /// hand's scratch chance is raised by, so clumsy hands wound the animal more often. Clears
+    /// at Novice; NERF-FIRST, no GM reduction (the animal's generation is what shears it clean,
+    /// which is the ANI cross-tie). Rides shearlib's own scratchChance field.</summary>
+    public const string ShearScratchUntrained = "shearScratchUntrained";
     /// <summary>Graft resilience (the agent-designed lever, vanilla-floored by construction):
     /// chance at GM that a DYING cutting clings to life — the death is reverted and vanilla
     /// re-rolls its own unmodified chance on a later tick. No single graft is ever easier than
@@ -100,6 +105,7 @@ public static class FarDomain
             [FeedUntrained] = 0.90, [FeedGm] = 1.25,
             [FertThriftGm] = 0.20,
             [GraftRetryGm] = 0.50,
+            [ShearScratchUntrained] = 1.5,
         },
     };
 

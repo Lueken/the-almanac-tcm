@@ -109,13 +109,19 @@ public static class FarPatches
         HookDeclared(api, harmony, "Vintagestory.GameContent.BlockTroughDoubleBlock", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (large)");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityTrough", "ConsumeOnePortion", nameof(TroughConsumePostfix), "FAR feeding");
 
-        // Shearing — shearlib's library verb, now success-gated (Phase 2, FAR ruling 4): the
-        // prefix asks shearlib's own public EntityWouldBeDamaged(1.0) BEFORE the shear runs
-        // (:303, verified 1.3.0); a damaging premature shear wounds the animal, yields 1/3
-        // wool, and banks ZERO practice.
+        // Shearing — shearlib's library verb, success-gated + the Untrained penalty (Phase 2,
+        // FAR ruling 4; shearlib 1.3.0 decompiled). DoShear rolls EntityWouldBeDamaged with its
+        // OWN Rand draw (:303), so predicting the wound with a second roll (the 0.3.155 bug)
+        // reads a different coin: instead we watch ReceiveShearDamage, which fires ONLY on a
+        // real wound (:346). The prefix also raises scratchChance for an Untrained hand (the
+        // ruled "beginner's shears wound" widening) and restores it in the postfix.
         if (api.ModLoader.IsModEnabled("shearlib"))
+        {
             HookPairDeclared(api, harmony, "ShearLib.EntityBehaviorShearable", "DoShear",
                 nameof(ShearPrefix), nameof(ShearPostfix), "FAR shearing");
+            HookDeclared(api, harmony, "ShearLib.EntityBehaviorShearable", "ReceiveShearDamage",
+                nameof(ShearWoundedPostfix), "FAR shear wound-watch");
+        }
 
         if (api.ModLoader.IsModEnabled("primitivesurvival"))
         {
@@ -563,25 +569,48 @@ public static class FarPatches
 
     /// <summary>DoShear fires on a shear; Phase 2 adds the damaging-shear = zero XP gate. For now
     /// a shear banks FAR shearing, regrowth-gated by the animal itself (you cannot reshear at will).</summary>
-    /// <summary>Ask shearlib's own damage check BEFORE the shear runs: DoShear evaluates
-    /// EntityWouldBeDamaged(1.0) at :303 to decide the wound, so calling the same public
-    /// method pre-shear captures the verdict the shear is about to act on.</summary>
-    public static void ShearPrefix(EntityBehavior __instance, out bool __state)
+    /// <summary>A shear is in progress, and whether it wounded. Shears run synchronously on the
+    /// server main thread (player interaction), so a single static pair is safe — the same
+    /// reasoning as the ANI breeder context.</summary>
+    private static bool shearInProgress;
+    private static bool shearWounded;
+
+    /// <summary>Start the shear watch and, for an Untrained hand, raise shearlib's own
+    /// scratchChance so the beginner wounds the animal more often (the ruled penalty). Captured
+    /// original is restored in the postfix.</summary>
+    public static void ShearPrefix(EntityBehavior __instance, EntityAgent byEntity, out double __state)
     {
-        __state = false;
-        var m = AccessTools.Method(__instance.GetType(), "EntityWouldBeDamaged");
-        if (m != null)
-            try { __state = (bool)m.Invoke(__instance, new object[] { 1.0 })!; } catch { }
+        __state = -1;
+        shearInProgress = true;
+        shearWounded = false;
+        IPlayer? player = PlayerOf(byEntity);
+        if (player == null || __instance == null || BehaviorEntity(__instance)?.World?.Side != EnumAppSide.Server) return;
+        if (FarDomain.LevelOf(player) > 0) return; // penalty is Untrained-only
+
+        var f = Traverse.Create(__instance).Field("scratchChance");
+        if (!f.FieldExists()) return;
+        __state = f.GetValue<double>();
+        f.SetValue(__state * FarDomain.Knob(FarDomain.ShearScratchUntrained, 1.5));
     }
 
-    public static void ShearPostfix(EntityBehavior __instance, EntityAgent byEntity, bool __state)
+    /// <summary>Fires only when DoShear actually wounds (:346). Marks the in-flight shear.</summary>
+    public static void ShearWoundedPostfix()
     {
+        if (shearInProgress) shearWounded = true;
+    }
+
+    public static void ShearPostfix(EntityBehavior __instance, EntityAgent byEntity, double __state)
+    {
+        shearInProgress = false;
+        if (__state >= 0 && __instance != null) // restore the widened scratchChance
+            Traverse.Create(__instance).Field("scratchChance").SetValue(__state);
+
         IPlayer? player = PlayerOf(byEntity);
         Entity? animal = __instance == null ? null : BehaviorEntity(__instance);
         if (player == null || animal?.World?.Side != EnumAppSide.Server) return;
-        if (__state)
+        if (shearWounded)
         {
-            // FAR ruling 4 (Phase 2): a premature shear wounds the animal and yields 1/3 wool —
+            // FAR ruling 4 (Phase 2): a damaging shear yields 1/3 wool and wounds the animal —
             // the outcome is the practice signal, and this outcome is a botch. Zero XP.
             TcmLog.Cat(animal.World.Api, "far", $"damaging shear on {animal.Code?.FirstCodePart()} #{animal.EntityId} by {player.PlayerName}: wounded, no practice");
             return;
