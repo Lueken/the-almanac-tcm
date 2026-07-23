@@ -181,7 +181,7 @@ public class LedgerSystem
     /// <paramref name="rawMultiplier"/> scales the config raw for THIS action only —
     /// the seam for ruled per-action quality scaling (MIN Q5: ore rarity/depth), never
     /// a way to inject a caller-chosen base (the base still lives in config).</summary>
-    public void Log(IPlayer player, string domainCode, string technique, int contextHash, double rawMultiplier = 1.0)
+    public void Log(IPlayer player, string domainCode, string technique, int contextHash, double rawMultiplier = 1.0, bool announceRepeat = true)
     {
         Domain? domain = template.FindDomain(domainCode);
         if (domain == null || !domain.Enabled) return;
@@ -226,7 +226,7 @@ public class LedgerSystem
                     domain.DisplayName, technique, raw, accs[technique]);
             }
         }
-        else if (duplicate && config.PracticeGainMessages)
+        else if (duplicate && config.PracticeGainMessages && announceRepeat)
         {
             SendInfoLine(player, "almanactcm:practice-repeat", domain.DisplayName, technique);
         }

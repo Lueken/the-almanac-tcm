@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.3.167-dev")]
+    Version = "0.4.0")]
 
 namespace AlmanacTcm;
 
@@ -110,6 +110,12 @@ public class AlmanacTcmModSystem : ModSystem
             Try("BRE", () => Domains.BrePatches.PatchConditional(api, harmony));
             Try("ALC", () => Domains.AlcPatches.PatchConditional(api, harmony));
             Try("ALC-brand", () => Domains.AlcBrandPatches.PatchConditional(api, harmony));
+            Try("TAI", () => Domains.TaiPatches.PatchConditional(api, harmony));
+            Try("TAI-mark", () => Domains.TaiMarkPatches.PatchConditional(api, harmony));
+            Try("MAS", () => Domains.MasPatches.PatchConditional(api, harmony));
+            Try("ENG", () => Domains.EngPatches.PatchConditional(api, harmony));
+            Try("TEM", () => Domains.TemPatches.PatchConditional(api, harmony));
+            Try("ARC", () => Domains.ArcPatches.PatchConditional(api, harmony));
             Try("HUN-bloodtrail", () => Domains.HunBloodTrailPatches.PatchConditional(api, harmony));
             Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));
             Try("WOO-colliersmark", () => Domains.WooColliersMark.PatchAll(api, harmony));
@@ -147,6 +153,11 @@ public class AlmanacTcmModSystem : ModSystem
         // the Alchemist's Brand rides both product families.
         Engine.LedgerSystem.DefaultFactories[Domains.BreDomain.Code] = Domains.BreDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.AlcDomain.Code] = Domains.AlcDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.TaiDomain.Code] = Domains.TaiDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.MasDomain.Code] = Domains.MasDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.EngDomain.Code] = Domains.EngDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.TemDomain.Code] = Domains.TemDomain.Defaults;
+        Engine.LedgerSystem.DefaultFactories[Domains.ArcDomain.Code] = Domains.ArcDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
@@ -221,6 +232,19 @@ public class AlmanacTcmModSystem : ModSystem
         Domains.AlcBrandPatches.RegisterServer(sapi);
         Domains.AlcEmphasis.RegisterServer(sapi);
 
+        // TAI's grant patches are stateless (spin/weave/knit grant at the act); the mark read is
+        // stateless too. Only the emphasis channel + the spindle-thrift world lookup need the API.
+        Domains.TaiPatches.RegisterServer(sapi);
+        Domains.TaiEmphasis.RegisterServer(sapi);
+
+        // TEM's per-player stat reconcile (gear cost + stability resistance) + the Storm-Sense forecast
+        // run on a 2s tick; it resolves SystemTemporalStability for the storm schedule read.
+        Domains.TemPatches.RegisterServer(sapi);
+
+        // ARC's mana re-root reconcile (freeze RBM XP; playermaxmana_rm -> ARC-rank floor) + meditation
+        // trickle run on a 2s tick, gated on rustboundmagic being present (else the domain is dormant).
+        Domains.ArcPatches.RegisterServer(sapi);
+
         // The Collier's Mark keeps a small persisted pos->collier map (the charcoal pile is a
         // BE-less block, so it has nowhere to carry provenance itself). Needs the server API for
         // its save file, so it registers here rather than in Start.
@@ -257,6 +281,8 @@ public class AlmanacTcmModSystem : ModSystem
 
         // ALC emphasis: the Callings book's Potent/Lasting toggle sends on this channel.
         Domains.AlcEmphasis.RegisterClient(capi);
+        // TAI emphasis: the Callings book's Warm/Lasting/Cool toggle sends on this channel.
+        Domains.TaiEmphasis.RegisterClient(capi);
 
         // Hunter's Map envelope sync — dormant with the shelved layer (see Start).
         // Domains.HunPatches.RegisterClient(capi);

@@ -265,6 +265,40 @@ public class CallingsTab : IAlmanacBookTab
             }
         }
 
+        // TAI: the Grandmaster's Warm / Lasting / Cool emphasis, stamped onto every garment they make.
+        // A live three-way lever only at Grandmaster; below it, a note of what waits.
+        if (code == "TAI")
+        {
+            comps.Add(new ClearFloatTextComponent(capi, 14));
+            comps.Add(new RichTextComponent(capi, "Your emphasis\n", subhead));
+            if (level >= Domains.TaiDomain.ProvGm)
+            {
+                int emph = Domains.TaiEmphasis.EmphasisOf(capi.World.Player);
+                void Stamp(string label, int val)
+                {
+                    bool on = emph == val;
+                    comps.Add(new EmphasisStampComponent(capi, label, on, body,
+                        on ? null : () => { Domains.TaiEmphasis.Set(capi, val); host?.Recompose(); }));
+                }
+                Stamp("Warm", Domains.TaiDomain.EmphWarm);
+                Stamp("Lasting", Domains.TaiDomain.EmphLasting);
+                Stamp("Cool", Domains.TaiDomain.EmphCool);
+                comps.Add(new RichTextComponent(capi, "\n", body));
+                comps.Add(new ClearFloatTextComponent(capi, 6));
+                string note = emph == Domains.TaiDomain.EmphWarm
+                    ? "Your garments hold more warmth, trading a little of their wear and cool.\n"
+                    : emph == Domains.TaiDomain.EmphCool
+                        ? "Your garments breathe cooler in the heat, trading a little warmth and wear.\n"
+                        : "Your garments outlast the rest, trading a little warmth and cool.\n";
+                comps.Add(new RichTextComponent(capi, note, mutedItalic));
+            }
+            else
+            {
+                comps.Add(new RichTextComponent(capi,
+                    "At Grandmaster you will set your hand to Warm, Lasting, or Cool. Until then, your work simply climbs.\n", mutedItalic));
+            }
+        }
+
         if (di?.techniques != null && di.techniques.Length > 0)
         {
             comps.Add(new ClearFloatTextComponent(capi, 14));

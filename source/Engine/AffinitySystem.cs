@@ -172,7 +172,7 @@ public class AffinitySystem
     {
         Classes = new Dictionary<string, Dictionary<string, int>>
         {
-            ["archivist"] = new() { ["FAR"] = -2, ["TEM"] = 2, ["TAI"] = -1 },
+            ["archivist"] = new() { ["FAR"] = -2, ["TEM"] = 2, ["TAI"] = -1, ["ARC"] = 1 },
             ["blackguard"] = new() { ["FAR"] = -2, ["MET"] = 3, ["POT"] = 1, ["MEL"] = 2, ["RAN"] = 1, ["TAI"] = -1, ["FOR"] = -1, ["GLA"] = 1 },
             ["brickmaker"] = new() { ["WOO"] = 1, ["POT"] = 3, ["MEL"] = 1, ["MAS"] = 1, ["FOR"] = -1 },
             ["butcher"] = new() { ["FAR"] = -2, ["COO"] = 3, ["MEL"] = 1, ["RAN"] = -1, ["TAI"] = -1, ["ENG"] = -1, ["HUN"] = 3, ["ANI"] = 1 },

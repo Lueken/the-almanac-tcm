@@ -146,6 +146,9 @@ public class TcmCommands
         pd.Hidden = false;
         pd.Level = level;
         core.Server?.SyncDomain(player, pd);
+        // ARC re-roots the RBM mana pool off its rank; apply it immediately so the pool snaps now instead
+        // of on the next 2s reconcile tick (the "set it and wait a minute to catch" bug).
+        if (domain == "ARC") Domains.ArcPatches.ApplyReRoot(player);
         return TextCommandResult.Success($"{domain} set to {RankName(level)} (level {level}). Reopen the station or book to see it.");
     }
 
