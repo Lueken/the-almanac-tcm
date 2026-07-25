@@ -87,9 +87,10 @@ public static class MinPatches
     /// mining verb (Q1 — stone stays a flat outcome of the same swing). Ore is handled
     /// separately because BlockOre overrides OnBlockBroken without calling base.
     /// The pickaxe requirement is load-bearing: material Stone alone leaks, because VS
-    /// defaults blocks with NO declared blockmaterial to Stone — Cartwright's cart
-    /// carcass paid mining XP when smashed (the 2026-07-25 leak). The verb is a
-    /// pickaxe swing per the technique map, so require the pickaxe.</summary>
+    /// defaults blocks with NO declared blockmaterial to Stone — the vanilla carcass
+    /// block (the skeleton left after butchering a deer) paid mining XP when broken
+    /// (the 2026-07-25 leak; Cartwright's cart carcass has the same latent default).
+    /// The verb is a pickaxe swing per the technique map, so require the pickaxe.</summary>
     [HarmonyPatch(typeof(Block), nameof(Block.OnBlockBroken))]
     public static class MiningStonePatch
     {
