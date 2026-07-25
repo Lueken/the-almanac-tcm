@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.0")]
+    Version = "0.4.2")]
 
 namespace AlmanacTcm;
 
@@ -22,7 +22,7 @@ public class AlmanacTcmModSystem : ModSystem
 {
     /// <summary>Minimum sibling version enforced at runtime; modinfo declares the
     /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).</summary>
-    private const string MinIlluminatedVersion = "0.0.13";
+    private const string MinIlluminatedVersion = "0.0.14";
 
     /// <summary>Static access for Harmony patches (set in Start, cleared in Dispose).</summary>
     public static AlmanacTcmModSystem? Instance { get; private set; }

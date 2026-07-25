@@ -33,12 +33,15 @@ public class Domain
 
     public int MaxLevel { get; set; } = MaxLevelDefault;
 
-    /// <summary>Banked XP needed to COMPLETE each tier climb, Novice→GM order (§7 pacing table).
-    /// Within a tier the four sub-level steps follow the quadratic shape: step s costs
-    /// tierTotal·s²/30 (1+4+9+16=30), so later sub-levels cost more. Playtest-tunable.</summary>
+    /// <summary>Cumulative banked XP to REACH each tier entry from Untrained: Novice I,
+    /// Apprentice I, Journeyman I, Master I, GM (§7 pacing table; ruled 2026-07-24 —
+    /// "the road to Novice I should be significantly longer"). The first total is the
+    /// whole Untrained→Novice I entry step; each later total is the milestone whose gap
+    /// from the previous one spans the four steps ending at that entry, quadratic shape
+    /// step s = gap·s²/30 (1+4+9+16=30). Playtest-tunable.</summary>
     public IReadOnlyList<double> TierTotals => tierTotals;
 
-    private double[] tierTotals = { 150, 500, 1400, 3200, 6500 };
+    private double[] tierTotals = { 150, 650, 2050, 5250, 11750 };
 
     public void SetTierTotals(IList<double> totals)
     {
@@ -56,17 +59,19 @@ public class Domain
         Id = -1;
     }
 
-    /// <summary>Experience required to go from (level-1) to level. Level 1 is the first
-    /// Novice step out of Untrained; levels above MaxLevel return 0 (nothing further).</summary>
+    /// <summary>Experience required to go from (level-1) to level. Level 1 is the whole
+    /// Untrained→Novice I entry climb (tierTotals[0], no cheap first step); levels above
+    /// MaxLevel return 0 (nothing further). Later levels walk four-step segments between
+    /// tier-entry milestones, so cumulative cost lands exactly on each tierTotals entry
+    /// and GM remains the single largest step of its segment.</summary>
     public float GetRequiredExperience(int level)
     {
         if (level <= 0 || level > MaxLevel) return 0f;
-        int tier = (level - 1) / SubLevelsPerTier;
-        // Grandmaster is one terminal step, so its whole tier total is that single leap (the
-        // hardest step of all), not a quadratic sub-level fraction.
-        if (tier >= TierCount - 1) return (float)tierTotals[TierCount - 1];
-        int step = (level - 1) % SubLevelsPerTier + 1;
-        return (float)(tierTotals[tier] * step * step / 30.0);
+        if (level == 1) return (float)tierTotals[0];
+        int segment = (level - 2) / SubLevelsPerTier;
+        double gap = tierTotals[segment + 1] - tierTotals[segment];
+        int step = (level - 2) % SubLevelsPerTier + 1;
+        return (float)(gap * step * step / 30.0);
     }
 
     /// <summary>Tier index (0=Novice … 4=Grandmaster) for a level, or -1 for Untrained.</summary>

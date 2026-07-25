@@ -85,7 +85,11 @@ public static class MinPatches
 
     /// <summary>Stone breaks (plain Block, Stone material): a tiny flat value on the
     /// mining verb (Q1 — stone stays a flat outcome of the same swing). Ore is handled
-    /// separately because BlockOre overrides OnBlockBroken without calling base.</summary>
+    /// separately because BlockOre overrides OnBlockBroken without calling base.
+    /// The pickaxe requirement is load-bearing: material Stone alone leaks, because VS
+    /// defaults blocks with NO declared blockmaterial to Stone — Cartwright's cart
+    /// carcass paid mining XP when smashed (the 2026-07-25 leak). The verb is a
+    /// pickaxe swing per the technique map, so require the pickaxe.</summary>
     [HarmonyPatch(typeof(Block), nameof(Block.OnBlockBroken))]
     public static class MiningStonePatch
     {
@@ -93,6 +97,7 @@ public static class MinPatches
         {
             if (world.Side != EnumAppSide.Server || byPlayer == null) return;
             if (__instance.BlockMaterial != EnumBlockMaterial.Stone) return;
+            if (byPlayer.InventoryManager?.ActiveTool != EnumTool.Pickaxe) return;
 
             Core?.Ledger?.Log(byPlayer, MinDomain.Code, MinDomain.TechMining,
                 pos.GetHashCode(), Knob(MinDomain.MiningStoneFraction, 0.2));

@@ -225,6 +225,8 @@ public class LedgerSystem
                 SendInfoLine(player, "almanactcm:practice-gain",
                     domain.DisplayName, technique, raw, accs[technique]);
             }
+
+            MaybeSyncPending(player, domainSet!, ledger);
         }
         else if (duplicate && config.PracticeGainMessages && announceRepeat)
         {
@@ -415,6 +417,131 @@ public class LedgerSystem
         ledger.PruneHistory(boundary, config.DominantWindowDays);
         ledger.ClearDay();
         ledger.LastConsolidatedBoundary = boundary;
+
+        // The day settled: collapse every wash the client may still be showing.
+        // Granted domains already resynced through AddExperience (pending defaults
+        // to 0 there); this covers ceiling-walled and zero-grant domains too.
+        foreach (string code in totals.Keys)
+        {
+            Domain? d = template.FindDomain(code);
+            PlayerDomain? pd = d == null ? null : domainSet[d.Id];
+            if (pd == null || pd.Hidden) continue;
+            leveling.SyncPending(player, pd, 0f);
+        }
+    }
+
+    // ------------------------------------------------------------ pending preview
+
+    /// <summary>Milliseconds between mid-day pending syncs per player, so practice
+    /// bursts coalesce; the bar catches up on the next logged action.</summary>
+    private const long PendingSyncIntervalMs = 2000;
+
+    private readonly Dictionary<string, long> lastPendingSync = new();
+
+    /// <summary>Debounced push of the pending projection to one player's client —
+    /// the pencil wash on the Callings bars. Forced sends (death scatter) bypass
+    /// the interval so the wash never lies for long.</summary>
+    private void MaybeSyncPending(IPlayer player, PlayerDomainSet domainSet, PracticeLedger ledger, bool force = false)
+    {
+        long now = sapi.World.ElapsedMilliseconds;
+        if (!force && lastPendingSync.TryGetValue(player.PlayerUID, out long last)
+            && now - last < PendingSyncIntervalMs) return;
+        lastPendingSync[player.PlayerUID] = now;
+
+        foreach (var (code, pending) in ProjectPending(player, domainSet, ledger))
+        {
+            Domain? domain = template.FindDomain(code);
+            PlayerDomain? playerDomain = domain == null ? null : domainSet[domain.Id];
+            if (playerDomain == null || playerDomain.Hidden) continue;
+            leveling.SyncPending(player, playerDomain, (float)pending);
+        }
+    }
+
+    /// <summary>What today's accumulators WOULD bank if the rest settled right now:
+    /// Consolidate's pass 1 + 2 rerun as a pure read — no history writes, no grants —
+    /// then ceiling-clamped per domain. Zeros are kept so a scattered or walled wash
+    /// resets on the next sync instead of going stale.</summary>
+    private Dictionary<string, double> ProjectPending(IPlayer player, PlayerDomainSet domainSet, PracticeLedger ledger)
+    {
+        var primaryBanked = new Dictionary<string, double>();
+        var totals = new Dictionary<string, double>();
+        long boundary = CurrentBoundary();
+
+        foreach (Domain domain in template.Domains)
+        {
+            if (!domain.Enabled) continue;
+            if (!ledger.Accumulators.TryGetValue(domain.Code, out var accs) || accs.Count == 0) continue;
+
+            DomainConfig dc = DomainConfigs[domain.Code];
+            PlayerDomain? playerDomain = domainSet[domain.Id];
+            if (playerDomain == null) continue;
+
+            bool depthPhase = playerDomain.Level >= JourneymanEntry;
+            string? dominant = depthPhase
+                ? ledger.DominantTechnique(domain.Code, boundary, config.DominantWindowDays)
+                : null;
+            System.Func<string, double> kOf = t =>
+                effective[domain.Code].TryGetValue(t, out var e) ? e.k : 50.0;
+
+            double smax = dc.Smax * SmaxScaleProvider(player, domain);
+            double banked = depthPhase
+                ? SaturationMath.DepthBanked(accs, kOf, smax, dominant, config.DepthOffTechniqueWeight)
+                : SaturationMath.BreadthBanked(accs, kOf, smax, dc.M);
+
+            primaryBanked[domain.Code] = banked;
+            totals.TryGetValue(domain.Code, out double t0);
+            totals[domain.Code] = t0 + banked;
+
+            foreach (var (technique, x) in accs)
+            {
+                if (!dc.Techniques.TryGetValue(technique, out TechniqueConfig? tc)) continue;
+                if (tc.CoGrants.Count == 0) continue;
+                double techBanked = SaturationMath.TechniqueBanked(
+                    x, kOf(technique), smax, dc.M, depthPhase, technique == dominant,
+                    config.DepthOffTechniqueWeight);
+                foreach (var (targetCode, share) in tc.CoGrants)
+                {
+                    totals.TryGetValue(targetCode, out double prev);
+                    totals[targetCode] = prev + techBanked * share;
+                }
+            }
+        }
+
+        foreach (Domain domain in template.Domains)
+        {
+            if (!domain.Enabled) continue;
+            PlayerDomain? playerDomain = domainSet[domain.Id];
+            if (playerDomain == null || playerDomain.Hidden) continue;
+
+            DomainConfig dc = DomainConfigs[domain.Code];
+            double adjacentSum = 0;
+            foreach (string neighbour in dc.Adjacency)
+            {
+                if (primaryBanked.TryGetValue(neighbour, out double nb)) adjacentSum += nb;
+            }
+            if (adjacentSum <= 0) continue;
+
+            double fade = SaturationMath.SpilloverFade(
+                playerDomain.Level, JourneymanEntry, Domain.SubLevelsPerTier);
+            if (fade <= 0) continue;
+
+            double spill = Math.Min(
+                config.Sigma * adjacentSum * fade,
+                config.SpilloverCapPct / 100.0 * dc.Smax);
+            totals.TryGetValue(domain.Code, out double prev);
+            totals[domain.Code] = prev + spill;
+        }
+
+        var result = new Dictionary<string, double>();
+        foreach (var (code, banked) in totals)
+        {
+            Domain? domain = template.FindDomain(code);
+            PlayerDomain? pd = domain == null ? null : domainSet[domain.Id];
+            if (pd == null) continue;
+            int ceiling = ClassCeilingProvider(player, domain!);
+            result[code] = Math.Max(0, ClampToCeiling(pd, banked, ceiling));
+        }
+        return result;
     }
 
     /// <summary>XP that would cross the class-ceiling wall is discarded ("your hands
@@ -482,9 +609,13 @@ public class LedgerSystem
         double lambda = pvp ? config.LambdaPvp : config.LambdaDeath;
         if (lambda <= 0) return;
 
-        LedgerFor(byPlayer).Scatter(lambda);
+        PracticeLedger deathLedger = LedgerFor(byPlayer);
+        deathLedger.Scatter(lambda);
         TcmLog.Cat(sapi, TcmLog.Ledger,
             $"{byPlayer.PlayerName} death scatter λ={lambda} (pvp={pvp}) — pending practice reduced");
+
+        // Forced resync so the bars' pencil wash shrinks with the scatter immediately.
+        MaybeSyncPending(byPlayer, domainSet, deathLedger, force: true);
     }
 
     // -------------------------------------------------------------- persistence

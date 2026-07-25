@@ -357,7 +357,8 @@ public static class FarPatches
     }
 
     /// <summary>A worm minted by the maintained colony: bank to the last maintainer. Bucketed per
-    /// hour so a healthy bin is steady, small practice, not a ticker.</summary>
+    /// REAL hour so a healthy bin is steady, small practice, not a ticker. (Was /60000, one real
+    /// minute, which paid up to 60x the intended cadence — the 2026-07-25 vermiculture ping spam.)</summary>
     public static void WormMintPostfix(BlockEntity __instance)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server) return;
@@ -365,7 +366,8 @@ public static class FarPatches
         IPlayer? owner = __instance.Api.World.PlayerByUid(uid);
         if (owner == null) return;
         Core?.Ledger?.Log(owner, FarDomain.Code, FarDomain.TechVermiculture,
-            HashCode.Combine("worm", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 60000));
+            HashCode.Combine("worm", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 3600000),
+            announceRepeat: false);
     }
 
     // ------------------------------------------------------------ planting

@@ -235,6 +235,15 @@ public class LevelingServer
         channel.SendPacket(new PlayerDomainPacket(playerDomain), player as IServerPlayer);
     }
 
+    /// <summary>Mid-day pending sync: the same state packet plus the ledger's projection
+    /// of what today's practice would bank at the next rest. Display-only — grants
+    /// nothing; only the consolidation flush may call AddExperience.</summary>
+    public void SyncPending(IPlayer player, PlayerDomain playerDomain, float pendingBanked)
+    {
+        var packet = new PlayerDomainPacket(playerDomain) { pendingBanked = pendingBanked };
+        channel.SendPacket(packet, player as IServerPlayer);
+    }
+
     /// <summary>Sends the resolved affinity band for one domain (the "why you started
     /// here" line). The grid stays server-side; only the band crosses.</summary>
     public void SyncAffinity(IPlayer player, int domainId, int band)

@@ -30,6 +30,12 @@ public class PlayerDomainPacket
     [ProtoMember(5)]
     public bool hidden = true;
 
+    /// <summary>Projection of what today's unconsolidated practice would bank at the
+    /// next rest — display-only state for the two-tone bar. Zero on every packet the
+    /// consolidation flush sends, which is what collapses the wash into ink.</summary>
+    [ProtoMember(6)]
+    public float pendingBanked;
+
     public PlayerDomainPacket() { }
 
     public PlayerDomainPacket(PlayerDomain playerDomain)

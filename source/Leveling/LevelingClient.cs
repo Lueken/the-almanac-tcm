@@ -19,6 +19,9 @@ public class LevelingClient
         public float Experience;
         public float RequiredExperience;
         public bool Hidden = true;
+
+        /// <summary>Today's unsettled practice, projected — the pencil wash on the bar.</summary>
+        public float PendingBanked;
     }
 
     /// <summary>Local player's synced state, keyed by domain id.</summary>
@@ -63,7 +66,8 @@ public class LevelingClient
             Level = packet.level,
             Experience = packet.experience,
             RequiredExperience = packet.requiredExperience,
-            Hidden = packet.hidden
+            Hidden = packet.hidden,
+            PendingBanked = packet.pendingBanked
         };
     }
 

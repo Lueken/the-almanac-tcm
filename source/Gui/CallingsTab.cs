@@ -87,9 +87,11 @@ public class CallingsTab : IAlmanacBookTab
             int level = state?.Level ?? 0;
             float experience = state?.Experience ?? 0f;
             float required = state?.RequiredExperience ?? 0f;
+            float pending = state?.PendingBanked ?? 0f;
             bool atCeiling = required <= 0 && level >= Domain.MaxLevelDefault;
-            bool awake = level > 0 || experience > 0;
+            bool awake = level > 0 || experience > 0 || pending > 0;
             double fraction = required > 0 ? experience / required : (atCeiling ? 1 : 0);
+            double pendingFraction = required > 0 ? pending / required : 0;
 
             // The name is a link into this trade's detail page, whether trained or not.
             // A positive-affinity trade wears a star: this calling is one of yours.
@@ -130,10 +132,10 @@ public class CallingsTab : IAlmanacBookTab
                 comps.Add(new RichTextComponent(capi, Domain.RankName(level) + "  ", rank));
                 comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip, barred));
                 comps.Add(new RichTextComponent(capi, "\n", rank));
-                comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 7));
+                comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 7, pendingFraction: pendingFraction));
                 comps.Add(new ClearFloatTextComponent(capi, 3));
                 if (required > 0)
-                    comps.Add(new RichTextComponent(capi, $"{Math.Ceiling(required - experience):0} to {Domain.RankName(level + 1)}\n", muted));
+                    comps.Add(new RichTextComponent(capi, ProgressCaption(level, experience, required, pending), muted));
                 else if (atCeiling)
                     comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
             }
@@ -188,8 +190,10 @@ public class CallingsTab : IAlmanacBookTab
         int level = state?.Level ?? 0;
         float experience = state?.Experience ?? 0f;
         float required = state?.RequiredExperience ?? 0f;
+        float pending = state?.PendingBanked ?? 0f;
         bool atCeiling = required <= 0 && level >= Domain.MaxLevelDefault;
         double fraction = required > 0 ? experience / required : (atCeiling ? 1 : 0);
+        double pendingFraction = required > 0 ? pending / required : 0;
         info!.TryGetValue(code, out DomainInfo? di);
 
         var comps = new List<RichTextComponentBase>
@@ -213,10 +217,10 @@ public class CallingsTab : IAlmanacBookTab
         comps.Add(new RichTextComponent(capi, Domain.RankName(level) + "  ", body));
         comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip, Barred(id)));
         comps.Add(new RichTextComponent(capi, "\n", body));
-        comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 8));
+        comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 8, pendingFraction: pendingFraction));
         comps.Add(new ClearFloatTextComponent(capi, 3));
         if (required > 0)
-            comps.Add(new RichTextComponent(capi, $"{Math.Ceiling(required - experience):0} to {Domain.RankName(level + 1)}\n", muted));
+            comps.Add(new RichTextComponent(capi, ProgressCaption(level, experience, required, pending), muted));
         else if (atCeiling)
             comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
         else
@@ -444,6 +448,16 @@ public class CallingsTab : IAlmanacBookTab
     {
         if (string.IsNullOrEmpty(code)) return "newcomer";
         return char.ToUpperInvariant(code[0]) + code.Substring(1);
+    }
+
+    /// <summary>The line under a bar: banked distance to the next rank, plus today's
+    /// unsettled practice when there is any — a promise the rest will keep.</summary>
+    private static string ProgressCaption(int level, float experience, float required, float pending)
+    {
+        string next = Domain.RankName(level + 1);
+        if (pending <= 0.5f) return $"{Math.Ceiling(required - experience):0} to {next}\n";
+        if (pending >= required - experience) return $"{next} at rest\n";
+        return $"{Math.Ceiling(required - experience):0} to {next}  (+{Math.Ceiling(pending):0} at rest)\n";
     }
 
     /// <summary>Top tiers walled off by NEGATIVE affinity, for the barred pips. Neutral

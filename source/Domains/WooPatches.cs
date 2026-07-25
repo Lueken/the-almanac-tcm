@@ -21,7 +21,10 @@ public static class WooPatches
     // ============================================================ practice verbs
 
     /// <summary>Felling: each log break (the struck trunk and every downed log you break after it
-    /// falls) is a WOO/felling event. Filtered to Wood so only logs count, not planks/furniture.</summary>
+    /// falls) is a WOO/felling event. Material Wood alone was too broad (a fallen crude door,
+    /// planks, furniture all count as Wood — the 2026-07-25 door leak), so the block must also
+    /// BE tree wood: vanilla and most tree mods use BlockLog, and the code-prefix check catches
+    /// log blocks that ship as plain Block.</summary>
     [HarmonyPatch(typeof(Block), nameof(Block.OnBlockBroken))]
     public static class FellingPracticePatch
     {
@@ -29,6 +32,7 @@ public static class WooPatches
         {
             if (world.Side != EnumAppSide.Server || byPlayer == null) return;
             if (__instance.BlockMaterial != EnumBlockMaterial.Wood) return;
+            if (__instance is not BlockLog && __instance.Code?.Path?.StartsWith("log") != true) return;
 
             Core?.Ledger?.Log(byPlayer, WooDomain.Code, WooDomain.TechFelling, pos.GetHashCode());
         }
