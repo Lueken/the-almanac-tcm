@@ -222,8 +222,10 @@ public class LedgerSystem
 
             if (config.PracticeGainMessages)
             {
+                // Round for display only: raw multipliers produce doubles like
+                // 1.2000000000000002, and the chat line is not a debugger.
                 SendInfoLine(player, "almanactcm:practice-gain",
-                    domain.DisplayName, technique, raw, accs[technique]);
+                    domain.DisplayName, technique, System.Math.Round(raw, 2), System.Math.Round(accs[technique], 2));
             }
 
             MaybeSyncPending(player, domainSet!, ledger);
