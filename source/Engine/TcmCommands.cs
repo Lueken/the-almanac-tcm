@@ -51,7 +51,50 @@ public class TcmCommands
                 .WithDescription("(admin) Print the held item's TCM attributes, server-side truth")
                 .RequiresPrivilege(Privilege.controlserver)
                 .HandleWith(OnInspect)
+            .EndSubCommand()
+            .BeginSubCommand("knowledge")
+                .WithDescription("(admin) List, set, or clear knowledge keys (guide reveal testing)")
+                .RequiresPrivilege(Privilege.controlserver)
+                .WithArgs(parsers.Word("action"), parsers.OptionalWord("key"))
+                .HandleWith(OnKnowledge)
             .EndSubCommand();
+    }
+
+    /// <summary>Guide reveal testing: list shows every key the player holds, set/clear
+    /// flip one key so a gated section can be exercised without a fresh character.
+    /// Writes go through SetKnowledge, so the client store syncs immediately.</summary>
+    private TextCommandResult OnKnowledge(TextCommandCallingArgs args)
+    {
+        if (args.Caller.Player is not IServerPlayer player)
+            return TextCommandResult.Error("Player-only command.");
+        PlayerDomainSet? domainSet = core.Server?.GetDomainSet(player);
+        if (domainSet == null) return TextCommandResult.Error("No domain data yet.");
+
+        string action = args[0] as string ?? "";
+        string? key = args.Parsers.Count > 1 ? args[1] as string : null;
+
+        switch (action)
+        {
+            case "list":
+            {
+                if (domainSet.Knowledge.Count == 0) return TextCommandResult.Success("No knowledge keys yet.");
+                StringBuilder sb = new();
+                foreach (var (k, v) in domainSet.Knowledge) sb.AppendLine($"{k} = {v}");
+                return TextCommandResult.Success(sb.ToString());
+            }
+            case "set":
+                if (string.IsNullOrEmpty(key)) return TextCommandResult.Error("Usage: /tcm knowledge set <key>");
+                core.Server!.SetKnowledge(player, key, 1);
+                return TextCommandResult.Success($"{key} = 1 (synced)");
+            case "clear":
+                if (string.IsNullOrEmpty(key)) return TextCommandResult.Error("Usage: /tcm knowledge clear <key>");
+                if (!domainSet.Knowledge.ContainsKey(key)) return TextCommandResult.Error($"No such key: {key}");
+                core.Server!.SetKnowledge(player, key, 0);
+                domainSet.Knowledge.Remove(key);
+                return TextCommandResult.Success($"{key} cleared (client sees 0 until relog fully drops it)");
+            default:
+                return TextCommandResult.Error("Usage: /tcm knowledge <list|set|clear> [key]");
+        }
     }
 
     private static string RankName(int level) => Domain.RankName(level);

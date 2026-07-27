@@ -48,6 +48,10 @@ public static class MetPatches
     public const string SmeltAttr = "almanactcm:smelt";
     public const string SmeltLoggedAttr = "almanactcm:smeltlogged";
 
+    /// <summary>Knowledge key set the first time a player finishes an anvil work of their
+    /// own beginning (their stamp on the workpiece). The smithing guide's capstone reveal.</summary>
+    public const string FirstWorkKey = "almanactcm:met-first-work";
+
     private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     private static int MetLevel(IPlayer player)
@@ -241,6 +245,17 @@ public static class MetPatches
 
             Core?.Ledger?.Log(byPlayer, MetDomain.Code, MetDomain.TechSmithing,
                 HashCode.Combine(__state, __instance.Pos));
+
+            // First finished work of the player's OWN beginning: the workpiece stamp
+            // (written at their first strike) matches the finisher. Bought, gifted, or
+            // someone-else-started pieces never match, which is the whole point — this
+            // is the earned-knowledge capstone the smithing guide reveals on.
+            if (pendingMaker is { } pm && pm.uid == byPlayer.PlayerUID)
+            {
+                var domainSet = Core?.Server?.GetDomainSet(byPlayer);
+                if (domainSet != null && !domainSet.Knowledge.ContainsKey(FirstWorkKey))
+                    Core?.Server?.SetKnowledge(byPlayer, FirstWorkKey, 1);
+            }
 
             // Mark the finished head HERE, at completion — robust to how vanilla delivers it.
             // If the inventory has room the head is given (and OnItemPickedUp marks it inside the

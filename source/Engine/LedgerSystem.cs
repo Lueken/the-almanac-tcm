@@ -191,6 +191,16 @@ public class LedgerSystem
         PlayerDomainSet? domainSet = leveling.GetDomainSet(player);
         PlayerDomain? playerDomain = domainSet?[domain.Id];
         if (playerDomain == null) return;
+
+        // First-practice knowledge: the act of first touching a technique is itself a
+        // milestone, written once per player as "almanactcm:first-{domain}-{technique}".
+        // Guide sections key their earned reveals on these (Illuminated 0.0.16 contract),
+        // so the vocabulary exists for every technique with no bespoke detectors. Placed
+        // BEFORE the maxed-out guard and the dedup roll on purpose: knowledge marks that
+        // the act happened, and a Grandmaster or a repeat still performed the act.
+        string firstKey = $"almanactcm:first-{domainCode.ToLowerInvariant()}-{technique.ToLowerInvariant()}";
+        if (!domainSet!.Knowledge.ContainsKey(firstKey)) leveling.SetKnowledge(player, firstKey, 1);
+
         // Maxed out: a domain at its terminal rank (Grandmaster) has nothing left to earn, so
         // skip all practice accounting for it — no accumulator writes, no dedup ring, no
         // consolidation work. This is the per-action hot path, so the guard pays for itself.

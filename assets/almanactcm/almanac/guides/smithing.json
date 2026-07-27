@@ -1,0 +1,115 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
+  "schemaVersion": 1,
+  "id": "almanactcm:smithing",
+  "gate": "almanactcm",
+  "pinned": true,
+  "order": 10,
+  "title": "Smithing",
+  "subtitle": "The road to first metal",
+  "byline": "set down by Venah",
+  "accentColor": "#8a4b22",
+  "sections": [
+    {
+      "id": "the-road",
+      "title": "The road to first metal",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Metal does not come to you. It sits in the dark under the hills, bound in stone, and every hand that ever held a copper blade walked the same road to it: down, then back up, then through fire. These pages will not walk it for you. They fill in as you do, the way a smith's own notebook would."
+        },
+        {
+          "type": "paragraph",
+          "text": "Begin where every smith begins: with stone and patience. The ground gives ore to those who look for the stains it leaves in rock. What you carry up in your hands is not yet metal. It is a promise of metal, and promises must be worked."
+        },
+        {
+          "type": "paragraph",
+          "requires": ["industrialstory"],
+          "text": "On this earth the old shortcuts are closed. Ore does not melt in a cookpot, and clay pots do not pour blades. Broken stone must be made smaller before fire will listen to it, and fire must be given a proper house. Watch what the machines of the old world left behind; some of their smaller cousins can be raised again by hand."
+        },
+        {
+          "type": "callout",
+          "variant": "lore",
+          "text": "The Almanac keeps its ink for the ones who do. Each of the pages after this one fills in when your own hands earn it, not when a trader's do."
+        }
+      ]
+    },
+    {
+      "id": "first-pour",
+      "title": "The first pour",
+      "revealedBy": "almanactcm:first-met-smelting",
+      "hint": "This page takes its ink from the first metal you pour yourself.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "You have felt it now: the moment the fire wins and the stone gives up what it was holding. Molten metal answers to nobody. You do not shape it in the air; you give it somewhere to go and let it settle into the shape of your intent."
+        },
+        {
+          "type": "paragraph",
+          "requires": ["industrialstory"],
+          "text": "The small smelter is a patient teacher. Crush your ore fine before you charge it; whole stones sulk in the heat and waste your fuel. Mind the charge limit, feed the fire steadily, and do not walk far. A smelter left alone past its moment gives you slag where metal should be. When the tap runs, pour without hesitating. Sand molds, pressed from a pattern, take the pour truer than any clay pot fired in a pit."
+        },
+        {
+          "type": "paragraph",
+          "text": "What comes out of the mold is rough and honest. It carries the marks of its making, and some of those marks are yours already. The Almanac counts the pour to the one who tips the vessel, so pour your own metal; watching another smith work teaches your eyes, but not your hands."
+        }
+      ]
+    },
+    {
+      "id": "the-anvil",
+      "title": "The anvil",
+      "revealedBy": "almanactcm:first-met-smithing",
+      "hint": "This page takes its ink from your first hammer strike on your own work.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "The anvil is a conversation, and the hammer has more than one word in it. Change your grip and the same swing moves metal, splits it away, or turns the piece under your hands. Learn every mode the hammer offers before you trust yourself with good metal."
+        },
+        {
+          "type": "paragraph",
+          "requires": ["industrialstory"],
+          "text": "Raw masses come to the anvil dirty. The dark voxels are slag, and slag does not move for an honest blow; it must be split away and let fall. Shed the waste first, then shape what remains. A stone anvil and a stone hammer are enough for soft metal, if the smith is enough."
+        },
+        {
+          "type": "paragraph",
+          "text": "An untrained hand bites too deep. Expect the hammer to take a bite it should not, roughly one strike in seven, until the work has taught your arms restraint. It passes. The Almanac remembers every strike, and the day you reach your first rank the over-striking simply stops. Until then, keep spare metal heated and forgive yourself quickly."
+        },
+        {
+          "type": "paragraph",
+          "requires": ["smithingplus"],
+          "text": "Nothing struck from a piece needs to be lost. Bits split away can be gathered, warmed on the forge short of their melting point, and pressed back into the work. A careful smith finishes a piece with the same weight of metal the pour gave them."
+        }
+      ]
+    },
+    {
+      "id": "finished-work",
+      "title": "The finished work",
+      "revealedBy": "almanactcm:met-first-work",
+      "hint": "This page takes its ink from the first piece you carry from bar to blade with your own hands.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "A piece begun by your hand and finished by your hand is a different thing from a piece bought, found, or handed over a fence. You know where its metal came from. So does the Almanac."
+        },
+        {
+          "type": "paragraph",
+          "text": "From Journeyman on, work you finish carries your mark, and the mark is not decoration. A marked head holds its edge longer, and the deeper your calling runs, the more of you the metal keeps. Buyers will learn your mark before they learn your face."
+        },
+        {
+          "type": "paragraph",
+          "text": "Quench with intent. Water is fast and hard on the metal; a slower bath is kinder. A poorly judged quench can shatter hot work outright in an unpracticed hand, and the same judgment that steadies the hammer steadies the tongs. Everything in this trade is one lesson wearing different aprons: the metal remembers what you do to it."
+        },
+        {
+          "type": "callout",
+          "variant": "author",
+          "text": "Past this page the road forks: alloys, casting in sand, the assembly bench, and metals that will not answer a novice at all. The Almanac gates nothing it has not seen you earn. Keep working."
+        }
+      ]
+    }
+  ]
+}
