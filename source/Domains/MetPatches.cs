@@ -219,6 +219,10 @@ public static class MetPatches
     /// the completion postfix can find that exact head in inventory or on the ground.</summary>
     private static int pendingOutputId;
 
+    /// <summary>Code path of that same output, for the first-work ruling: refining a mass or
+    /// bloom into an INGOT is not a finished work, only an actual smithed piece is.</summary>
+    private static string? pendingOutputCode;
+
     [HarmonyPatch(typeof(BlockEntityAnvil), nameof(BlockEntityAnvil.CheckIfFinished))]
     public static class AnvilFinishPatch
     {
@@ -229,6 +233,7 @@ public static class MetPatches
             string? name = __instance.WorkItemStack?.Attributes.GetString(SmithNameAttr);
             pendingMaker = uid == null ? null : (uid, name ?? "", MakerTierOf(__instance.Api, uid));
             pendingOutputId = __instance.SelectedRecipe?.Output?.ResolvedItemstack?.Collectible?.Id ?? 0;
+            pendingOutputCode = __instance.SelectedRecipe?.Output?.ResolvedItemstack?.Collectible?.Code?.Path;
 
             if (__instance.Api?.Side == EnumAppSide.Server && __state != -1)
             {
@@ -250,7 +255,11 @@ public static class MetPatches
             // (written at their first strike) matches the finisher. Bought, gifted, or
             // someone-else-started pieces never match, which is the whole point — this
             // is the earned-knowledge capstone the smithing guide reveals on.
-            if (pendingMaker is { } pm && pm.uid == byPlayer.PlayerUID)
+            // Ingot outputs are excluded by ruling (2026-07-27): hammering a mass or a
+            // bloom into an ingot is refinement, the same bar everyone makes; the
+            // capstone is the first actual PIECE (a toolhead, a blade) smithed from it.
+            if (pendingMaker is { } pm && pm.uid == byPlayer.PlayerUID
+                && pendingOutputCode?.StartsWith("ingot") != true)
             {
                 var domainSet = Core?.Server?.GetDomainSet(byPlayer);
                 if (domainSet != null && !domainSet.Knowledge.ContainsKey(FirstWorkKey))
@@ -269,6 +278,7 @@ public static class MetPatches
         public static void Finalizer()
         {
             pendingMaker = null;
+            pendingOutputCode = null;
         }
     }
 
