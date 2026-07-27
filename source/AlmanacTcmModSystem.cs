@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.3")]
+    Version = "0.4.4")]
 
 namespace AlmanacTcm;
 
@@ -21,8 +21,9 @@ namespace AlmanacTcm;
 public class AlmanacTcmModSystem : ModSystem
 {
     /// <summary>Minimum sibling version enforced at runtime; modinfo declares the
-    /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).</summary>
-    private const string MinIlluminatedVersion = "0.0.14";
+    /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).
+    /// 0.0.16 is the guide reveal-provider API this build registers against.</summary>
+    private const string MinIlluminatedVersion = "0.0.16";
 
     /// <summary>Static access for Harmony patches, split by side (set in Start, cleared in
     /// Dispose). Singleplayer loads BOTH a client-side and a server-side ModSystem in one
@@ -328,8 +329,16 @@ public class AlmanacTcmModSystem : ModSystem
 
         // The Callings page lives in Illuminated's book (hard dependency, so the
         // assembly is always present; the tab API is 0.0.2+, enforced above).
-        capi.ModLoader.GetModSystem<AlmanacIlluminated.AlmanacIlluminatedModSystem>()
-            ?.RegisterBookTab(new Gui.CallingsTab(Client));
+        var illuminated = capi.ModLoader.GetModSystem<AlmanacIlluminated.AlmanacIlluminatedModSystem>();
+        illuminated?.RegisterBookTab(new Gui.CallingsTab(Client));
+
+        // Guide reveal provider (Illuminated 0.0.16+): sections gated revealedBy
+        // "almanactcm:..." render once the matching Knowledge key is earned. Keys are
+        // stored in Knowledge under their FULL "almanactcm:..." form so guide JSON and
+        // store match one-to-one. Milestone detectors write the keys server-side.
+        var client = Client;
+        illuminated?.RegisterRevealProvider("almanactcm",
+            key => client.Knowledge.TryGetValue(key, out int v) && v > 0);
 
         // Axis 4 Apprentice unlock: the Alloy Ledger modal. It opens on an empty-handed
         // right-click of a placed crucible (see MetSignaturePatches / the crucible interact
