@@ -27,7 +27,7 @@
         {
           "type": "paragraph",
           "requires": ["industrialstory"],
-          "text": "On this earth the old shortcuts are closed. Ore does not melt in a cookpot, and no clay vessel on a campfire will give you a blade. The first fire that answers is a humble one: a hole in the ground, lined with clay, fed with charcoal, and starved for breath. Fire alone tops out short of what copper demands. Something has to give the fire more air than the sky will. Think on the reeds by the water."
+          "text": "On this earth the old shortcuts are closed. Ore does not melt in a cookpot, and no clay vessel on a campfire will give you a blade. The first fire that answers is a humble one: a hole in the ground one block square, lined with <strong>clay</strong> and <strong>bone ash</strong>, charged with <strong>copper nuggets</strong>, and fed with <strong>charcoal</strong>. Fire alone tops out short of what copper demands. Something has to give the fire more air than the sky will; think on the <strong>reeds</strong> by the water."
         },
         {
           "type": "callout",
