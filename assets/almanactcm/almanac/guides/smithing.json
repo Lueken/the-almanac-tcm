@@ -55,19 +55,38 @@
         {
           "type": "paragraph",
           "requires": ["industrialstory"],
-          "text": "The mass comes out rough, hot, and honest, and it needs an anvil before it needs anything else. Crouch and strike the top of a bare igneous or metamorphic rock block with a stone hammer, and the stone itself becomes your first anvil. Reheat the mass in a firepit whenever it cools past working, and expect the taller furnaces, the ones that want crushed ore and bellows, to come later on this road, not sooner."
+          "text": "The mass comes out rough, hot, and honest, and it needs an anvil before it needs anything else. Reheat it in a firepit whenever it cools past working, and expect the taller furnaces, the ones that want crushed ore and bellows, to come later on this road, not sooner."
         },
         {
           "type": "paragraph",
           "text": "The Almanac counts the smelt to the one whose breath fed the fire and whose hand ran the tap, not to whoever stands nearest when the metal comes. Win your own metal; watching another smith work teaches your eyes, but not your hands."
+        },
+        {
+          "type": "link",
+          "requires": ["industrialstory"],
+          "to": "handbook://industrialstory:pitsmelter",
+          "text": "The old handbook keeps the dry version of the pit."
         }
       ]
     },
     {
       "id": "the-anvil",
       "title": "The anvil",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": ["industrialstory"],
+          "text": "No smith buys their first anvil. Somewhere near your fire stands a shoulder of bare rock, <strong>igneous or metamorphic</strong>, and it is an anvil that has not been asked yet. Crouch, take a <strong>stone hammer</strong> in hand, and press it to the stone's <strong>top face</strong>. The rock answers. What it becomes will hold every mass you win from the pit until bronze raises you something better."
+        }
+      ]
+    },
+    {
+      "id": "working-the-metal",
+      "title": "Working the metal",
       "revealedBy": "almanactcm:first-met-smithing",
-      "hint": "This page takes its ink from your first hammer strike on your own work.",
+      "hint": "This page takes its ink from your first work brought to finish on the anvil.",
       "blocks": [
         {
           "type": "paragraph",
