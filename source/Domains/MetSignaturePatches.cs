@@ -136,7 +136,7 @@ public static class MetSignaturePatches
 {
     internal static double Knob(string key, double fallback)
     {
-        var configs = AlmanacTcmModSystem.Instance?.Ledger?.DomainConfigs;
+        var configs = AlmanacTcmModSystem.ServerInstance?.Ledger?.DomainConfigs;
         if (configs != null && configs.TryGetValue(MetDomain.Code, out var dc)
             && dc.Bonus.TryGetValue(key, out double v)) return v;
         return fallback;
@@ -146,7 +146,7 @@ public static class MetSignaturePatches
     /// reforge-gate to compare the reforging smith against the head's frozen maker tier.</summary>
     private static int MetTierOf(IPlayer player)
     {
-        int lvl = AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player)?.FindDomain(MetDomain.Code)?.Level ?? 0;
+        int lvl = AlmanacTcmModSystem.ServerInstance?.Server?.GetDomainSet(player)?.FindDomain(MetDomain.Code)?.Level ?? 0;
         return Domain.TierOf(lvl);
     }
 

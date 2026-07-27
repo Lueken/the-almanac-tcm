@@ -33,7 +33,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class TaiPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
 
     /// <summary>Captured at the knitting OnHeldInteractStop prefix (the output is a method local), read

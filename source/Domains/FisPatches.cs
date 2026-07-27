@@ -32,7 +32,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class FisPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     private static double Knob(string key, double fallback) => FisDomain.Knob(key, fallback);
 

@@ -16,7 +16,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class MinConditionalPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     // OnDurHit → TryConsume is a 1:1 synchronous call on the server thread, and TryConsume
     // is internal-static called from nowhere else, so a thread-static factor set in the

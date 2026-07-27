@@ -14,7 +14,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class WooPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     private static double Knob(string key, double fallback) => WooDomain.Knob(key, fallback);
 

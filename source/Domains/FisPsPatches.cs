@@ -21,7 +21,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class FisPsPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {

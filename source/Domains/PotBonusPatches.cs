@@ -32,7 +32,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class PotBonusPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
 
     public const string PotByAttr = "almanactcm:potby";

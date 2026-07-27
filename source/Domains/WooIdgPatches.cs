@@ -26,7 +26,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class WooIdgPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     /// <summary>IDG tool mode → WOO technique. Verified against the live asset tree: only
     /// chopping (37 recipes), sawing (17), hewing (15) and pounding (7) appear. **Planing ships

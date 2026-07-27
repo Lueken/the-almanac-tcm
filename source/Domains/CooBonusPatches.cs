@@ -35,7 +35,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class CooBonusPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
 
     public const string CookByAttr = "almanactcm:cookby";

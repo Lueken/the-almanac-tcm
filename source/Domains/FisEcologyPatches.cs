@@ -34,7 +34,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class FisEcologyPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
 
     public static void RegisterServer(ICoreServerAPI api) => sapi = api;

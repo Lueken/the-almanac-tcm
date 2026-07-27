@@ -31,7 +31,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class GlaPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
     private static IWorldAccessor? serverWorld;
 

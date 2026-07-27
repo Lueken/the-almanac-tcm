@@ -178,7 +178,7 @@ public class LevelingServer
     private void SyncAll(IServerPlayer byPlayer, PlayerDomainSet domainSet)
     {
         // Client-facing config flags first, so client-side gates honour the server's settings.
-        bool gated = AlmanacTcmModSystem.Instance?.GlobalConfig.AlloyLedgerGated ?? true;
+        bool gated = AlmanacTcmModSystem.ServerInstance?.GlobalConfig.AlloyLedgerGated ?? true;
         channel.SendPacket(new ClientConfigPacket(gated), byPlayer);
 
         foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)

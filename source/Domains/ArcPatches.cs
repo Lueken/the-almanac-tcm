@@ -30,7 +30,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class ArcPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
     private static bool rbmPresent;
 
@@ -58,7 +58,7 @@ public static class ArcPatches
         // Snap the re-root the moment a player's domain data is ready (join/load), then again 3s later to
         // land after RBM finishes initialising the mana attribute low — otherwise the pool sits at the
         // level-0 floor until a later 2s tick happens to win the load race.
-        var server = AlmanacTcmModSystem.Instance?.Server;
+        var server = AlmanacTcmModSystem.ServerInstance?.Server;
         if (server != null)
         {
             server.DomainSetReady += (sp, _) =>
@@ -159,7 +159,7 @@ public static class ArcPatches
             // changes (Set the negative delta when there is a discount; Remove otherwise so an untrained /
             // Novice school stays RBM's exact 1.0 identity — never Set 0, which would still register a
             // contribution). RBM sums our delta onto the 1.0 base and floors the modified cost at 1.
-            var dset = AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player);
+            var dset = AlmanacTcmModSystem.ServerInstance?.Server?.GetDomainSet(player);
             foreach (string tech in ArcDomain.SchoolTechniques)
             {
                 int channeled = 0;

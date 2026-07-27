@@ -36,7 +36,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class ForPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static IServerWorldAccessor? serverWorld;
 
     private static double Knob(string key, double fallback) => ForDomain.Knob(key, fallback);

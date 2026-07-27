@@ -48,7 +48,7 @@ public class MelEngagedPacket
 /// </summary>
 public static class MelRanKillPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
 
     /// <summary>Bleed-out window: a stored player hit older than this no longer claims the

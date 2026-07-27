@@ -37,7 +37,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class HunPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
 
     // ------------------------------------------------------------ per-species kill ledger

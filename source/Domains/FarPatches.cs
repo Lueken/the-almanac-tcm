@@ -33,7 +33,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class FarPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
 
     /// <summary>Trough pos -> the uid of whoever last filled it. Transient (in-memory): the

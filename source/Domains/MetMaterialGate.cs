@@ -154,9 +154,9 @@ public static class MetMaterialGate
     private static int MetLevelOf(ICoreAPI api, IPlayer player)
     {
         if (api.Side == EnumAppSide.Server)
-            return AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player)?.FindDomain(MetDomain.Code)?.Level ?? 0;
+            return AlmanacTcmModSystem.ServerInstance?.Server?.GetDomainSet(player)?.FindDomain(MetDomain.Code)?.Level ?? 0;
 
-        LevelingClient? client = AlmanacTcmModSystem.Instance?.Client;
+        LevelingClient? client = AlmanacTcmModSystem.ClientInstance?.Client;
         int id = MetDomainId();
         return client != null && id >= 0 && client.Domains.TryGetValue(id, out var st) ? st.Level : 0;
     }
@@ -177,7 +177,9 @@ public static class MetMaterialGate
         // placement the server will reject (the ghost-ingot desync). Config here is the
         // client's default when unsynced — fine while the gate ships enabled; syncing the
         // toggle to clients is a future refinement.
-        var cfg = AlmanacTcmModSystem.Instance?.GlobalConfig;
+        var cfg = (api.Side == EnumAppSide.Server
+            ? AlmanacTcmModSystem.ServerInstance
+            : AlmanacTcmModSystem.ClientInstance)?.GlobalConfig;
         if (cfg == null || !cfg.MaterialGateMET) return false;
 
         string? metal = MetalOf(api.World, metalStack);

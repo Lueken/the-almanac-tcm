@@ -29,7 +29,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class WooColliderPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     // ConvertPit → GetFirewoodQuantity is a synchronous same-thread call, and GetFirewoodQuantity
     // has NO other caller in the game, so a thread-static stashed here cannot leak into anything
