@@ -34,6 +34,10 @@ public class LevelingClient
     /// each trade given their class. Drives the detail page's "why you started" line.</summary>
     public Dictionary<int, int> Affinity { get; } = new();
 
+    /// <summary>Raised per surviving practice gain (domainCode, technique, raw); the
+    /// toast renderer subscribes. Display sensation only — no state lives here.</summary>
+    public event System.Action<string, string, float>? PracticeGain;
+
     public LevelingClient(ICoreClientAPI capi)
     {
         IClientNetworkChannel channel = capi.Network.RegisterChannel("almanactcm");
@@ -41,10 +45,18 @@ public class LevelingClient
         channel.RegisterMessageType(typeof(KnowledgePacket));
         channel.RegisterMessageType(typeof(AffinityPacket));
         channel.RegisterMessageType(typeof(ClientConfigPacket));
+        channel.RegisterMessageType(typeof(PracticeGainPacket));
         channel.SetMessageHandler<PlayerDomainPacket>(OnDomainPacket);
         channel.SetMessageHandler<KnowledgePacket>(OnKnowledgePacket);
         channel.SetMessageHandler<AffinityPacket>(OnAffinityPacket);
         channel.SetMessageHandler<ClientConfigPacket>(OnClientConfigPacket);
+        channel.SetMessageHandler<PracticeGainPacket>(OnPracticeGainPacket);
+    }
+
+    private void OnPracticeGainPacket(PracticeGainPacket packet)
+    {
+        if (packet.domainCode == null) return;
+        PracticeGain?.Invoke(packet.domainCode, packet.technique ?? "", packet.raw);
     }
 
     private void OnClientConfigPacket(ClientConfigPacket packet)

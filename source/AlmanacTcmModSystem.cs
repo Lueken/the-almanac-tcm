@@ -305,6 +305,11 @@ public class AlmanacTcmModSystem : ModSystem
         // tracker + vignette so they pick up the tuned values.
         Domains.TcmClientSettings.Register(capi);
 
+        // Practice toasts: the "+0.4 Mining" drift-and-fade over the hotbar. Fed by
+        // PracticeGainPacket via LevelingClient; every feel value rides TcmClientSettings.
+        Toasts = new Gui.PracticeToastRenderer(capi, Template);
+        Client.PracticeGain += Toasts.OnPracticeGain;
+
         // The Tracker's Eye HUD (sneak + look read of live game). Client-only, reads networked
         // entity state and the local HUN rank; no server round-trip.
         new Domains.HunTrackerEye(capi);
@@ -325,6 +330,9 @@ public class AlmanacTcmModSystem : ModSystem
     /// <summary>The client Alloy Ledger dialog (Axis 4 Apprentice unlock), opened from the
     /// placed-crucible interact hook. Null on the server.</summary>
     public Gui.GuiDialogAlloyLedger? AlloyLedger { get; private set; }
+
+    /// <summary>Client-only practice toast renderer (null server-side).</summary>
+    public Gui.PracticeToastRenderer? Toasts { get; private set; }
 
     /// <summary>Client mirror of the server's <see cref="Config.TcmGlobalConfig.AlloyLedgerGated"/>,
     /// synced on join. Defaults to the ruled gated state until the server says otherwise.</summary>
@@ -368,6 +376,8 @@ public class AlmanacTcmModSystem : ModSystem
     {
         harmony?.UnpatchAll("almanactcm");
         harmony = null;
+        Toasts?.Dispose();
+        Toasts = null;
         Instance = null;
         base.Dispose();
     }

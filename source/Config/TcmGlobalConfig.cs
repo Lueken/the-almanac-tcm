@@ -44,6 +44,10 @@ public class TcmGlobalConfig
     /// tab. Trial instrumentation; consider off once the engine is trusted.</summary>
     public bool PracticeGainMessages { get; set; } = true;
 
+    /// <summary>Emit the per-gain HUD toast packet (client decides whether and how to
+    /// draw it via ConfigLib). Off = no packets leave the server at all.</summary>
+    public bool PracticeGainToasts { get; set; } = true;
+
     public bool VerboseDebugLogging { get; set; } = true;
 
     /// <summary>MET material gate (§162 Axis 5): below the required MET rank a player

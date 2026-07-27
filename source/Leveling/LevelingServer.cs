@@ -72,6 +72,7 @@ public class LevelingServer
         channel.RegisterMessageType(typeof(KnowledgePacket));
         channel.RegisterMessageType(typeof(AffinityPacket));
         channel.RegisterMessageType(typeof(ClientConfigPacket));
+        channel.RegisterMessageType(typeof(PracticeGainPacket));
 
         sapi.Event.PlayerNowPlaying += OnPlayerNowPlaying;
         sapi.Event.PlayerDisconnect += OnPlayerDisconnect;
@@ -206,6 +207,14 @@ public class LevelingServer
         if (player == null) return null;
         DomainSets.TryGetValue(player, out PlayerDomainSet? domainSet);
         return domainSet;
+    }
+
+    /// <summary>Fire the HUD toast ping for one surviving practice gain. Display-only:
+    /// the ledger already logged the value; this is the sensation channel.</summary>
+    public void SendPracticeGain(IPlayer player, string domainCode, string technique, double raw)
+    {
+        if (player is not IServerPlayer serverPlayer) return;
+        channel.SendPacket(new PracticeGainPacket(domainCode, technique, (float)raw), serverPlayer);
     }
 
     /// <summary>THE grant point. Only the 3am consolidation flush may call this —

@@ -24,6 +24,18 @@ public static class TcmClientSettings
     public static float BloodVisibility = 0.5f;
     public static float BloodPersistence = 0.5f;
 
+    // Practice toasts (the "+0.4 Mining" drift-and-fade over the hotbar). All feel values,
+    // so all live here per the standing rule: tune in-game, never in a rebuild loop.
+    public static bool ToastsEnabled = true;
+    public static string ToastColor = "#E8C36A";   // pending-wash amber; flavor, not truth
+    public static float ToastFontSize = 22f;        // unscaled GUI points
+    public static float ToastLifetime = 1.6f;       // seconds from spawn to fully faded
+    public static float ToastRise = 34f;            // GUI px drifted upward over the lifetime
+    public static float ToastMerge = 0.7f;          // seconds: same-domain gains merge, felling is a burst verb
+    public static float ToastMax = 4f;              // live toasts cap; overflow drops the oldest
+    public static float ToastOffsetY = 130f;        // GUI px above the bottom edge (over the hotbar)
+    public static bool ToastTechnique = false;      // append the technique name to the domain
+
     private const string FileName = "almanactcm-client.json";
 
     private class Data
@@ -33,6 +45,15 @@ public static class TcmClientSettings
         public float vignetteReach { get; set; } = 0.2f;
         public float bloodVisibility { get; set; } = 0.5f;
         public float bloodPersistence { get; set; } = 0.5f;
+        public bool toastsEnabled { get; set; } = true;
+        public string toastColor { get; set; } = "#E8C36A";
+        public float toastFontSize { get; set; } = 22f;
+        public float toastLifetime { get; set; } = 1.6f;
+        public float toastRise { get; set; } = 34f;
+        public float toastMerge { get; set; } = 0.7f;
+        public float toastMax { get; set; } = 4f;
+        public float toastOffsetY { get; set; } = 130f;
+        public bool toastTechnique { get; set; } = false;
     }
 
     public static void Register(ICoreClientAPI capi)
@@ -57,6 +78,15 @@ public static class TcmClientSettings
             VignetteReach = d.vignetteReach;
             BloodVisibility = Math.Max(0f, d.bloodVisibility);
             BloodPersistence = Math.Max(0f, d.bloodPersistence);
+            ToastsEnabled = d.toastsEnabled;
+            ToastColor = string.IsNullOrWhiteSpace(d.toastColor) ? "#E8C36A" : d.toastColor.Trim();
+            ToastFontSize = Math.Clamp(d.toastFontSize, 10f, 40f);
+            ToastLifetime = Math.Clamp(d.toastLifetime, 0.5f, 5f);
+            ToastRise = Math.Clamp(d.toastRise, 0f, 120f);
+            ToastMerge = Math.Clamp(d.toastMerge, 0.1f, 3f);
+            ToastMax = Math.Clamp(d.toastMax, 1f, 8f);
+            ToastOffsetY = Math.Clamp(d.toastOffsetY, 40f, 400f);
+            ToastTechnique = d.toastTechnique;
         }
         catch { /* malformed file: keep whatever we had */ }
     }

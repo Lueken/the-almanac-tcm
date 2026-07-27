@@ -91,6 +91,34 @@ public class ClientConfigPacket
     }
 }
 
+/// <summary>Server→client practice-gain ping for the HUD toast (one per surviving
+/// Log call; dedup-zeroed repeats never emit). Carries the same values the Info-tab
+/// chat line already shows — display sensation only, no engine constants, no state
+/// the Callings tab doesn't already get through PlayerDomainPacket.</summary>
+[ProtoContract]
+public class PracticeGainPacket
+{
+    [ProtoMember(1)]
+    [DefaultValue(null)]
+    public string? domainCode;
+
+    [ProtoMember(2)]
+    [DefaultValue(null)]
+    public string? technique;
+
+    [ProtoMember(3)]
+    public float raw;
+
+    public PracticeGainPacket() { }
+
+    public PracticeGainPacket(string domainCode, string technique, float raw)
+    {
+        this.domainCode = domainCode;
+        this.technique = technique;
+        this.raw = raw;
+    }
+}
+
 /// <summary>Server→client knowledge/discovery sync.</summary>
 [ProtoContract]
 public class KnowledgePacket

@@ -228,6 +228,11 @@ public class LedgerSystem
                     domain.DisplayName, technique, System.Math.Round(raw, 2), System.Math.Round(accs[technique], 2));
             }
 
+            if (config.PracticeGainToasts)
+            {
+                leveling.SendPracticeGain(player, domainCode, technique, raw);
+            }
+
             MaybeSyncPending(player, domainSet!, ledger);
         }
         else if (duplicate && config.PracticeGainMessages && announceRepeat)
