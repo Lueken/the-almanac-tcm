@@ -26,13 +26,30 @@
         },
         {
           "type": "paragraph",
-          "requires": ["industrialstory"],
+          "requires": [
+            "industrialstory"
+          ],
           "text": "On this earth the old shortcuts are closed. Ore does not melt in a cookpot, and no clay vessel on a campfire will give you a blade. The first fire that answers is a humble one: a hole in the ground one block square, lined with <strong>clay</strong> and <strong>bone ash</strong>, charged with <strong>copper nuggets</strong>, and fed with <strong>charcoal</strong>. Fire alone tops out short of what copper demands. Something has to give the fire more air than the sky will; think on the <strong>reeds</strong> by the water."
         },
         {
           "type": "callout",
           "variant": "lore",
           "text": "The Almanac keeps its ink for the ones who do. Each of the pages after this one fills in when your own hands earn it, not when a trader's do."
+        }
+      ]
+    },
+    {
+      "id": "the-anvil",
+      "title": "The anvil",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "No smith buys their first anvil. Somewhere near your fire stands a shoulder of bare rock, <strong>igneous or metamorphic</strong>, and it is an anvil that has not been asked yet. Crouch, take a <strong>stone hammer</strong> in hand, and press it to the stone's <strong>top face</strong>. The rock answers. What it becomes will hold every mass you win from the pit until bronze raises you something better."
         }
       ]
     },
@@ -49,12 +66,16 @@
         },
         {
           "type": "paragraph",
-          "requires": ["industrialstory"],
+          "requires": [
+            "industrialstory"
+          ],
           "text": "The pit smelter asks little and forgives less. A hole one block square, formed with clay while crouching, takes bone ash, copper nuggets by the dozen, and a measure of charcoal: one to every five nuggets. Native copper and malachite go in as they come from the ground; the sulfide ores, chalcopyrite and tetrahedrite, must pass through a firepit roasting first or they will sulk in the pit unchanged. Lit and left alone, the pit never passes eight hundred degrees, and copper laughs at eight hundred. Put a blowpipe to it and keep a rhythm; stop blowing and the fire falls back fast. Two hours at full heat and the pit gives back one mass for every twenty nuggets it swallowed."
         },
         {
           "type": "paragraph",
-          "requires": ["industrialstory"],
+          "requires": [
+            "industrialstory"
+          ],
           "text": "The mass comes out rough, hot, and honest, and it needs an anvil before it needs anything else. Reheat it in a firepit whenever it cools past working, and expect the taller furnaces, the ones that want crushed ore and bellows, to come later on this road, not sooner."
         },
         {
@@ -63,24 +84,14 @@
         },
         {
           "type": "link",
-          "requires": ["industrialstory"],
+          "requires": [
+            "industrialstory"
+          ],
           "to": "handbook://industrialstory:pitsmelter",
           "text": "The old handbook keeps the dry version of the pit."
         }
-      ]
-    },
-    {
-      "id": "the-anvil",
-      "title": "The anvil",
-      "keepTogether": true,
-      "blocks": [
-        {
-          "type": "paragraph",
-          "dropcap": true,
-          "requires": ["industrialstory"],
-          "text": "No smith buys their first anvil. Somewhere near your fire stands a shoulder of bare rock, <strong>igneous or metamorphic</strong>, and it is an anvil that has not been asked yet. Crouch, take a <strong>stone hammer</strong> in hand, and press it to the stone's <strong>top face</strong>. The rock answers. What it becomes will hold every mass you win from the pit until bronze raises you something better."
-        }
-      ]
+      ],
+      "pageBreakBefore": true
     },
     {
       "id": "working-the-metal",
@@ -95,7 +106,9 @@
         },
         {
           "type": "paragraph",
-          "requires": ["industrialstory"],
+          "requires": [
+            "industrialstory"
+          ],
           "text": "Raw masses come to the anvil dirty. The dark voxels are slag, and slag does not move for an honest blow; it must be split away and let fall. Shed the waste first, then shape what remains. A stone anvil and a stone hammer are enough for soft metal, if the smith is enough."
         },
         {
@@ -104,7 +117,9 @@
         },
         {
           "type": "paragraph",
-          "requires": ["smithingplus"],
+          "requires": [
+            "smithingplus"
+          ],
           "text": "Nothing struck from a piece needs to be lost. Bits split away can be gathered, warmed on the forge short of their melting point, and pressed back into the work. A careful smith finishes a piece with the same weight of metal the pour gave them."
         }
       ]
