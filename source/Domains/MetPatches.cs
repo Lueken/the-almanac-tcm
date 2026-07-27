@@ -48,7 +48,7 @@ public static class MetPatches
     public const string SmeltAttr = "almanactcm:smelt";
     public const string SmeltLoggedAttr = "almanactcm:smeltlogged";
 
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     private static int MetLevel(IPlayer player)
     {

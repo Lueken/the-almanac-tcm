@@ -32,7 +32,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class EngPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     /// <summary>The tree-attribute key carrying the LAST servicer's mark "uid|name|level" on a machine's
     /// PartController — persisted with the mechanism and synced to clients.</summary>

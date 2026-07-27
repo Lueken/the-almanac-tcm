@@ -149,7 +149,7 @@ public static class MelDomain
     public static int LevelOf(IPlayer? player)
     {
         if (player == null) return 0;
-        var set = AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player);
+        var set = AlmanacTcmModSystem.ServerInstance?.Server?.GetDomainSet(player);
         return set?.FindDomain(Code)?.Level ?? 0;
     }
 
@@ -157,7 +157,7 @@ public static class MelDomain
     /// Duelist's Eye (Phase 4) reads it.</summary>
     public static int ClientLevel()
     {
-        var core = AlmanacTcmModSystem.Instance;
+        var core = AlmanacTcmModSystem.ClientInstance;
         var dom = core?.Template?.FindDomain(Code);
         if (dom == null || core?.Client == null) return 0;
         return core.Client.Domains.TryGetValue(dom.Id, out var st) ? st.Level : 0;
@@ -166,7 +166,7 @@ public static class MelDomain
     /// <summary>A Bonus knob, falling back to the shipped default if the server dropped it.</summary>
     public static double Knob(string key, double fallback)
     {
-        var configs = AlmanacTcmModSystem.Instance?.Ledger?.DomainConfigs;
+        var configs = AlmanacTcmModSystem.ServerInstance?.Ledger?.DomainConfigs;
         if (configs != null && configs.TryGetValue(Code, out var dc)
             && dc.Bonus.TryGetValue(key, out double v)) return v;
         return fallback;

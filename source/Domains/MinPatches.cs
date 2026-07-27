@@ -21,7 +21,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class MinPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     private static double Knob(string key, double fallback) => MinDomain.Knob(key, fallback);
 
@@ -239,9 +239,11 @@ public static class MinPatches
 
     private static int ClientMinLevel()
     {
-        int id = Core?.Template?.FindDomain(MinDomain.Code)?.Id ?? -1;
-        if (id < 0 || Core?.Client == null) return 0;
-        return Core.Client.Domains.TryGetValue(id, out var st) ? st.Level : 0;
+        // Client read (the instability tooltip), so it resolves the client instance, not Core.
+        var core = AlmanacTcmModSystem.ClientInstance;
+        int id = core?.Template?.FindDomain(MinDomain.Code)?.Id ?? -1;
+        if (id < 0 || core?.Client == null) return 0;
+        return core.Client.Domains.TryGetValue(id, out var st) ? st.Level : 0;
     }
 
     private static double CaveFactor(IPlayer player) => MinDomain.RankLinear(MinDomain.LevelOf(player),

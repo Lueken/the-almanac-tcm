@@ -36,7 +36,7 @@ public static class FirepitLedgerOpenPatch
     public static void Postfix(GuiDialogBlockEntity __instance)
     {
         if (!GuiDialogAlloyLedger.HasCrucible(__instance.Inventory)) return;
-        AlmanacTcmModSystem.Instance?.AlloyLedger?.AttachTo(__instance);   // self-gates on config/rank
+        AlmanacTcmModSystem.ClientInstance?.AlloyLedger?.AttachTo(__instance);   // self-gates on config/rank
     }
 }
 
@@ -44,7 +44,7 @@ public static class FirepitLedgerOpenPatch
 public static class FirepitLedgerClosePatch
 {
     public static void Postfix(GuiDialogBlockEntity __instance) =>
-        AlmanacTcmModSystem.Instance?.AlloyLedger?.Detach(__instance);
+        AlmanacTcmModSystem.ClientInstance?.AlloyLedger?.Detach(__instance);
 }
 
 /// <summary>Attaches the ledger to industrialstory's brick furnace (the other window a crucible
@@ -76,13 +76,13 @@ public static class AlloyLedgerBrickFurnacePatch
     {
         if (brickFurnaceType?.IsInstanceOfType(__instance) != true) return;
         if (!GuiDialogAlloyLedger.HasCrucible(__instance.Inventory)) return;
-        AlmanacTcmModSystem.Instance?.AlloyLedger?.AttachTo(__instance);
+        AlmanacTcmModSystem.ClientInstance?.AlloyLedger?.AttachTo(__instance);
     }
 
     public static void ClosePostfix(GuiDialogBlockEntity __instance)
     {
         if (brickFurnaceType?.IsInstanceOfType(__instance) != true) return;
-        AlmanacTcmModSystem.Instance?.AlloyLedger?.Detach(__instance);
+        AlmanacTcmModSystem.ClientInstance?.AlloyLedger?.Detach(__instance);
     }
 }
 
@@ -133,7 +133,7 @@ public class GuiDialogAlloyLedger : GuiDialog
     /// (silent). Called from the firepit / brick furnace open hooks.</summary>
     public void AttachTo(GuiDialogBlockEntity stationDlg)
     {
-        bool gated = AlmanacTcmModSystem.Instance?.AlloyLedgerGated ?? true;
+        bool gated = AlmanacTcmModSystem.ClientInstance?.AlloyLedgerGated ?? true;
         if (gated && !IsUnlocked()) return;
         station = stationDlg;
         expanded = false;
@@ -475,7 +475,7 @@ public class GuiDialogAlloyLedger : GuiDialog
     /// alloys do, when bronze opens up (RULED 2026-07-15, was Master).</summary>
     private static bool IsUnlocked()
     {
-        LevelingClient? client = AlmanacTcmModSystem.Instance?.Client;
+        LevelingClient? client = AlmanacTcmModSystem.ClientInstance?.Client;
         if (client == null) return false;
         int id = MetDomainId();
         return id >= 0 && client.Domains.TryGetValue(id, out var st) && Domain.TierOf(st.Level) >= 1;

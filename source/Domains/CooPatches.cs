@@ -40,7 +40,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class CooPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
     private static ICoreServerAPI? sapi;
 
     /// <summary>BE pos -> the last player to open/load that cooking apparatus (the cook).

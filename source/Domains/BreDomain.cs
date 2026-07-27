@@ -94,14 +94,14 @@ public static class BreDomain
     public static int LevelOf(IPlayer? player)
     {
         if (player == null) return 0;
-        var set = AlmanacTcmModSystem.Instance?.Server?.GetDomainSet(player);
+        var set = AlmanacTcmModSystem.ServerInstance?.Server?.GetDomainSet(player);
         return set?.FindDomain(Code)?.Level ?? 0;
     }
 
     /// <summary>A Bonus knob, falling back to the shipped default if the server dropped it.</summary>
     public static double Knob(string key, double fallback)
     {
-        var configs = AlmanacTcmModSystem.Instance?.Ledger?.DomainConfigs;
+        var configs = AlmanacTcmModSystem.ServerInstance?.Ledger?.DomainConfigs;
         if (configs != null && configs.TryGetValue(Code, out var dc)
             && dc.Bonus.TryGetValue(key, out double v)) return v;
         return fallback;

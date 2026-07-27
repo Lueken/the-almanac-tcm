@@ -49,7 +49,7 @@ public class LevelingClient
 
     private void OnClientConfigPacket(ClientConfigPacket packet)
     {
-        var core = AlmanacTcmModSystem.Instance;
+        var core = AlmanacTcmModSystem.ClientInstance;
         if (core != null) core.AlloyLedgerGated = packet.alloyLedgerGated;
     }
 

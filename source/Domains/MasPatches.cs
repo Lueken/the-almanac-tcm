@@ -32,7 +32,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class MasPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     /// <summary>The tree-attribute key carrying the first carver's mark "uid|name|level" on a chiseled
     /// block entity — persisted with the block and synced to clients.</summary>

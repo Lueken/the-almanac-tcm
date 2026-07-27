@@ -137,7 +137,7 @@ public static class TaiMarkPatches
             if (repair)
             {
                 // Sew verb grant + repair-gate. Under-ranked repair undoes the master's hand.
-                AlmanacTcmModSystem.Instance?.Ledger?.Log(byPlayer, TaiDomain.Code, TaiDomain.TechSew,
+                AlmanacTcmModSystem.ServerInstance?.Ledger?.Log(byPlayer, TaiDomain.Code, TaiDomain.TechSew,
                     HashCode.Combine("repair", stack.Collectible.Id, byPlayer.Entity.World.ElapsedMilliseconds / 1000));
 
                 if (TaiMark.HasMark(stack) && playerLevel < TaiMark.LevelOf(stack))

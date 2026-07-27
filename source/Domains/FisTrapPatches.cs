@@ -31,7 +31,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class FisTrapPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     // ------------------------------------------------------------------ owner side-state
 

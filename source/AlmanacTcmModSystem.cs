@@ -24,8 +24,17 @@ public class AlmanacTcmModSystem : ModSystem
     /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).</summary>
     private const string MinIlluminatedVersion = "0.0.14";
 
-    /// <summary>Static access for Harmony patches (set in Start, cleared in Dispose).</summary>
-    public static AlmanacTcmModSystem? Instance { get; private set; }
+    /// <summary>Static access for Harmony patches, split by side (set in Start, cleared in
+    /// Dispose). Singleplayer loads BOTH a client-side and a server-side ModSystem in one
+    /// process, sharing these statics, and the client's Start runs last. A single shared
+    /// static therefore ended up pointing at the client instance, where Ledger/Server/Affinity
+    /// and the loaded GlobalConfig are null, so every server-side grant silently no-opped
+    /// (the 0.4.2 singleplayer zero-XP bug). Resolve by the side the call site runs on.</summary>
+    public static AlmanacTcmModSystem? ServerInstance { get; private set; }
+
+    /// <summary>Client-side counterpart of <see cref="ServerInstance"/>: the instance that owns
+    /// Client, AlloyLedger, and the synced AlloyLedgerGated flag.</summary>
+    public static AlmanacTcmModSystem? ClientInstance { get; private set; }
 
     /// <summary>Static: one patch pass per process (singleplayer runs Start for both
     /// sides in one process; tooltip patches must exist client-side too).</summary>
@@ -46,7 +55,8 @@ public class AlmanacTcmModSystem : ModSystem
     public override void Start(ICoreAPI api)
     {
         base.Start(api);
-        Instance = this;
+        if (api.Side == EnumAppSide.Server) ServerInstance = this;
+        else ClientInstance = this;
         EnforceSiblingVersions(api);
         RegisterDomains(api);
 
@@ -368,7 +378,10 @@ public class AlmanacTcmModSystem : ModSystem
     {
         harmony?.UnpatchAll("almanactcm");
         harmony = null;
-        Instance = null;
+        // Singleplayer disposes the two instances independently, so clear only the static
+        // that points at this one (a blind null would drop the surviving side's handle).
+        if (ReferenceEquals(ServerInstance, this)) ServerInstance = null;
+        if (ReferenceEquals(ClientInstance, this)) ClientInstance = null;
         base.Dispose();
     }
 

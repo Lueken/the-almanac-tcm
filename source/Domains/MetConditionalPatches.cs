@@ -14,7 +14,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class MetConditionalPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     private static int MetLevel(IPlayer player)
     {

@@ -24,7 +24,7 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class ForAcaPatches
 {
-    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.Instance;
+    private static AlmanacTcmModSystem? Core => AlmanacTcmModSystem.ServerInstance;
 
     private static Type? spileBlockType;
 
