@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using AlmanacTcm.Leveling;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.MathTools;
+using Vintagestory.API.Server;
 
 namespace AlmanacTcm.Domains;
 
@@ -36,6 +39,134 @@ public static class MetConditionalPatches
         PatchToolsmithHeldCraft(api, harmony);
         PatchSmithingPlusBits(api, harmony);
         PatchWearAndTearMolds(api, harmony);
+        PatchIndustrialStorySmelting(api, harmony);
+    }
+
+    // -------------------------------------- industrialstory smelting (practice seams)
+    //
+    // The vanilla smelting grant rides the held-crucible pour (MetPatches.PourContextPatch),
+    // and industrialstory routes almost never touch it: the pit furnace spawns the mass
+    // directly, and the taller furnaces tap molten metal into channels. Without these seams
+    // MET smelting practice is nearly unearnable on an industrialstory world. Two shapes:
+    //
+    // - Pit furnace (the stage-I first-copper road): the skilled act is working the
+    //   blowpipe, so the last blower is captured per pit and the grant lands when
+    //   FinishSmelting actually produces masses (the POT pit-firing pattern: owner at
+    //   the act, success-gated grant at completion).
+    // - Tap furnaces (small smelter, retort, blast, reverberatory): the tap IS the
+    //   player act, so a successful TryTapMoltenMetal grants directly.
+
+    /// <summary>Last blowpipe worker per pit furnace position. Transient by design: a
+    /// pit firing runs minutes, and losing attribution across a restart only skips one
+    /// grant (the trough-filler precedent, not the persisted kiln-owner one).</summary>
+    private static readonly Dictionary<string, string> pitBlowers = new();
+
+    private static string PosKey(BlockPos pos) => $"{pos.X}/{pos.Y}/{pos.Z}";
+
+    public static class PitBlowPatch
+    {
+        public static void Postfix(object __instance, IPlayer player)
+        {
+            if (player == null) return;
+            var be = __instance as BlockEntity;
+            if (be?.Api?.Side != EnumAppSide.Server || be.Pos == null) return;
+            ItemStack? held = player.InventoryManager?.ActiveHotbarSlot?.Itemstack;
+            if (held?.Collectible?.Code?.Path?.Contains("blowpipe") != true) return;
+            pitBlowers[PosKey(be.Pos)] = player.PlayerUID;
+        }
+    }
+
+    public static class PitFinishPatch
+    {
+        public static void Prefix(object __instance, out int __state)
+        {
+            // Output size is decided from the ore slot BEFORE FinishSmelting clears it.
+            __state = 0;
+            var oreSlot = Traverse.Create(__instance).Property<ItemSlot>("OreSlot").Value;
+            if (oreSlot?.Itemstack != null) __state = oreSlot.StackSize / 20;
+        }
+
+        public static void Postfix(object __instance, int __state)
+        {
+            if (__state <= 0) return;   // burned out with too little ore: nothing made
+            var be = __instance as BlockEntity;
+            if (be?.Api is not ICoreServerAPI sapi || be.Pos == null) return;
+            if (!pitBlowers.TryGetValue(PosKey(be.Pos), out string? uid)) return;
+            pitBlowers.Remove(PosKey(be.Pos));
+
+            IPlayer? blower = sapi.World.PlayerByUid(uid);
+            if (blower == null) return;   // logged off mid-firing: the grant is forfeit
+            Core?.Ledger?.Log(blower, MetDomain.Code, MetDomain.TechSmelting,
+                HashCode.Combine("pitfurnace", PosKey(be.Pos), sapi.World.Calendar.TotalDays));
+            TcmLog.Cat(sapi, TcmLog.Hooks, $"{blower.PlayerName} pit-smelted {__state} mass(es), smelting credited");
+        }
+    }
+
+    public static class TapPatch
+    {
+        // Bool-returning taps gate on success; the void retort tap grants on the call
+        // (the dedup ring bounds repeat swings at the same retort).
+        public static void BoolPostfix(object __instance, IPlayer byPlayer, bool __result)
+        {
+            if (__result) Grant(__instance, byPlayer);
+        }
+
+        public static void VoidPostfix(object __instance, IPlayer byPlayer)
+        {
+            Grant(__instance, byPlayer);
+        }
+
+        public static void ReverbPostfix(object __instance, IPlayer byPlayer, bool __result)
+        {
+            if (__result) Grant(__instance, byPlayer);
+        }
+
+        private static void Grant(object instance, IPlayer? byPlayer)
+        {
+            var be = instance as BlockEntity;
+            if (byPlayer == null || be?.Api?.Side != EnumAppSide.Server || be.Pos == null) return;
+            Core?.Ledger?.Log(byPlayer, MetDomain.Code, MetDomain.TechSmelting,
+                HashCode.Combine("tap", PosKey(be.Pos), be.Api.World.ElapsedMilliseconds / 60000));
+        }
+    }
+
+    private static void PatchIndustrialStorySmelting(ICoreAPI api, Harmony harmony)
+    {
+        if (!api.ModLoader.IsModEnabled("industrialstory")) return;
+
+        int hooked = 0;
+
+        var pitType = AccessTools.TypeByName("IndustrialStory.BlockEntityPitFurnace");
+        var blow = pitType == null ? null : AccessTools.Method(pitType, "OnInteract");
+        var finish = pitType == null ? null : AccessTools.Method(pitType, "FinishSmelting");
+        if (blow != null && finish != null)
+        {
+            harmony.Patch(blow, postfix: new HarmonyMethod(AccessTools.Method(typeof(PitBlowPatch), "Postfix")));
+            harmony.Patch(finish,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(PitFinishPatch), "Prefix")),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(PitFinishPatch), "Postfix")));
+            hooked++;
+        }
+        else
+        {
+            TcmLog.Warn(api, "industrialstory present but PitFurnace OnInteract/FinishSmelting not found; pit smelting practice inactive");
+        }
+
+        foreach (var (type, postfix) in new[]
+        {
+            ("IndustrialStory.BlockEntitySmallSmelter", "BoolPostfix"),
+            ("IndustrialStory.BlockEntityBlastFurnace", "BoolPostfix"),
+            ("IndustrialStory.BlockEntityReverberatoryFurnace", "ReverbPostfix"),
+            ("IndustrialStory.BlockEntityRetortSmelter", "VoidPostfix"),
+        })
+        {
+            var m = AccessTools.Method(AccessTools.TypeByName(type), "TryTapMoltenMetal");
+            if (m == null) continue;
+            harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(TapPatch), postfix)));
+            hooked++;
+        }
+
+        TcmLog.Info(api, $"MET smelting practice hooked to industrialstory ({hooked} seam(s): pit blowpipe + molten taps)");
     }
 
     // ------------------------------------------------ Toolsmith workbench (assembly)

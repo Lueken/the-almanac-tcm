@@ -27,7 +27,7 @@
         {
           "type": "paragraph",
           "requires": ["industrialstory"],
-          "text": "On this earth the old shortcuts are closed. Ore does not melt in a cookpot, and clay pots do not pour blades. Broken stone must be made smaller before fire will listen to it, and fire must be given a proper house. Watch what the machines of the old world left behind; some of their smaller cousins can be raised again by hand."
+          "text": "On this earth the old shortcuts are closed. Ore does not melt in a cookpot, and no clay vessel on a campfire will give you a blade. The first fire that answers is a humble one: a hole in the ground, lined with clay, fed with charcoal, and starved for breath. Fire alone tops out short of what copper demands. Something has to give the fire more air than the sky will. Think on the reeds by the water."
         },
         {
           "type": "callout",
@@ -37,24 +37,29 @@
       ]
     },
     {
-      "id": "first-pour",
-      "title": "The first pour",
+      "id": "first-metal",
+      "title": "The first metal",
       "revealedBy": "almanactcm:first-met-smelting",
-      "hint": "This page takes its ink from the first metal you pour yourself.",
+      "hint": "This page takes its ink from the first metal your own fire wins from stone.",
       "blocks": [
         {
           "type": "paragraph",
           "dropcap": true,
-          "text": "You have felt it now: the moment the fire wins and the stone gives up what it was holding. Molten metal answers to nobody. You do not shape it in the air; you give it somewhere to go and let it settle into the shape of your intent."
+          "text": "You have felt it now: the moment the fire wins and the stone gives up what it was holding. Metal is not found. It is argued out of the earth with heat, and the heat is argued out of the fire with your own breath."
         },
         {
           "type": "paragraph",
           "requires": ["industrialstory"],
-          "text": "The small smelter is a patient teacher. Crush your ore fine before you charge it; whole stones sulk in the heat and waste your fuel. Mind the charge limit, feed the fire steadily, and do not walk far. A smelter left alone past its moment gives you slag where metal should be. When the tap runs, pour without hesitating. Sand molds, pressed from a pattern, take the pour truer than any clay pot fired in a pit."
+          "text": "The pit smelter asks little and forgives less. A hole one block square, formed with clay while crouching, takes bone ash, copper nuggets by the dozen, and a measure of charcoal: one to every five nuggets. Native copper and malachite go in as they come from the ground; the sulfide ores, chalcopyrite and tetrahedrite, must pass through a firepit roasting first or they will sulk in the pit unchanged. Lit and left alone, the pit never passes eight hundred degrees, and copper laughs at eight hundred. Put a blowpipe to it and keep a rhythm; stop blowing and the fire falls back fast. Two hours at full heat and the pit gives back one mass for every twenty nuggets it swallowed."
         },
         {
           "type": "paragraph",
-          "text": "What comes out of the mold is rough and honest. It carries the marks of its making, and some of those marks are yours already. The Almanac counts the pour to the one who tips the vessel, so pour your own metal; watching another smith work teaches your eyes, but not your hands."
+          "requires": ["industrialstory"],
+          "text": "The mass comes out rough, hot, and honest, and it needs an anvil before it needs anything else. Crouch and strike the top of a bare igneous or metamorphic rock block with a stone hammer, and the stone itself becomes your first anvil. Reheat the mass in a firepit whenever it cools past working, and expect the taller furnaces, the ones that want crushed ore and bellows, to come later on this road, not sooner."
+        },
+        {
+          "type": "paragraph",
+          "text": "The Almanac counts the smelt to the one whose breath fed the fire and whose hand ran the tap, not to whoever stands nearest when the metal comes. Win your own metal; watching another smith work teaches your eyes, but not your hands."
         }
       ]
     },
