@@ -19,8 +19,15 @@ public static class MetDomain
     public const string TechAssembly = "assembly";
 
     // Bonus knob keys (DomainConfig.Bonus)
+    // Axis 1 reworked 0.4.10 (RULED 2026-07-27): the ruin roll is GONE, and the
+    // over-strike no longer deletes voxels. Untrained clumsiness now matches the
+    // tool mode: a split's sheared bit can crumble to scale (overStrikeChance,
+    // fires on Smithing+'s recovery seam), and a move can nudge one extra nearby
+    // voxel (moveSlipChance). Any mishap opens a focus grace window during which
+    // nothing further can roll. ruinChance keys left in old ModConfigs are inert.
     public const string OverStrikeChance = "overStrikeChance";
-    public const string RuinChance = "ruinChance";
+    public const string MoveSlipChance = "moveSlipChance";
+    public const string FocusCooldownSeconds = "focusCooldownSeconds";
     public const string ShatterFactorUntrained = "shatterFactorUntrained";
     public const string ShatterFactorGm = "shatterFactorGm";
     public const string FuelEconomyUntrained = "fuelEconomyUntrained";
@@ -57,7 +64,8 @@ public static class MetDomain
         Bonus = new Dictionary<string, double>
         {
             [OverStrikeChance] = 0.15,
-            [RuinChance] = 0.008,
+            [MoveSlipChance] = 0.05,
+            [FocusCooldownSeconds] = 5,
             [ShatterFactorUntrained] = 1.5,
             [ShatterFactorGm] = 0.4,
             [FuelEconomyUntrained] = -0.10,

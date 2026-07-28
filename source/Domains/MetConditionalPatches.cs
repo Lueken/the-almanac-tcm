@@ -251,19 +251,24 @@ public static class MetConditionalPatches
         /// <summary>Seeds the sp:splitCount accumulator with a rank-scaled delta
         /// BEFORE Smithing+'s own +1/VoxelsPerBit and crossing logic run unchanged
         /// (the dive-recommended seam: no ordering games on OnUseOver, no touching
-        /// their shared config singleton). Helve-hammer path stays stock (no player).</summary>
-        public static void Prefix(IPlayer byPlayer, ItemStack workItemStack)
+        /// their shared config singleton). Helve-hammer path stays stock (no player).
+        /// Doubles as the Axis-1 crumble seam (0.4.10): when the strike prefix rolled
+        /// an Untrained over-strike for this split, the sheared bit crumbles to scale —
+        /// skip the recovery entirely, no bit and no split-count credit.</summary>
+        public static bool Prefix(IPlayer byPlayer, ItemStack workItemStack)
         {
-            if (byPlayer == null || workItemStack == null) return;
+            if (byPlayer != null && MetPatches.ConsumeCrumble(byPlayer)) return false;
+            if (byPlayer == null || workItemStack == null) return true;
             double scale = MetDomain.RankLinear(MetLevel(byPlayer),
                 Knob(MetDomain.BitRecoveryUntrained, 0.7),
                 Knob(MetDomain.BitRecoveryGm, 1.3));
-            if (scale == 1.0) return;
+            if (scale == 1.0) return true;
 
             float perSplit = 1f / VoxelsPerBit();
             float seeded = workItemStack.TempAttributes.GetFloat("sp:splitCount")
                 + (float)((scale - 1.0) * perSplit);
             workItemStack.TempAttributes.SetFloat("sp:splitCount", Math.Max(seeded, 0f));
+            return true;
         }
 
         private static float cachedVoxelsPerBit;

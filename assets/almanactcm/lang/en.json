@@ -1,8 +1,8 @@
 {
   "almanactcm:mod-name": "The Almanac: Trades, Callings & Mastery",
   "almanactcm:morning-rankup": "As you rest, the day's work settles into your hands: {0} {1}.",
-  "almanactcm:overstrike": "Your hammer bites too deep. The piece will need a reheat and more metal.",
-  "almanactcm:ruin": "The metal cracks under a clumsy blow. The piece is ruined.",
+  "almanactcm:overstrike-crumble": "Your hammer bites too deep and the sheared bit crumbles to scale. You breathe, reset your stance, and focus.",
+  "almanactcm:overstrike-slip": "Your blow lands wide and shoves metal it was never meant to touch. You breathe, reset your stance, and focus.",
   "almanactcm:made-by": "Made by {0}",
   "almanactcm:smithed-by": "Smithed by {0}",
   "almanactcm:master-forged-by": "Master-forged by {0}",

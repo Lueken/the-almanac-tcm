@@ -14,10 +14,13 @@ namespace AlmanacTcm.Domains;
 /// <summary>
 /// MET pilot hooks (rank-bonus-design.md §162), all riding real vanilla seams:
 /// anvil completion = smithing practice + the smith-stamp; anvil strike =
-/// Untrained over-strike penalty; quench = practice + Axis-3 shatter scaling;
-/// tool-mold fill = casting practice; firepit tick = Axis-2 fuel economy for
-/// stamped workpieces. Every patch no-ops client-side; Smithing+/Toolsmith patch
-/// some of the same methods — postfix-only discipline here, watch in the pack.
+/// Untrained clumsiness matched to the tool mode (split = the sheared bit can
+/// crumble, move = a small chance to nudge one extra voxel, any mishap opens a
+/// short focus grace — reworked 0.4.10, ruin roll removed); quench = practice +
+/// Axis-3 shatter scaling; tool-mold fill = casting practice; firepit tick =
+/// Axis-2 fuel economy for stamped workpieces. Every patch no-ops client-side;
+/// Smithing+/Toolsmith patch some of the same methods — postfix-only discipline
+/// here, watch in the pack.
 /// </summary>
 public static class MetPatches
 {
@@ -125,11 +128,79 @@ public static class MetPatches
 
     // ---------------------------------------------------------------- anvil
 
+    /// <summary>Focus grace per player (uid → ElapsedMilliseconds deadline): after any
+    /// Untrained mishap the smith "resets their stance" and nothing further can roll
+    /// until the window passes. Kills the old death spiral where one penalty bred
+    /// corrective strikes that each rolled again.</summary>
+    private static readonly Dictionary<string, long> focusUntil = new();
+
+    internal static bool InFocusGrace(ICoreAPI api, string uid)
+        => focusUntil.TryGetValue(uid, out long until) && api.World.ElapsedMilliseconds < until;
+
+    internal static void StartFocusGrace(ICoreAPI api, string uid)
+        => focusUntil[uid] = api.World.ElapsedMilliseconds
+            + (long)(Knob(MetDomain.FocusCooldownSeconds, 5) * 1000);
+
+    /// <summary>One-shot flag for the strike in flight: the prefix rolled a split-bit
+    /// crumble for this player. Consumed by BitRecoveryPatch (Smithing+'s recovery
+    /// seam), cleared by the finalizer if the seam never ran this strike.</summary>
+    internal static string? PendingCrumbleUid;
+
+    /// <summary>The sheared bit crumbles to scale: consume the pending flag, message,
+    /// open the focus grace. Returns true when Smithing+'s recovery should be skipped
+    /// entirely for this split (no bit, no split-count credit).</summary>
+    internal static bool ConsumeCrumble(IPlayer byPlayer)
+    {
+        if (PendingCrumbleUid == null || PendingCrumbleUid != byPlayer.PlayerUID) return false;
+        PendingCrumbleUid = null;
+        ICoreAPI? api = byPlayer.Entity?.Api;
+        if (api != null) StartFocusGrace(api, byPlayer.PlayerUID);
+        (byPlayer as IServerPlayer)?.SendMessage(GlobalConstants.GeneralChatGroup,
+            Lang.GetL((byPlayer as IServerPlayer)?.LanguageCode ?? "en", "almanactcm:overstrike-crumble"),
+            EnumChatType.Notification);
+        if (api != null) TcmLog.Cat(api, TcmLog.Hooks, $"{byPlayer.PlayerName} crumbled a split bit (Untrained)");
+        return true;
+    }
+
+    /// <summary>The hammer's current tool mode, read straight off the stack attribute
+    /// (vanilla GetToolMode does the same; avoids needing a BlockSelection). 0 = heavy
+    /// hit, 1-4 = upsets, 5 = split, 6+ = Smithing+ extras (flip).</summary>
+    private static int ToolModeOf(IPlayer byPlayer)
+    {
+        ItemStack? held = byPlayer.InventoryManager?.ActiveHotbarSlot?.Itemstack;
+        return held == null ? -1 : held.Attributes.GetInt("toolMode");
+    }
+
     [HarmonyPatch(typeof(BlockEntityAnvil), "OnUseOver",
         typeof(IPlayer), typeof(Vec3i), typeof(BlockSelection))]
     public static class AnvilStrikePatch
     {
-        public static void Postfix(BlockEntityAnvil __instance, IPlayer byPlayer, Vec3i voxelPos)
+        public static void Prefix(BlockEntityAnvil __instance, IPlayer byPlayer, Vec3i voxelPos, out byte __state)
+        {
+            // Struck voxel material BEFORE the strike lands: the productive-strike gate.
+            __state = voxelPos == null ? (byte)0
+                : __instance.Voxels[voxelPos.X, voxelPos.Y, voxelPos.Z];
+
+            if (__instance.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
+            if (__instance.SelectedRecipe == null || __instance.WorkItemStack == null) return;
+            if (__state != (byte)EnumVoxelMaterial.Metal || !__instance.CanWorkCurrent) return;
+            if (MetLevel(byPlayer) > 0) return;
+            if (InFocusGrace(__instance.Api, byPlayer.PlayerUID)) return;
+
+            // Axis 1, split half — the over-strike: an Untrained split sometimes bites
+            // too deep and DESTROYS the sheared bit instead of shearing it clean. The
+            // voxel comes off exactly as intended (no double punishment); only Smithing+'s
+            // bit return is forfeit. Decided HERE because the recovery runs in Smithing+'s
+            // own OnUseOver postfix, whose order against ours is undefined — the flag must
+            // exist before any postfix does.
+            if (ToolModeOf(byPlayer) == 5
+                && __instance.Api.World.Rand.NextDouble() < Knob(MetDomain.OverStrikeChance, 0.15))
+            {
+                PendingCrumbleUid = byPlayer.PlayerUID;
+            }
+        }
+
+        public static void Postfix(BlockEntityAnvil __instance, IPlayer byPlayer, Vec3i voxelPos, byte __state)
         {
             if (__instance.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
             if (__instance.SelectedRecipe == null || __instance.WorkItemStack == null) return;
@@ -138,49 +209,38 @@ public static class MetPatches
             __instance.WorkItemStack.Attributes.SetString(SmithAttr, byPlayer.PlayerUID);
             __instance.WorkItemStack.Attributes.SetString(SmithNameAttr, byPlayer.PlayerName);
 
-            // Axis 1 — over-strike: an Untrained smith's hammer sometimes bites one
-            // voxel too deep, failing the exact-match completion and forcing a
-            // reheat + top-up. Snaps to zero at Novice I.
+            // Axis 1, move half — the slip: on the move modes (heavy hit + the four
+            // upsets) an Untrained blow occasionally lands wide and nudges ONE extra
+            // nearby voxel a step it was not meant to take. Nothing is destroyed; the
+            // piece needs correcting. Productive strikes only (the struck voxel was
+            // metal), never inside the focus grace, snaps to zero at Novice I.
             if (MetLevel(byPlayer) > 0) return;
+            if (voxelPos == null || __state != (byte)EnumVoxelMaterial.Metal) return;
+            int mode = ToolModeOf(byPlayer);
+            if (mode < 0 || mode > 4) return;
+            if (InFocusGrace(__instance.Api, byPlayer.PlayerUID)) return;
+            if (__instance.Api.World.Rand.NextDouble() >= Knob(MetDomain.MoveSlipChance, 0.05)) return;
 
-            // Axis 1 rare ruin: a very low chance the clumsy piece cracks and is lost
-            // outright (the harsher, rarer sibling of over-striking). Untrained only.
-            if (__instance.Api.World.Rand.NextDouble() < Knob(MetDomain.RuinChance, 0.008))
+            if (SlipAdjacentVoxel(__instance, voxelPos))
             {
-                RuinWorkpiece(__instance);
+                StartFocusGrace(__instance.Api, byPlayer.PlayerUID);
                 (byPlayer as IServerPlayer)?.SendMessage(GlobalConstants.GeneralChatGroup,
-                    Lang.GetL((byPlayer as IServerPlayer)?.LanguageCode ?? "en", "almanactcm:ruin"),
+                    Lang.GetL((byPlayer as IServerPlayer)?.LanguageCode ?? "en", "almanactcm:overstrike-slip"),
                     EnumChatType.Notification);
-                TcmLog.Cat(__instance.Api, TcmLog.Hooks, $"{byPlayer.PlayerName} ruined a workpiece (Untrained)");
-                return;
-            }
-
-            if (voxelPos == null) return;
-            if (__instance.Api.World.Rand.NextDouble() >= Knob(MetDomain.OverStrikeChance, 0.15)) return;
-
-            if (RemoveAdjacentMetalVoxel(__instance, voxelPos))
-            {
-                (byPlayer as IServerPlayer)?.SendMessage(GlobalConstants.GeneralChatGroup,
-                    Lang.GetL((byPlayer as IServerPlayer)?.LanguageCode ?? "en", "almanactcm:overstrike"),
-                    EnumChatType.Notification);
-                TcmLog.Cat(__instance.Api, TcmLog.Hooks, $"{byPlayer.PlayerName} over-struck at {voxelPos}");
+                TcmLog.Cat(__instance.Api, TcmLog.Hooks, $"{byPlayer.PlayerName} slipped a voxel near {voxelPos} (Untrained)");
             }
         }
 
-        /// <summary>Spoil the piece outright: drop the work item and clear the anvil's
-        /// voxels so nothing is recoverable. Reflection reaches the private backing field
-        /// (only a public getter exists); the same RegenMesh call the over-strike uses
-        /// refreshes the now-empty anvil.</summary>
-        private static void RuinWorkpiece(BlockEntityAnvil anvil)
+        public static void Finalizer()
         {
-            AccessTools.Field(typeof(BlockEntityAnvil), "workItemStack")?.SetValue(anvil, null);
-            System.Array.Clear(anvil.Voxels, 0, anvil.Voxels.Length);
-            AccessTools.Method(typeof(BlockEntityAnvil), "RegenMeshAndSelectionBoxes")?.Invoke(anvil, null);
-            anvil.MarkDirty(true);
-            anvil.Api.World.BlockAccessor.MarkBlockDirty(anvil.Pos);
+            PendingCrumbleUid = null;
         }
 
-        private static bool RemoveAdjacentMetalVoxel(BlockEntityAnvil anvil, Vec3i pos)
+        /// <summary>Nudge one random metal voxel adjacent to the strike point one step
+        /// in a random direction, using vanilla's own OnUpset so the move obeys every
+        /// vanilla rule (blocked moves no-op). Returns true only if the grid actually
+        /// changed — a slip that moved nothing costs the player nothing.</summary>
+        private static bool SlipAdjacentVoxel(BlockEntityAnvil anvil, Vec3i pos)
         {
             var rand = anvil.Api.World.Rand;
             int[] order = { 0, 1, 2, 3 };
@@ -196,17 +256,28 @@ public static class MetPatches
             {
                 int x = pos.X + dx[i], z = pos.Z + dz[i];
                 if (x < 0 || x > 15 || z < 0 || z > 15) continue;
-                if (anvil.Voxels[x, pos.Y, z] == (byte)EnumVoxelMaterial.Metal)
-                {
-                    anvil.Voxels[x, pos.Y, z] = (byte)EnumVoxelMaterial.Empty;
-                    AccessTools.Method(typeof(BlockEntityAnvil), "RegenMeshAndSelectionBoxes")
-                        ?.Invoke(anvil, null);
-                    anvil.MarkDirty();
-                    anvil.Api.World.BlockAccessor.MarkBlockDirty(anvil.Pos);
-                    return true;
-                }
+                if (anvil.Voxels[x, pos.Y, z] != (byte)EnumVoxelMaterial.Metal) continue;
+
+                byte[,,] before = (byte[,,])anvil.Voxels.Clone();
+                anvil.OnUpset(new Vec3i(x, pos.Y, z), BlockFacing.HORIZONTALS[rand.Next(4)]);
+                if (VoxelsEqual(before, anvil.Voxels)) continue;
+
+                AccessTools.Method(typeof(BlockEntityAnvil), "RegenMeshAndSelectionBoxes")
+                    ?.Invoke(anvil, null);
+                anvil.MarkDirty();
+                anvil.Api.World.BlockAccessor.MarkBlockDirty(anvil.Pos);
+                return true;
             }
             return false;
+        }
+
+        private static bool VoxelsEqual(byte[,,] a, byte[,,] b)
+        {
+            for (int x = 0; x < 16; x++)
+                for (int y = 0; y < 6; y++)
+                    for (int z = 0; z < 16; z++)
+                        if (a[x, y, z] != b[x, y, z]) return false;
+            return true;
         }
     }
 

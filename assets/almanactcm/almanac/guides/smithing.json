@@ -113,14 +113,14 @@
         },
         {
           "type": "paragraph",
-          "text": "An untrained hand bites too deep. Expect the hammer to take a bite it should not, roughly one strike in seven, until the work has taught your arms restraint. It passes. The Almanac remembers every strike, and the day you reach your first rank the over-striking simply stops. Until then, keep spare metal heated and forgive yourself quickly."
+          "text": "An untrained hand tells on itself in small ways. A blow now and then lands wide and shoves metal where it was not meant to go, and a bit split away sometimes crumbles to scale instead of falling clean. When it happens, stop. Breathe, reset your stance, and the next strikes will land true; a steadied hand does not err twice in a row. It passes. The Almanac remembers every strike, and the day you reach your first rank the clumsiness leaves your arms for good."
         },
         {
           "type": "paragraph",
           "requires": [
             "smithingplus"
           ],
-          "text": "Nothing struck from a piece needs to be lost. Bits split away can be gathered, warmed on the forge short of their melting point, and pressed back into the work. A careful smith finishes a piece with the same weight of metal the pour gave them."
+          "text": "In practiced hands, nothing struck from a piece needs to be lost. Bits split away can be gathered, warmed on the forge short of their melting point, and pressed back into the work. A careful smith finishes a piece with the same weight of metal the pour gave them."
         }
       ]
     },
