@@ -176,7 +176,7 @@ public static class MetMaterialGate
     ///
     /// Deliberately ONE process-wide static rather than a flag on each side's config. Blocks()
     /// runs on both sides, and in singleplayer the client and server ModSystems share statics
-    /// (the same fact behind the 0.4.3 zero-XP bug) — so a single static flips both sides at once.
+    /// (the same fact behind the 0.4.3 zero-XP bug), so a single static flips both sides at once.
     /// Flipping the server config alone would leave the client still predicting a block, because
     /// ClientInstance.GlobalConfig is never loaded from disk and always holds the shipped default.
     ///

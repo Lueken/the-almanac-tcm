@@ -26,7 +26,7 @@ public static class WooPatches
     // Vanilla's axe is not a per-block tool: ItemAxe.OnBlockBrokenWith flood-fills the whole tree
     // and breaks every position in ONE synchronous loop (up to FindTree's 2500-block cap). The
     // felling grant rides Block.OnBlockBroken, so a single swing on a large tree used to fire
-    // hundreds of practice events in one tick — each one a chat packet, a toast packet (and a
+    // hundreds of practice events in one tick, each one a chat packet, a toast packet (and a
     // client-side text-texture regen), and a debug write. That froze a singleplayer client outright
     // on a very large tree (LauCaRo, 2026-07-28). The swing is now ONE event: the batch counts logs
     // while vanilla's loop runs and banks once in the finalizer, scaled by WooDomain.FellMultiplier.
@@ -59,7 +59,7 @@ public static class WooPatches
     /// This replaces the old `is BlockLog || code starts with "log"` test, which leaked twice:
     /// BlockLog is the class of BOTH log-grown-* and log-placed-*, and the prefix additionally
     /// matched logquad-placed-* and logsection-placed-*, so tearing down a log cabin farmed
-    /// felling. It is also STRICTER and BROADER at once — a mod trunk block named anything at all
+    /// felling. It is also STRICTER and BROADER at once: a mod trunk block named anything at all
     /// now counts as long as it is a real tree, and a decorative block named "log-something"
     /// no longer does.
     ///
@@ -88,7 +88,7 @@ public static class WooPatches
     /// <summary>Wraps one axe swing so the whole tree banks as a single practice event. Always on
     /// (this is vanilla behaviour, not a mod seam); FallingTree's path runs through the same method,
     /// so it is covered too. Coexists with WooFallingTreePatches' Priority.First prefix on this
-    /// method — that one stashes the fall direction, this one counts logs.</summary>
+    /// method, where that one stashes the fall direction, this one counts logs.</summary>
     [HarmonyPatch(typeof(ItemAxe), nameof(ItemAxe.OnBlockBrokenWith))]
     public static class FellSwingPatch
     {
@@ -96,7 +96,7 @@ public static class WooPatches
         /// wholesale: its own prefix on this method breaks every log itself
         /// (FallingTree.AxePatch.OnBlockBrokenWith_Prefix → BlockAccessor.BreakBlock) and then
         /// returns false. Harmony skips every prefix AFTER one that returns false, so at default
-        /// priority our batch would be a coin flip on patch order — and on the losing flip the
+        /// priority our batch would be a coin flip on patch order, and on the losing flip the
         /// whole redwood banks one grant per quarter-log again, which is the exact storm this
         /// patch exists to stop. Running first also guarantees the flag is set before the first
         /// BreakBlock lands. Same reason WooFallingTreePatches stashes at Priority.First.</summary>

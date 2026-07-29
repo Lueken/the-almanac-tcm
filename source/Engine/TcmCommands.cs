@@ -60,7 +60,7 @@ public class TcmCommands
             .EndSubCommand();
 
         // SINGLEPLAYER ONLY, by construction. The subcommand is not registered at all on a
-        // dedicated server, so there is nothing on The Quire to run, mistype, or bypass — the
+        // dedicated server, so there is nothing on The Quire to run, mistype, or bypass, so the
         // guarantee is structural rather than a runtime privilege check.
         if (!sapi.Server.IsDedicated)
         {
@@ -82,7 +82,7 @@ public class TcmCommands
     /// ModConfig: global.json is per install and shared with the same client when it joins a
     /// server, and because the gate is also evaluated client-side, a value that followed the
     /// player onto The Quire would leave their client predicting no block while the server still
-    /// blocked — the ghost-ingot desync. A savegame value cannot travel.</summary>
+    /// blocked, which is the ghost-ingot desync. A savegame value cannot travel.</summary>
     private const string GateOverrideKey = "almanactcm:materialgateoverride";
 
     private void RestoreGateOverride()
@@ -133,7 +133,7 @@ public class TcmCommands
         return TextCommandResult.Success(wanted
             ? "Metalworking material gate ON. Metals above your rank are blocked again."
             : "Metalworking material gate OFF for this world. Every metal is workable at any rank. "
-              + "This world only — multiplayer servers are unaffected.");
+              + "This world only. Multiplayer servers are unaffected.");
     }
 
     /// <summary>Guide reveal testing: list shows every key the player holds, set/clear

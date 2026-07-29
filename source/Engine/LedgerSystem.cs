@@ -266,13 +266,13 @@ public class LedgerSystem
 
     /// <summary>Coalesced practice feedback, keyed uid|domain|technique.
     ///
-    /// A single player action can produce hundreds of practice events in one tick — vanilla's axe
+    /// A single player action can produce hundreds of practice events in one tick: vanilla's axe
     /// fells an entire tree (up to 2500 blocks) inside one synchronous loop, and other mods break
     /// in bulk too. One chat line and one toast packet per event froze clients outright: each
     /// Notification made the vanilla chat HUD switch tabs and rebuild, and each toast packet
     /// regenerated a text texture. Practice ACCOUNTING is still per event and exact; only the
     /// feedback is throttled. WOO's felling swing additionally coalesces upstream (one event per
-    /// swing) — this layer is the general safety net for every other seam.</summary>
+    /// swing), so this layer is the general safety net for every other seam.</summary>
     private readonly Dictionary<string, FeedbackEntry> feedback = new();
 
     private static string FeedbackKey(string uid, string domainCode, string technique)
@@ -392,7 +392,7 @@ public class LedgerSystem
     ///
     /// Sent as OthersMessage, NOT Notification (2026-07-28): vanilla's HudDialogChat auto-switches
     /// the visible tab on Notification and CommandSuccess when AutoChat + AutoChatOpenSelected are
-    /// on (both default), and InfoLogChatGroup is not in its exclusion list — so every practice
+    /// on (both default), and InfoLogChatGroup is not in its exclusion list, so every practice
     /// line yanked the player's chat to the Info tab and rebuilt the dialog. Harmless once a
     /// second, ruinous when a seam fires in bulk. OthersMessage renders identically and does not
     /// steal the tab.</summary>

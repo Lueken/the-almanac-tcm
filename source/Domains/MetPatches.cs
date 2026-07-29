@@ -16,10 +16,10 @@ namespace AlmanacTcm.Domains;
 /// anvil completion = smithing practice + the smith-stamp; anvil strike =
 /// Untrained clumsiness matched to the tool mode (split = the sheared bit can
 /// crumble, move = a small chance to nudge one extra voxel, any mishap opens a
-/// short focus grace — reworked 0.4.10, ruin roll removed); quench = practice +
+/// short focus grace, reworked 0.4.10, ruin roll removed); quench = practice +
 /// Axis-3 shatter scaling; tool-mold fill = casting practice; firepit tick =
 /// Axis-2 fuel economy for stamped workpieces. Every patch no-ops client-side;
-/// Smithing+/Toolsmith patch some of the same methods — postfix-only discipline
+/// Smithing+/Toolsmith patch some of the same methods, so postfix-only discipline
 /// here, watch in the pack.
 /// </summary>
 public static class MetPatches
@@ -187,11 +187,11 @@ public static class MetPatches
             if (MetLevel(byPlayer) > 0) return;
             if (InFocusGrace(__instance.Api, byPlayer.PlayerUID)) return;
 
-            // Axis 1, split half — the over-strike: an Untrained split sometimes bites
+            // Axis 1, split half, the over-strike: an Untrained split sometimes bites
             // too deep and DESTROYS the sheared bit instead of shearing it clean. The
             // voxel comes off exactly as intended (no double punishment); only Smithing+'s
             // bit return is forfeit. Decided HERE because the recovery runs in Smithing+'s
-            // own OnUseOver postfix, whose order against ours is undefined — the flag must
+            // own OnUseOver postfix, whose order against ours is undefined, so the flag must
             // exist before any postfix does.
             if (ToolModeOf(byPlayer) == 5
                 && __instance.Api.World.Rand.NextDouble() < Knob(MetDomain.OverStrikeChance, 0.15))
@@ -209,7 +209,7 @@ public static class MetPatches
             __instance.WorkItemStack.Attributes.SetString(SmithAttr, byPlayer.PlayerUID);
             __instance.WorkItemStack.Attributes.SetString(SmithNameAttr, byPlayer.PlayerName);
 
-            // Axis 1, move half — the slip: on the move modes (heavy hit + the four
+            // Axis 1, move half, the slip: on the move modes (heavy hit + the four
             // upsets) an Untrained blow occasionally lands wide and nudges ONE extra
             // nearby voxel a step it was not meant to take. Nothing is destroyed; the
             // piece needs correcting. Productive strikes only (the struck voxel was
@@ -239,7 +239,7 @@ public static class MetPatches
         /// <summary>Nudge one random metal voxel adjacent to the strike point one step
         /// in a random direction, using vanilla's own OnUpset so the move obeys every
         /// vanilla rule (blocked moves no-op). Returns true only if the grid actually
-        /// changed — a slip that moved nothing costs the player nothing.</summary>
+        /// changed: a slip that moved nothing costs the player nothing.</summary>
         private static bool SlipAdjacentVoxel(BlockEntityAnvil anvil, Vec3i pos)
         {
             var rand = anvil.Api.World.Rand;

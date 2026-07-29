@@ -71,7 +71,7 @@ public static class WooDomain
     public const string MarkBurnDurationMul = "markBurnDurationMul"; // duration multiplier
     // Per-swing felling curve (RULED 2026-07-28). Vanilla's axe fells an ENTIRE tree in one
     // synchronous loop (ItemAxe.OnBlockBrokenWith, capped at 2500 blocks by FindTree), so a
-    // single swing used to fire one grant — one chat line, one toast packet, one debug write —
+    // single swing used to fire one grant (one chat line, one toast packet, one debug write)
     // per log, which froze clients on very large trees. The swing is now one practice event whose
     // raw is scaled by the log count: linear to the KNEE so an ordinary tree banks exactly what it
     // always did, square-root compressed above it, hard capped at CAP.
@@ -143,7 +143,7 @@ public static class WooDomain
             // Knee 12 ≈ an ordinary tree, so normal felling is untouched (0.35 × 12 = 4.2 raw,
             // exactly what twelve per-log grants banked before). Above it the curve bends:
             // 30 logs → ×16.2, 100 → ×21.4, and the cap is reached at 156 logs. Cap 24 = 8.4 raw,
-            // twice an ordinary tree — a monster is worth meaningfully more without being a day's
+            // twice an ordinary tree: a monster is worth meaningfully more without being a day's
             // practice in one swing (a WOO technique saturates against Smax/m = 33.3).
             [FellLogKnee] = 12,
             [FellLogCap] = 24,

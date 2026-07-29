@@ -253,7 +253,7 @@ public static class MetConditionalPatches
         /// (the dive-recommended seam: no ordering games on OnUseOver, no touching
         /// their shared config singleton). Helve-hammer path stays stock (no player).
         /// Doubles as the Axis-1 crumble seam (0.4.10): when the strike prefix rolled
-        /// an Untrained over-strike for this split, the sheared bit crumbles to scale —
+        /// an Untrained over-strike for this split, the sheared bit crumbles to scale,
         /// skip the recovery entirely, no bit and no split-count credit.</summary>
         public static bool Prefix(IPlayer byPlayer, ItemStack workItemStack)
         {
