@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.14")]
+    Version = "0.4.15")]
 
 namespace AlmanacTcm;
 
@@ -137,6 +137,11 @@ public class AlmanacTcmModSystem : ModSystem
 
     public override void StartServerSide(ICoreServerAPI sapi)
     {
+        // Clear the singleplayer material-gate override before anything can read it. Only a
+        // singleplayer world's own savegame may set it (TcmCommands.RestoreGateOverride), so a
+        // gate switched off in one world can never carry into the next world or into a server
+        // joined without restarting the game.
+        Domains.MetMaterialGate.SinglePlayerOverride = null;
         LoadGlobalConfig(sapi);
         Engine.LedgerSystem.DefaultFactories[Domains.MetDomain.Code] = Domains.MetDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.MinDomain.Code] = Domains.MinDomain.Defaults;
@@ -285,6 +290,11 @@ public class AlmanacTcmModSystem : ModSystem
         // Reset client-synced flags to their SAFE default first, so a value carried over
         // from a previous server can't linger into this one before its join packet lands.
         AlloyLedgerGated = true;
+        // Same reasoning for the singleplayer gate override: joining a REMOTE server never
+        // restores one (only a local world's savegame does), so clearing here guarantees a
+        // client that disabled the gate in singleplayer predicts the gate normally on The Quire.
+        // In singleplayer the server side re-restores it from the savegame after this runs.
+        if (!capi.IsSinglePlayer) Domains.MetMaterialGate.SinglePlayerOverride = null;
         Client = new LevelingClient(capi);
 
         // The Surveyor's depth bands arrive on their own channel (the PT tooltip reads them).

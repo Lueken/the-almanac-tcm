@@ -58,6 +58,82 @@ public class TcmCommands
                 .WithArgs(parsers.Word("action"), parsers.OptionalWord("key"))
                 .HandleWith(OnKnowledge)
             .EndSubCommand();
+
+        // SINGLEPLAYER ONLY, by construction. The subcommand is not registered at all on a
+        // dedicated server, so there is nothing on The Quire to run, mistype, or bypass — the
+        // guarantee is structural rather than a runtime privilege check.
+        if (!sapi.Server.IsDedicated)
+        {
+            sapi.ChatCommands.Get("tcm")
+                .BeginSubCommand("gate")
+                    .WithDescription("(singleplayer) Turn the Metalworking material gate on or off for this world")
+                    .RequiresPrivilege(Privilege.controlserver)
+                    .WithArgs(parsers.OptionalWord("state"))
+                    .HandleWith(OnGate)
+                .EndSubCommand();
+
+            RestoreGateOverride();
+        }
+    }
+
+    // ------------------------------------------------------------------ material gate
+
+    /// <summary>Savegame key for the singleplayer gate override. Stored in the WORLD, never in
+    /// ModConfig: global.json is per install and shared with the same client when it joins a
+    /// server, and because the gate is also evaluated client-side, a value that followed the
+    /// player onto The Quire would leave their client predicting no block while the server still
+    /// blocked — the ghost-ingot desync. A savegame value cannot travel.</summary>
+    private const string GateOverrideKey = "almanactcm:materialgateoverride";
+
+    private void RestoreGateOverride()
+    {
+        try
+        {
+            byte[]? stored = sapi.WorldManager.SaveGame.GetData(GateOverrideKey);
+            if (stored == null || stored.Length == 0) return;
+            Domains.MetMaterialGate.SinglePlayerOverride = stored[0] != 0;
+            TcmLog.Cat(sapi, TcmLog.Config,
+                $"singleplayer material-gate override restored: {(stored[0] != 0 ? "on" : "off")}");
+        }
+        catch (System.Exception e)
+        {
+            TcmLog.Warn(sapi, $"material-gate override unreadable ({e.Message}); using the server config");
+        }
+    }
+
+    private TextCommandResult OnGate(TextCommandCallingArgs args)
+    {
+        bool configDefault = core.GlobalConfig.MaterialGateMET;
+        bool effective = Domains.MetMaterialGate.SinglePlayerOverride ?? configDefault;
+
+        string? state = args.Parsers[0].IsMissing ? null : (string?)args[0];
+        if (state == null)
+        {
+            return TextCommandResult.Success(
+                $"Metalworking material gate is {(effective ? "ON" : "OFF")} for this world"
+                + (Domains.MetMaterialGate.SinglePlayerOverride == null
+                    ? " (server config default)."
+                    : " (set for this world; /tcm gate " + (effective ? "off" : "on") + " to flip)."));
+        }
+
+        bool wanted;
+        switch (state.ToLowerInvariant())
+        {
+            case "on": case "true": case "enable": case "enabled": wanted = true; break;
+            case "off": case "false": case "disable": case "disabled": wanted = false; break;
+            default: return TextCommandResult.Error("Use: /tcm gate [on|off]");
+        }
+
+        // One process-wide static: singleplayer shares it between the client and server
+        // ModSystems, so both the real check and the client's prediction flip together.
+        Domains.MetMaterialGate.SinglePlayerOverride = wanted;
+        sapi.WorldManager.SaveGame.StoreData(GateOverrideKey, new byte[] { wanted ? (byte)1 : (byte)0 });
+
+        TcmLog.Cat(sapi, TcmLog.Config, $"singleplayer material-gate override set to {(wanted ? "on" : "off")}");
+        return TextCommandResult.Success(wanted
+            ? "Metalworking material gate ON. Metals above your rank are blocked again."
+            : "Metalworking material gate OFF for this world. Every metal is workable at any rank. "
+              + "This world only — multiplayer servers are unaffected.");
     }
 
     /// <summary>Guide reveal testing: list shows every key the player holds, set/clear

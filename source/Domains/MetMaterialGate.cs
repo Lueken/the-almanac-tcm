@@ -170,9 +170,26 @@ public static class MetMaterialGate
     /// lifts the block so the attempt proceeds (true consume-and-ruin waste is a documented
     /// future refinement). Client side, disabled gate, no player, or a stack with no
     /// resolvable metal (fuel, tools, non-metal) → false (allow).</summary>
+    /// <summary>SINGLEPLAYER-ONLY override of the gate, set by `/tcm gate on|off` and stored in
+    /// that world's savegame. Null = no override, the server config decides (every dedicated
+    /// server and every multiplayer client is always null).
+    ///
+    /// Deliberately ONE process-wide static rather than a flag on each side's config. Blocks()
+    /// runs on both sides, and in singleplayer the client and server ModSystems share statics
+    /// (the same fact behind the 0.4.3 zero-XP bug) — so a single static flips both sides at once.
+    /// Flipping the server config alone would leave the client still predicting a block, because
+    /// ClientInstance.GlobalConfig is never loaded from disk and always holds the shipped default.
+    ///
+    /// Reset to null at every session start, so a gate disabled in a singleplayer world cannot
+    /// linger into a server join made without restarting the game.</summary>
+    public static bool? SinglePlayerOverride;
+
     public static bool Blocks(ICoreAPI? api, IPlayer? player, ItemStack? metalStack)
     {
         if (api == null || player == null) return false;
+        // The singleplayer override wins on both sides when it is set (see above).
+        if (SinglePlayerOverride == false) return false;
+
         // Runs on BOTH sides: the client uses its synced MET level to avoid predicting a
         // placement the server will reject (the ghost-ingot desync). Config here is the
         // client's default when unsynced — fine while the gate ships enabled; syncing the
@@ -180,12 +197,14 @@ public static class MetMaterialGate
         var cfg = (api.Side == EnumAppSide.Server
             ? AlmanacTcmModSystem.ServerInstance
             : AlmanacTcmModSystem.ClientInstance)?.GlobalConfig;
-        if (cfg == null || !cfg.MaterialGateMET) return false;
+        if (SinglePlayerOverride != true && (cfg == null || !cfg.MaterialGateMET)) return false;
 
         string? metal = MetalOf(api.World, metalStack);
         if (metal == null) return false;
-        if (IsWorkable(api, player, metal, cfg.MaterialGateMETUnmappedLevel, out _, out int required)) return false;
-        if (cfg.MaterialGateMETHardcore) return false;
+        // Null-safe: an override of `true` can reach here with no config loaded (the client
+        // side never loads one), so fall back to the shipped defaults rather than throwing.
+        if (IsWorkable(api, player, metal, cfg?.MaterialGateMETUnmappedLevel ?? 0, out _, out int required)) return false;
+        if (cfg?.MaterialGateMETHardcore == true) return false;
 
         Warn(api, player, metal, required);
         return true;
