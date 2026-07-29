@@ -73,6 +73,15 @@ public static class WooPatches
     [HarmonyPatch(typeof(ItemAxe), nameof(ItemAxe.OnBlockBrokenWith))]
     public static class FellSwingPatch
     {
+        /// <summary>Priority.First is REQUIRED, not tidiness. FallingTree replaces vanilla felling
+        /// wholesale: its own prefix on this method breaks every log itself
+        /// (FallingTree.AxePatch.OnBlockBrokenWith_Prefix → BlockAccessor.BreakBlock) and then
+        /// returns false. Harmony skips every prefix AFTER one that returns false, so at default
+        /// priority our batch would be a coin flip on patch order — and on the losing flip the
+        /// whole redwood banks one grant per quarter-log again, which is the exact storm this
+        /// patch exists to stop. Running first also guarantees the flag is set before the first
+        /// BreakBlock lands. Same reason WooFallingTreePatches stashes at Priority.First.</summary>
+        [HarmonyPriority(Priority.First)]
         public static void Prefix(IWorldAccessor world, Entity byEntity, BlockSelection blockSel)
         {
             fellBatching = false;
@@ -91,7 +100,8 @@ public static class WooPatches
 
         /// <summary>Finalizer, not a postfix: the batch flag must be cleared and the grant banked
         /// even if vanilla or another mod throws mid-fell, or the next swing would inherit a stale
-        /// batch and silently swallow its grants.</summary>
+        /// batch and silently swallow its grants. Finalizers also still run when a prefix returned
+        /// false, which is exactly the FallingTree path.</summary>
         public static void Finalizer(IWorldAccessor world)
         {
             if (!fellBatching) return;
