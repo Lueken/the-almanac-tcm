@@ -69,6 +69,14 @@ public static class WooDomain
     // burns it (not for the collier). Magnitudes playtest-tuned per MET ruling 1.
     public const string MarkBurnTempBonus = "markBurnTempBonus";     // degrees added
     public const string MarkBurnDurationMul = "markBurnDurationMul"; // duration multiplier
+    // Per-swing felling curve (RULED 2026-07-28). Vanilla's axe fells an ENTIRE tree in one
+    // synchronous loop (ItemAxe.OnBlockBrokenWith, capped at 2500 blocks by FindTree), so a
+    // single swing used to fire one grant — one chat line, one toast packet, one debug write —
+    // per log, which froze clients on very large trees. The swing is now one practice event whose
+    // raw is scaled by the log count: linear to the KNEE so an ordinary tree banks exactly what it
+    // always did, square-root compressed above it, hard capped at CAP.
+    public const string FellLogKnee = "fellLogKnee";
+    public const string FellLogCap = "fellLogCap";
 
     public static DomainConfig Defaults() => new()
     {
@@ -132,8 +140,28 @@ public static class WooDomain
             [PitFloorGm] = 0.85,
             [MarkBurnTempBonus] = 100,
             [MarkBurnDurationMul] = 1.2,
+            // Knee 12 ≈ an ordinary tree, so normal felling is untouched (0.35 × 12 = 4.2 raw,
+            // exactly what twelve per-log grants banked before). Above it the curve bends:
+            // 30 logs → ×16.2, 100 → ×21.4, and the cap is reached at 156 logs. Cap 24 = 8.4 raw,
+            // twice an ordinary tree — a monster is worth meaningfully more without being a day's
+            // practice in one swing (a WOO technique saturates against Smax/m = 33.3).
+            [FellLogKnee] = 12,
+            [FellLogCap] = 24,
         }
     };
+
+    /// <summary>Log count in ONE axe swing → raw multiplier for the single coalesced felling
+    /// event. Linear to the knee (an ordinary tree banks what it always did), square-root
+    /// compressed above it, hard capped. RULED 2026-07-28 after a 2500-block tree froze a
+    /// singleplayer client with one grant per log.</summary>
+    public static double FellMultiplier(int logs)
+    {
+        if (logs <= 0) return 0;
+        double knee = System.Math.Max(1, Knob(FellLogKnee, 12));
+        double cap = System.Math.Max(1, Knob(FellLogCap, 24));
+        double scaled = logs <= knee ? logs : knee + System.Math.Sqrt(logs - knee);
+        return System.Math.Min(scaled, cap);
+    }
 
     /// <summary>General rank curve: untrained value at level 0, exactly 1.0 at Novice I,
     /// linear to the GM value at max level (shared shape with MET/MIN).</summary>

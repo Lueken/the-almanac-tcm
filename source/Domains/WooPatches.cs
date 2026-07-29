@@ -1,3 +1,4 @@
+using System;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -20,11 +21,30 @@ public static class WooPatches
 
     // ============================================================ practice verbs
 
+    // ---------------------------------------------------------- the felling swing
+    //
+    // Vanilla's axe is not a per-block tool: ItemAxe.OnBlockBrokenWith flood-fills the whole tree
+    // and breaks every position in ONE synchronous loop (up to FindTree's 2500-block cap). The
+    // felling grant rides Block.OnBlockBroken, so a single swing on a large tree used to fire
+    // hundreds of practice events in one tick — each one a chat packet, a toast packet (and a
+    // client-side text-texture regen), and a debug write. That froze a singleplayer client outright
+    // on a very large tree (LauCaRo, 2026-07-28). The swing is now ONE event: the batch counts logs
+    // while vanilla's loop runs and banks once in the finalizer, scaled by WooDomain.FellMultiplier.
+    //
+    // The break→fell chain is synchronous on the server thread (same assumption WooFallingTreePatches
+    // documents), so ThreadStatic state is safe and cannot leak between players.
+
+    [ThreadStatic] private static bool fellBatching;
+    [ThreadStatic] private static int fellLogCount;
+    [ThreadStatic] private static string? fellPlayerUid;
+    [ThreadStatic] private static BlockPos? fellBasePos;
+
     /// <summary>Felling: each log break (the struck trunk and every downed log you break after it
     /// falls) is a WOO/felling event. Material Wood alone was too broad (a fallen crude door,
     /// planks, furniture all count as Wood — the 2026-07-25 door leak), so the block must also
     /// BE tree wood: vanilla and most tree mods use BlockLog, and the code-prefix check catches
-    /// log blocks that ship as plain Block.</summary>
+    /// log blocks that ship as plain Block. Inside an axe swing this only COUNTS; the single
+    /// coalesced grant lands in FellSwingPatch's finalizer.</summary>
     [HarmonyPatch(typeof(Block), nameof(Block.OnBlockBroken))]
     public static class FellingPracticePatch
     {
@@ -34,7 +54,64 @@ public static class WooPatches
             if (__instance.BlockMaterial != EnumBlockMaterial.Wood) return;
             if (__instance is not BlockLog && __instance.Code?.Path?.StartsWith("log") != true) return;
 
+            // Inside the swing that felled this tree: count, do not grant.
+            if (fellBatching && fellPlayerUid == byPlayer.PlayerUID)
+            {
+                fellLogCount++;
+                return;
+            }
+
+            // Outside a swing (hand-broken log, non-axe tool, another mod's break): unchanged.
             Core?.Ledger?.Log(byPlayer, WooDomain.Code, WooDomain.TechFelling, pos.GetHashCode());
+        }
+    }
+
+    /// <summary>Wraps one axe swing so the whole tree banks as a single practice event. Always on
+    /// (this is vanilla behaviour, not a mod seam); FallingTree's path runs through the same method,
+    /// so it is covered too. Coexists with WooFallingTreePatches' Priority.First prefix on this
+    /// method — that one stashes the fall direction, this one counts logs.</summary>
+    [HarmonyPatch(typeof(ItemAxe), nameof(ItemAxe.OnBlockBrokenWith))]
+    public static class FellSwingPatch
+    {
+        public static void Prefix(IWorldAccessor world, Entity byEntity, BlockSelection blockSel)
+        {
+            fellBatching = false;
+            fellLogCount = 0;
+            fellPlayerUid = null;
+            fellBasePos = null;
+
+            if (world.Side != EnumAppSide.Server || blockSel?.Position == null) return;
+            IPlayer? player = (byEntity as EntityPlayer)?.Player;
+            if (player == null) return;
+
+            fellBatching = true;
+            fellPlayerUid = player.PlayerUID;
+            fellBasePos = blockSel.Position.Copy();
+        }
+
+        /// <summary>Finalizer, not a postfix: the batch flag must be cleared and the grant banked
+        /// even if vanilla or another mod throws mid-fell, or the next swing would inherit a stale
+        /// batch and silently swallow its grants.</summary>
+        public static void Finalizer(IWorldAccessor world)
+        {
+            if (!fellBatching) return;
+
+            int logs = fellLogCount;
+            string? uid = fellPlayerUid;
+            BlockPos? basePos = fellBasePos;
+            fellBatching = false;
+            fellLogCount = 0;
+            fellPlayerUid = null;
+            fellBasePos = null;
+
+            if (logs <= 0 || uid == null) return;
+            IPlayer? player = world.PlayerByUid(uid);
+            if (player == null) return;
+
+            // One event per swing, keyed on the struck block so re-felling the same stump inside
+            // the dedup window still collapses the way any repeated context does.
+            Core?.Ledger?.Log(player, WooDomain.Code, WooDomain.TechFelling,
+                basePos?.GetHashCode() ?? 0, WooDomain.FellMultiplier(logs));
         }
     }
 

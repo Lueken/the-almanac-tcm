@@ -73,6 +73,9 @@ public class LedgerSystem
         sapi.Event.PlayerDeath += OnPlayerDeath;
         sapi.Event.GameWorldSave += SaveLedgers;
         sapi.Event.RegisterGameTickListener(OnEngineTick, 5000);
+        // Fast, cheap tick: flushes the tail of a coalesced feedback burst. No-ops instantly
+        // when nothing is queued, which is the overwhelming majority of ticks.
+        sapi.Event.RegisterGameTickListener(OnFeedbackTick, (int)FeedbackWindowMs);
     }
 
     private void LoadDomainConfigs()
@@ -230,34 +233,174 @@ public class LedgerSystem
             TcmLog.Cat(sapi, TcmLog.Ledger,
                 $"{player.PlayerName} {domainCode}/{technique} +{raw:0.##} -> x={accs[technique]:0.##}");
 
-            if (config.PracticeGainMessages)
-            {
-                // Round for display only: raw multipliers produce doubles like
-                // 1.2000000000000002, and the chat line is not a debugger.
-                SendInfoLine(player, "almanactcm:practice-gain",
-                    domain.DisplayName, technique, System.Math.Round(raw, 2), System.Math.Round(accs[technique], 2));
-            }
-
-            if (config.PracticeGainToasts)
-            {
-                leveling.SendPracticeGain(player, domainCode, technique, raw);
-            }
+            QueueFeedback(player, domain, technique, raw);
 
             MaybeSyncPending(player, domainSet!, ledger);
         }
-        else if (duplicate && config.PracticeGainMessages && announceRepeat)
+        else if (duplicate && config.PracticeGainMessages && announceRepeat
+                 && FeedbackWindowElapsed(player, domainCode, technique))
         {
             SendInfoLine(player, "almanactcm:practice-repeat", domain.DisplayName, technique);
         }
     }
 
+    // ------------------------------------------------------------------ feedback
+
+    /// <summary>Minimum gap between practice-feedback sends for one player/domain/technique.
+    /// Gains inside the window are accumulated and go out as one line on the flush tick.</summary>
+    private const long FeedbackWindowMs = 250;
+
+    /// <summary>Drop an idle entry after this long so the map cannot grow with every
+    /// player/technique pair ever seen.</summary>
+    private const long FeedbackIdleMs = 60_000;
+
+    private class FeedbackEntry
+    {
+        public string Uid = "";
+        public string DomainCode = "";
+        public string Technique = "";
+        public double Raw;
+        public long LastSentMs;
+        public bool Pending;
+    }
+
+    /// <summary>Coalesced practice feedback, keyed uid|domain|technique.
+    ///
+    /// A single player action can produce hundreds of practice events in one tick — vanilla's axe
+    /// fells an entire tree (up to 2500 blocks) inside one synchronous loop, and other mods break
+    /// in bulk too. One chat line and one toast packet per event froze clients outright: each
+    /// Notification made the vanilla chat HUD switch tabs and rebuild, and each toast packet
+    /// regenerated a text texture. Practice ACCOUNTING is still per event and exact; only the
+    /// feedback is throttled. WOO's felling swing additionally coalesces upstream (one event per
+    /// swing) — this layer is the general safety net for every other seam.</summary>
+    private readonly Dictionary<string, FeedbackEntry> feedback = new();
+
+    private static string FeedbackKey(string uid, string domainCode, string technique)
+        => uid + "|" + domainCode + "|" + technique;
+
+    private FeedbackEntry FeedbackFor(IPlayer player, string domainCode, string technique)
+    {
+        string key = FeedbackKey(player.PlayerUID, domainCode, technique);
+        if (!feedback.TryGetValue(key, out FeedbackEntry? entry))
+        {
+            entry = new FeedbackEntry
+            {
+                Uid = player.PlayerUID,
+                DomainCode = domainCode,
+                Technique = technique,
+                LastSentMs = long.MinValue / 2,
+            };
+            feedback[key] = entry;
+        }
+        return entry;
+    }
+
+    /// <summary>True when this player/domain/technique may send again right now. Used by the
+    /// repeat line, which carries no amount worth accumulating.</summary>
+    private bool FeedbackWindowElapsed(IPlayer player, string domainCode, string technique)
+    {
+        FeedbackEntry entry = FeedbackFor(player, domainCode, technique);
+        long now = sapi.World.ElapsedMilliseconds;
+        if (now - entry.LastSentMs < FeedbackWindowMs) return false;
+        entry.LastSentMs = now;
+        return true;
+    }
+
+    private void QueueFeedback(IPlayer player, Domain domain, string technique, double raw)
+    {
+        if (!config.PracticeGainMessages && !config.PracticeGainToasts) return;
+
+        FeedbackEntry entry = FeedbackFor(player, domain.Code, technique);
+        entry.Raw += raw;
+
+        if (sapi.World.ElapsedMilliseconds - entry.LastSentMs < FeedbackWindowMs)
+        {
+            entry.Pending = true;   // the flush tick will send the accumulated total
+            return;
+        }
+        SendFeedback(player, domain, entry);
+    }
+
+    private void SendFeedback(IPlayer player, Domain domain, FeedbackEntry entry)
+    {
+        double raw = entry.Raw;
+        entry.Raw = 0;
+        entry.Pending = false;
+        entry.LastSentMs = sapi.World.ElapsedMilliseconds;
+        if (raw <= 0) return;
+
+        double dayTotal = 0;
+        if (ledgers.TryGetValue(entry.Uid, out PracticeLedger? ledger)
+            && ledger.Accumulators.TryGetValue(domain.Code, out var accs)
+            && accs.TryGetValue(entry.Technique, out double x)) dayTotal = x;
+
+        if (config.PracticeGainMessages)
+        {
+            // Round for display only: raw multipliers produce doubles like
+            // 1.2000000000000002, and the chat line is not a debugger.
+            SendInfoLine(player, "almanactcm:practice-gain",
+                domain.DisplayName, entry.Technique,
+                System.Math.Round(raw, 2), System.Math.Round(dayTotal, 2));
+        }
+
+        if (config.PracticeGainToasts)
+        {
+            leveling.SendPracticeGain(player, domain.Code, entry.Technique, (float)raw);
+        }
+    }
+
+    /// <summary>Flushes accumulated feedback once the window has passed, so the tail of a burst
+    /// is still shown instead of being silently dropped.</summary>
+    private void OnFeedbackTick(float dt)
+    {
+        if (feedback.Count == 0) return;
+        long now = sapi.World.ElapsedMilliseconds;
+
+        foreach (FeedbackEntry entry in feedback.Values)
+        {
+            if (!entry.Pending || now - entry.LastSentMs < FeedbackWindowMs) continue;
+
+            IPlayer? player = sapi.World.PlayerByUid(entry.Uid);
+            Domain? domain = template.FindDomain(entry.DomainCode);
+            if (player == null || domain == null)
+            {
+                entry.Pending = false;
+                entry.Raw = 0;
+                continue;
+            }
+            SendFeedback(player, domain, entry);
+        }
+    }
+
+    /// <summary>Idle-entry sweep, ridden on the existing 5s engine tick.</summary>
+    private void PruneFeedback()
+    {
+        if (feedback.Count == 0) return;
+        long now = sapi.World.ElapsedMilliseconds;
+        List<string>? stale = null;
+        foreach (var (key, entry) in feedback)
+        {
+            if (entry.Pending || now - entry.LastSentMs < FeedbackIdleMs) continue;
+            (stale ??= new List<string>()).Add(key);
+        }
+        if (stale == null) return;
+        foreach (string key in stale) feedback.Remove(key);
+    }
+
     /// <summary>Practice feedback to the client's Info tab (trial instrumentation;
-    /// PracticeGainMessages turns it off when the novelty wears thin).</summary>
+    /// PracticeGainMessages turns it off when the novelty wears thin).
+    ///
+    /// Sent as OthersMessage, NOT Notification (2026-07-28): vanilla's HudDialogChat auto-switches
+    /// the visible tab on Notification and CommandSuccess when AutoChat + AutoChatOpenSelected are
+    /// on (both default), and InfoLogChatGroup is not in its exclusion list — so every practice
+    /// line yanked the player's chat to the Info tab and rebuilt the dialog. Harmless once a
+    /// second, ruinous when a seam fires in bulk. OthersMessage renders identically and does not
+    /// steal the tab.</summary>
     private void SendInfoLine(IPlayer player, string langKey, params object[] args)
     {
         if (player is not IServerPlayer serverPlayer) return;
         serverPlayer.SendMessage(GlobalConstants.InfoLogChatGroup,
-            Lang.GetL(serverPlayer.LanguageCode, langKey, args), EnumChatType.Notification);
+            Lang.GetL(serverPlayer.LanguageCode, langKey, args), EnumChatType.OthersMessage);
     }
 
     private bool IsDuplicateContext(PracticeLedger ledger, string domain, string technique, int contextHash)
@@ -303,6 +446,7 @@ public class LedgerSystem
         {
             TryConsolidate(player);
         }
+        PruneFeedback();
     }
 
     private void OnPlayerNowPlaying(IServerPlayer byPlayer)
