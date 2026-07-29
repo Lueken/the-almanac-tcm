@@ -39,20 +39,39 @@ public static class WooPatches
     [ThreadStatic] private static string? fellPlayerUid;
     [ThreadStatic] private static BlockPos? fellBasePos;
 
-    /// <summary>Felling: each log break (the struck trunk and every downed log you break after it
-    /// falls) is a WOO/felling event. Material Wood alone was too broad (a fallen crude door,
-    /// planks, furniture all count as Wood — the 2026-07-25 door leak), so the block must also
-    /// BE tree wood: vanilla and most tree mods use BlockLog, and the code-prefix check catches
-    /// log blocks that ship as plain Block. Inside an axe swing this only COUNTS; the single
-    /// coalesced grant lands in FellSwingPatch's finalizer.</summary>
+    /// <summary>Wood that is part of a living tree, as vanilla itself defines it. Placed,
+    /// debarked, carved and crafted wood carry no treeFellingGroupCode and never count.</summary>
+    private static bool IsStandingTreeWood(Block block)
+    {
+        if (block.BlockMaterial != EnumBlockMaterial.Wood) return false;
+        string? fellingGroup = block.Attributes?["treeFellingGroupCode"].AsString();
+        return !string.IsNullOrEmpty(fellingGroup);
+    }
+
+    /// <summary>Only a STANDING TREE counts as felling (RULED 2026-07-28: "if I used wood in my
+    /// house and break it, no XP, only on the tree felling").
+    ///
+    /// The test is vanilla's own tree marker, the `treeFellingGroupCode` attribute that
+    /// ItemAxe.FindTree uses to decide what belongs to a tree. Vanilla sets it by type on the
+    /// GROWN variants only (`"log-grown-*": "{wood}"`, `"*-grown-*"` for logsection), so placed
+    /// and debarked wood is excluded by construction.
+    ///
+    /// This replaces the old `is BlockLog || code starts with "log"` test, which leaked twice:
+    /// BlockLog is the class of BOTH log-grown-* and log-placed-*, and the prefix additionally
+    /// matched logquad-placed-* and logsection-placed-*, so tearing down a log cabin farmed
+    /// felling. It is also STRICTER and BROADER at once — a mod trunk block named anything at all
+    /// now counts as long as it is a real tree, and a decorative block named "log-something"
+    /// no longer does.
+    ///
+    /// Inside an axe swing this only COUNTS; the single coalesced grant lands in FellSwingPatch's
+    /// finalizer.</summary>
     [HarmonyPatch(typeof(Block), nameof(Block.OnBlockBroken))]
     public static class FellingPracticePatch
     {
         public static void Postfix(Block __instance, IWorldAccessor world, BlockPos pos, IPlayer byPlayer)
         {
             if (world.Side != EnumAppSide.Server || byPlayer == null) return;
-            if (__instance.BlockMaterial != EnumBlockMaterial.Wood) return;
-            if (__instance is not BlockLog && __instance.Code?.Path?.StartsWith("log") != true) return;
+            if (!IsStandingTreeWood(__instance)) return;
 
             // Inside the swing that felled this tree: count, do not grant.
             if (fellBatching && fellPlayerUid == byPlayer.PlayerUID)
