@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.16")]
+    Version = "0.4.17")]
 
 namespace AlmanacTcm;
 
@@ -22,8 +22,13 @@ public class AlmanacTcmModSystem : ModSystem
 {
     /// <summary>Minimum sibling version enforced at runtime; modinfo declares the
     /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).
-    /// 0.0.16 is the guide reveal-provider API this build registers against.</summary>
-    private const string MinIlluminatedVersion = "0.0.16";
+    ///
+    /// 0.1.2, because this build's guides use PACK-LEVEL `revealedBy` (alloys, smithing),
+    /// which Illuminated only honours from 0.0.18. Below that the field is ignored and the
+    /// chapter degrades open, so nothing breaks loudly: the earned reveal simply never
+    /// happens and the chapter sits visible from the first login, which is the whole thing
+    /// it exists to prevent. Pinned to 0.1.2 rather than 0.0.18 so the pair stays in step.</summary>
+    private const string MinIlluminatedVersion = "0.1.2";
 
     /// <summary>Static access for Harmony patches, split by side (set in Start, cleared in
     /// Dispose). Singleplayer loads BOTH a client-side and a server-side ModSystem in one
