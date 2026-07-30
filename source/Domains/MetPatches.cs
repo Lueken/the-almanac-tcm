@@ -550,6 +550,11 @@ public static class MetPatches
 
     private static IPlayer? pouringPlayer;
 
+    /// <summary>The player mid-pour from a held crucible, for seams outside this file. The
+    /// industrialstory casting-sand fill has no player of its own, and a crucible tipped straight
+    /// into a bed runs inside this same interaction, so the sand seam reads the pourer here.</summary>
+    internal static IPlayer? PouringPlayer => pouringPlayer;
+
     [HarmonyPatch(typeof(BlockSmeltedContainer), nameof(BlockSmeltedContainer.OnHeldInteractStep))]
     public static class PourContextPatch
     {

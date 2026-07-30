@@ -102,6 +102,69 @@ public static class MetConditionalPatches
         }
     }
 
+    // ------------------------------------ industrialstory casting sand (TechCasting)
+    //
+    // Sand casting is the mass-production road, and it fills nothing like a vanilla tool mold:
+    // BlockEntitySmallSmelter.TryTapMoltenMetal (and the blast, reverb and retort equivalents)
+    // runs the WHOLE pour synchronously, and BlockEntityCastingSand.ReceiveLiquidMetal routes the
+    // stream through connected channels to every mold it can reach. One hammer strike therefore
+    // completes every connected mold in the same instant.
+    //
+    // RULED 2026-07-29: that simultaneity must NOT cost the player anything. Each completed mold
+    // is its own practice event keyed on its own position, so the dedup ring sees distinct
+    // contexts and collapses none of them; a four-mold pour banks four times a single mold. The
+    // per-mold value is scaled down instead (MetDomain.SandCastFactor), which is what makes bulk
+    // casting worth less per item than a hand-poured mold without punishing the batch.
+    //
+    // Attribution follows the pour or the tap, never whoever collects the casting later: the tap
+    // stashes its player for the duration of the call, and a crucible tipped into a bed by hand
+    // is read from MetPatches.PouringPlayer. Both are ambient-context reads with no stored-owner
+    // chain, because the entire fill is synchronous inside the acting player's own interaction.
+
+    /// <summary>Tapping player for the duration of one TryTapMoltenMetal call. ThreadStatic and
+    /// finalizer-cleared: the pour is synchronous on the server thread, so this cannot leak
+    /// between players or survive an exception mid-pour.</summary>
+    [ThreadStatic] private static string? tappingUid;
+
+    public static class TapContextPatch
+    {
+        public static void Prefix(IPlayer byPlayer) => tappingUid = byPlayer?.PlayerUID;
+
+        public static void Finalizer() => tappingUid = null;
+    }
+
+    public static class SandCastFillPatch
+    {
+        /// <summary>Fullness BEFORE the metal lands, so only the pour that COMPLETES a mold
+        /// counts. A mold topped up across two taps pays once, at the tap that finished it.</summary>
+        public static void Prefix(object __instance, out bool __state)
+        {
+            __state = true;
+            try { __state = Traverse.Create(__instance).Property<bool>("IsFull").Value; }
+            catch (Exception) { }
+        }
+
+        public static void Postfix(object __instance, bool __state)
+        {
+            if (__state) return;   // already full when the metal arrived
+            var be = __instance as BlockEntity;
+            if (be?.Api?.Side != EnumAppSide.Server || be.Pos == null) return;
+
+            var probe = Traverse.Create(__instance);
+            // Channels route metal but hold no casting; only a mold that just filled is practice.
+            if (!probe.Property<bool>("IsMold").Value) return;
+            if (!probe.Property<bool>("IsFull").Value) return;
+
+            IPlayer? caster = tappingUid != null ? be.Api.World.PlayerByUid(tappingUid) : null;
+            caster ??= MetPatches.PouringPlayer;
+            if (caster == null) return;   // unattended flow with nobody to credit
+
+            Core?.Ledger?.Log(caster, MetDomain.Code, MetDomain.TechCasting,
+                HashCode.Combine("sandcast", PosKey(be.Pos)),
+                Knob(MetDomain.SandCastFactor, 0.35));
+        }
+    }
+
     public static class TapPatch
     {
         // Bool-returning taps gate on success; the void retort tap grants on the call
@@ -162,11 +225,32 @@ public static class MetConditionalPatches
         {
             var m = AccessTools.Method(AccessTools.TypeByName(type), "TryTapMoltenMetal");
             if (m == null) continue;
-            harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(TapPatch), postfix)));
+            // Prefix stashes the tapper so the casting-sand molds this pour fills can be credited;
+            // the finalizer clears it even if the pour throws partway down the channel run.
+            harmony.Patch(m,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(TapContextPatch), "Prefix")),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(TapPatch), postfix)),
+                finalizer: new HarmonyMethod(AccessTools.Method(typeof(TapContextPatch), "Finalizer")));
             hooked++;
         }
 
-        TcmLog.Info(api, $"MET smelting practice hooked to industrialstory ({hooked} seam(s): pit blowpipe + molten taps)");
+        // Casting sand: one grant per mold COMPLETED, credited to the tapper or the pourer.
+        var sandFill = AccessTools.Method(
+            AccessTools.TypeByName("IndustrialStory.BlockEntityCastingSand"), "ReceiveLiquidMetal");
+        if (sandFill != null)
+        {
+            harmony.Patch(sandFill,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(SandCastFillPatch), "Prefix")),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(SandCastFillPatch), "Postfix")));
+            hooked++;
+            TcmLog.Info(api, "MET casting practice hooked to industrialstory casting sand (per mold filled)");
+        }
+        else
+        {
+            TcmLog.Warn(api, "industrialstory present but BlockEntityCastingSand.ReceiveLiquidMetal not found; sand-casting practice inactive");
+        }
+
+        TcmLog.Info(api, $"MET smelting practice hooked to industrialstory ({hooked} seam(s): pit blowpipe + molten taps + casting sand)");
     }
 
     // ------------------------------------------------ Toolsmith workbench (assembly)

@@ -35,6 +35,11 @@ public static class MetDomain
     public const string FuelEconomyGm = "fuelEconomyGm";
     public const string BitRecoveryUntrained = "bitRecoveryUntrained";
     public const string BitRecoveryGm = "bitRecoveryGm";
+    /// <summary>Raw multiplier for ONE mold completed in an industrialstory casting-sand bed.
+    /// Sand casting is the mass-production road: a single tap fills every connected mold in the
+    /// same instant, so each mold is worth clearly less than a hand-poured tool mold while a
+    /// four-tool pour still pays more than a one-tool pour (RULED 2026-07-29).</summary>
+    public const string SandCastFactor = "sandCastFactor";
     public const string MoldWearUntrained = "moldWearUntrained";
     public const string MoldWearGm = "moldWearGm";
     // Axis 6 stage 2 — GM signature
@@ -73,6 +78,10 @@ public static class MetDomain
             [FuelEconomyGm] = 0.15,
             [BitRecoveryUntrained] = 0.7,
             [BitRecoveryGm] = 1.3,
+            // 0.35 of a hand-poured mold. A typical industrial pour of 4 tools banks ~8.4 raw,
+            // 8 ingots ~16.8, against the technique's own daily ceiling of Smax/m = 33.3. The
+            // saturation curve is the limiter here, deliberately, rather than a per-pour cap.
+            [SandCastFactor] = 0.35,
             [MoldWearUntrained] = 1.25,
             [MoldWearGm] = 0.6,
             // Axis 6 stage 2: per-hit wear-skip chance on GM work. Durable is a deeper
