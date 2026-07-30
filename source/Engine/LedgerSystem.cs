@@ -78,6 +78,25 @@ public class LedgerSystem
         sapi.Event.RegisterGameTickListener(OnFeedbackTick, (int)FeedbackWindowMs);
     }
 
+    /// <summary>Invariant-culture round-trip form, so a comma-decimal locale compares equal to a
+    /// baseline written on a period-decimal one.</summary>
+    private static string Inv(double d) =>
+        d.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Record a freshly written config's own values as its merge baseline. A file born
+    /// from shipped defaults is pristine by definition, so baseline == current; without this a
+    /// brand-new config would have an empty baseline and the NEXT upgrade would have to assume
+    /// every value was operator-tuned.</summary>
+    private static void SeedBaselineFromSelf(DomainConfig dc)
+    {
+        dc.ShippedTechniqueBaseline.Clear();
+        foreach (var (name, tech) in dc.Techniques)
+            dc.ShippedTechniqueBaseline[name] = DomainConfig.Fingerprint(tech);
+        dc.ShippedBonusBaseline.Clear();
+        foreach (var (knob, value) in dc.Bonus)
+            dc.ShippedBonusBaseline[knob] = value;
+    }
+
     private void LoadDomainConfigs()
     {
         foreach (Domain domain in template.Domains)
@@ -98,12 +117,14 @@ public class LedgerSystem
                 domainConfig = DefaultFactories.TryGetValue(domain.Code, out var factory)
                     ? factory()
                     : new DomainConfig { Code = domain.Code };
+                SeedBaselineFromSelf(domainConfig);
                 sapi.StoreModConfig(domainConfig, path);
             }
             else if (DefaultFactories.TryGetValue(domain.Code, out var factory))
             {
-                // Migration: newly shipped techniques/knobs join an EXISTING config
-                // file additively; values the server already tuned are never touched.
+                // Migration: newly shipped techniques/knobs join an EXISTING config file
+                // additively, and shipped values that the server never tuned track the defaults
+                // across upgrades (the three-way merge below). Tuned values are never touched.
                 DomainConfig defaults = factory();
                 bool changed = false;
                 if (domainConfig.Techniques.Count == 0 && defaults.Techniques.Count > 0)
@@ -113,26 +134,98 @@ public class LedgerSystem
                     // so the shipped defaults (M, adjacency, knobs) replace it wholesale.
                     TcmLog.Cat(sapi, TcmLog.Config, $"{domain.Code}: scaffold config replaced by shipped defaults");
                     domainConfig = defaults;
+                    SeedBaselineFromSelf(domainConfig);
                     changed = true;
                 }
                 else
                 {
+                    // Bootstrap the merge baseline for a file written before 0.4.16. A domain that
+                    // was retuned in the release introducing its baseline needs its OLD numbers
+                    // from the table; any other domain's current defaults ARE what the previous
+                    // build shipped, so they seed the baseline correctly on their own.
+                    if (domainConfig.ShippedTechniqueBaseline.Count == 0)
+                    {
+                        var legacy = LegacyBaselines.For(domain.Code);
+                        foreach (var (name, tech) in defaults.Techniques)
+                        {
+                            domainConfig.ShippedTechniqueBaseline[name] =
+                                legacy != null && legacy.TryGetValue(name, out string? old)
+                                    ? old
+                                    : DomainConfig.Fingerprint(tech);
+                        }
+                        changed = true;
+                        TcmLog.Cat(sapi, TcmLog.Config,
+                            $"{domain.Code}: merge baseline seeded ({(legacy != null ? "pre-retune table" : "current defaults")})");
+                    }
+                    if (domainConfig.ShippedBonusBaseline.Count == 0)
+                    {
+                        foreach (var (knob, value) in defaults.Bonus)
+                            domainConfig.ShippedBonusBaseline[knob] = value;
+                        changed = true;
+                    }
+
                     foreach (var (name, tech) in defaults.Techniques)
                     {
                         if (!domainConfig.Techniques.ContainsKey(name))
                         {
                             domainConfig.Techniques[name] = tech;
+                            domainConfig.ShippedTechniqueBaseline[name] = DomainConfig.Fingerprint(tech);
                             changed = true;
                             TcmLog.Cat(sapi, TcmLog.Config, $"{domain.Code}: new technique '{name}' merged into config");
+                            continue;
                         }
+
+                        // Three-way merge on the two balance numbers (rule in ConfigMerge.Decide).
+                        // The baseline always advances to what we ship now, even when the live
+                        // value is kept, so the NEXT upgrade compares against the right thing.
+                        TechniqueConfig live = domainConfig.Techniques[name];
+                        string shipped = DomainConfig.Fingerprint(tech);
+                        string liveFp = DomainConfig.Fingerprint(live);
+                        domainConfig.ShippedTechniqueBaseline.TryGetValue(name, out string? baseFp);
+                        switch (ConfigMerge.Decide(liveFp, baseFp, shipped))
+                        {
+                            case MergeAction.Adopt:
+                                live.Raw = tech.Raw;
+                                live.K = tech.K;
+                                TcmLog.Cat(sapi, TcmLog.Config,
+                                    $"{domain.Code}/{name}: shipped default moved {baseFp} -> {shipped}, adopted (was untouched)");
+                                break;
+                            case MergeAction.KeepTuned:
+                                if (baseFp != shipped)
+                                    TcmLog.Info(sapi,
+                                        $"{domain.Code}/{name}: keeping server-tuned {liveFp}; shipped default moved {baseFp} -> {shipped} (not applied)");
+                                break;
+                        }
+                        if (baseFp != shipped) { domainConfig.ShippedTechniqueBaseline[name] = shipped; changed = true; }
                     }
+
                     foreach (var (knob, value) in defaults.Bonus)
                     {
                         if (!domainConfig.Bonus.ContainsKey(knob))
                         {
                             domainConfig.Bonus[knob] = value;
+                            domainConfig.ShippedBonusBaseline[knob] = value;
                             changed = true;
+                            continue;
                         }
+                        // Same three-way rule for the bonus knobs, via the same pure decision.
+                        double liveVal = domainConfig.Bonus[knob];
+                        bool hadBase = domainConfig.ShippedBonusBaseline.TryGetValue(knob, out double baseVal);
+                        string liveS = Inv(liveVal), shippedS = Inv(value), baseS = hadBase ? Inv(baseVal) : null!;
+                        switch (ConfigMerge.Decide(liveS, hadBase ? baseS : null, shippedS))
+                        {
+                            case MergeAction.Adopt:
+                                domainConfig.Bonus[knob] = value;
+                                TcmLog.Cat(sapi, TcmLog.Config,
+                                    $"{domain.Code}/{knob}: shipped default moved {baseVal} -> {value}, adopted (was untouched)");
+                                break;
+                            case MergeAction.KeepTuned:
+                                if (baseS != shippedS)
+                                    TcmLog.Info(sapi,
+                                        $"{domain.Code}/{knob}: keeping server-tuned {liveVal}; shipped default moved {baseVal} -> {value} (not applied)");
+                                break;
+                        }
+                        if (!hadBase || baseS != shippedS) { domainConfig.ShippedBonusBaseline[knob] = value; changed = true; }
                     }
                     if (domainConfig.Adjacency.Count == 0 && defaults.Adjacency.Count > 0)
                     {
@@ -329,24 +422,62 @@ public class LedgerSystem
         entry.LastSentMs = sapi.World.ElapsedMilliseconds;
         if (raw <= 0) return;
 
-        double dayTotal = 0;
+        double x = 0;
         if (ledgers.TryGetValue(entry.Uid, out PracticeLedger? ledger)
             && ledger.Accumulators.TryGetValue(domain.Code, out var accs)
-            && accs.TryGetValue(entry.Technique, out double x)) dayTotal = x;
+            && accs.TryGetValue(entry.Technique, out double acc)) x = acc;
+
+        // Show what the act EARNS, never the raw practice behind it (RULED 2026-07-29).
+        // Raw is an engine value: 10 raw on the day's first smithing banks 6.7 and the sixth
+        // piece banks 1.5, so a toast reading "+10" six times running actively misinforms, and
+        // it disagreed with the Callings tab's "at rest" figure, which is the settled number.
+        // Both surfaces now speak the settled unit, and raw and K stay server-side where the
+        // hidden-values rule wants them. Falling numbers also teach the curve without a word.
+        double earned = EarnedDelta(player, domain, entry.Technique, raw, x);
+        double settlingToday = BankedSoFar(player, domain, entry.Technique, x);
 
         if (config.PracticeGainMessages)
         {
-            // Round for display only: raw multipliers produce doubles like
-            // 1.2000000000000002, and the chat line is not a debugger.
             SendInfoLine(player, "almanactcm:practice-gain",
                 domain.DisplayName, entry.Technique,
-                System.Math.Round(raw, 2), System.Math.Round(dayTotal, 2));
+                System.Math.Round(earned, 1), System.Math.Round(settlingToday, 1));
         }
 
         if (config.PracticeGainToasts)
         {
-            leveling.SendPracticeGain(player, domain.Code, entry.Technique, (float)raw);
+            leveling.SendPracticeGain(player, domain.Code, entry.Technique, (float)earned);
         }
+    }
+
+    /// <summary>What this technique's accumulator is worth right now, under the same saturation
+    /// the 3am consolidation will apply. Phase-aware, so it stays correct when a player crosses
+    /// Journeyman entry and the dominant-technique weighting takes over.</summary>
+    private double BankedSoFar(IPlayer player, Domain domain, string technique, double x)
+    {
+        if (x <= 0 || !DomainConfigs.TryGetValue(domain.Code, out DomainConfig? dc)) return 0;
+        PlayerDomain? playerDomain = leveling.GetDomainSet(player)?[domain.Id];
+        if (playerDomain == null) return 0;
+
+        bool depthPhase = playerDomain.Level >= JourneymanEntry;
+        string? dominant = depthPhase
+            ? LedgerFor(player).DominantTechnique(domain.Code, CurrentBoundary(), config.DominantWindowDays)
+            : null;
+        double k = effective.TryGetValue(domain.Code, out var techs)
+                   && techs.TryGetValue(technique, out var e) ? e.k : 50.0;
+        double smax = dc.Smax * SmaxScaleProvider(player, domain);
+
+        return SaturationMath.TechniqueBanked(x, k, smax, dc.M,
+            depthPhase, technique == dominant, config.DepthOffTechniqueWeight);
+    }
+
+    /// <summary>The marginal value of the practice just logged: what the accumulator is worth
+    /// now, less what it was worth before. This is the honest "you earned this much" figure,
+    /// and it shrinks with repetition exactly as the curve intends.</summary>
+    private double EarnedDelta(IPlayer player, Domain domain, string technique, double raw, double x)
+    {
+        double after = BankedSoFar(player, domain, technique, x);
+        double before = BankedSoFar(player, domain, technique, System.Math.Max(0, x - raw));
+        return System.Math.Max(0, after - before);
     }
 
     /// <summary>Flushes accumulated feedback once the window has passed, so the tail of a burst
