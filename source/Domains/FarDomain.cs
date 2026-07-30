@@ -49,6 +49,17 @@ public static class FarDomain
     /// <summary>The Untrained harvest dock (penalty-only, ruled: "the penalty end is simply a
     /// lower return"): crop drop multiplier at level 0. Clears at Novice; no GM bonus.</summary>
     public const string HarvestDockUntrained = "harvestDockUntrained";
+    /// <summary>Minimum ripeness (currentStage / GrowthStages) a crop break must reach to count as
+    /// practice at all. Below it the break banks NOTHING — the "immature seed-only break is not
+    /// husbandry" anti-farm rule.
+    ///
+    /// This replaces a 0.01 literal that could never fire: the lowest ripeness any real crop can
+    /// produce is stage 1 of ~8 = 0.125, so every sprout break paid partial credit. That matters
+    /// because the harvest contextHash carries a 1-second time bucket (unlike planting, which is
+    /// bare position and dedups a re-broken tile forever), so a plant-break loop on ONE tile was
+    /// re-payable indefinitely. At 0.5 only a mostly-grown crop is practice, which is also what
+    /// makes the penultimate-stage partial credit mean something.</summary>
+    public const string HarvestRipeFloor = "harvestRipeFloor";
     /// <summary>Feed economy (the MET fuel analog): satiety an animal draws per trough portion,
     /// scaled by the FILLER's rank — a master's trough feeds to the same satiety on fewer
     /// portions; an Untrained hand's feed goes to waste.</summary>
@@ -120,6 +131,7 @@ public static class FarDomain
         {
             // Phase 2 (MET numeric posture, playtest-tuned).
             [HarvestDockUntrained] = 0.85,
+            [HarvestRipeFloor] = 0.50,
             [FeedUntrained] = 0.90, [FeedGm] = 1.25,
             [FertThriftGm] = 0.20,
             [GraftRetryGm] = 0.50,

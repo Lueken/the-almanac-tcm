@@ -169,5 +169,12 @@
     "tagline": "Even at the height of the art, the storm can reach back.",
     "identity": "The one trade no one is born to. The initiation is open to anyone, and the road is the same length for all who walk it. An arcanist learns the art of spells as a discipline, tier by careful tier.",
     "mastery": "A Grandmaster commands the deep workings others cannot reach, but the greatest are never routine: even the Archmage carries a sliver of misfire on the highest spells, and each costs minutes of vulnerable trance to recover. Their trade is the scroll, magic scribed and sold by the charge."
+  },
+  "BEE": {
+    "title": "The Hive Warden",
+    "tagline": "Their colonies come through the winter that empties everyone else's.",
+    "identity": "Stewardship of a living thing that cannot be told what to do. A hive is not harvested so much as kept: read the flowers around it, read the weight of the frames, read whether the colony is growing or quietly dying, and act a season before the answer becomes obvious. The comb is only the receipt. The skill is everything that had to go right in the eleven months before it.",
+    "mastery": "A Grandmaster's hives do not fail. Where others lose colonies to a thin autumn or a hard winter, the warden's come through in strength, and the swarms they cast are the stock every other keeper in the valley starts from.",
+    "tip": "Flowers are the whole account. A hive set among too few will bleed population every day no matter how carefully you tend it, and no amount of feeding covers a bad site. Site well first, then keep. Take comb with an eye on what the colony needs to hold, not on what the frames will give you today: a hive robbed bare in autumn is a hive you will not have in spring."
   }
 }

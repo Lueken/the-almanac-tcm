@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.15")]
+    Version = "0.4.16")]
 
 namespace AlmanacTcm;
 
@@ -375,7 +375,7 @@ public class AlmanacTcmModSystem : ModSystem
         foreach (Domains.DomainRoster.Entry entry in Domains.DomainRoster.All)
         {
             Domain domain = new(entry.Code, entry.DisplayName);
-            if (entry.RequiredMod != null && !api.ModLoader.IsModEnabled(entry.RequiredMod))
+            if (!entry.IsEnabled(api))
             {
                 domain.Enabled = false;
             }

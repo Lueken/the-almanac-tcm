@@ -434,20 +434,31 @@ public static class FarPatches
     {
         if (byPlayer == null || !ServerSide(world) || __instance?.Code == null) return;
 
-        // CROP GUARD (verified 1.22.3): BlockCrop does NOT override OnBlockBroken, so this patch
-        // resolves to the inherited Block.OnBlockBroken and fires on EVERY block break. Only a real
-        // crop carries CropProps — without this guard, breaking rock/wood would bank FAR harvesting
-        // (the 0.3.134 bug). No CropProps -> not a crop -> not our practice.
-        object? cropProps = Traverse.Create(__instance).Property("CropProps").GetValue();
-        if (cropProps == null) return;
+        // CROP GUARD. History (worth keeping): at 0.3.134 this seam was hooked NON-declared, so it
+        // resolved to the inherited Block.OnBlockBroken and fired on every block break — hence a
+        // reflective CropProps probe to tell crops from rock. Two things have since changed:
+        //   1. BlockCrop DOES declare OnBlockBroken (verified 1.22.2 BlockCrop.cs:199) and the hook
+        //      is now HookPairDeclared, so we only ever bind to the crop override. Rock cannot reach
+        //      this method any more.
+        //   2. The probe was BROKEN regardless: Block.CropProps is a FIELD (vsapi Block.cs:399), not
+        //      a property, so Traverse.Property() returned a zero-traverse and GetValue() gave null
+        //      on EVERY harvest — the method returned here every time and FAR harvesting silently
+        //      banked nothing since the seam was made declared. Same for BlockCropProperties
+        //      .GrowthStages (a field too), which would have pinned ripeFrac at 1.0 and defeated
+        //      both the yield-proportional ruling and the immature-break anti-farm guard below.
+        // A typed cast now does the guard's job under the compiler, so a future revert to a
+        // non-declared hook fails loudly at build time instead of re-crediting rock mining.
+        if (__instance is not Vintagestory.GameContent.BlockCrop crop || crop.CropProps == null) return;
 
+        // Unparseable stage or a crop with no declared GrowthStages cannot be scored, so it falls
+        // through at full credit rather than being silently dropped — a real harvest of an oddly
+        // coded crop should still pay. Every vanilla and modded crop we have seen parses.
         double ripeFrac = 1.0;
-        if (int.TryParse(__instance.LastCodePart(), out int stage))
-        {
-            object? stages = Traverse.Create(cropProps).Property("GrowthStages").GetValue();
-            if (stages is int total && total > 0) ripeFrac = Math.Min(1.0, stage / (double)total);
-        }
-        if (ripeFrac <= 0.01) return; // an immature seed-only break banks nothing (anti-farm)
+        if (int.TryParse(crop.LastCodePart(), out int stage) && crop.CropProps.GrowthStages > 0)
+            ripeFrac = Math.Min(1.0, stage / (double)crop.CropProps.GrowthStages);
+        // Anti-farm floor: below it the break is not husbandry and banks nothing. See
+        // FarDomain.HarvestRipeFloor for why the old 0.01 literal could never fire.
+        if (ripeFrac < FarDomain.Knob(FarDomain.HarvestRipeFloor, 0.50)) return;
 
         Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechHarvesting,
             HashCode.Combine("crop", pos.X >> 2, pos.Z >> 2, world.ElapsedMilliseconds / 1000), ripeFrac);

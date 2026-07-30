@@ -99,14 +99,39 @@ public static class WooIdgPatches
         TcmLog.Info(api, "WOO processing verbs hooked to IndappledGroves (chopping/sawing/hewing/pounding)");
     }
 
+    /// <summary>Read a named member trying PROPERTY first, then FIELD. Harmony's Traverse.Property
+    /// and .Field each resolve only their own member kind, and a miss returns a zero-traverse whose
+    /// GetValue() is null — silently, with no throw, so a wrong guess dead-ends the verb without
+    /// logging anything. That is exactly how FAR harvesting died (Block.CropProps is a field, read
+    /// as a property). These two seams read IDG-internal members we have no source for, so read
+    /// both kinds rather than betting on one.</summary>
+    private static Traverse Member(Traverse t, string name)
+    {
+        var p = t.Property(name);
+        return p.PropertyExists() ? p : t.Field(name);
+    }
+
+    /// <summary>One warn per seam per boot: a null ToolMode means the member names drifted, and the
+    /// only symptom otherwise is a verb that quietly never pays.</summary>
+    private static bool warnedWorkstation, warnedGround;
+
+    private static void WarnUnread(EntityAgent? byEntity, string seam, ref bool warned)
+    {
+        if (warned || byEntity?.World?.Api == null) return;
+        warned = true;
+        TcmLog.Warn(byEntity.World.Api, $"IDG {seam} completion fired but ToolMode read back null; "
+            + "the member names have drifted and this WOO verb is banking nothing");
+    }
+
     /// <summary>Built-workstation completion (sawbuck, chopping block, log splitter).</summary>
     public static class WorkstationPatch
     {
         public static void Prefix(object __instance, EntityAgent byEntity)
         {
             string? mode = null;
-            try { mode = Traverse.Create(__instance).Property("recipe").Property("ToolMode").GetValue<string>(); }
+            try { mode = Member(Member(Traverse.Create(__instance), "recipe"), "ToolMode").GetValue<string>(); }
             catch { return; }
+            if (string.IsNullOrEmpty(mode)) { WarnUnread(byEntity, "workstation", ref warnedWorkstation); return; }
             Credit(byEntity, mode);
         }
     }
@@ -118,8 +143,9 @@ public static class WooIdgPatches
         public static void Prefix(object __0, EntityAgent __2)
         {
             string? mode = null;
-            try { mode = Traverse.Create(__0).Field("ToolMode").GetValue<string>(); }
+            try { mode = Member(Traverse.Create(__0), "ToolMode").GetValue<string>(); }
             catch { return; }
+            if (string.IsNullOrEmpty(mode)) { WarnUnread(__2, "ground", ref warnedGround); return; }
             Credit(__2, mode);
         }
     }

@@ -80,17 +80,33 @@ public static class CooDomain
         Adjacency = new List<string> { "FAR", "FIS", "FOR" },
         Techniques = new Dictionary<string, TechniqueConfig>
         {
-            // Staple verbs (large K): the everyday kitchen. Direct-heat is the spammiest row —
-            // its contextHash dedup must treat "charred meat x40" as one context (ruled).
-            [TechMealPot] = new() { Raw = 3, K = 30 },
-            [TechDirectHeat] = new() { Raw = 1, K = 30 },
-            [TechMixing] = new() { Raw = 2, K = 30 },
-            [TechMilling] = new() { Raw = 1, K = 30 },
+            // PACING RETUNE 2026-07-29 (playtest: "cooking is a tad slow"). The original numbers
+            // gave the staple kitchen verbs FREQUENT-action K values (30/25 — the same K as FAR
+            // tilling and planting), but cooking is not a frequent-action verb: you till thirty
+            // blocks in a session and cook three meals. xp-engine-design §3.3 is explicit that K
+            // must track real cadence ("rare-action domains get small K — one real session banks
+            // most of the cap"), so this is the design doc applied, not an override of it.
+            //
+            // Reference point: actions to half of the breadth-phase per-technique cap = K / Raw.
+            //   mealpot   10 -> 3.5      baking/griddling/juicing/prep  12.5 -> 5
+            //   mixing    15 -> 6        milling  30 -> 10      directheat  30 -> 13
+            // Roughly a 2x on a realistic cooking day; drying/salting were already session-tuned
+            // (3-4 actions) and are the calibration target the rest now sit near, so they stand.
+
+            // Staple verbs: the everyday kitchen, now at session cadence. Direct-heat stays the
+            // cheap, spammiest row — its contextHash dedup must treat "charred meat x40" as one
+            // context (ruled) — so it gets the smallest lift of the group.
+            [TechMealPot] = new() { Raw = 4, K = 14 },
+            [TechDirectHeat] = new() { Raw = 1.5, K = 20 },
+            [TechMixing] = new() { Raw = 3, K = 18 },
+            // Milling is genuinely repetitive (quern cranking) AND double-pays via the ruled
+            // COO 50 / FAR 50 split, so it keeps the most conservative curve of the staples.
+            [TechMilling] = new() { Raw = 2, K = 20 },
             // Medium verbs (built stations, one process).
-            [TechBaking] = new() { Raw = 2, K = 25 },
-            [TechGriddling] = new() { Raw = 2, K = 25 },
-            [TechJuicing] = new() { Raw = 2, K = 25 },
-            [TechPrep] = new() { Raw = 2, K = 25 },
+            [TechBaking] = new() { Raw = 3, K = 15 },
+            [TechGriddling] = new() { Raw = 3, K = 15 },
+            [TechJuicing] = new() { Raw = 3, K = 15 },
+            [TechPrep] = new() { Raw = 3, K = 15 },
             // Passive per-session pair (small K): one rack/pan cycle ~ banked.
             [TechDrying] = new() { Raw = 4, K = 12 },
             [TechSalting] = new() { Raw = 3, K = 12 },

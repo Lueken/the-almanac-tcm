@@ -42,6 +42,39 @@ public class DomainConfig
     /// are exactly the numbers a server may want to quietly diverge on.</summary>
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, double> Bonus { get; set; } = new();
+
+    // ---------------------------------------------------------------- merge baselines
+    //
+    // The third leg of the three-way merge (added 0.4.16). The additive-only migration that
+    // shipped before this could introduce NEW technique and knob keys but could never move a
+    // value that already existed, because there was no way to tell "still the shipped default"
+    // from "the operator deliberately tuned this". A balance retune therefore never reached any
+    // server that had already booted once — the COO cooking pacing bug.
+    //
+    // These record what the MOD shipped as of the last time it wrote this file. On load:
+    //   current == baseline  -> untouched by the operator, adopt the new shipped default
+    //   current != baseline  -> deliberately tuned, keep it and log the skip
+    // So "values the server already tuned are never touched" stays literally true, while
+    // untouched values track shipped defaults across upgrades.
+    //
+    // Techniques are fingerprinted "raw|k" rather than stored as whole objects: those are the
+    // only two balance numbers a retune moves, and it keeps the file readable. Structural fields
+    // (CoGrants, IfModPresent, RawScale) are not balance knobs and stay additive-only.
+
+    /// <summary>Technique name → "raw|k" as SHIPPED at the last write. Not a tuning surface;
+    /// editing it only changes what the next upgrade considers pristine.</summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public Dictionary<string, string> ShippedTechniqueBaseline { get; set; } = new();
+
+    /// <summary>Bonus knob → value as SHIPPED at the last write. Same contract as above.</summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public Dictionary<string, double> ShippedBonusBaseline { get; set; } = new();
+
+    /// <summary>The fingerprint format the baseline stores. Invariant culture on purpose: a
+    /// server on a comma-decimal locale must still match a baseline written elsewhere.</summary>
+    public static string Fingerprint(TechniqueConfig t) =>
+        t.Raw.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "|"
+        + t.K.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
 }
 
 public class TechniqueConfig

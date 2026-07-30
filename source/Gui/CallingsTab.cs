@@ -77,11 +77,21 @@ public class CallingsTab : IAlmanacBookTab
         CairoFont rank = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Ink);
         CairoFont muted = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Muted);
 
+        // Read in alphabetical order. The roster itself is registration order and is
+        // append-only (ids ride the wire), so the sort lives here, on the display
+        // side only, and the page becomes a register the eye can land on.
+        var order = new List<int>();
+        for (int i = 0; i < Domains.DomainRoster.All.Length; i++) order.Add(i);
+        order.Sort((a, b) => string.Compare(
+            Domains.DomainRoster.All[a].DisplayName,
+            Domains.DomainRoster.All[b].DisplayName,
+            StringComparison.OrdinalIgnoreCase));
+
         var cards = new List<List<RichTextComponentBase>>();
-        for (int id = 0; id < Domains.DomainRoster.All.Length; id++)
+        foreach (int id in order)
         {
             Domains.DomainRoster.Entry entry = Domains.DomainRoster.All[id];
-            if (entry.RequiredMod != null && !capi.ModLoader.IsModEnabled(entry.RequiredMod)) continue;
+            if (!entry.IsEnabled(capi)) continue;
 
             client.Domains.TryGetValue(id, out LevelingClient.DomainState? state);
             int level = state?.Level ?? 0;
@@ -109,20 +119,16 @@ public class CallingsTab : IAlmanacBookTab
             int barred = Barred(id);
             if (!awake)
             {
-                // A capped trade shows its walled ceiling even untrained; a neutral one
-                // stays clean (no pip row), so the cue appears only where it means something.
-                if (barred > 0)
-                {
-                    comps.Add(new RichTextComponent(capi, Domain.RankName(0) + "  ", muted));
-                    comps.Add(new InkPipsComponent(capi, Domain.TierCount, 0, -1, barred));
-                    comps.Add(new RichTextComponent(capi, "\n", muted));
-                }
-                else
-                {
-                    comps.Add(new RichTextComponent(capi, Domain.RankName(0) + "\n", muted));
-                }
+                // Every calling wears the same four lines, trained or not: name, rank
+                // and pips, bar, caption. Equal cards are what let the four columns
+                // share one baseline grid. The pip row draws even untrained, so the
+                // ladder ahead is legible before the first swing.
+                comps.Add(new RichTextComponent(capi, Domain.RankName(0) + "  ", muted));
+                comps.Add(new InkPipsComponent(capi, Domain.TierCount, 0, -1, barred));
+                comps.Add(new RichTextComponent(capi, "\n", muted));
                 comps.Add(new ProgressBarComponent(capi, 0, columnWidth - 2, 7, inkScale: 0.55));
-                comps.Add(new ClearFloatTextComponent(capi, 12));
+                comps.Add(new ClearFloatTextComponent(capi, 3));
+                comps.Add(new RichTextComponent(capi, "not yet begun\n", muted));
             }
             else
             {
@@ -354,37 +360,64 @@ public class CallingsTab : IAlmanacBookTab
         var columns = new List<RichTextComponentBase[]>();
         if (cards.Count > 0)
         {
-            int index = 0;
-            bool fits = true;
-            for (int c = 0; c < cols && index < cards.Count; c++)
+            // A ruled page needs one row pitch for the whole spread, not one per
+            // column. Two things have to agree for that: every card the same height,
+            // and every column the same gap. Measure once, pad the short cards up to
+            // the tallest, then derive a single gap all four columns are handed.
+            double tallest = 0;
+            var cardH = new double[cards.Count];
+            for (int i = 0; i < cards.Count; i++)
             {
-                int take = cards.Count / cols + (c < cards.Count % cols ? 1 : 0);
-                var group = new List<List<RichTextComponentBase>>();
-                for (int i = 0; i < take && index < cards.Count; i++, index++) group.Add(cards[index]);
-
-                var column = Join(group, EntryGap);
-                double used = ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth);
-                if (used > availH) { fits = false; break; }
-                if (group.Count > 1 && used < availH)
-                {
-                    double extra = Math.Min(EntryGapStretchMax, (availH - used) / (group.Count - 1) / scale);
-                    if (extra > 1)
-                    {
-                        column = Join(group, EntryGap + extra);
-                        used = ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth);
-                    }
-                }
-                // Pin the key to the true foot of the rightmost column: the capped
-                // stretch leaves a gap at the bottom, so fill it, then drop the legend.
-                if (c == cols - 1 && legend != null)
-                {
-                    double padUnscaled = (availH - used - legendH) / scale;
-                    if (padUnscaled > 2) column.Add(new ClearFloatTextComponent(capi, (float)padUnscaled));
-                    column.AddRange(legend);
-                }
-                columns.Add(column.ToArray());
+                cardH[i] = ChapterRenderer.MeasureHeight(capi, cards[i].ToArray(), columnWidth);
+                if (cardH[i] > tallest) tallest = cardH[i];
             }
-            if (fits && index >= cards.Count) return columns;
+
+            // Deepest column, with the shortfall pooled in the last one (22 callings
+            // reads 6/6/6/4). Spreading the remainder instead would leave three
+            // columns a row longer than the fourth for no reason a reader can see.
+            int depth = (int)Math.Ceiling(cards.Count / (double)cols);
+            double gap = EntryGap;
+            if (depth > 1)
+            {
+                double slack = availH - depth * tallest - (depth - 1) * EntryGap * scale;
+                if (slack > 0) gap += Math.Min(EntryGapStretchMax, slack / (depth - 1) / scale);
+            }
+
+            // One row pitch only holds if the deepest column actually fits it.
+            if (depth * tallest + (depth - 1) * EntryGap * scale <= availH)
+            {
+                var padded = new List<List<RichTextComponentBase>>(cards.Count);
+                foreach (var card in cards)
+                {
+                    var copy = new List<RichTextComponentBase>(card);
+                    double padUnscaled = (tallest - cardH[padded.Count]) / scale;
+                    if (padUnscaled > 1) copy.Add(new ClearFloatTextComponent(capi, (float)padUnscaled));
+                    padded.Add(copy);
+                }
+
+                // Always four columns, even if the last takes nothing: the key lives
+                // at its foot and must not vanish with a short roster.
+                int index = 0;
+                for (int c = 0; c < cols; c++)
+                {
+                    var group = new List<List<RichTextComponentBase>>();
+                    for (int i = 0; i < depth && index < padded.Count; i++, index++) group.Add(padded[index]);
+
+                    var column = Join(group, gap);
+                    double used = ChapterRenderer.MeasureHeight(capi, column.ToArray(), columnWidth);
+
+                    // Pin the key to the true foot of the last column. The pooled
+                    // shortfall lives here, above the key, where it reads as a margin.
+                    if (c == cols - 1 && legend != null)
+                    {
+                        double padUnscaled = (availH - used - legendH) / scale;
+                        if (padUnscaled > 2) column.Add(new ClearFloatTextComponent(capi, (float)padUnscaled));
+                        column.AddRange(legend);
+                    }
+                    columns.Add(column.ToArray());
+                }
+                return columns;
+            }
         }
 
         columns.Clear();

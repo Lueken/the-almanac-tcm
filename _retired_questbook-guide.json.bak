@@ -1,0 +1,469 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
+  "schemaVersion": 1,
+  "id": "almanactcm:quests",
+  "gate": "almanactcm",
+  "pinned": true,
+  "order": 5,
+  "title": "Questbook",
+  "subtitle": "The onboarding chains",
+  "byline": "set down by Venah",
+  "accentColor": "#6e4b28",
+  "sections": [
+    {
+      "id": "the-chains",
+      "title": "The chains",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Each calling on this server diverges hard from vanilla, on purpose. The difficulty wall is real and it is intentional. The questbook chains are the ramp so that the climb is earned instead of abandoned."
+        },
+        {
+          "type": "paragraph",
+          "text": "A chain is one per domain. It teaches the server's version of the trade, not vanilla's. Every chain ends by pointing you at the domain's Callings page for the full tip. The chains are authored only after a domain's build completes and its live-feedback polish pass has settled."
+        },
+        {
+          "type": "callout",
+          "variant": "author",
+          "text": "The chains teach by making you DO the workflow once. Read along, then do. The Almanac counts the work that is yours, not the work that is watched."
+        }
+      ]
+    },
+    {
+      "id": "metalworking",
+      "title": "Metalworking",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Metal does not come to you. It sits in the dark under the hills, bound in stone, and every hand that ever held a copper blade walked the same road to it: down, then back up, then through fire."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:met-smelting",
+          "items": [
+            { "text": "Find copper nuggets stained in stone", "done": false },
+            { "text": "Build a pit smelter: clay, bone ash, charcoal", "done": false },
+            { "text": "Win your first copper mass", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "The pit smelter asks little and forgives less. A hole one block square, formed with clay while crouching, takes bone ash, copper nuggets by the dozen, and a measure of charcoal. Lit and left alone, the pit never passes eight hundred degrees, and copper laughs at eight hundred. Put a blowpipe to it and keep a rhythm; stop blowing and the fire falls back fast."
+        },
+        {
+          "type": "paragraph",
+          "text": "The Almanac counts the smelt to the one whose breath fed the fire and whose hand ran the tap, not to whoever stands nearest when the metal comes. Win your own metal; watching another smith work teaches your eyes, but not your hands."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:met-smithing",
+          "items": [
+            { "text": "Reheat the mass in a firepit", "done": false },
+            { "text": "Shape it on a stone anvil", "done": false },
+            { "text": "Carry a finished piece from bar to blade", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "The anvil is a conversation, and the hammer has more than one word in it. Change your grip and the same swing moves metal, splits it away, or turns the piece under your hands. Learn every mode the hammer offers before you trust yourself with good metal."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:smithing",
+          "text": "See the Smithing chapter for the full road to first metal."
+        }
+      ]
+    },
+    {
+      "id": "mining",
+      "title": "Mining",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "The mountain tires before they do. A miner learns the rock by staying with it, working the face long after the light and the legs of others have given out. There is no sight that finds the vein for you. There is only the swing, and the patience to keep swinging."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:min-mining",
+          "items": [
+            { "text": "Break stone and ore blocks to learn the swing", "done": false },
+            { "text": "Mine deeper to find richer veins", "done": false },
+            { "text": "Reach Novice Mining", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "An untrained hand tires fast. Your stamina drains with each pick, and the deeper you go the more the rock fights back. Practice steadies the swing and lengthens the day."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Mining standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "woodcutting",
+      "title": "Woodcutting and Forestry",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Leaves the forest richer than they found it. A forester learns to read a stand, to take without emptying it, and to leave saplings that will stand when they are gone."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:woo-felling",
+          "items": [
+            { "text": "Fell a tree with an axe", "done": false },
+            { "text": "Stand to the side and strike the face pointing where you want it down", "done": false },
+            { "text": "Plant a sapling where the tree stood", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "A tree falls toward the face you cut, not away. Stand to the side and strike the face pointing where you want it down, never the one facing you. A green hand's aim wanders and the trunk can land on them; a master lays it exactly where they mean to, clear of their own feet."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:woo-charcoal",
+          "items": [
+            { "text": "Build a charcoal pit with firewood", "done": false },
+            { "text": "Ignite it and wait for conversion", "done": false },
+            { "text": "Dig the charcoal and burn it in a firepit", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "The charcoal bearing a master's mark burns hotter and longer, and smiths ask for it by name. Your mark comes with practice, but the firepit is honest work from the first pit."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Forestry standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "foraging",
+      "title": "Foraging",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Walks a harvest circuit nobody else can see. A forager's map is a constellation of small, timed circles: which patches renew, and exactly when each is ready."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:for-harvest",
+          "items": [
+            { "text": "Harvest a berry bush by holding right-click", "done": false },
+            { "text": "Gather a wild mushroom by breaking it", "done": false },
+            { "text": "Harvest 8 different species you have never taken", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Range wide. The first time you take a new species teaches you far more than stripping the same bush ever will. Pick with care, or do not let others pick at all: ground harvested by practiced hands comes back sooner, ground torn up by a novice comes back late."
+        },
+        {
+          "type": "callout",
+          "variant": "tip",
+          "text": "A harvest circuit walked the same way every day wears a trail straight to your best patches, and a trail can be followed. A wise forager varies the route."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Foraging standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "panning",
+      "title": "Panning and Prospecting",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "The map itself is the deliverable. A surveyor walks a claim and reads what lies beneath it: which ores, and how deep each one runs. The map they leave behind is the work."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:pan-pan",
+          "items": [
+            { "text": "Craft a wooden pan", "done": false },
+            { "text": "Wash gravel at a river", "done": false },
+            { "text": "Find your first ore nugget", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Yield feels thin at no rank. Panning is practice, and practice comes from the work, not the result. The nugget is a sign you are looking in the right place."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:pan-survey",
+          "items": [
+            { "text": "Craft a copper prospecting pick", "done": false },
+            { "text": "Take a density reading", "done": false },
+            { "text": "Reach Novice Prospecting to read the census clearly", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "A density scan censuses every block for thirty paces around you. It is chunk data, not divination. Your eyes are not practiced yet, so the numbers feel rough. At Novice the words firm up and the permille sharpens."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:pan-drill",
+          "items": [
+            { "text": "Over a promising survey, bore a test column straight down", "done": false },
+            { "text": "Read what the drill passed through", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "The drill passes through what is really there. Empty bores are real information too. At Master the drill starts telling depth, and at Grandmaster it reads the exact band."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Prospecting standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "hunting",
+      "title": "Hunting",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Knows the country they have hunted. A hunter learns to see an animal at range for what it is, to move unseen, and to carry in their head a map of where every quarry they have chased is likely to be found."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:hun-hunt",
+          "items": [
+            { "text": "Track and kill a wild animal", "done": false },
+            { "text": "Field-dress the carcass", "done": false },
+            { "text": "Reach Novice Hunting", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "A novice sees a deer, spooks it, and loses it. A practiced hand walks closer, dresses cleaner, and their snares hold what they catch. Every animal you take teaches you its kind."
+        },
+        {
+          "type": "callout",
+          "variant": "lore",
+          "text": "Hunt widely. The country you have hunted is country you will one day know by heart."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Hunting standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "fishing",
+      "title": "Fishing",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Their waters never go barren. Not the biggest catch, but the longest-lived water. A steward reads a pond's stock at a glance, fishes it with a light hand, and seeds roe to bring a tired pool back to life."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:fis-fish",
+          "items": [
+            { "text": "Craft a fishing rod and catch a fish", "done": false },
+            { "text": "Land a catch on the rod", "done": false },
+            { "text": "Reach Novice Fishing", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "A novice fishes a pond dead in an afternoon. A Grandmaster's waters stay stocked for years, and a place to fish them is worth trading for. They take what a water can spare, and never more."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Fishing standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "farming",
+      "title": "Farming and Husbandry",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Mastery bred into the seed itself. The patient science of the seed. A cultivator learns the soil and the season, coaxing a little more from a plot each year, and saving back the best of the harvest to sow again."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:far-farm",
+          "items": [
+            { "text": "Till soil and plant seeds", "done": false },
+            { "text": "Harvest a mature crop", "done": false },
+            { "text": "Save back the best seeds for next season", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Range wide. The first time you work a new crop teaches you far more than tending the same plot. A cultivator's heirloom seed out-yields in any hands for a few generations before the line fades and the village comes back for fresh stock."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Farming standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "cooking",
+      "title": "Cooking and Brewing",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "A meal worth traveling for, and it keeps. The cook who feeds a journey. Anyone can fill a belly for a day. This trade is the meal that travels well and keeps, the ration still good when you finally need it."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:coo-cook",
+          "items": [
+            { "text": "Prepare a basic meal from gathered ingredients", "done": false },
+            { "text": "Cook something that keeps through the night", "done": false },
+            { "text": "Reach Novice Cooking", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Calories keep you alive. Variety makes you strong, and the wild will not tell you what is safe until you have risked a bite. Food here is a project with real reward, not a bar to top up."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Cooking standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "tailoring",
+      "title": "Tailoring and Textiles",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "A coat that holds its warmth for years, and their name in the collar. Metalworking's twin in cloth. A tailor learns wool and hide and the cut that turns them into warmth, and their name goes into the collar of every garment they finish."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:tai-sew",
+          "items": [
+            { "text": "Scour and spin fiber into thread", "done": false },
+            { "text": "Sew a garment from the cloth", "done": false },
+            { "text": "Wear it through a night to feel the warmth hold", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "A master-tailored coat holds its warmth for years where others fray. Cold-country folk return season after season to the one hand that can keep a coat what it was."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Tailoring standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "masonry",
+      "title": "Masonry and Engineering",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Their mark outlasts the wall. The oldest mark of all: a stonecutter's personal sigil, struck into the block they dressed and the stone they carved. A mason learns to draw more finished stone from rough rock than it looks able to give."
+        },
+        {
+          "type": "quest",
+          "questId": "almanactcm:mas-dress",
+          "items": [
+            { "text": "Dress rough stone at the mason's bench", "done": false },
+            { "text": "Carve a signed block", "done": false },
+            { "text": "Build something that will stand", "done": false }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Machines are built things, and they remember who kept them. A millwright learns the gears and the mechanisms and the slow art of keeping them true. A part a Grandmaster has serviced decays visibly slower until the next hand touches it."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read your Masonry and Engineering standing on the Callings page."
+        }
+      ]
+    },
+    {
+      "id": "the-climb",
+      "title": "The climb",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Rank is not a number kept for its own sake. Each calling repays the climb in its own coin. The smith's fuel burns longer and the steel shatters less. The forager walks a circuit only they can find. The mason draws more dressed stone from every slab of rough."
+        },
+        {
+          "type": "paragraph",
+          "text": "At the height of a trade your name rides your work. A Grandmaster's mark is struck into the tool, and it outlives the hand that struck it. What each road leads to is set down on its own calling. Turn to a trade to read where it ends."
+        },
+        {
+          "type": "callout",
+          "variant": "lore",
+          "text": "A life is long, but not long enough to master all of it. You may raise two callings to Grandmaster in a lifetime, and no more. The rest you may carry to Master and be the better for it."
+        },
+        {
+          "type": "paragraph",
+          "text": "Practice gathers unsettled through the day. At the turn of each night it settles. What you did across the day becomes what you know, and you wake a little more skilled than you lay down. Fall, and the day's unsettled work scatters. What you attempted but had not yet slept on is the part at risk, and a portion of it is lost."
+        },
+        {
+          "type": "paragraph",
+          "text": "But what has already settled into your hands is yours for good. No rank you have earned is taken by a blade, a fall, or a hard winter. Rest often, and you carry little worth losing."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:callings",
+          "text": "Read yourself at a glance on the Callings page."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:trades",
+          "text": "See how a calling is earned in the Trades chapter."
+        }
+      ]
+    }
+  ]
+}
