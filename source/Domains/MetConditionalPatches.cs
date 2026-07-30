@@ -165,6 +165,71 @@ public static class MetConditionalPatches
         }
     }
 
+    // ------------------------------------ industrialstory brick furnace (TechAlloying)
+    //
+    // Under industrialstory the brick furnace is the ONLY way to alloy, so without this seam
+    // TechAlloying is unearnable on the whole server. The completion, BlockEntityBrickFurnace
+    // .smeltItems, is unattended: it fires on a cook tick with no player in scope, so this uses
+    // the established owner-at-the-act shape (the pit furnace above, the POT kiln, the BRE seal).
+    // Whoever last tended the furnace is stamped per position and credited when the melt lands.
+    //
+    // Alloy versus plain melt is classified the same way the vanilla crucible path does it, by
+    // asking the smelting container for a matching alloy, so melting a single metal in the brick
+    // furnace banks smelting rather than alloying.
+
+    /// <summary>Last player to handle a brick furnace, by position. Transient by design: a melt
+    /// runs minutes, and losing the stamp across a restart costs one grant, which is the
+    /// trough-filler precedent rather than the persisted kiln-owner one.</summary>
+    private static readonly Dictionary<string, string> furnaceTenders = new();
+
+    public static class BrickFurnaceTendPatch
+    {
+        public static void Postfix(object __instance, IPlayer byPlayer)
+        {
+            if (byPlayer == null) return;
+            var be = __instance as BlockEntity;
+            if (be?.Api?.Side != EnumAppSide.Server || be.Pos == null) return;
+            if (furnaceTenders.Count > 128) furnaceTenders.Clear();
+            furnaceTenders[PosKey(be.Pos)] = byPlayer.PlayerUID;
+        }
+    }
+
+    public static class BrickFurnaceSmeltPatch
+    {
+        /// <summary>Classify BEFORE the smelt consumes the inputs: true = the crucible held a
+        /// real alloy recipe, false = a single metal being melted.</summary>
+        public static void Prefix(object __instance, out bool __state)
+        {
+            __state = false;
+            try
+            {
+                var be = __instance as BlockEntity;
+                if (be?.Api == null) return;
+                var inv = Traverse.Create(__instance).Field("inventory").GetValue() as IInventory;
+                var input = inv?[1]?.Itemstack;
+                if (input?.Collectible is not Vintagestory.GameContent.BlockSmeltingContainer container) return;
+                if (__instance is not ISlotProvider slots) return;
+                ItemStack[] stacks = container.GetIngredients(be.Api.World, slots);
+                __state = container.GetMatchingAlloy(be.Api.World, stacks) != null;
+            }
+            catch (Exception) { }
+        }
+
+        public static void Postfix(object __instance, bool __state)
+        {
+            var be = __instance as BlockEntity;
+            if (be?.Api?.Side != EnumAppSide.Server || be.Pos == null) return;
+            if (!furnaceTenders.TryGetValue(PosKey(be.Pos), out string? uid)) return;
+
+            IPlayer? tender = be.Api.World.PlayerByUid(uid);
+            if (tender == null) return;   // tender logged off mid-melt: the grant is forfeit
+
+            Core?.Ledger?.Log(tender, MetDomain.Code,
+                __state ? MetDomain.TechAlloying : MetDomain.TechSmelting,
+                HashCode.Combine("brickfurnace", PosKey(be.Pos), be.Api.World.Calendar.TotalHours));
+        }
+    }
+
     public static class TapPatch
     {
         // Bool-returning taps gate on success; the void retort tap grants on the call
@@ -250,7 +315,27 @@ public static class MetConditionalPatches
             TcmLog.Warn(api, "industrialstory present but BlockEntityCastingSand.ReceiveLiquidMetal not found; sand-casting practice inactive");
         }
 
-        TcmLog.Info(api, $"MET smelting practice hooked to industrialstory ({hooked} seam(s): pit blowpipe + molten taps + casting sand)");
+        // Brick furnace: the only alloying route industrialstory offers, so TechAlloying lives
+        // or dies with this seam. Tend stamp + unattended completion.
+        var furnaceType = AccessTools.TypeByName("IndustrialStory.BlockEntityBrickFurnace");
+        var furnaceSmelt = furnaceType == null ? null : AccessTools.Method(furnaceType, "smeltItems");
+        var furnaceTend = furnaceType == null ? null : AccessTools.Method(furnaceType, "OnPlayerRightClick");
+        if (furnaceSmelt != null && furnaceTend != null)
+        {
+            harmony.Patch(furnaceTend,
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(BrickFurnaceTendPatch), "Postfix")));
+            harmony.Patch(furnaceSmelt,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(BrickFurnaceSmeltPatch), "Prefix")),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(BrickFurnaceSmeltPatch), "Postfix")));
+            hooked++;
+            TcmLog.Info(api, "MET alloying practice hooked to industrialstory brick furnace (tended melt)");
+        }
+        else
+        {
+            TcmLog.Warn(api, "industrialstory present but BrickFurnace smeltItems/OnPlayerRightClick not found; alloying practice inactive");
+        }
+
+        TcmLog.Info(api, $"MET smelting practice hooked to industrialstory ({hooked} seam(s): pit blowpipe + molten taps + casting sand + brick furnace)");
     }
 
     // ------------------------------------------------ Toolsmith workbench (assembly)
