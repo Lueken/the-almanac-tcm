@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.22a")]
+    Version = "0.4.23")]
 
 namespace AlmanacTcm;
 
