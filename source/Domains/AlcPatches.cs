@@ -35,6 +35,14 @@ namespace AlmanacTcm.Domains;
 ///   • Herb-rack drying [alchemy, conditional] — the alchemy mod's rack is the COO #9 drying mechanism
 ///     for alchemical ingredients; taking a dried bundle grants ALC (the rack's outputs are alchemical),
 ///     and a master's rack preserves the dried contents a little longer (Axis 4, the perish-slow rung).
+///     THE HONEST-TAKE RULE (0.4.21, the Lamp exploit): the grant fires only when the take removes
+///     something that actually DRIED into an alchemical product on that rack. Expanded Foods patches
+///     its meats and sausages herbrackable, which turned every charcuterie pull into remedy practice
+///     and let a place/remove loop farm the day's share dry. Four gates now stand: a placed record
+///     must exist for the slot (tracked at TryPut, persisted), the taken code must differ from the
+///     placed code (something transitioned here), the placed collectible must carry a Dry transition
+///     whose output is the taken item, and the taken item must have no nutrition (dried sausage also
+///     rides a Dry transition; edible output is cooking's world, not alchemy's).
 /// </summary>
 public static class AlcPatches
 {
@@ -53,6 +61,10 @@ public static class AlcPatches
     private static Dictionary<string, string> stoveOwners = new();
     /// <summary>Herb-rack pos -> the last placer's mark (the rack's alchemist, for the perish-slow rung).</summary>
     private static Dictionary<string, string> herbRackOwners = new();
+    /// <summary>Herb-rack pos/slot -> the collectible code placed there (the honest-take rule's
+    /// evidence). Written at TryPut, popped at TryTake; persisted so a cutting that dries across a
+    /// restart still pays. A slot with no record (pre-0.4.21 contents) never grants.</summary>
+    private static Dictionary<string, string> herbRackPlaced = new();
 
     /// <summary>The real remedy stack captured at OnCreatedByCrafting (runs before ConsumeInput in
     /// CraftSingle), branded once the crafter is in scope. Single-threaded server craft -> one at a time.</summary>
@@ -76,6 +88,7 @@ public static class AlcPatches
             reactionOwners = LoadMap(api, "almanacAlcReactionOwners");
             stoveOwners = LoadMap(api, "almanacAlcStoveOwners");
             herbRackOwners = LoadMap(api, "almanacAlcHerbRackOwners");
+            herbRackPlaced = LoadMap(api, "almanacAlcHerbRackPlaced");
             TcmLog.Cat(api, TcmLog.Config,
                 $"ALC owner maps loaded: {cauldronOwners.Count} cauldron / {reactionOwners.Count} reaction / {herbRackOwners.Count} rack");
         };
@@ -85,6 +98,7 @@ public static class AlcPatches
             SaveMap(api, "almanacAlcReactionOwners", reactionOwners);
             SaveMap(api, "almanacAlcStoveOwners", stoveOwners);
             SaveMap(api, "almanacAlcHerbRackOwners", herbRackOwners);
+            SaveMap(api, "almanacAlcHerbRackPlaced", herbRackPlaced);
         };
     }
 
@@ -150,16 +164,20 @@ public static class AlcPatches
         // ---- Herb-rack drying (alchemy): grant at take + master perish-slow.
         var tr = AccessTools.TypeByName("Alchemy.BlockEntityHerbRacks");
         var mrt = tr == null ? null : AccessTools.DeclaredMethod(tr, "TryTake");
+        var mru = tr == null ? null : AccessTools.DeclaredMethod(tr, "TryPut");
         var mrp = tr == null ? null : AccessTools.DeclaredMethod(tr, "OnInteract");
         var mrs = tr == null ? null : AccessTools.DeclaredMethod(tr, "Inventory_OnAcquireTransitionSpeed");
-        if (mrt != null)
+        if (mrt != null && mru != null)
         {
-            harmony.Patch(mrt, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbTakePostfix))));
+            harmony.Patch(mrt,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbTakePrefix))),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbTakePostfix))));
+            harmony.Patch(mru, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbPutPostfix))));
             if (mrp != null) harmony.Patch(mrp, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbInteractPostfix))));
             if (mrs != null) harmony.Patch(mrs, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbTransitionPostfix))));
-            TcmLog.Info(api, "ALC herb-rack drying hooked (take grant + master perish-slow)");
+            TcmLog.Info(api, "ALC herb-rack drying hooked (honest-take grant + master perish-slow)");
         }
-        else TcmLog.Cat(api, TcmLog.Config, "ALC herb rack absent (alchemy); herb-rack rung inactive");
+        else TcmLog.Cat(api, TcmLog.Config, "ALC herb rack seams not found (alchemy TryTake/TryPut); herb-rack rung inactive");
     }
 
     // ------------------------------------------------------------ potion cauldron
@@ -284,11 +302,61 @@ public static class AlcPatches
             $"{byPlayer.PlayerUID}|{byPlayer.PlayerName}|{AlcDomain.LevelOf(byPlayer)}";
     }
 
-    /// <summary>Taking a dried bundle from the alchemy herb rack grants ALC (its outputs are alchemical
-    /// — the COO #9 drying mechanism, output-classified to ALC here). Deduped per rack per minute.</summary>
-    public static void HerbTakePostfix(BlockEntity __instance, IPlayer byPlayer, bool __result)
+    /// <summary>Record what was placed in the slot: the honest-take rule's evidence. Overwrites any
+    /// stale record for the slot (the previous occupant left by some other route).</summary>
+    public static void HerbPutPostfix(BlockEntity __instance, BlockSelection blockSel, bool __result)
     {
-        if (!__result || __instance?.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
+        if (!__result || __instance?.Api?.Side != EnumAppSide.Server || blockSel == null) return;
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        var code = inv?[blockSel.SelectionBoxIndex]?.Itemstack?.Collectible?.Code;
+        if (code == null) return;
+        herbRackPlaced[$"{PosKey(__instance.Pos)}/{blockSel.SelectionBoxIndex}"] = code.ToString();
+    }
+
+    /// <summary>Capture the outgoing stack before TakeOut empties the slot, for the postfix's rule.</summary>
+    public static void HerbTakePrefix(BlockEntity __instance, BlockSelection blockSel, out ItemStack? __state)
+    {
+        __state = null;
+        if (__instance?.Api?.Side != EnumAppSide.Server || blockSel == null) return;
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        __state = inv?[blockSel.SelectionBoxIndex]?.Itemstack;
+    }
+
+    /// <summary>The honest-take rule (0.4.21): taking from the alchemy herb rack grants ALC only when
+    /// the item actually DRIED into an alchemical product on that rack. Four gates: a placed record
+    /// exists for the slot, the taken code differs from what was placed, the placed collectible dries
+    /// into the taken item (a Dry transition, matched by output code), and the result is not food
+    /// (Expanded Foods meats and sausages are herbrackable and some also dry; charcuterie is cooking,
+    /// not alchemy). Deduped per rack per minute as before.</summary>
+    public static void HerbTakePostfix(BlockEntity __instance, IPlayer byPlayer, BlockSelection blockSel,
+        bool __result, ItemStack? __state)
+    {
+        if (!__result || __instance?.Api?.Side != EnumAppSide.Server || byPlayer == null || blockSel == null) return;
+        var taken = __state?.Collectible;
+        if (taken?.Code == null) return;
+
+        string key = $"{PosKey(__instance.Pos)}/{blockSel.SelectionBoxIndex}";
+        if (!herbRackPlaced.TryGetValue(key, out string? placedCode) || placedCode == null) return;
+        herbRackPlaced.Remove(key);
+
+        if (taken.Code.ToString() == placedCode) return;   // left the rack as it arrived: no work done
+        if (taken.NutritionProps != null) return;          // edible output: preservation, not alchemy
+
+        CollectibleObject? placed = serverWorld?.GetItem(new AssetLocation(placedCode))
+            ?? (CollectibleObject?)serverWorld?.GetBlock(new AssetLocation(placedCode));
+        var props = placed?.TransitionableProps;
+        if (props == null) return;
+        bool driedHere = false;
+        foreach (var p in props)
+        {
+            if (p.Type == EnumTransitionType.Dry && taken.Code.Equals(p.TransitionedStack?.Code))
+            {
+                driedHere = true;
+                break;
+            }
+        }
+        if (!driedHere) return;
+
         Core?.Ledger?.Log(byPlayer, AlcDomain.Code, AlcDomain.TechRemedy,
             HashCode.Combine("herbrack", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
                 (int)((serverWorld?.ElapsedMilliseconds ?? 0) / 60000)));
