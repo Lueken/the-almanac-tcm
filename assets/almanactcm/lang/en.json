@@ -174,5 +174,6 @@
   "game:deathmsg-blockfalling-1": "{0}, the tree did not appreciate that.",
   "game:deathmsg-blockfalling-2": "{0} found out which way the tree falls.",
   "game:deathmsg-blockfalling-3": "{0} was standing exactly where the tree wanted to be.",
-  "game:deathmsg-blockfalling-4": "{0} chopped it down. It landed on them."
+  "game:deathmsg-blockfalling-4": "{0} chopped it down. It landed on them.",
+  "almanactcm:chattab-almanac": "Almanac"
 }

@@ -530,7 +530,11 @@ public class LedgerSystem
     private void SendInfoLine(IPlayer player, string langKey, params object[] args)
     {
         if (player is not IServerPlayer serverPlayer) return;
-        serverPlayer.SendMessage(GlobalConstants.InfoLogChatGroup,
+        // The Almanac channel (0.4.22): practice lines get their own tab, delivered by the
+        // client's quiet handler (no focus steal, no alarm glow, no HUD wake). A client
+        // without the mod has no tab and the line falls silently, which is the old Info-tab
+        // behaviour minus the noise; TCM clients are required on a TCM server regardless.
+        serverPlayer.SendMessage(AlmanacChatChannel.GroupId,
             Lang.GetL(serverPlayer.LanguageCode, langKey, args), EnumChatType.OthersMessage);
     }
 
