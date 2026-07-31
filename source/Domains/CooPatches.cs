@@ -341,11 +341,32 @@ public static class CooPatches
 
     // ------------------------------------------------------------ juicing
 
+    /// <summary>The press: ONE patch, routed by what is in the mash (RULED 2026-07-28/30,
+    /// bee-domain-design.md; the mash decides the domain, not the machine).
+    ///
+    ///  - Honeycomb: the keeper rendering their own harvest. BEE #4 when the BEE domain is
+    ///    live, else the FAR beekeeping fallback (which covers both vanilla acts).
+    ///  - Anything else juiceable: undetermined at the press (drunk, cooked, or fermented),
+    ///    so COO 50 / BRE 50, a true halving, the pickling shape. This supersedes the
+    ///    2026-07-08 "juicing stays COO 100" ruling.</summary>
     public static void JuicePostfix(BlockEntity __instance, IPlayer byPlayer)
     {
         if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
-        Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechJuicing,
-            HashCode.Combine("juice", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 20000));
+        int cx = HashCode.Combine("juice", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 20000);
+
+        string mash = (__instance as Vintagestory.GameContent.BlockEntityFruitPress)?
+            .MashSlot?.Itemstack?.Collectible?.Code?.Path ?? "";
+        if (mash.Contains("honeycomb"))
+        {
+            if (BeePatches.Active)
+                Core?.Ledger?.Log(byPlayer, BeeDomain.Code, BeeDomain.TechRendering, cx);
+            else
+                Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechBeekeeping, cx);
+            return;
+        }
+
+        Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechJuicing, cx, 0.5);
+        Core?.Ledger?.Log(byPlayer, BreDomain.Code, BreDomain.TechFermenting, cx, 0.5);
     }
 
     // ------------------------------------------------------------ prep-table (seafarer)

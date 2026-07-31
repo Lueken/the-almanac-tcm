@@ -175,6 +175,12 @@
     "tagline": "Their colonies come through the winter that empties everyone else's.",
     "identity": "Stewardship of a living thing that cannot be told what to do. A hive is not harvested so much as kept: read the flowers around it, read the weight of the frames, read whether the colony is growing or quietly dying, and act a season before the answer becomes obvious. The comb is only the receipt. The skill is everything that had to go right in the eleven months before it.",
     "mastery": "A Grandmaster's hives do not fail. Where others lose colonies to a thin autumn or a hard winter, the warden's come through in strength, and the swarms they cast are the stock every other keeper in the valley starts from.",
-    "tip": "Flowers are the whole account. A hive set among too few will bleed population every day no matter how carefully you tend it, and no amount of feeding covers a bad site. Site well first, then keep. Take comb with an eye on what the colony needs to hold, not on what the frames will give you today: a hive robbed bare in autumn is a hive you will not have in spring."
+    "tip": "Flowers are the whole account. A hive set among too few will bleed population every day no matter how carefully you tend it, and no amount of feeding covers a bad site. Site well first, then keep. Take comb with an eye on what the colony needs to hold, not on what the frames will give you today: a hive robbed bare in autumn is a hive you will not have in spring.",
+    "techniques": [
+      "Hiving",
+      "Combwork",
+      "Wintering",
+      "Rendering"
+    ]
   }
 }

@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.17")]
+    Version = "0.4.18")]
 
 namespace AlmanacTcm;
 
@@ -123,6 +123,10 @@ public class AlmanacTcmModSystem : ModSystem
             Try("POT", () => Domains.PotPatches.PatchConditional(api, harmony));
             Try("POT-bonus", () => Domains.PotBonusPatches.PatchConditional(api, harmony));
             Try("GLA", () => Domains.GlaPatches.PatchConditional(api, harmony));
+            // BEE: the any-of conditional domain (oreki OR fgc). Must run BEFORE FAR reads
+            // BeeDomain.Enabled? No: both read mod presence, not each other's patch state,
+            // so order is free. The RouteBeekeeping switch is that shared presence test.
+            Try("BEE", () => Domains.BeePatches.PatchConditional(api, harmony));
             Try("BRE", () => Domains.BrePatches.PatchConditional(api, harmony));
             Try("ALC", () => Domains.AlcPatches.PatchConditional(api, harmony));
             Try("ALC-brand", () => Domains.AlcBrandPatches.PatchConditional(api, harmony));
@@ -179,6 +183,10 @@ public class AlmanacTcmModSystem : ModSystem
         Engine.LedgerSystem.DefaultFactories[Domains.EngDomain.Code] = Domains.EngDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.TemDomain.Code] = Domains.TemDomain.Defaults;
         Engine.LedgerSystem.DefaultFactories[Domains.ArcDomain.Code] = Domains.ArcDomain.Defaults;
+        // BEE: the first any-of conditional (oreki OR fgc). The factory registers regardless,
+        // like GLA/ARC; the roster entry disables the domain when neither mod is present and
+        // beekeeping stays FAR #10 (RULED 2026-07-30).
+        Engine.LedgerSystem.DefaultFactories[Domains.BeeDomain.Code] = Domains.BeeDomain.Defaults;
         Server = new LevelingServer(sapi, Template);
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);

@@ -96,7 +96,11 @@ public static class FarPatches
         Hook(api, harmony, "Vintagestory.GameContent.EntityBehaviorMilkable", "MilkingComplete", nameof(MilkPostfix), "FAR milking");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityHenBox", "OnInteract", nameof(EggPostfix), "FAR eggs");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFruitTreePart", "OnBlockInteractStop", nameof(OrchardPostfix), "FAR orchard");
-        Hook(api, harmony, "Vintagestory.GameContent.BlockSkep", "OnBlockBroken", nameof(BeekeepPostfix), "FAR beekeeping");
+        // RouteBeekeeping (RULED 2026-07-30): with the BEE domain enabled these seams belong
+        // to BeePatches, which grants at finer grain (per-frame contexts, verb-split hiving/
+        // combwork/wintering). One presence test decides the owner, so nothing double-grants.
+        if (!BeeDomain.Enabled(api))
+            Hook(api, harmony, "Vintagestory.GameContent.BlockSkep", "OnBlockBroken", nameof(BeekeepPostfix), "FAR beekeeping");
 
         // The feeding loop: the filler is stamped at the trough BLOCK interaction, then credited +
         // stamped onto the animal at the portion consume on the BE. OnBlockInteractStart is
@@ -162,8 +166,10 @@ public static class FarPatches
         // racks), so the vanilla BlockSkep break below only fires on the public-release fallback.
         // Credit the tending interaction on each FGC hive BE (heavy dedup: one credit per hive per
         // ~30s, so idle clicks collapse to a tending session). Verified against FGC 2.0.8.
-        if (api.ModLoader.IsModEnabled("fromgoldencombs"))
+        if (api.ModLoader.IsModEnabled("fromgoldencombs") && !BeeDomain.Enabled(api))
         {
+            // Unreachable in practice (fromgoldencombs present IS BeeDomain.Enabled), kept so
+            // the stand-down reads explicitly at both beekeeping seam sites.
             // The four interactive hive BEs. BEFGCBeehive (the populated skep) declares no
             // OnInteract — FGC skeps still harvest by BREAKING, which the vanilla
             // BlockSkep.OnBlockBroken hook above already credits (boot-log verified 0.3.142).
