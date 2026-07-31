@@ -59,8 +59,10 @@ public static class AlmanacChatChannel
 
     /// <summary>Every recompose guarantees the tab: the groups packet clears and rebuilds the
     /// dict (and purges unknown histories) before composing, so injecting here survives it.
-    /// PlayerGroup lives in VintagestoryLib (unreferenced), so the fake entry is built by
-    /// reflection, exactly the shape vanilla injects for its own damage log.</summary>
+    /// PlayerGroup is Vintagestory.API.Server.PlayerGroup (VSAPI, referenced), NOT a Lib
+    /// type; 0.4.22 guessed two wrong namespaces by reflection and the injection silently
+    /// no-opped, which is exactly why this is typed now: a wrong name fails the build, not
+    /// the player.</summary>
     public static void ComposePrefix(object __instance)
     {
         var game = Member(Traverse.Create(__instance), "game").GetValue();
@@ -68,14 +70,11 @@ public static class AlmanacChatChannel
         if (Member(Traverse.Create(game), "OwnPlayerGroupsById").GetValue() is not System.Collections.IDictionary groups
             || groups.Contains(GroupId)) return;
 
-        var pgType = AccessTools.TypeByName("Vintagestory.Common.PlayerGroup")
-                  ?? AccessTools.TypeByName("Vintagestory.API.Common.PlayerGroup");
-        if (pgType == null) return;
-        object group = System.Activator.CreateInstance(pgType)!;
-        var gt = Traverse.Create(group);
-        Member(gt, "Uid").SetValue(GroupId);
-        Member(gt, "Name").SetValue(Lang.Get("almanactcm:chattab-almanac"));
-        groups[GroupId] = group;
+        groups[GroupId] = new Vintagestory.API.Server.PlayerGroup
+        {
+            Uid = GroupId,
+            Name = Lang.Get("almanactcm:chattab-almanac"),
+        };
     }
 
     /// <summary>The quiet delivery: history + repaint-if-active, nothing else. Fails open to
