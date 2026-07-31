@@ -35,6 +35,7 @@ public static class MetConditionalPatches
 
     public static void PatchAllPresent(ICoreAPI api, Harmony harmony)
     {
+        MetPatches.ToolsmithLoaded = api.ModLoader.IsModEnabled("toolsmith");
         PatchToolsmithWorkbench(api, harmony);
         PatchToolsmithHeldCraft(api, harmony);
         PatchSmithingPlusBits(api, harmony);
@@ -347,6 +348,14 @@ public static class MetConditionalPatches
             // Completion only counts when the third strike lands: hits were already
             // >=3 going in. Earlier calls are the wiggle build-up and also return true.
             __state = Traverse.Create(__instance).Field<int>("craftingHitsCount").Value >= 3;
+            // The fitting rule's switch: OnCreatedByCrafting fires inside this call on
+            // the bench path only, and MarkTransferPatch reads the flag to wake quality.
+            MetPatches.BenchAssemblyContext = true;
+        }
+
+        public static void Finalizer()
+        {
+            MetPatches.BenchAssemblyContext = false;
         }
 
         public static void Postfix(IWorldAccessor world, IPlayer byPlayer, bool __result, bool __state)
@@ -372,8 +381,9 @@ public static class MetConditionalPatches
         }
         harmony.Patch(method,
             prefix: new HarmonyMethod(AccessTools.Method(typeof(WorkbenchCraftPatch), "Prefix")),
-            postfix: new HarmonyMethod(AccessTools.Method(typeof(WorkbenchCraftPatch), "Postfix")));
-        TcmLog.Info(api, "assembly verb hooked to Toolsmith workbench");
+            postfix: new HarmonyMethod(AccessTools.Method(typeof(WorkbenchCraftPatch), "Postfix")),
+            finalizer: new HarmonyMethod(AccessTools.Method(typeof(WorkbenchCraftPatch), "Finalizer")));
+        TcmLog.Info(api, "assembly verb hooked to Toolsmith workbench (bench-fitting context armed)");
     }
 
     // ------------------------------- Toolsmith HELD craft (assembly, 4th path)

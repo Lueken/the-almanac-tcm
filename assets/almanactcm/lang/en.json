@@ -10,6 +10,7 @@
   "almanactcm:part-hafted-by": "Hafted by {0}",
   "almanactcm:part-bound-by": "Bound by {0}",
   "almanactcm:part-wrapped-by": "Wrapped by {0}",
+  "almanactcm:unfitted-mark": "The maker's work lies dormant. Fit it at a workbench.",
   "almanactcm:masterwork-by": "A masterwork vessel by {0}. It keeps what it holds.",
   "almanactcm:practice-gain": "{0}: {1} +{2}, {3:0.#} settling today",
   "almanactcm:practice-repeat": "{0}: {1} repeated, nothing new learned",

@@ -125,6 +125,45 @@
       ]
     },
     {
+      "id": "the-workbench",
+      "title": "The workbench",
+      "keepTogether": true,
+      "revealedBy": "almanactcm:first-met-assembly",
+      "hint": "A bench waits for your first fitting.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "toolsmith"
+          ],
+          "text": "A head is not a tool. Lay the head, the handle, and the binding on the bench, take up a hammer, and strike three times; on the third the parts become one and the finished tool lies on the bench before you. You can do the same work in your hands in the field, and the tool will serve. But the bench is where a tool is made <strong>properly</strong>, and the difference is not cosmetic."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "toolsmith"
+          ],
+          "text": "A marked head carries its maker's quality in the steel: the extra life a practised hand hammered into it, and the edge a Grandmaster left behind. That work <strong>wakes only on the bench</strong>. Haft the same head in the field and the mark still shows, but the quality lies dormant until the tool is taken apart and fitted properly. Rework a fitted tool by hand and the work sleeps again. The anvil makes the head; the bench makes the tool."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "toolsmith"
+          ],
+          "text": "The bench keeps two more services no other block offers. A tool head worn far enough down can be set in the staging corner and <strong>reforged</strong>: the shape returns to a glowing workitem of its metal, ready for the anvil again, and nothing is lost but the hours. And two damaged tools of a kind laid on the bench together will <strong>merge</strong>, their remaining life combined into one."
+        },
+        {
+          "type": "callout",
+          "variant": "tip",
+          "requires": [
+            "toolsmith"
+          ],
+          "text": "A smithy is not finished when the forge is lit. The bench earns its floor space."
+        }
+      ]
+    },
+    {
       "id": "finished-work",
       "title": "The finished work",
       "revealedBy": "almanactcm:met-first-work",

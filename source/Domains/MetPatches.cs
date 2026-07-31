@@ -46,6 +46,16 @@ public static class MetPatches
     /// (stage 2) can restamp/strip the buff while the provenance line stays intact.</summary>
     public const string SmithingQualityAttr = "sp:smithingQuality";
 
+    /// <summary>Whether toolsmith is loaded (set at patch time). With it absent there is no
+    /// bench, so the fitting rule below never applies and quality carries as it always did.</summary>
+    public static bool ToolsmithLoaded;
+
+    /// <summary>True only inside BlockEntityWorkbench.AttemptToCraft (set by the workbench
+    /// patch, cleared in its finalizer). MarkTransferPatch reads it to decide whether the
+    /// head's quality WAKES on the assembled tool: the bench-fitting rule (RULED 2026-07-31).
+    /// ThreadStatic on principle; the server tick is single-threaded today.</summary>
+    [System.ThreadStatic] public static bool BenchAssemblyContext;
+
     /// <summary>Smelt classification written at DoSmelt (no player there); read and
     /// converted to practice at first pour, where the pourer IS the attributable smith.</summary>
     public const string SmeltAttr = "almanactcm:smelt";
@@ -470,6 +480,13 @@ public static class MetPatches
             int tier = attrs!.GetInt(MakerTierAttr, -1);
             dsc.AppendLine(Lang.Get(tier >= 2 ? MakerKey(tier) : "almanactcm:made-by", maker));
 
+            // The fitting rule's face: an assembled tool whose maker's work is dormant says
+            // so, and says what to do about it, or the rule reads as a silent nerf.
+            if (ToolsmithLoaded && tier >= 2
+                && attrs.HasAttribute("tinkeredToolHead")
+                && !attrs.HasAttribute(SmithingQualityAttr))
+                dsc.AppendLine(Lang.Get("almanactcm:unfitted-mark"));
+
             // The GM signature (Axis 6 stage 2), a quiet line under the provenance.
             if (MetSignature.IsHoned(inSlot!.Itemstack))
                 dsc.AppendLine(Lang.Get("almanactcm:honed-mark"));
@@ -652,7 +669,15 @@ public static class MetPatches
     /// so it's the wrong seam for XP but the perfect one for provenance — every
     /// path that builds a tool from a head passes through here with the input
     /// slots visible. The head's Maker's Mark rides onto the finished tool
-    /// (RULED 2026-07-13: forged or cast, the head's maker marks the tool).</summary>
+    /// (RULED 2026-07-13: forged or cast, the head's maker marks the tool).
+    ///
+    /// THE FITTING RULE (RULED 2026-07-31, toolsmith only): the mark always rides,
+    /// but the head's QUALITY and the GM signature wake only when the tool is
+    /// assembled at a workbench. A head hafted in the field works, and the maker's
+    /// work in it lies dormant until the tool is taken apart and fitted properly;
+    /// a later hand-rework puts it back to sleep the same way. The anvil makes the
+    /// head, the bench makes the tool. Direct-forged and cast whole tools are
+    /// untouched: no assembly, nothing to fit.</summary>
     [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.OnCreatedByCrafting))]
     public static class MarkTransferPatch
     {
@@ -671,6 +696,12 @@ public static class MetPatches
                     input!.Itemstack!.Attributes.GetString(MakerNameAttr) ?? "");
                 output.Attributes.SetInt(MakerTierAttr,
                     input.Itemstack.Attributes.GetInt(MakerTierAttr, -1));
+
+                // The fitting rule: with a bench in the world, only the bench wakes the
+                // maker's work. Provenance above always rides; the buffs below are earned
+                // by assembling properly. Without toolsmith there is no bench to ask for.
+                if (ToolsmithLoaded && !BenchAssemblyContext) return;
+
                 // Quality carries the head's CURRENT buff state (a stripped head passes a
                 // stripped tool), keeping the head-for-life model intact through assembly.
                 output.Attributes.SetFloat(SmithingQualityAttr,
