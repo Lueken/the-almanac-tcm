@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.18")]
+    Version = "0.4.19")]
 
 namespace AlmanacTcm;
 
@@ -127,6 +127,7 @@ public class AlmanacTcmModSystem : ModSystem
             // BeeDomain.Enabled? No: both read mod presence, not each other's patch state,
             // so order is free. The RouteBeekeeping switch is that shared presence test.
             Try("BEE", () => Domains.BeePatches.PatchConditional(api, harmony));
+            Try("part-marks", () => Domains.ToolPartMarks.PatchConditional(api, harmony));
             Try("BRE", () => Domains.BrePatches.PatchConditional(api, harmony));
             Try("ALC", () => Domains.AlcPatches.PatchConditional(api, harmony));
             Try("ALC-brand", () => Domains.AlcBrandPatches.PatchConditional(api, harmony));
