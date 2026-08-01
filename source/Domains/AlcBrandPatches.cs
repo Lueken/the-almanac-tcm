@@ -167,13 +167,14 @@ public static class AlcBrandPatches
 
     // ------------------------------------------------------------ truthful numbers tooltip
 
-    /// <summary>The Brand's numbers, visible on the shelf (RULED 2026-08-01: base first, then the
-    /// maker's contribution in green as a delta). Vanilla renders the whole info as one localized
-    /// line with three formatted numbers, so for a branded stack we skip the original and emit the
-    /// SAME Lang key with augmented number strings: "3.0 (+0.7)" against "10.0 (+1.2)". Application
-    /// time carries no brand effect and stays bare. An Untrained brand shows its penalty in red,
-    /// NERF-FIRST made visible; Novice-band brands (factor 1.0) show nothing extra. Deltas that
-    /// round to zero are suppressed. Runs both sides off synced stack attributes, so shelf and
+    /// <summary>The Brand's numbers, visible on the shelf (RULED 2026-08-01, refined same day: the
+    /// leading number is the TRUE delivered value, with the maker's contribution beside it as a
+    /// delta, green for a lift, red for the Untrained penalty). "3.7 (+0.7)" reads as one truth;
+    /// base-plus-footnote made the player do arithmetic. Vanilla renders the whole info as one
+    /// localized line with three formatted numbers, so for a branded stack we skip the original
+    /// and emit the SAME Lang key with augmented number strings. Application time carries no brand
+    /// effect and stays bare; deltas that round to zero are suppressed, so a Novice-band brand
+    /// renders exactly like vanilla. Runs both sides off synced stack attributes, so shelf and
     /// effect agree; the delivery-time scaling itself is unchanged.</summary>
     [HarmonyPatch(typeof(CollectibleBehaviorHealingItem), nameof(CollectibleBehaviorHealingItem.GetHeldItemInfo))]
     public static class HealingTooltipPatch
@@ -187,10 +188,17 @@ public static class AlcBrandPatches
             bool potent = AlcBrand.IsPotent(stack);
             float h = __instance.Health, d = __instance.EffectDurationSec, a = __instance.ApplicationTimeSec;
 
-            string hs = $"{h:F1}" + BonusSuffix(h * (AlcDomain.PotencyMul(level, potent) - 1.0));
-            string ds = $"{d:F1}" + BonusSuffix(d * (AlcDomain.DurationMul(level, potent) - 1.0));
+            string hs = TrueValue(h, AlcDomain.PotencyMul(level, potent));
+            string ds = TrueValue(d, AlcDomain.DurationMul(level, potent));
             dsc.AppendLine(Lang.Get("healing-item-info", hs, ds, $"{a:F1}"));
             return false;
+        }
+
+        private static string TrueValue(float baseVal, double mul)
+        {
+            double delta = baseVal * (mul - 1.0);
+            if (System.Math.Abs(delta) < 0.05) return $"{baseVal:F1}";
+            return $"{baseVal + delta:F1}" + BonusSuffix(delta);
         }
 
         private static string BonusSuffix(double delta)
