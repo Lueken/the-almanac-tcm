@@ -87,9 +87,11 @@ public static class MetPatches
 
     /// <summary>Provenance lang key for a maker tier: Smithed (Journeyman), Master-forged
     /// (Master), Masterwork (Grandmaster).</summary>
+    // met-masterwork-by, NOT masterwork-by: that key belongs to POT, whose "vessel that
+    // keeps what it holds" read absurdly on a Grandmaster pickaxe (caught in play 2026-08-01).
     private static string MakerKey(int tier) => tier switch
     {
-        >= 4 => "almanactcm:masterwork-by",
+        >= 4 => "almanactcm:met-masterwork-by",
         3 => "almanactcm:master-forged-by",
         _ => "almanactcm:smithed-by",
     };
@@ -478,7 +480,24 @@ public static class MetPatches
             // Tiered provenance from the frozen maker tier; legacy tools (no tier) fall
             // back to the flat line.
             int tier = attrs!.GetInt(MakerTierAttr, -1);
-            dsc.AppendLine(Lang.Get(tier >= 2 ? MakerKey(tier) : "almanactcm:made-by", maker));
+            string makerLine = Lang.Get(tier >= 2 ? MakerKey(tier) : "almanactcm:made-by", maker);
+
+            // The numbers ruling (2026-08-01): the maker line carries the quality's percent
+            // when the work is awake (the attribute is the multiplier Smithing+ applies), and
+            // the generic GM wear-skip rides here when no Durable line will claim its own.
+            float quality = attrs.GetFloat(SmithingQualityAttr, 0f);
+            if (quality > 1f)
+                makerLine += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-durability",
+                    (int)System.Math.Round((quality - 1f) * 100f)));
+            bool honed = MetSignature.IsHoned(inSlot!.Itemstack);
+            bool durable = MetSignature.IsDurable(inSlot.Itemstack);
+            if (tier >= MetSignature.GrandmasterTier && !durable)
+            {
+                int skipPct = (int)System.Math.Round(Knob(MetDomain.GmWearSkip, 0.08) * 100.0);
+                if (skipPct > 0)
+                    makerLine += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-wear-skip", skipPct));
+            }
+            dsc.AppendLine(makerLine);
 
             // The fitting rule's face: an assembled tool whose maker's work is dormant says
             // so, and says what to do about it, or the rule reads as a silent nerf.
@@ -487,11 +506,16 @@ public static class MetPatches
                 && !attrs.HasAttribute(SmithingQualityAttr))
                 dsc.AppendLine(Lang.Get("almanactcm:unfitted-mark"));
 
-            // The GM signature (Axis 6 stage 2), a quiet line under the provenance.
-            if (MetSignature.IsHoned(inSlot!.Itemstack))
-                dsc.AppendLine(Lang.Get("almanactcm:honed-mark"));
-            else if (MetSignature.IsDurable(inSlot.Itemstack))
-                dsc.AppendLine(Lang.Get("almanactcm:durable-mark"));
+            // The GM signature (Axis 6 stage 2), a quiet line under the provenance, its
+            // effect quantified per the numbers ruling.
+            if (honed)
+                dsc.AppendLine(Lang.Get("almanactcm:honed-mark")
+                    + Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-armor-pierce",
+                        (int)Knob(MetDomain.HonedArmorPierce, 1))));
+            else if (durable)
+                dsc.AppendLine(Lang.Get("almanactcm:durable-mark")
+                    + Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-wear-skip",
+                        (int)System.Math.Round(Knob(MetDomain.DurableWearSkip, 0.18) * 100.0))));
         }
     }
 

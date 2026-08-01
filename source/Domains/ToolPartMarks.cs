@@ -167,7 +167,7 @@ public static class ToolPartMarks
             if (!string.IsNullOrEmpty(smith))
             {
                 int tier = head!.Attributes.GetInt(MetPatches.MakerTierAttr, -1);
-                string key = tier >= 4 ? "almanactcm:masterwork-by"
+                string key = tier >= 4 ? "almanactcm:met-masterwork-by"
                     : tier == 3 ? "almanactcm:master-forged-by"
                     : "almanactcm:smithed-by";
                 dsc.AppendLine(Lang.Get(key, smith));

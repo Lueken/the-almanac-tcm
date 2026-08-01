@@ -216,7 +216,16 @@ public static class WooColliersMark
         public static void Postfix(ItemSlot inSlot, System.Text.StringBuilder dsc)
         {
             string? name = inSlot?.Itemstack?.Attributes?.GetString(MarkAttr);
-            if (!string.IsNullOrEmpty(name)) dsc.AppendLine(Lang.Get("almanactcm:colliers-mark", name));
+            if (string.IsNullOrEmpty(name)) return;
+
+            // The numbers ruling (2026-08-01): the mark's line carries what the fire gains,
+            // since the burn stats have no per-stack line of their own to annotate.
+            string line = Lang.Get("almanactcm:colliers-mark", name);
+            int deg = (int)WooDomain.Knob(WooDomain.MarkBurnTempBonus, 100);
+            int durPct = (int)System.Math.Round((WooDomain.Knob(WooDomain.MarkBurnDurationMul, 1.2) - 1.0) * 100.0);
+            if (deg > 0 || durPct > 0)
+                line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-burn", deg, durPct));
+            dsc.AppendLine(line);
         }
     }
 }

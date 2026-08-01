@@ -149,10 +149,48 @@ public static class TaiMarkPatches
         }
     }
 
+    // ------------------------------------------------------------ warmth delta annotation
+
+    /// <summary>The suite-wide numbers ruling (2026-08-01) on the warmth line. Vanilla already
+    /// prints the TRUE current warmth (its renderer calls GetWarmth, which the mark scales), in
+    /// exactly the green/red this suite uses, so the leading number needs no help; only the
+    /// maker's share is invisible. This postfix runs LAST, reconstructs the exact warmth
+    /// fragment vanilla just appended (same Lang key, same color branch, same value), and
+    /// replaces its final occurrence with fragment + delta. If another mod rewrote the line,
+    /// the fragment won't match and nothing changes: fail-open, never garble.</summary>
+    [HarmonyPatch(typeof(CollectibleBehaviorWearable), nameof(CollectibleBehaviorWearable.GetHeldItemInfo))]
+    [HarmonyPriority(HarmonyLib.Priority.Last)]
+    public static class WarmthDeltaPatch
+    {
+        public static void Postfix(CollectibleBehaviorWearable __instance, ItemSlot inSlot, System.Text.StringBuilder dsc)
+        {
+            var stack = inSlot?.Itemstack;
+            if (!TaiMark.HasMark(stack)) return;
+            double mul = TaiDomain.WarmthMul(TaiMark.LevelOf(stack), TaiMark.EmphasisOf(stack));
+            if (mul == 1.0) return;
+
+            float warmth = __instance.GetWarmth(inSlot);   // already mark-scaled (true value)
+            double delta = warmth - warmth / mul;
+            string suffix = Engine.TcmTooltip.DeltaSuffix(delta);
+            if (suffix.Length == 0) return;
+
+            // Vanilla's exact composition for the current-warmth fragment (color branch at 0.05).
+            string color = (double)warmth < 0.05 ? Engine.TcmTooltip.PenaltyColor : Engine.TcmTooltip.LiftColor;
+            string fragment = "<font color=\"" + color + "\">" + Lang.Get("+{0:0.#}°C", warmth) + "</font>";
+
+            string text = dsc.ToString();
+            int at = text.LastIndexOf(fragment, System.StringComparison.Ordinal);
+            if (at < 0) return;
+            dsc.Remove(at, fragment.Length).Insert(at, fragment + suffix);
+        }
+    }
+
     // ------------------------------------------------------------ provenance tooltip
 
     /// <summary>The Tailor's Mark maker line (Journeyman up), bottom of the tooltip after a blank line,
-    /// like the other domain marks. Reads the taiBy tag written on marked garments.</summary>
+    /// like the other domain marks. Reads the taiBy tag written on marked garments. Carries the
+    /// wear-rate percent (the effect with no vanilla number): a master's seams wear slower, and
+    /// the line now says by how much.</summary>
     [HarmonyPatch(typeof(ItemStack), nameof(ItemStack.GetDescription))]
     [HarmonyPriority(HarmonyLib.Priority.Last)]
     public static class ProvenancePatch
@@ -168,7 +206,14 @@ public static class TaiMarkPatches
                 : level >= TaiDomain.ProvMaster ? Lang.Get("almanactcm:tai-tailored-by", name)
                 : level >= TaiDomain.ProvJourneyman ? Lang.Get("almanactcm:tai-sewn-by", name)
                 : null;
-            if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
+            if (line == null) return;
+
+            // The line prints Journeyman-up only, where the wear factor is never a penalty.
+            double wearMul = TaiDomain.WearMul(level, TaiMark.EmphasisOf(__instance));
+            int pct = (int)System.Math.Round((1.0 - wearMul) * 100.0);
+            if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-wears-slower", pct));
+
+            __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }
     }
 }

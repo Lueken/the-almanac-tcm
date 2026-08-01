@@ -188,24 +188,10 @@ public static class AlcBrandPatches
             bool potent = AlcBrand.IsPotent(stack);
             float h = __instance.Health, d = __instance.EffectDurationSec, a = __instance.ApplicationTimeSec;
 
-            string hs = TrueValue(h, AlcDomain.PotencyMul(level, potent));
-            string ds = TrueValue(d, AlcDomain.DurationMul(level, potent));
+            string hs = Engine.TcmTooltip.TrueValue(h, AlcDomain.PotencyMul(level, potent));
+            string ds = Engine.TcmTooltip.TrueValue(d, AlcDomain.DurationMul(level, potent));
             dsc.AppendLine(Lang.Get("healing-item-info", hs, ds, $"{a:F1}"));
             return false;
-        }
-
-        private static string TrueValue(float baseVal, double mul)
-        {
-            double delta = baseVal * (mul - 1.0);
-            if (System.Math.Abs(delta) < 0.05) return $"{baseVal:F1}";
-            return $"{baseVal + delta:F1}" + BonusSuffix(delta);
-        }
-
-        private static string BonusSuffix(double delta)
-        {
-            if (System.Math.Abs(delta) < 0.05) return "";
-            string color = delta >= 0 ? "#84ff84" : "#ff8484";
-            return $" <font color=\"{color}\">({(delta >= 0 ? "+" : "")}{delta:0.#})</font>";
         }
     }
 

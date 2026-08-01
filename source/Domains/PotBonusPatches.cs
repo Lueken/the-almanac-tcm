@@ -202,7 +202,13 @@ public static class PotBonusPatches
                 : tier >= PotDomain.ProvMaster ? Lang.Get("almanactcm:masterpotted-by", name)
                 : tier >= PotDomain.ProvJourneyman ? Lang.Get("almanactcm:thrown-by", name)
                 : null;
-            if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
+            if (line == null) return;
+
+            // The numbers ruling (2026-08-01): "it keeps what it holds" now says by how much.
+            int pct = (int)System.Math.Round((1.0 - PotDomain.PreserveFactor(tier)) * 100.0);
+            if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-contents-keep", pct));
+
+            __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }
     }
 }

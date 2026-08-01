@@ -330,6 +330,82 @@ public static class CooBonusPatches
         }
     }
 
+    // ------------------------------------------------------------ nutrition facts deltas
+
+    /// <summary>The suite-wide numbers ruling (2026-08-01) on the Nutrition Facts block. The
+    /// displayed satiety and health are already TRUE (the tooltip multiplies through
+    /// GetNutritionHealthMul, which the cook's stamp scales); this annotates each line with
+    /// the cook's share. Reconstruction is bit-exact: the same props builder is called twice
+    /// with the same argument shapes vanilla used, once at the full multipliers (matching the
+    /// rendered numbers) and once at the multipliers with the cook's edge divided back out
+    /// (the baseline). Any line that fails to match verbatim is left alone: fail-open.</summary>
+    [HarmonyPatch(typeof(BlockMeal), nameof(BlockMeal.GetContentNutritionFacts),
+        new[] { typeof(IWorldAccessor), typeof(ItemSlot), typeof(ItemStack[]), typeof(EntityAgent), typeof(bool), typeof(float), typeof(float) })]
+    public static class NutritionFactsDeltaPatch
+    {
+        public static void Postfix(BlockMeal __instance, IWorldAccessor world, ItemSlot inSlotorFirstSlot,
+            ItemStack[] contentStacks, EntityAgent? forEntity, bool mulWithStacksize,
+            float nutritionMul, float healthMul, ref string __result)
+        {
+            if (string.IsNullOrEmpty(__result)) return;
+            var attrs = inSlotorFirstSlot?.Itemstack?.Attributes;
+            if (attrs?.HasAttribute(CookTierAttr) != true) return;
+
+            double t = CooDomain.BonusT(attrs.GetInt(CookTierAttr));
+            double cxWeight = Math.Clamp(attrs.GetInt(CookCxAttr) / 3.0, 0, 1);
+            if (t <= 0 || cxWeight <= 0) return;
+            double satEdge = 1.0 + t * cxWeight * CooDomain.Knob(CooDomain.SatietyGmC3, 0.12);
+            double healthEdge = 1.0 + t * cxWeight * CooDomain.Knob(CooDomain.HealthGmC3, 0.05);
+            if (satEdge == 1.0 && healthEdge == 1.0) return;
+
+            var full = Tally(__instance, world, inSlotorFirstSlot!, contentStacks, forEntity, mulWithStacksize, nutritionMul, healthMul);
+            var baseline = Tally(__instance, world, inSlotorFirstSlot!, contentStacks, forEntity, mulWithStacksize,
+                (float)(nutritionMul / satEdge), (float)(healthMul / healthEdge));
+
+            string text = __result;
+            foreach (var kv in full.satByCat)
+            {
+                baseline.satByCat.TryGetValue(kv.Key, out float baseVal);
+                string suffix = Engine.TcmTooltip.DeltaSuffix(kv.Value - baseVal, "0");
+                if (suffix.Length == 0) continue;
+                string line = Lang.Get("nutrition-facts-line-satiety",
+                    Lang.Get("foodcategory-" + kv.Key.ToString().ToLowerInvariant()), Math.Round(kv.Value));
+                int at = text.IndexOf(line, StringComparison.Ordinal);
+                if (at >= 0) text = text.Remove(at, line.Length).Insert(at, line + suffix);
+            }
+            if (full.health != 0f)
+            {
+                string hSuffix = Engine.TcmTooltip.DeltaSuffix(full.health - baseline.health);
+                if (hSuffix.Length > 0)
+                {
+                    string hLine = "- " + Lang.Get("Health: {0}{1} hp", (full.health > 0f) ? "+" : "", full.health);
+                    int at = text.IndexOf(hLine, StringComparison.Ordinal);
+                    if (at >= 0) text = text.Remove(at, hLine.Length).Insert(at, hLine + hSuffix);
+                }
+            }
+            __result = text;
+        }
+
+        /// <summary>Vanilla's own accumulation loop, verbatim in shape, so the full-multiplier
+        /// pass reproduces the rendered numbers exactly.</summary>
+        private static (Dictionary<Vintagestory.API.Common.EnumFoodCategory, float> satByCat, float health) Tally(
+            BlockMeal meal, IWorldAccessor world, ItemSlot slot, ItemStack[] stacks, EntityAgent? forEntity,
+            bool mulWithStacksize, float nutritionMul, float healthMul)
+        {
+            var props = BlockMeal.GetContentNutritionProperties(world, slot, stacks, forEntity, mulWithStacksize, nutritionMul, healthMul);
+            var byCat = new Dictionary<Vintagestory.API.Common.EnumFoodCategory, float>();
+            float health = 0f;
+            foreach (var p in props)
+            {
+                if (p == null) continue;
+                byCat.TryGetValue(p.FoodCategory, out float v);
+                health += p.Health;
+                byCat[p.FoodCategory] = v + p.Satiety;
+            }
+            return (byCat, health);
+        }
+    }
+
     // ------------------------------------------------------------ Axis 6 — provenance tooltip
 
     /// <summary>The Cook's Mark line (from Journeyman up, ruled): Cooked by / Prepared by /
@@ -353,6 +429,22 @@ public static class CooBonusPatches
                 : tier >= TierMaster ? Lang.Get("almanactcm:prepared-by", name)
                 : tier >= TierJourneyman ? Lang.Get("almanactcm:cooked-by", name)
                 : null;
+
+            // The numbers ruling: the spoilage rates have no stat line, so the mark's own
+            // lines carry them. A GM's food keeps; careless cooking is a visible penalty.
+            if (tier >= TierGm)
+            {
+                int pct = (int)Math.Round((1.0 - CooDomain.Knob(CooDomain.SpoilGm, 0.70)) * 100.0);
+                if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-spoils-slower", pct));
+            }
+            else if (tier <= 0)
+            {
+                int pct = (int)Math.Round((CooDomain.Knob(CooDomain.SpoilUntrained, 1.15) - 1.0) * 100.0);
+                if (pct > 0)
+                    line = $"<font color=\"{Engine.TcmTooltip.PenaltyColor}\">"
+                         + Lang.Get("almanactcm:tip-spoils-faster", pct) + "</font>";
+            }
+
             if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }
     }

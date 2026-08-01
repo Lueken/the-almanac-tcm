@@ -202,6 +202,14 @@ public static class FarBonusPatches
                 : null;
             if (line == null) return;
             if (gen > 0) line += " " + Lang.Get("almanactcm:heirloom-tail", gen);
+
+            // The numbers ruling (2026-08-01): a GM grower's produce keeps, and the line
+            // says by how much (the spoil rate has no stat line of its own).
+            if (tier >= FarDomain.ProvGm)
+            {
+                int pct = (int)System.Math.Round((1.0 - FarDomain.Knob(FarDomain.SpoilGrownGm, 0.70)) * 100.0);
+                if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-spoils-slower", pct));
+            }
             __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }
     }
