@@ -33,12 +33,6 @@ public static class ToolPartMarks
     public const string TierAttr = "almanactcm:parttier";
     public const string VerbAttr = "almanactcm:partverb";   // hafted | bound | wrapped
 
-    /// <summary>Captured at OnCreatedByCrafting (runs before ConsumeInput in CraftSingle),
-    /// stamped once the crafter is in scope at ConsumeInput. Single-threaded server; the
-    /// capture self-clears because it fires for EVERY grid output, part or not.</summary>
-    private static ItemStack? pendingPart;
-    private static string? pendingVerb;
-
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
         if (!api.ModLoader.IsModEnabled("toolsmith"))
@@ -48,19 +42,23 @@ public static class ToolPartMarks
         }
 
         var created = AccessTools.Method(typeof(CollectibleObject), "OnCreatedByCrafting");
-        var consume = AccessTools.Method(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput));
         var info = AccessTools.Method(typeof(CollectibleObject), nameof(CollectibleObject.GetHeldItemInfo));
-        if (created == null || consume == null || info == null)
+        if (created == null || info == null)
         {
-            TcmLog.Warn(api, "part-mark seams not found (OnCreatedByCrafting/ConsumeInput/GetHeldItemInfo); part marks inactive");
+            TcmLog.Warn(api, "part-mark seams not found (OnCreatedByCrafting/GetHeldItemInfo); part marks inactive");
             return;
         }
 
-        harmony.Patch(created, postfix: new HarmonyMethod(AccessTools.Method(typeof(ToolPartMarks), nameof(CapturePostfix))));
-        harmony.Patch(consume, postfix: new HarmonyMethod(AccessTools.Method(typeof(ToolPartMarks), nameof(StampPostfix))));
+        // STAMP AT CREATION, not at ConsumeInput (0.4.24, the fix for the 0.4.19 no-stamp bug).
+        // GenerateOutputStack calls OnCreatedByCrafting on every PREVIEW regeneration, and the
+        // grid re-previews while ConsumeInput consumes, so a stamp deferred to ConsumeInput lands
+        // on the next preview stack instead of the one the player took. The crafter is reachable
+        // right here: the grid's output slot belongs to an InventoryBasePlayer. This is the same
+        // moment MET's mark transfer writes, which is the one path verified working in game.
+        harmony.Patch(created, postfix: new HarmonyMethod(AccessTools.Method(typeof(ToolPartMarks), nameof(CreatedStampPostfix))));
         // Tooltip patches BOTH sides, like MET's mark line: attributes sync, so the line agrees.
         harmony.Patch(info, postfix: new HarmonyMethod(AccessTools.Method(typeof(ToolPartMarks), nameof(TooltipPostfix))));
-        TcmLog.Info(api, "part marks live: handles (WOO) and bindings/grips (TAI) stamp at grid craft; tools show the lineage");
+        TcmLog.Info(api, "part marks live: handles (WOO) and bindings/grips (TAI) stamp at creation; tools show the lineage");
     }
 
     // ------------------------------------------------------------ classification
@@ -104,32 +102,31 @@ public static class ToolPartMarks
 
     // ------------------------------------------------------------ stamp
 
-    public static void CapturePostfix(ItemSlot outputSlot)
+    /// <summary>Stamp the part the moment its stack is generated. Fires on every preview
+    /// regeneration, which is exactly right: the stack the player takes is always the last
+    /// preview, and each preview is a fresh clone that gets its own stamp. Attribute-copying
+    /// re-crafts (a treatment on a marked handle) arrive with the original mark already on
+    /// the clone, and the stamp-if-absent guard keeps that original hand.</summary>
+    public static void CreatedStampPostfix(ItemSlot outputSlot)
     {
         var stack = outputSlot?.Itemstack;
-        pendingVerb = Classify(stack);
-        pendingPart = pendingVerb == null ? null : stack;
-    }
+        string? verb = Classify(stack);
+        if (verb == null) return;
 
-    public static void StampPostfix(IPlayer byPlayer, bool __result)
-    {
-        var stack = pendingPart;
-        string? verb = pendingVerb;
-        pendingPart = null;
-        pendingVerb = null;
+        // The grid's output slot belongs to the crafter's InventoryBasePlayer.
+        var player = (outputSlot!.Inventory as InventoryBasePlayer)?.Player;
+        if (player?.Entity?.World?.Side != EnumAppSide.Server) return;
 
-        if (!__result || stack == null || verb == null
-            || byPlayer?.Entity?.World?.Side != EnumAppSide.Server) return;
-        // A re-craft of an already-marked part (a treatment or grip added on top) keeps
-        // the original hand's mark: the work being credited is the making, once.
-        if (stack.Attributes.HasAttribute(ByAttr)) return;
+        // A re-craft of an already-marked part keeps the original hand's mark: the work
+        // being credited is the making, once.
+        if (stack!.Attributes.HasAttribute(ByAttr)) return;
 
-        int level = verb == "hafted" ? WooDomain.LevelOf(byPlayer) : TaiDomain.LevelOf(byPlayer);
+        int level = verb == "hafted" ? WooDomain.LevelOf(player) : TaiDomain.LevelOf(player);
         int tier = Leveling.Domain.TierOf(level);
         if (tier < 2) return;   // Journeyman+ only: lesser work carries no mark
 
-        stack.Attributes.SetString(ByAttr, byPlayer.PlayerUID);
-        stack.Attributes.SetString(ByNameAttr, byPlayer.PlayerName);
+        stack.Attributes.SetString(ByAttr, player.PlayerUID);
+        stack.Attributes.SetString(ByNameAttr, player.PlayerName);
         stack.Attributes.SetInt(TierAttr, tier);
         stack.Attributes.SetString(VerbAttr, verb);
     }

@@ -29,11 +29,6 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class TaiMarkPatches
 {
-    /// <summary>The real garment stack captured at OnCreatedByCrafting (runs before ConsumeInput in
-    /// CraftSingle), stamped/gated once the crafter is in scope at ConsumeInput. Single-threaded server.</summary>
-    private static ItemStack? pendingWearableStack;
-    private static bool pendingWearableRepair;
-
     // ------------------------------------------------------------ cooling read (HoD, conditional)
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
@@ -104,50 +99,53 @@ public static class TaiMarkPatches
 
     // ------------------------------------------------------------ grid stamp + repair-gate (vanilla)
 
-    /// <summary>Capture the real garment stack at OnCreatedByCrafting (runs before ConsumeInput) and
-    /// whether this is a repair recipe, to stamp/gate once the crafter is in scope at ConsumeInput.</summary>
+    /// <summary>Stamp or repair-gate the garment the moment its stack is generated (0.4.24: the
+    /// stamp moved here from ConsumeInput, the fix for the preview-regeneration staleness that
+    /// silently dropped every deferred stamp; see ToolPartMarks.CreatedStampPostfix). The crafter
+    /// comes from the grid's own InventoryBasePlayer. Fires per preview regeneration, each on a
+    /// fresh clone, so the taken stack always carries the write. Stamp-only, no XP here: XP on a
+    /// preview would pay for rearranging a grid.</summary>
     [HarmonyPatch(typeof(CollectibleBehaviorWearable), nameof(CollectibleBehaviorWearable.OnCreatedByCrafting))]
     public static class WearableCapturePatch
     {
         public static void Postfix(ItemSlot outputSlot, IRecipeBase byRecipe)
         {
-            pendingWearableStack = outputSlot?.Itemstack;
-            pendingWearableRepair = byRecipe?.Name?.Path?.Contains("repair") ?? false;
-        }
-    }
+            var stack = outputSlot?.Itemstack;
+            if (stack == null) return;
+            var player = (outputSlot!.Inventory as InventoryBasePlayer)?.Player;
+            if (player?.Entity?.World?.Side != EnumAppSide.Server) return;
 
-    /// <summary>The vanilla TAI floor: grid-crafting a garment stamps the maker's mark (stamp-only, no
-    /// XP — the assembly grid grants nothing). A clothing-repair recipe grants the sew verb and runs the
-    /// repair-gate: an under-ranked repair strips the mark, an equal-or-higher one keeps it. Server-only,
-    /// real take only (ConsumeInput is the real-craft seam, never a preview).</summary>
-    [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
-    public static class WearableCraftPatch
-    {
-        public static void Postfix(IPlayer byPlayer, bool __result)
-        {
-            var stack = pendingWearableStack;
-            bool repair = pendingWearableRepair;
-            pendingWearableStack = null;
-            pendingWearableRepair = false;
-
-            if (!__result || stack == null || byPlayer?.Entity?.World?.Side != EnumAppSide.Server) return;
-
-            int playerLevel = TaiDomain.LevelOf(byPlayer);
+            int playerLevel = TaiDomain.LevelOf(player);
+            bool repair = byRecipe?.Name?.Path?.Contains("repair") ?? false;
 
             if (repair)
             {
-                // Sew verb grant + repair-gate. Under-ranked repair undoes the master's hand.
-                AlmanacTcmModSystem.ServerInstance?.Ledger?.Log(byPlayer, TaiDomain.Code, TaiDomain.TechSew,
-                    HashCode.Combine("repair", stack.Collectible.Id, byPlayer.Entity.World.ElapsedMilliseconds / 1000));
-
+                // The repair-gate: an under-ranked repair undoes the master's hand.
                 if (TaiMark.HasMark(stack) && playerLevel < TaiMark.LevelOf(stack))
                     TaiMark.Strip(stack);
                 return;
             }
 
-            // New garment: stamp-only (no XP). The crafter's live rank + book emphasis. The output slot
-            // is synced by the surrounding CraftSingle flow (the ALC remedy-stamp pattern).
-            TaiMark.Stamp(stack, byPlayer.PlayerUID, byPlayer.PlayerName, playerLevel, TaiEmphasis.EmphasisOf(byPlayer));
+            // New garment: the crafter's live rank + book emphasis.
+            TaiMark.Stamp(stack, player.PlayerUID, player.PlayerName, playerLevel, TaiEmphasis.EmphasisOf(player));
+        }
+    }
+
+    /// <summary>The sew verb pays at the REAL take (ConsumeInput never runs for a preview): a
+    /// clothing-repair recipe grants TAI sewing. Recipe and output are read off the consumed
+    /// recipe itself, so no state is carried between the preview and the take.</summary>
+    [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
+    public static class WearableCraftPatch
+    {
+        public static void Postfix(GridRecipe __instance, IPlayer byPlayer, bool __result)
+        {
+            if (!__result || byPlayer?.Entity?.World?.Side != EnumAppSide.Server) return;
+            if (!(__instance?.Name?.Path?.Contains("repair") ?? false)) return;
+            var outStack = __instance?.Output?.ResolvedItemStack;
+            if (outStack?.Collectible?.HasBehavior<CollectibleBehaviorWearable>() != true) return;
+
+            AlmanacTcmModSystem.ServerInstance?.Ledger?.Log(byPlayer, TaiDomain.Code, TaiDomain.TechSew,
+                HashCode.Combine("repair", outStack.Collectible.Id, byPlayer.Entity.World.ElapsedMilliseconds / 1000));
         }
     }
 

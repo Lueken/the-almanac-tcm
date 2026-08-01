@@ -66,9 +66,6 @@ public static class AlcPatches
     /// restart still pays. A slot with no record (pre-0.4.21 contents) never grants.</summary>
     private static Dictionary<string, string> herbRackPlaced = new();
 
-    /// <summary>The real remedy stack captured at OnCreatedByCrafting (runs before ConsumeInput in
-    /// CraftSingle), branded once the crafter is in scope. Single-threaded server craft -> one at a time.</summary>
-    private static ItemStack? pendingRemedyStack;
 
     private static string PosKey(BlockPos pos) => $"{pos.X}/{pos.Y}/{pos.Z}";
 
@@ -375,38 +372,39 @@ public static class AlcPatches
 
     // ------------------------------------------------------------ remedy grant + Brand (annotated)
 
-    /// <summary>Capture the real crafted remedy stack. OnCreatedByCrafting runs FIRST in CraftSingle
-    /// (before ConsumeInput), and the outputSlot here holds the very stack the player receives, so we
-    /// stash it and brand it once the crafter is in scope at ConsumeInput.</summary>
+    /// <summary>Brand the remedy batch the moment its stack is generated (0.4.24: the stamp moved
+    /// here from ConsumeInput, the fix for the preview-regeneration staleness that dropped every
+    /// deferred stamp; see ToolPartMarks.CreatedStampPostfix). The crafter comes from the grid's
+    /// own InventoryBasePlayer; each preview regeneration is a fresh clone and gets its own brand,
+    /// so the taken stack always carries it. Brand-only, no XP here.</summary>
     [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.OnCreatedByCrafting))]
     public static class RemedyCapturePatch
     {
         public static void Postfix(ItemSlot outputSlot)
         {
             var stack = outputSlot?.Itemstack;
-            pendingRemedyStack = IsHealingItem(stack) ? stack : null;
+            if (!IsHealingItem(stack)) return;
+            var player = (outputSlot!.Inventory as InventoryBasePlayer)?.Player;
+            if (player?.Entity?.World?.Side != EnumAppSide.Server) return;
+
+            AlcBrand.Stamp(stack, player.PlayerUID, player.PlayerName,
+                AlcDomain.LevelOf(player), AlcEmphasis.IsPotent(player));
         }
     }
 
-    /// <summary>The vanilla ALC floor: a real grid-craft of a healing item grants ALC and stamps the
-    /// maker's Brand on the captured output batch, with the crafter's book emphasis. Server-only, real
-    /// take only (never previews — ConsumeInput is the PF craft seam).</summary>
+    /// <summary>The vanilla ALC floor: a real grid-craft of a healing item grants ALC. XP stays at
+    /// ConsumeInput (never a preview; the PF craft seam); the Brand is stamped at creation above.</summary>
     [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
     public static class RemedyGrantPatch
     {
         public static void Postfix(GridRecipe __instance, IPlayer byPlayer, bool __result)
         {
             if (!__result || byPlayer?.Entity?.World?.Side != EnumAppSide.Server) return;
-            if (!IsHealingItem(__instance?.Output?.ResolvedItemStack)) { pendingRemedyStack = null; return; }
+            if (!IsHealingItem(__instance?.Output?.ResolvedItemStack)) return;
 
             Core?.Ledger?.Log(byPlayer, AlcDomain.Code, AlcDomain.TechRemedy,
                 HashCode.Combine("remedy", __instance!.Output!.ResolvedItemStack.Collectible.Id,
                     byPlayer.Entity.World.ElapsedMilliseconds / 1000));
-
-            if (IsHealingItem(pendingRemedyStack))
-                AlcBrand.Stamp(pendingRemedyStack, byPlayer.PlayerUID, byPlayer.PlayerName,
-                    AlcDomain.LevelOf(byPlayer), AlcEmphasis.IsPotent(byPlayer));
-            pendingRemedyStack = null;
         }
     }
 
