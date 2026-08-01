@@ -165,6 +165,42 @@ public static class AlcBrandPatches
         }
     }
 
+    // ------------------------------------------------------------ truthful numbers tooltip
+
+    /// <summary>The Brand's numbers, visible on the shelf (RULED 2026-08-01: base first, then the
+    /// maker's contribution in green as a delta). Vanilla renders the whole info as one localized
+    /// line with three formatted numbers, so for a branded stack we skip the original and emit the
+    /// SAME Lang key with augmented number strings: "3.0 (+0.7)" against "10.0 (+1.2)". Application
+    /// time carries no brand effect and stays bare. An Untrained brand shows its penalty in red,
+    /// NERF-FIRST made visible; Novice-band brands (factor 1.0) show nothing extra. Deltas that
+    /// round to zero are suppressed. Runs both sides off synced stack attributes, so shelf and
+    /// effect agree; the delivery-time scaling itself is unchanged.</summary>
+    [HarmonyPatch(typeof(CollectibleBehaviorHealingItem), nameof(CollectibleBehaviorHealingItem.GetHeldItemInfo))]
+    public static class HealingTooltipPatch
+    {
+        public static bool Prefix(CollectibleBehaviorHealingItem __instance, ItemSlot inSlot, System.Text.StringBuilder dsc)
+        {
+            var stack = inSlot?.Itemstack;
+            if (!AlcBrand.HasBrand(stack)) return true;   // unbranded: vanilla line, untouched
+
+            int level = AlcBrand.LevelOf(stack);
+            bool potent = AlcBrand.IsPotent(stack);
+            float h = __instance.Health, d = __instance.EffectDurationSec, a = __instance.ApplicationTimeSec;
+
+            string hs = $"{h:F1}" + BonusSuffix(h * (AlcDomain.PotencyMul(level, potent) - 1.0));
+            string ds = $"{d:F1}" + BonusSuffix(d * (AlcDomain.DurationMul(level, potent) - 1.0));
+            dsc.AppendLine(Lang.Get("healing-item-info", hs, ds, $"{a:F1}"));
+            return false;
+        }
+
+        private static string BonusSuffix(double delta)
+        {
+            if (System.Math.Abs(delta) < 0.05) return "";
+            string color = delta >= 0 ? "#84ff84" : "#ff8484";
+            return $" <font color=\"{color}\">({(delta >= 0 ? "+" : "")}{delta:0.#})</font>";
+        }
+    }
+
     // ------------------------------------------------------------ provenance tooltip
 
     /// <summary>The Alchemist's Brand maker line (Journeyman up), bottom of the tooltip after a blank
