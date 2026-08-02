@@ -47,6 +47,22 @@ public static class EngPatches
 
     public static void RegisterServer(ICoreServerAPI api) { }
 
+    /// <summary>The last servicer's frozen ENG level for a mechanism, if any behavior on the BE
+    /// carries the service stamp. The overheat keeper lens reads this first (the standing
+    /// contract outranks the rigger).</summary>
+    internal static bool TryGetServicerLevel(BlockEntity be, out int level)
+    {
+        level = -1;
+        if (be?.Behaviors == null) return false;
+        foreach (var beh in be.Behaviors)
+        {
+            if (!servicerByCtl.TryGetValue(beh, out string? packed) || packed == null) continue;
+            string[] p = packed.Split('|');
+            if (p.Length >= 3 && int.TryParse(p[2], out level)) return true;
+        }
+        return false;
+    }
+
     // ------------------------------------------------------------ conditional patches
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)

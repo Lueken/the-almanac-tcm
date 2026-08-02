@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.27")]
+    Version = "0.4.28")]
 
 namespace AlmanacTcm;
 
@@ -142,6 +142,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("WOO-colliersmark", () => Domains.WooColliersMark.PatchAll(api, harmony));
             Try("alloy-ledger-furnace", () => Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony));
             Try("almanac-chat", () => Engine.AlmanacChatChannel.PatchClient(api, harmony));
+            Try("ENG-overheat-readout", () => Domains.EngOverheatPatches.PatchConditional(api, harmony));
             TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate, mining, cave-in, felling + conditionals)");
         }
     }
@@ -260,6 +261,7 @@ public class AlmanacTcmModSystem : ModSystem
         // ALC's persisted owner side maps (cauldron cooks + reactions complete unattended; the herb
         // rack carries the alchemist for the perish-slow rung). The Brand read is stateless.
         Domains.AlcPatches.RegisterServer(sapi);
+        Domains.EngOverheatPatches.RegisterServer(sapi);
         Domains.AlcBrandPatches.RegisterServer(sapi);
         Domains.AlcEmphasis.RegisterServer(sapi);
 

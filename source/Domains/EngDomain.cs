@@ -52,6 +52,17 @@ public static class EngDomain
     /// SLOWER afterward (&lt;1). The Millwright's Mark: the inverted repair-gate.</summary>
     public const string DecayGm = "decayGm";
 
+    // ---- Axis 3 overheat-ignition knob keys (eng-overheat-design.md, RULED 2026-08-02). Per-check
+    // chances at the 500ms companion tick; vanilla's own stub number is 0.03. GM never rolls (the
+    // trait: smokes, never burns) so it has no knob.
+    public const string IgniteUntrained = "igniteUntrained";
+    public const string IgniteNovice = "igniteNovice";           // also unattributed machines (parity)
+    public const string IgniteJourneyman = "igniteJourneyman";
+    public const string IgniteMaster = "igniteMaster";
+    /// <summary>Part decay baseline on a machine RIGGED by a Grandmaster, held until first service
+    /// (the orphaned optional from ENG ruling 7, substrate = the rigger stamp).</summary>
+    public const string GmAssembledDecay = "gmAssembledDecay";
+
     /// <summary>Provenance tiers (for the "Serviced by X" line, Journeyman up). Serviced by (J) ->
     /// Master-serviced by (M) -> the Millwright's Mark of (GM). Level thresholds. (The text line is a
     /// fast-follow; the mechanical decay lever below is the signature's teeth.)</summary>
@@ -79,6 +90,10 @@ public static class EngDomain
             [RepairUntrained] = 0.90, [RepairGm] = 1.15,
             // The Millwright's Mark decay lever (inverted repair-gate).
             [DecayUntrained] = 1.10, [DecayGm] = 0.85,
+            // Overheat ignition per 500ms check (0.03 = vanilla's stub parity).
+            [IgniteUntrained] = 0.06, [IgniteNovice] = 0.03,
+            [IgniteJourneyman] = 0.02, [IgniteMaster] = 0.012,
+            [GmAssembledDecay] = 0.92,
         },
     };
 

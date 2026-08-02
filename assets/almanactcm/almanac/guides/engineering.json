@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
+  "schemaVersion": 1,
+  "id": "almanactcm:engineering",
+  "gate": "almanactcm",
+  "order": 40,
+  "title": "Engineering",
+  "subtitle": "The keeping of machines",
+  "byline": "set down by Venah",
+  "accentColor": "#5a5f6e",
+  "sections": [
+    {
+      "id": "the-standing-contract",
+      "title": "The standing contract",
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph", "dropcap": true,
+          "text": "A machine is a built thing, and it remembers who keeps it. Rig a windmill's sails and the engineer in you learns the work. Service a worn part, sew the sail, wax the bearing, and the machine holds your name on it until another hand takes over. That is the whole trade: machines run truer under a practiced hand, and stay true longer." },
+        { "type": "paragraph",
+          "text": "The mark on a mechanism is a living contract, not a signature in a ledger. A master's service holds longest, and the day a lesser hand touches the machine, the master's work is undone and the contract passes. Mill owners learn quickly which hands they want on their machines, and which they will pay to keep away." }
+      ]
+    },
+    {
+      "id": "the-speed-of-the-wheel",
+      "title": "The speed of the wheel",
+      "keepTogether": true,
+      "revealedBy": "almanactcm:first-eng-assembly",
+      "hint": "Rig a sail, and the wheel will teach you its limits.",
+      "blocks": [
+        { "type": "paragraph", "dropcap": true,
+          "text": "Every shaft has a speed it was never meant to see. Gear a network too hard and the wood begins to complain: first a whisper of smoke off the axle, then heat you cannot see building in the grain. The smoke is not decoration. It is the machine asking for a brake." },
+        { "type": "paragraph",
+          "text": "Answer it. Set a brake block on the network and lock it while you rework the gearing, or trade the small gear for a larger one and let the wheel breathe. A machine that runs warm for a moment forgives; a machine left smoking through a meal does not, and wooden works burn like the fuel they are, one block to the next, the whole shaft line a laid fuse." },
+        { "type": "paragraph",
+          "text": "Whose hands built and kept the machine matters here more than anywhere. A rushed rig from an untrained hand finds its fire early. A machine under a master's standing contract holds out far longer. And of a Grandmaster's machines the millers say it plainly: they smoke, they never burn. That word travels, and it is worth what it costs." },
+        { "type": "callout", "variant": "tip",
+          "text": "If it smokes, it is telling you something. Brake first, regear second, and only then walk away." }
+      ]
+    }
+  ]
+}

@@ -184,5 +184,7 @@
   "almanactcm:tip-spoils-slower": "spoils {0}% slower",
   "almanactcm:tip-spoils-faster": "Carelessly cooked. Spoils {0}% faster.",
   "almanactcm:tip-contents-keep": "contents keep {0}% longer",
-  "almanactcm:tip-burn": "+{0} degrees, +{1}% burn time"
+  "almanactcm:tip-burn": "+{0} degrees, +{1}% burn time",
+  "almanactcm:eng-running-hot": "Running hot.",
+  "almanactcm:eng-moments-from-fire": "Moments from fire."
 }
