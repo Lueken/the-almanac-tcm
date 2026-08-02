@@ -36,8 +36,8 @@ public static class ArcDomain
     public const string TechIncantation = "incantation";
     public const string TechConjuration = "conjuration";
     public const string TechMeditation = "meditation";       // the practice trickle (meditation-active_rm)
-    public const string TechLaboratory = "laboratory";        // station rituals (wired in a later stage)
-    public const string TechInscription = "inscription";      // scroll scribing (wired in a later stage)
+    public const string TechLaboratory = "laboratory";        // station rituals: Spellforge research, world rituals, oculus, foundry
+    public const string TechInscription = "inscription";      // scroll scribing (the market verb)
 
     // RBM watched-attribute keys the re-root reads/writes (verified RBM 3.2.5).
     public const string AttrPlayerMaxMana = "entitybehavior-resource-playermaxmana_rm";       // the base pool (ARC re-roots this)
@@ -63,9 +63,10 @@ public static class ArcDomain
             [TechAlteration] = new() { Raw = 2, K = 22 },
             [TechIncantation] = new() { Raw = 2, K = 22 },
             [TechConjuration] = new() { Raw = 2, K = 22 },
-            // Practice trickle: low raw, high ceiling (meditation is slow, steady income).
+            // The trance: Raw 1 is the UNIT the outcome-normalized multiplier scales (a full
+            // empty->full trance pays MeditationTranceRaw = ~25 against this K=40).
             [TechMeditation] = new() { Raw = 1, K = 40 },
-            // Chunky per-session (wired in a later stage).
+            // Chunky per station act (Spellforge research, a world ritual, an oculus/foundry product).
             [TechLaboratory] = new() { Raw = 4, K = 10 },
             [TechInscription] = new() { Raw = 3, K = 14 },
         },
@@ -78,6 +79,8 @@ public static class ArcDomain
             [BackfireGmResidual] = 0.025,  // ~2.5% residual on the 450 ultimates even at GM
             [BackfireDrainPerTier] = 0.08, // temporal-stability drain per tier over your rank
             [SchoolMasteryChannel] = 40000, // cumulative mana channeled to Master a school (the pace knob)
+            [MeditationTranceRaw] = 25.0,   // raw a FULL empty->full trance banks (vs meditation K=40)
+            [MemoryCrystalManaFrac] = 0.25, // fraction of the pool a crystallized memory restores
         },
     };
 
@@ -93,6 +96,19 @@ public static class ArcDomain
     public const string BackfireGmResidual = "backfireGmResidual";
     /// <summary>Temporal-stability drain per tier over your rank when an over-tier cast backfires.</summary>
     public const string BackfireDrainPerTier = "backfireDrainPerTier";
+    /// <summary>Raw practice a FULL empty-to-full meditation trance banks — the OUTCOME-normalized
+    /// trance payoff (§4). The old drip paid a flat 0.6/real-minute, which against K=40 was a number
+    /// nobody could feel; this pays for the mana actually restored, as a fraction of the pool. Because
+    /// the fraction self-scales with the pool, one full trance is worth the same 25 raw at Novice and at
+    /// Grandmaster — the trance stays meaningful as the pool grows, with no dynamic K.</summary>
+    public const string MeditationTranceRaw = "meditationTranceRaw";
+    /// <summary>Fraction of the effective mana pool a Crystallized Memory restores when consumed.
+    /// RBM shipped the crystal as a tradeable lump of magic XP; under the annex that is exactly the
+    /// thing ARC forbids (item-bound progression — a rank you can BUY, guard 5), and the annex already
+    /// freezes its exp write to nothing. Rather than leave a dead item on the loot tables, it is
+    /// repurposed into a one-shot mana burst: a stranger's practice is not transferable, but the
+    /// reserves in the stone are. Fraction, not a flat number, so it stays useful at every rank.</summary>
+    public const string MemoryCrystalManaFrac = "memoryCrystalManaFrac";
 
     // ---- Tier gate (§3, RULED with amendment): the mana-cost thresholds that push a T3 into GM-only.
     /// <summary>T3 spells at/above this cost are the "storm/ultimate" class — GM-gated (not Master).</summary>

@@ -5,6 +5,7 @@ using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
+using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 
 namespace AlmanacTcm.Domains;
@@ -22,11 +23,14 @@ namespace AlmanacTcm.Domains;
 ///   • Casting grant [SpellBase.ConsumeManaForSpell postfix] — the single server-side cast point (skips
 ///     scroll casts, so scroll-buyers never earn ARC). Grants the school verb (evocation/alteration/
 ///     incantation/conjuration, else foundational) weighted by spell tier, and re-wipes the cast's XP add.
-///   • Meditation trickle [reconcile] — a small ARC practice grant while `meditation-active_rm` is set.
+///   • The meditation trance [reconcile] — an OUTCOME-normalized practice grant while
+///     `meditation-active_rm` is set, paid for the mana the trance actually restored as a fraction of
+///     the pool (TickTrance), not for time spent sitting.
+///   • The laboratory verb [Spellforge research + the world-magic XP choke point + the Thaumic
+///     Foundry] — station work, credited wherever RBM leaves a player in scope (PatchLaboratoryStations).
 ///
 /// Conditional on rustboundmagic (live on The Quire); the reconcile no-ops without it, the cast patch is
-/// reflected + isolated. Later stages add the tier-gate + backfire, the meditation ladder, school-depth
-/// stats, the laboratory + inscription verbs, and the scroll/aliasing guards.
+/// reflected + isolated. Later stages add the scroll guards and whatever the trance ladder still owes.
 /// </summary>
 public static class ArcPatches
 {
@@ -54,6 +58,9 @@ public static class ArcPatches
             return;
         }
         api.Event.RegisterGameTickListener(_ => Reconcile(api), 2000);
+        // Drop a leaver's trance accounting so the map cannot grow across a long uptime, and so a
+        // rejoin re-baselines its mana reading instead of trusting a stale one.
+        api.Event.PlayerDisconnect += p => tranceStates.Remove(p.PlayerUID);
 
         // Snap the re-root the moment a player's domain data is ready (join/load), then again 3s later to
         // land after RBM finishes initialising the mana attribute low — otherwise the pool sits at the
@@ -175,15 +182,108 @@ public static class ArcPatches
                 else player.Entity.Stats.Remove(stat, "almanactcm");
             }
 
-            // Meditation trickle: while the trance is active, a small steady ARC practice grant (deduped
-            // per world-minute so it is a slow drip, not per-tick spam).
-            // announceRepeat:false — this passive drip fires every 2s but only earns once per real-minute
-            // (the hash is minute-bucketed), so without this the Info tab floods with "nothing new learned".
-            // The real +0.6/minute gain still shows; only the throttled dupes are silenced.
-            if (wa.GetBool(ArcDomain.AttrMeditationActive, false))
-                Core?.Ledger?.Log(player, ArcDomain.Code, ArcDomain.TechMeditation,
-                    HashCode.Combine("meditate", (int)(api.World.ElapsedMilliseconds / 60000)), 0.6, announceRepeat: false);
+            TickTrance(api, player, wa);
         }
+    }
+
+    // ------------------------------------------------------------ the meditation trance (§4)
+
+    /// <summary>How often a trance banks what it has restored. Long enough that one grant is a real
+    /// chunk of the pool, short enough that a player sees the Info tab move inside a sitting.</summary>
+    private const int TranceGrantIntervalMs = 20000;
+
+    /// <summary>Hard ceiling on the trance multiplier. The math can only exceed 1 whole pool per 20s
+    /// if RBM's mana attributes glitch (a pool that shrinks mid-trance, an attribute reinitialised
+    /// low); this makes such a glitch a capped over-grant instead of a rank.</summary>
+    private const double TranceMultiplierCeiling = 10.0;
+
+    /// <summary>One meditating player's trance accounting. Kept in memory only: a trance interrupted by
+    /// a restart simply starts over, which is the same thing the player experiences anyway.</summary>
+    private sealed class TranceState
+    {
+        /// <summary>Last observed current-mana, re-baselined EVERY tick (trance or not) so entering a
+        /// trance never books the mana recovered before it as one enormous first delta.</summary>
+        public int LastMana;
+        /// <summary>Mana restored during the trance since the last bank. Only positive deltas land
+        /// here — spending mana mid-trance must not subtract the practice already earned.</summary>
+        public double Restored;
+        public long LastGrantMs;
+        /// <summary>Monotonic grant counter, mixed into the context hash. The 20s bucket alone is not
+        /// enough: a trance that ends moments after a scheduled grant banks its remainder inside the
+        /// SAME bucket, and the ledger's dedup ring would silently zero it. Each bank is a distinct
+        /// real event, so each gets a distinct context.</summary>
+        public int Grants;
+    }
+
+    private static readonly Dictionary<string, TranceState> tranceStates = new();
+
+    /// <summary>The meditation grant, outcome-normalized (§4). The old shape paid a flat 0.6 raw per
+    /// real minute while `meditation-active_rm` was set — a number that, against K=40, no player could
+    /// feel, and that paid the same whether the trance actually restored anything or the player sat at
+    /// a full pool. This pays for the RESULT: the mana the trance put back, as a fraction of the pool.
+    ///
+    ///   multiplier = (restored since the last bank / effective max mana) * MeditationTranceRaw
+    ///
+    /// With Raw=1 on the technique, a full empty-to-full trance therefore banks ~25 raw against K=40 —
+    /// a visible step, at ANY rank, because the fraction self-scales as the pool grows. No dynamic K,
+    /// no per-rank table. A mage sitting at a full pool earns nothing, which is correct: there is no
+    /// trance to have.
+    ///
+    /// The denominator is the EFFECTIVE pool (`totalmaxmana_rm`), not the base `playermaxmana_rm` ARC
+    /// re-roots: current mana fills toward the effective total (RBM clamps to it at :24928/:25728), and
+    /// dividing by the base would over-report the fraction by exactly the gear + research + starting-9
+    /// stack a well-equipped mage carries. The base + RbmStartingMana is the fallback for the tick
+    /// before RBM has computed a total.</summary>
+    private static void TickTrance(ICoreServerAPI api, IServerPlayer player, ITreeAttribute wa)
+    {
+        int current = wa.GetInt(ArcDomain.AttrCurrentMana, 0);
+        long now = api.World.ElapsedMilliseconds;
+
+        if (!tranceStates.TryGetValue(player.PlayerUID, out TranceState? st))
+            tranceStates[player.PlayerUID] = st = new TranceState { LastMana = current, LastGrantMs = now };
+
+        int delta = current - st.LastMana;
+        st.LastMana = current;
+
+        if (!wa.GetBool(ArcDomain.AttrMeditationActive, false))
+        {
+            // Trance over. Bank the remainder rather than dropping it — otherwise ending a trance
+            // nineteen seconds into a window throws that recovery away.
+            BankTrance(api, player, st, wa);
+            st.LastGrantMs = now;   // the next trance's first bank is a full interval away
+            return;
+        }
+
+        if (delta > 0) st.Restored += delta;
+        if (now - st.LastGrantMs < TranceGrantIntervalMs) return;
+        st.LastGrantMs = now;
+        BankTrance(api, player, st, wa);
+    }
+
+    /// <summary>Convert this window's restored mana into one practice grant and clear the accumulator.
+    /// announceRepeat:false — the trance banks on a fixed cadence whether or not the ledger has
+    /// anything new to say, and the old drip taught us that letting it speak floods the Info tab.</summary>
+    private static void BankTrance(ICoreServerAPI api, IServerPlayer player, TranceState st, ITreeAttribute wa)
+    {
+        if (st.Restored <= 0) return;
+        double restored = st.Restored;
+        st.Restored = 0;
+
+        // The pool current mana actually fills toward; base + RBM's starting constant is the fallback.
+        double pool = wa.GetInt(ArcDomain.AttrTotalMaxMana, 0);
+        if (pool <= 0) pool = wa.GetInt(ArcDomain.AttrPlayerMaxMana, 0) + ArcDomain.RbmStartingMana;
+        if (pool <= 0) return;
+
+        double mul = System.Math.Min(TranceMultiplierCeiling,
+            restored / pool * ArcDomain.Knob(ArcDomain.MeditationTranceRaw, 25.0));
+        if (mul <= 0) return;
+
+        st.Grants++;
+        Core?.Ledger?.Log(player, ArcDomain.Code, ArcDomain.TechMeditation,
+            HashCode.Combine("meditate", player.PlayerUID, st.Grants,
+                (int)(api.World.ElapsedMilliseconds / TranceGrantIntervalMs)),
+            mul, announceRepeat: false);
+        TcmLog.Cat(api, "arc", $"trance bank for {player.PlayerName}: {restored:0} mana restored of a {pool:0} pool -> x{mul:0.##} on meditation (grant #{st.Grants})");
     }
 
     // ------------------------------------------------------------ casting grant (conditional)
@@ -241,6 +341,272 @@ public static class ArcPatches
             TcmLog.Info(api, "ARC laboratory grant hooked (Spellforge spell-discovery)");
         }
         else TcmLog.Cat(api, TcmLog.Config, "ARC laboratory seam absent (rustboundmagic); laboratory grant inactive");
+
+        PatchLaboratoryStations(api, harmony);
+        PatchMemoryCrystal(api, harmony);
+    }
+
+    // ------------------------------------------------------------ the Crystallized Memory (RULED)
+
+    /// <summary>RBM's Crystallized Memory is a tradeable lump of magic XP: hold it, channel five
+    /// seconds, and it adds ITEMCRYSTALLIZEDMEMORY_BASE_EXPGAIN (10%) of a level to your mana XP bar.
+    /// That is precisely the thing the annex forbids — progression bound to an ITEM, a rank you can buy
+    /// off another player — and ARC's freeze already reduces its exp write to nothing, so as shipped it
+    /// is a dead item on the loot tables. RULED (Jeffrey): repurpose rather than delete. The crystal
+    /// becomes a ONE-SHOT MANA BURST, and the tooltip says so honestly.
+    ///
+    /// Verified RBM 3.2.5: `rustboundmagic.src.common.item.resource.ItemCrystallizedMemoriesRM : Item`
+    /// (:95021). The grant lives in `OnHeldInteractStep(float, ItemSlot, EntityAgent, BlockSelection,
+    /// EntitySelection)` (:95142) — both branches of the rust-mage config lock write the exp attribute
+    /// and then `RightHandItemSlot.TakeOut(1)` (:95194-95199 and :95204-95209). The tooltip is a LANG
+    /// key, not hardcoded text: `GetHeldItemInfo` (:95067) renders
+    /// "rustboundmagic:tooltip-item-crystallizedmemories-1" with the config percent as {0} (:95077).</summary>
+    private static void PatchMemoryCrystal(ICoreAPI api, Harmony harmony)
+    {
+        if (!api.ModLoader.IsModEnabled("rustboundmagic")) return;
+
+        var crystal = AccessTools.TypeByName("rustboundmagic.src.common.item.resource.ItemCrystallizedMemoriesRM");
+        var step = crystal == null ? null : AccessTools.DeclaredMethod(crystal, "OnHeldInteractStep",
+            new[] { typeof(float), typeof(ItemSlot), typeof(EntityAgent), typeof(BlockSelection), typeof(EntitySelection) });
+        if (step != null)
+        {
+            harmony.Patch(step, prefix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(MemoryCrystalPrefix))));
+            TcmLog.Info(api, "ARC memory-crystal repurpose hooked (exp grant replaced by a one-shot mana burst)");
+        }
+        else TcmLog.Warn(api, "ARC memory-crystal seam not found (ItemCrystallizedMemoriesRM.OnHeldInteractStep); the crystal keeps RBM's (frozen, inert) exp behaviour this build");
+
+        // Tooltip enforcement. The lang override in assets/rustboundmagic/lang/en.json is the primary
+        // fix, but which mod wins a shared lang key depends on asset load order, which we do not
+        // control. This postfix makes the outcome deterministic: if RBM's line survived the merge, it
+        // is rewritten here; if our override won, there is nothing to find and this is a no-op.
+        var info = crystal == null ? null : AccessTools.DeclaredMethod(crystal, "GetHeldItemInfo",
+            new[] { typeof(ItemSlot), typeof(System.Text.StringBuilder), typeof(IWorldAccessor), typeof(bool) });
+        if (info != null)
+            harmony.Patch(info, postfix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(MemoryCrystalInfoPostfix))));
+        else TcmLog.Warn(api, "ARC memory-crystal tooltip seam not found (ItemCrystallizedMemoriesRM.GetHeldItemInfo); relying on the lang override alone");
+    }
+
+    /// <summary>The repurposed crystal. Intercepts ONLY the terminal branch — every gate RBM checks
+    /// before granting is re-checked here, and any miss returns true so the original runs untouched and
+    /// still sends its own "you moved" / "keep sneaking" messages and channels its five seconds. That
+    /// keeps the item's whole feel intact and confines us to the one branch we are replacing.
+    ///
+    /// Skipping the original is what makes this a REPLACEMENT rather than a bonus: the exp write and
+    /// any level-up side effects riding on it never execute at all, instead of executing and being
+    /// wiped a tick later by the reconcile.
+    ///
+    /// The mana write is server-side only (WatchedAttributes are server-authoritative), but the consume
+    /// mirrors the original on BOTH sides — RBM calls TakeOut(1) unconditionally, and matching that
+    /// keeps the client's predicted stack in step with the server's.</summary>
+    public static bool MemoryCrystalPrefix(float secondsUsed, EntityAgent byEntity, ref bool __result)
+    {
+        if (byEntity is not EntityPlayer ep) return true;
+        if (secondsUsed < 5f) return true;                                   // still channeling
+        if (ep.Controls.TriesToMove || ep.Controls.Jump) return true;        // RBM sends the interrupt
+        if (!ep.Controls.Sneak) return true;                                 // RBM sends the sneak hint
+
+        var wa = ep.WatchedAttributes;
+        if (!wa.GetBool(RbmMagicUnlockedAttr, false)) return true;
+        if (!wa.HasAttribute(ArcDomain.AttrXpToNextLevel)) return true;      // RBM's own guard
+        // The rust-mage class lock (RBM config LOCK_ALL_MAGIC_TO_RUSTMAGE_ONLY, default false): when it
+        // is on, a non-rustmage gets nothing from the crystal, so we must not burst for them either.
+        if (RustMageLockActive() && wa.GetString(RbmCharacterClassAttr, "commoner") != RbmRustMageClass) return true;
+
+        // Server writes the burst; both sides consume, exactly as RBM does.
+        if (ep.World?.Side == EnumAppSide.Server)
+        {
+            double pool = wa.GetInt(ArcDomain.AttrTotalMaxMana, 0);
+            if (pool <= 0) pool = wa.GetInt(ArcDomain.AttrPlayerMaxMana, 0) + ArcDomain.RbmStartingMana;
+            if (pool > 0)
+            {
+                int current = wa.GetInt(ArcDomain.AttrCurrentMana, 0);
+                int restored = (int)System.Math.Round(pool * ArcDomain.Knob(ArcDomain.MemoryCrystalManaFrac, 0.25));
+                int next = System.Math.Min((int)pool, current + System.Math.Max(0, restored));
+                if (next != current)
+                {
+                    wa.SetInt(ArcDomain.AttrCurrentMana, next);
+                    wa.MarkPathDirty(ArcDomain.AttrCurrentMana);
+                }
+                TcmLog.Cat(ep.World.Api, "arc",
+                    $"memory crystal consumed by {ep.Player?.PlayerName}: mana {current} -> {next} of {pool:0} (burst {restored}, no exp, no practice)");
+            }
+        }
+
+        ep.RightHandItemSlot?.TakeOut(1);
+        ep.RightHandItemSlot?.MarkDirty();
+
+        __result = false;   // RBM returns false on the terminal step; the use ends here
+        return false;       // skip the original entirely
+    }
+
+    // RBM attribute/class literals the crystal's gate chain reads (verified 3.2.5 :76057-76059, :95075).
+    private const string RbmMagicUnlockedAttr = "entitybehavior-player-ismagicunlocked_rm";
+    private const string RbmCharacterClassAttr = "characterClass";
+    private const string RbmRustMageClass = "rustmage";
+
+    /// <summary>Read RBM's LOCK_ALL_MAGIC_TO_RUSTMAGE_ONLY (default false). Reflected off the static
+    /// config so a server that turned the lock ON keeps the crystal mage-only, as RBM intends.</summary>
+    private static bool RustMageLockActive()
+    {
+        var rbmMain = AccessTools.TypeByName("rustboundmagic.src.RustboundMagic");
+        object? cfg = rbmMain == null ? null : AccessTools.Field(rbmMain, "config")?.GetValue(null);
+        if (cfg == null) return false;
+        return Traverse.Create(cfg).Field("LOCK_ALL_MAGIC_TO_RUSTMAGE_ONLY").GetValue<bool>();
+    }
+
+    /// <summary>Belt-and-suspenders for the tooltip: if RBM's exp line survived the lang merge, swap it
+    /// for the honest one. Matched on the distinctive "magic exp" fragment of
+    /// "A rare item valued by all magic users. Grants +{0}% magic exp."</summary>
+    public static void MemoryCrystalInfoPostfix(System.Text.StringBuilder dsc)
+    {
+        if (dsc == null || dsc.Length == 0) return;
+        string text = dsc.ToString();
+        if (text.IndexOf("magic exp", System.StringComparison.OrdinalIgnoreCase) < 0) return;
+
+        string replacement = Lang.Get("almanactcm:arc-memorycrystal");
+        var kept = new List<string>();
+        foreach (string line in text.Split('\n'))
+        {
+            if (line.IndexOf("magic exp", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                kept.Add(replacement);
+                continue;
+            }
+            kept.Add(line.TrimEnd('\r'));
+        }
+        dsc.Clear();
+        dsc.Append(string.Join("\n", kept));
+    }
+
+    // ------------------------------------------------------------ laboratory verb, stage 2c
+
+    /// <summary>The rest of the LABORATORY verb (§5): everything a mage's stations actually PRODUCE.
+    /// Stage 2b left the verb carrying only the Spellforge research bench because the other two
+    /// candidates each looked unreachable — the ritual triggers are seventeen near-identical methods,
+    /// and the Thaumic Foundry completes with no player anywhere in scope. Both turned out to have a
+    /// seam; this stage takes them.
+    ///
+    ///   • The world-magic choke point — every ritual (17 TriggerRitualOf* methods) AND the Oculus
+    ///     pedestal's essence-consume funnel their XP through ONE private method,
+    ///     ModSystemWorldMagic.ApplyPlayerMagicExpGain(EntityPlayer, int) (RBM 3.2.5 :24231, 25 call
+    ///     sites verified). Postfixing that one method credits all of them, with the player in scope.
+    ///     Casting does NOT reach here — ConsumeManaForSpell writes the XP attribute INLINE (:72551,
+    ///     :72567), as do the wand/staff held-interact paths (:93484, :95195), so CastPostfix and this
+    ///     postfix can never both fire for one action.
+    ///   • The Thaumic Foundry — the owner-at-action shape (the FAR trough precedent). The completion,
+    ///     BlockEntityStationThaumicFoundryCoreRM.RunThaumicFoundryCreateItem(IWorldAccessor) (:152175),
+    ///     takes only a world: the foundry is fed by ITEMS THROWN INTO ITS PORTAL (an EntityItem
+    ///     OnEntityInside handler, :123340), so no player is ever in scope at the product. The single
+    ///     player-facing seam is OnInteract (:151699, reached from the block at :122231) — where the
+    ///     tablet goes in. Whoever last touched the foundry owns its next product.
+    ///
+    /// Conditional exactly like the rest of the file: a name that does not resolve warns and disables
+    /// that one grant, never throws. The explicit mod-presence guard mirrors RegisterServer so the
+    /// resolution work is skipped outright on a world without RBM.</summary>
+    private static void PatchLaboratoryStations(ICoreAPI api, Harmony harmony)
+    {
+        if (!api.ModLoader.IsModEnabled("rustboundmagic")) return;
+
+        // The single XP choke point for rituals + oculus. PRIVATE, hence DeclaredMethod; the seam is
+        // one method with a fixed (EntityPlayer, int) shape, so no overload disambiguation is needed.
+        var worldMagic = AccessTools.TypeByName("rustboundmagic.src.system.ModSystemWorldMagic");
+        var expGain = worldMagic == null ? null : AccessTools.DeclaredMethod(worldMagic, "ApplyPlayerMagicExpGain",
+            new[] { typeof(EntityPlayer), typeof(int) });
+        if (expGain != null)
+        {
+            harmony.Patch(expGain, postfix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(RitualExpPostfix))));
+            TcmLog.Info(api, "ARC laboratory grant hooked (world-magic XP choke point: rituals + oculus)");
+        }
+        else TcmLog.Warn(api, "ARC ritual/oculus seam not found (ModSystemWorldMagic.ApplyPlayerMagicExpGain); those laboratory grants are inactive this build");
+
+        // The foundry pair: stamp the owner at the interaction, bank at the unattended completion.
+        var foundry = AccessTools.TypeByName("rustboundmagic.src.common.blockentity.station.BlockEntityStationThaumicFoundryCoreRM");
+        var touch = foundry == null ? null : AccessTools.DeclaredMethod(foundry, "OnInteract",
+            new[] { typeof(IPlayer), typeof(BlockSelection) });
+        var create = foundry == null ? null : AccessTools.DeclaredMethod(foundry, "RunThaumicFoundryCreateItem",
+            new[] { typeof(IWorldAccessor) });
+        if (touch != null && create != null)
+        {
+            harmony.Patch(touch, postfix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(FoundryTouchPostfix))));
+            harmony.Patch(create, postfix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(FoundryCreatePostfix))));
+            TcmLog.Info(api, "ARC laboratory grant hooked (Thaumic Foundry: owner at OnInteract, credit at CreateItem)");
+        }
+        // BOTH halves or neither — a stamp with no bank is dead weight, and a bank with no stamp
+        // credits nobody, so one missing seam disables the pair rather than half-wiring it.
+        else TcmLog.Warn(api, "ARC foundry seam pair not found (BlockEntityStationThaumicFoundryCoreRM.OnInteract/RunThaumicFoundryCreateItem); the foundry laboratory grant is inactive this build");
+    }
+
+    /// <summary>Foundry owner-at-action, in memory only: pos key -> player uid. The FAR troughOwners
+    /// precedent — a server restart loses the stamp, and the next product goes uncredited until
+    /// someone touches the foundry again. Accepted: the stamp is cheap to re-earn (open the station)
+    /// and a persisted map would need its own save hooks for a verb that fires a handful of times a
+    /// session.</summary>
+    private static readonly Dictionary<string, string> foundryOwners = new();
+
+    private static string PosKey(BlockPos pos) => pos.X + "/" + pos.Y + "/" + pos.Z;
+
+    /// <summary>Rituals and Oculus grimoire synthesis, credited at RBM's one XP choke point. Also
+    /// re-wipes the XP this call just added — the same belt-and-suspenders freeze CastPostfix does, so
+    /// nothing accumulates toward an RBM mana level-up between reconciles (ARC owns the pool).
+    ///
+    /// <paramref name="expIn"/> is RBM's own quality signal, so it scales the grant — but only as
+    /// headroom: every one of the 25 call sites in 3.2.5 passes a literal 1 (16 TriggerRitualOf* sites
+    /// and the grimoire infusion pass exptierIn=1; the oculus hard-codes expIn=1). Clamping to [1,2]
+    /// therefore means "1.0 today, at most double if a future RBM starts tiering its rituals" — it
+    /// cannot silently deflate the configured Raw=4 the way a divisor would, and cannot spike it.</summary>
+    public static void RitualExpPostfix(EntityPlayer playerIn, int expIn)
+    {
+        if (playerIn?.World?.Side != EnumAppSide.Server) return;
+        var player = playerIn.Player;
+        if (player == null) return;
+
+        double weight = System.Math.Clamp(expIn, 1, 2);
+        Core?.Ledger?.Log(player, ArcDomain.Code, ArcDomain.TechLaboratory,
+            HashCode.Combine("labritual", player.PlayerUID, (int)(playerIn.World.ElapsedMilliseconds / 30000)),
+            weight);
+        TcmLog.Cat(playerIn.World.Api, "arc", $"laboratory credit at the world-magic choke point for {player.PlayerName} (rbm exp {expIn} -> x{weight:0.##})");
+
+        var wa = playerIn.WatchedAttributes;
+        if (wa.GetFloat(ArcDomain.AttrXpToNextLevel, 0f) != 0f)
+        {
+            wa.SetFloat(ArcDomain.AttrXpToNextLevel, 0f);
+            wa.MarkPathDirty(ArcDomain.AttrXpToNextLevel);
+        }
+    }
+
+    /// <summary>Anyone who opens the foundry (tablet in, upgrade in, or a bare-handed take) becomes its
+    /// owner. Stamped unconditionally rather than on __result, because a refused interaction is still
+    /// the tell of who is running this station — same reading as the trough fill.</summary>
+    public static void FoundryTouchPostfix(BlockEntity __instance, IPlayer byPlayer)
+    {
+        if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        string key = PosKey(__instance.Pos);
+        bool changed = !foundryOwners.TryGetValue(key, out string? prev) || prev != byPlayer.PlayerUID;
+        foundryOwners[key] = byPlayer.PlayerUID;
+        if (changed)  // one line per ownership change, not one per click
+            TcmLog.Cat(__instance.Api, "arc", $"foundry owner stamp: {__instance.Pos} -> {byPlayer.PlayerName} (silent by design; credit lands when the foundry mints a product)");
+    }
+
+    /// <summary>A foundry completes a synthesis: bank the laboratory verb to its stamped owner. The
+    /// 10s context bucket collapses a same-tick double-mint (the portal's ingredient loop can reach
+    /// the create twice in one pass) while leaving genuinely separate crafts — which cost a full
+    /// charge cycle each — as distinct practice.</summary>
+    public static void FoundryCreatePostfix(BlockEntity __instance, IWorldAccessor worldIn)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server || worldIn == null) return;
+        if (!foundryOwners.TryGetValue(PosKey(__instance.Pos), out string? uid) || uid == null)
+        {
+            // The diagnostic half of the spine (the trough lesson): a product with no stamped owner is
+            // the exact symptom of a dead OnInteract hook, or of a restart since the last touch.
+            TcmLog.Cat(__instance.Api, "arc", $"foundry at {__instance.Pos} minted a product but NO owner stamped; uncredited");
+            return;
+        }
+        IPlayer? owner = worldIn.PlayerByUid(uid);
+        if (owner == null) return;  // owner offline; this product's credit is lost, the stamp survives
+        TcmLog.Cat(__instance.Api, "arc", $"foundry at {__instance.Pos} minted a product -> laboratory credit for {owner.PlayerName}");
+        Core?.Ledger?.Log(owner, ArcDomain.Code, ArcDomain.TechLaboratory,
+            HashCode.Combine("labfoundry", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
+                (int)(worldIn.ElapsedMilliseconds / 10000)));
     }
 
     /// <summary>Grant the ARC laboratory verb for Spellforge research (a spell-discovery attempt). Fires on

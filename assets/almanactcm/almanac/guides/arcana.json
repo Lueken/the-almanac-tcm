@@ -1,0 +1,97 @@
+{
+	"$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
+	"schemaVersion": 1,
+	"id": "almanactcm:arcana",
+	"gate": "rustboundmagic",
+	"order": 40,
+	"title": "Arcana",
+	"subtitle": "The one trade nobody is born to",
+	"byline": "set down by Venah",
+	"accentColor": "#5f4a78",
+
+	"sections": [
+		{
+			"id": "the-way-in",
+			"title": "The way in",
+			"keepTogether": true,
+			"blocks": [
+				{ "type": "paragraph", "dropcap": true,
+					"text": "Magic is real on this earth, and it is a trade like any other in one respect only: it is learned by doing. In every other respect it stands apart. No vocation gives you a head start on it, no class was born to it, and the world will take it back the day the rust stops answering. Nobody arrives a mage." },
+				{ "type": "paragraph",
+					"text": "The way in costs nothing but stillness. Sit yourself down, empty your hands of tools, and <strong>meditate</strong>. The trance pulls at your <strong>temporal stability</strong> while it holds, which is the first lesson of the whole discipline: this power is borrowed from something that keeps accounts. And if you should meditate with a plain <strong>stick</strong> in your hand, you may find the mana takes an interest in it." },
+				{ "type": "callout", "variant": "lore",
+					"text": "The pages after this one take their ink from your own practice. The Almanac records what your hands have done, not what a book once claimed." }
+			]
+		},
+
+		{
+			"id": "mana-and-rank",
+			"title": "Mana, and where it comes from",
+			"keepTogether": true,
+			"blocks": [
+				{ "type": "paragraph",
+					"text": "Elsewhere in the world, mages grow their pool by spending it, casting the same spell at a wall until the wall or the tedium gives out. Not here. Your <strong>mana pool is your Arcana rank</strong>, nothing else. Practice the discipline in all its motions, let the day's work settle overnight, and the pool deepens as the rank climbs. Burning mana for its own sake teaches you nothing at all." },
+				{ "type": "paragraph",
+					"text": "Two consequences worth knowing before you plan your study. A <strong>scroll</strong> casts its spell for anyone, but the scroll did the work, not you: scroll casts teach nothing, and a purse full of bought scrolls has never made anyone a mage. And a rank climbed is never lost. The trance may drain, the rust may recede, but what your hands have learned stays learned." },
+				{ "type": "link", "to": "almanac://chapter/almanactcm:trades",
+					"text": "How does practice become rank? See Trades." }
+			]
+		},
+
+		{
+			"id": "meditation",
+			"title": "Meditation",
+			"revealedBy": "almanactcm:first-arc-meditation",
+			"hint": "This page takes its ink from your first trance.",
+			"keepTogether": true,
+			"blocks": [
+				{ "type": "paragraph", "dropcap": true,
+					"text": "The trance restores mana each second it holds, and the restoring is itself practice: the Almanac credits what the trance actually returns to you, so an empty pool refilled is a full page, and an idle sit with a full pool banks nothing. Rank pays the meditator twice over. A practiced mage <strong>recovers more mana with each breath</strong>, and the trance <strong>costs less stability</strong> as the discipline steadies the hand that holds it." },
+				{ "type": "paragraph",
+					"text": "The drain is real, so mind your ground. Meditating within sight of a <strong>talisman of resonance</strong> gentles what the trance takes, and the sitters who last are the ones who built their stillness somewhere the world is already calm." },
+				{ "type": "paragraph",
+					"text": "The trance has one more use, and it is how every mage begins: hold a <strong>stick</strong>, a length of <strong>bamboo</strong>, or a clean <strong>bone</strong> while you sit, and enough mana will remake it into your first wand. Finer stuff makes finer instruments, in its time." }
+			]
+		},
+
+		{
+			"id": "the-schools",
+			"title": "The four schools",
+			"revealedBy": "almanactcm:first-arc-foundational",
+			"hint": "This page waits on your first true casting.",
+			"keepTogether": true,
+			"blocks": [
+				{ "type": "paragraph", "dropcap": true,
+					"text": "Spellwork divides into four schools: <strong>evocation</strong>, <strong>alteration</strong>, <strong>incantation</strong>, and <strong>conjuration</strong>, with a body of foundational work beneath them that belongs to no school at all. Casting is the practice; each cast fills the page of the school that owns the spell." },
+				{ "type": "paragraph",
+					"text": "An <strong>attunement core</strong> holds you to one school at a time, and that constraint is a teacher, not a fence. Time spent inside one school builds a familiarity with its shapes: the motions come cheaper, the words come faster. Wander between schools and you stay a generalist; settle into one and it starts to know you back." }
+			]
+		},
+
+		{
+			"id": "the-foundry",
+			"title": "The thaumic foundry",
+			"revealedBy": "almanactcm:first-arc-laboratory",
+			"hint": "This page takes its ink from your first work at a station.",
+			"keepTogether": true,
+			"blocks": [
+				{ "type": "paragraph", "dropcap": true,
+					"text": "The foundry is the mage's workbench, and most of the trade's material wants come out of it: robes, staves, scrolls, grimoires, the apparatus of the laboratory itself. It runs on <strong>fuel</strong> and takes its orders from a <strong>tablet</strong>. Your mana never enters into it, and no spell hurries it along. It is a furnace with opinions, and it answers to whoever set it working." },
+				{ "type": "paragraph",
+					"text": "Station work is the deep end of the practice. The foundry's synthesis, the <strong>oculus pedestal</strong>, and the <strong>rituals</strong> worked in chalk and essence all fill the laboratory's page, and they fill it fast: an evening of real station work is worth a week of cantrips. The rituals in particular are not shy about what they pay, because they are not shy about what they ask." }
+			]
+		},
+
+		{
+			"id": "inscription",
+			"title": "Inscription",
+			"revealedBy": "almanactcm:first-arc-inscription",
+			"hint": "This page waits on your first finished scroll.",
+			"keepTogether": true,
+			"blocks": [
+				{ "type": "paragraph", "dropcap": true,
+					"text": "A scroll is a casting done slowly, in ink, so that a stranger may do it fast. Scribing is the market's verb: the scroll you write sells to the farmer who wants one frost warding without ten seasons of study, and the writing of it is real practice for you even though the reading of it teaches them nothing. That asymmetry is the whole trade. The mage sells the fish; the rank is the knowing how to catch them." }
+			]
+		}
+	]
+}
