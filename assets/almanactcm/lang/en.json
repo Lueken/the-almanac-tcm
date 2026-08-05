@@ -186,6 +186,12 @@
   "almanactcm:tip-spoils-faster": "Carelessly cooked. Spoils {0}% faster.",
   "almanactcm:tip-contents-keep": "contents keep {0}% longer",
   "almanactcm:tip-burn": "+{0} degrees, +{1}% burn time",
+  "almanactcm:eng-warming": "Warming. No smoke yet, but it is building.",
   "almanactcm:eng-running-hot": "Running hot.",
-  "almanactcm:eng-moments-from-fire": "Moments from fire."
+  "almanactcm:eng-moments-from-fire": "Moments from fire.",
+  "almanactcm:eng-read-header": "<font color=\"#edca98\"><i>Machine reading</i></font>",
+  "almanactcm:eng-read-drive": "Network speed {0}, geared ratio {1}x",
+  "almanactcm:eng-read-effspeed": "Speed at this part {0}  (warms {1}, smokes {2}, burns {3})",
+  "almanactcm:eng-read-load": "Torque {0}, resistance {1}, available {2}",
+  "almanactcm:eng-read-surplus": "Surplus {0}  (positive speeds up, zero is equilibrium)"
 }

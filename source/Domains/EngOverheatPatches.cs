@@ -27,17 +27,26 @@ namespace AlmanacTcm.Domains;
 ///     wearandtear stamp stands (EngPatches, already persisted), else the RIGGER (a new
 ///     placement stamp, stamp-only, no XP), else vanilla-parity. Untrained 6%, parity 3%,
 ///     Journeyman 2%, Master 1.2%.
-///   • THE GM TRAIT: smokes, never burns (RULED 2026-08-02): a Grandmaster-kept machine
-///     never rolls. Qualitative, the MET-signature pattern; the immunity belongs to the
-///     STANDING CONTRACT, and last-servicer-wins already resets it under a lesser hand.
+///   • THE GM RANK (AMENDED 2026-08-05, supersedes "THE GM TRAIT: smokes, never burns" of
+///     2026-08-02): a Grandmaster-kept machine now rolls at igniteGm, half of Master, rather
+///     than never rolling. Absolute immunity made the signature a physics exemption instead
+///     of a quality of work, and it would have made the sellable service an exemption too.
+///     GM is the best point on a monotonic, tunable curve. Last-servicer-wins still resets
+///     the contract under a lesser hand.
 ///   • GM-ASSEMBLED BASELINE (the orphaned optional from ENG ruling 7, 2026-07-09): a
 ///     machine RIGGED by a Grandmaster starts with a lower part decay baseline, held until
 ///     the first service overwrites it. The placement stamp is the substrate that ruling
 ///     was waiting for.
-///   • THE READING OF THE MACHINE: block info, viewer-rank-gated (the K1 posture): an ENG
-///     Journeyman sees "Running hot." on an overdriven node; a Grandmaster sees "Moments
-///     from fire." above the ignition band. Client-side from the synced network speed (heat
-///     itself never syncs; effective speed is the honest proxy the smoke already uses).
+///   • THE READING OF THE MACHINE (widened 2026-08-05): block info, viewer-rank-gated (the K1
+///     posture). Journeyman reads the heat in words, from vanilla's real accumulation floor of
+///     2.5 rather than its smoke edge of 4.5 (the old floor left the whole silent band
+///     unwarned, so a part could burn with nothing ever shown). Master adds the effective-speed
+///     number behind the words. Grandmaster gets the full instrument panel unconditionally,
+///     including network torque, resistance and the surplus that actually sets equilibrium
+///     speed, because the rank's value is reading a machine that is behaving, not only one
+///     that is failing. Client-side throughout: MechanicalNetwork.broadcastData already syncs
+///     speed, torque, resistance and available torque. Heat itself never syncs; effective
+///     speed is the honest proxy the smoke already uses.
 ///
 /// STAND-DOWN: ignition is version-gated to 1.22. The day a vanilla build arms its own
 /// payload, the gate trips, TCM's roll retires, and the keeper lens moves to whatever seam
@@ -166,7 +175,7 @@ public static class EngOverheatPatches
                 if (pos == null) continue;
 
                 double chance = IgnitionChanceFor(pos);
-                if (chance <= 0) continue;                       // the GM trait: smokes, never burns
+                if (chance <= 0) continue;                       // guard only; no rank returns 0 since 2026-08-05
                 if (sapi.World.Rand.NextDouble() >= chance) continue;
 
                 TryIgnite(pos);
@@ -192,7 +201,7 @@ public static class EngOverheatPatches
         if (level <= 0) return EngDomain.Knob(EngDomain.IgniteUntrained, 0.06);
         return Leveling.Domain.TierOf(level) switch
         {
-            >= 4 => 0.0,                                                       // THE GM TRAIT
+            >= 4 => EngDomain.Knob(EngDomain.IgniteGm, 0.006),                 // best rank, not exempt
             3 => EngDomain.Knob(EngDomain.IgniteMaster, 0.012),
             2 => EngDomain.Knob(EngDomain.IgniteJourneyman, 0.02),
             _ => EngDomain.Knob(EngDomain.IgniteNovice, 0.03),
@@ -241,20 +250,79 @@ public static class EngOverheatPatches
         TcmLog.Info(api, "ENG heat readout hooked (viewer-rank-gated, off synced network speed)");
     }
 
+    // Vanilla's own band edges (MechanicalPowerMod.OnServerGameTick). HeatFloor is where
+    // OverheatValue starts CLIMBING: the else-branch adds (eff - 2.5)/10, so anything above 2.5
+    // accumulates. SmokeAt is only where vanilla starts RENDERING it. The gap between them is the
+    // silent band, and the readout floor sits at HeatFloor precisely so it is no longer silent.
+    private const float HeatFloor = 2.5f;
+    private const float SmokeAt = 4.5f;
+    private const float FireAt = 5.5f;
+
     public static void BlockInfoPostfix(BEBehaviorMPBase __instance, IPlayer forPlayer, StringBuilder sb)
     {
         var net = __instance?.Network;
         if (net == null || forPlayer == null) return;
-        float effSpeed = Math.Abs(__instance!.GearedRatio * net.Speed);
-        if (effSpeed <= 4.5f) return;
 
+        // THE SOLD READING (2026-08-05). The reading rank is the better of what the viewer knows and
+        // what the machine's keeper knew: max(viewer, last servicer). A Grandmaster who services a
+        // farmer's mill leaves the instrument panel behind on it, readable by the farmer, and that is
+        // the service being sold. No new machinery and no new sync: EngPatches already round-trips the
+        // servicer mark through the PartController's own ToTree/FromTree, so it persists to disk and
+        // rehydrates client-side, which is where this postfix runs on a dedicated server.
+        //
+        // Servicer only, deliberately. The rigger stamp lives in a server-side savegame dictionary
+        // that never reaches a client, and placement is not the sellable act anyway. Last-servicer-wins
+        // already governs it: a lesser hand's later service pulls the reading back down with the
+        // fire and decay contract, so the reading cannot be laundered by hiring a GM once.
         int viewerLevel = ViewerEngLevel(forPlayer);
-        if (Leveling.Domain.TierOf(viewerLevel) < 2 || viewerLevel < EngDomain.ProvJourneyman) return;
+        int readLevel = viewerLevel;
+        if (__instance!.Blockentity is { } be && EngPatches.TryGetServicerLevel(be, out int servicerLevel))
+            readLevel = Math.Max(readLevel, servicerLevel);
 
-        if (effSpeed > 5.5f && viewerLevel >= EngDomain.ProvGm)
+        if (readLevel < EngDomain.ProvJourneyman || Leveling.Domain.TierOf(readLevel) < 2) return;
+
+        float ratio = __instance.GearedRatio;
+        float effSpeed = Math.Abs(ratio * net.Speed);
+
+        // ---- Grandmaster: the instrument panel, unconditional. The point of the rank is being able
+        // to read a machine that is behaving, not just one that is failing, so this does NOT gate on
+        // a heat band. Every value here is broadcast to clients by MechanicalNetwork.broadcastData,
+        // so it is honest on a dedicated server. OverheatValue itself is server-only and never
+        // shown; effective speed is the same proxy vanilla's smoke uses.
+        if (readLevel >= EngDomain.ProvGm)
+        {
+            float torque = Math.Abs(net.NetworkTorque);
+            float resistance = net.NetworkResistance;
+            float surplus = torque - resistance;      // >0 accelerating, ~0 at equilibrium, <0 slowing
+
+            sb.AppendLine(Lang.Get("almanactcm:eng-read-header"));
+            sb.AppendLine(Lang.Get("almanactcm:eng-read-drive", net.Speed.ToString("0.###"), ratio.ToString("0.##")));
+            sb.AppendLine(Lang.Get("almanactcm:eng-read-effspeed", effSpeed.ToString("0.##"),
+                HeatFloor.ToString("0.#"), SmokeAt.ToString("0.#"), FireAt.ToString("0.#")));
+            sb.AppendLine(Lang.Get("almanactcm:eng-read-load", torque.ToString("0.##"),
+                resistance.ToString("0.##"), net.TotalAvailableTorque.ToString("0.##")));
+            sb.AppendLine(Lang.Get("almanactcm:eng-read-surplus",
+                (surplus >= 0 ? "+" : "") + surplus.ToString("0.###")));
+        }
+        // ---- Master: the number behind the warning, but only once the part is actually accumulating.
+        else if (readLevel >= EngDomain.ProvMaster && effSpeed > HeatFloor)
+        {
+            sb.AppendLine(Lang.Get("almanactcm:eng-read-effspeed", effSpeed.ToString("0.##"),
+                HeatFloor.ToString("0.#"), SmokeAt.ToString("0.#"), FireAt.ToString("0.#")));
+        }
+
+        // ---- The heat words, Journeyman up. Floor moved 4.5 -> 2.5 (2026-08-05): the old floor sat
+        // at vanilla's SMOKE edge, so the whole silent accumulation band produced no warning at all
+        // and a part could burn with nothing ever shown. "Moments from fire" also drops from GM-only
+        // to Master, since a Master can now see the number it refers to.
+        if (effSpeed <= HeatFloor) return;
+
+        if (effSpeed > FireAt)
             sb.AppendLine($"<font color=\"{Engine.TcmTooltip.PenaltyColor}\">" + Lang.Get("almanactcm:eng-moments-from-fire") + "</font>");
-        else
+        else if (effSpeed > SmokeAt)
             sb.AppendLine(Lang.Get("almanactcm:eng-running-hot"));
+        else
+            sb.AppendLine(Lang.Get("almanactcm:eng-warming"));
     }
 
     /// <summary>The looking player's own ENG level, on whichever side is asking.</summary>

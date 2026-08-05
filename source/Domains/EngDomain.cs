@@ -53,12 +53,16 @@ public static class EngDomain
     public const string DecayGm = "decayGm";
 
     // ---- Axis 3 overheat-ignition knob keys (eng-overheat-design.md, RULED 2026-08-02). Per-check
-    // chances at the 500ms companion tick; vanilla's own stub number is 0.03. GM never rolls (the
-    // trait: smokes, never burns) so it has no knob.
+    // chances at the 500ms companion tick; vanilla's own stub number is 0.03.
+    // AMENDED 2026-08-05: GM no longer has absolute immunity. The old trait ("smokes, never burns")
+    // made a Grandmaster's signature a physics exemption rather than a quality of work, and it made
+    // the sellable service an exemption too. GM is now simply the best rank on a monotonic curve:
+    // half of Master, and tunable like every other rank.
     public const string IgniteUntrained = "igniteUntrained";
     public const string IgniteNovice = "igniteNovice";           // also unattributed machines (parity)
     public const string IgniteJourneyman = "igniteJourneyman";
     public const string IgniteMaster = "igniteMaster";
+    public const string IgniteGm = "igniteGm";
     /// <summary>Part decay baseline on a machine RIGGED by a Grandmaster, held until first service
     /// (the orphaned optional from ENG ruling 7, substrate = the rigger stamp).</summary>
     public const string GmAssembledDecay = "gmAssembledDecay";
@@ -92,7 +96,7 @@ public static class EngDomain
             [DecayUntrained] = 1.10, [DecayGm] = 0.85,
             // Overheat ignition per 500ms check (0.03 = vanilla's stub parity).
             [IgniteUntrained] = 0.06, [IgniteNovice] = 0.03,
-            [IgniteJourneyman] = 0.02, [IgniteMaster] = 0.012,
+            [IgniteJourneyman] = 0.02, [IgniteMaster] = 0.012, [IgniteGm] = 0.006,
             [GmAssembledDecay] = 0.92,
         },
     };
