@@ -4,6 +4,7 @@
 	"id": "almanactcm:arcana",
 	"gate": "rustboundmagic",
 	"order": 40,
+	"ribbonTab": true,
 	"title": "Arcana",
 	"subtitle": "The one trade nobody is born to",
 	"byline": "set down by Venah",
@@ -79,6 +80,26 @@
 					"text": "The foundry is the mage's workbench, and most of the trade's material wants come out of it: robes, staves, scrolls, grimoires, the apparatus of the laboratory itself. It runs on <strong>fuel</strong> and takes its orders from a <strong>tablet</strong>. Your mana never enters into it, and no spell hurries it along. It is a furnace with opinions, and it answers to whoever set it working." },
 				{ "type": "paragraph",
 					"text": "Station work is the deep end of the practice. The foundry's synthesis, the <strong>oculus pedestal</strong>, and the <strong>rituals</strong> worked in chalk and essence all fill the laboratory's page, and they fill it fast: an evening of real station work is worth a week of cantrips. The rituals in particular are not shy about what they pay, because they are not shy about what they ask." }
+			]
+		},
+
+		{
+			"id": "rituals-in-chalk",
+			"title": "Rituals in chalk",
+			"revealedBy": "almanactcm:first-arc-foundational",
+			"hint": "Ink comes to this page with your first true casting.",
+			"keepTogether": true,
+			"blocks": [
+				{ "type": "paragraph", "dropcap": true,
+					"text": "The <strong>magic chalk</strong> is the whole apparatus. It holds every pattern the discipline knows: switch its mode and it lays either a plain <strong>rune</strong> or the <strong>sigil</strong> of a named ritual. Know this before you kneel: the sigil is the heart of a working, never the whole of it. Every ritual demands its circle, a ring of plain runes drawn around the sigil with the same chalk, lit <strong>torches</strong> at the four quarters, and whatever anchor the working names set in its proper place." },
+				{ "type": "paragraph",
+					"text": "Crouch and touch the sigil with the chalk in hand and it will show you what is missing: a ghost at every empty station of the circle. The showing fades after a time; ask again as often as you need. While anything is absent the sigil will count the gaps for you, and when the circle finally stands whole it asks for its <strong>reagents</strong> instead." },
+				{ "type": "paragraph",
+					"text": "Reagents are given to the ground beside the sigil, and given <strong>one at a time</strong>. A bundle dropped in one motion reads as a single offering and the working will not count it. Lay each piece down on its own, close to the heart." },
+				{ "type": "paragraph",
+					"text": "Then understand: nothing begins on its own. The circle stands, the offerings wait, and the working holds its breath until you cast <strong>transmutation</strong> into the sigil. In one crack of light the circle spends itself, runes, anchor, and offerings all taken, and what the ritual promised is left lying on the sigil for your hand to pick up." },
+				{ "type": "callout", "variant": "lore",
+					"text": "The first working most mages attempt, the <strong>Ritual of World Essence</strong>, asks a ring of sixteen runes, four lit torches, a block of plain cobblestone two paces before the sigil, and four <strong>primordial fragments</strong> laid down singly. It pays out an <strong>obelisk</strong>, and the laboratory's page takes its ink from the crack of it." }
 			]
 		},
 

@@ -516,6 +516,29 @@ public static class ArcPatches
         {
             harmony.Patch(expGain, postfix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(RitualExpPostfix))));
             TcmLog.Info(api, "ARC laboratory grant hooked (world-magic XP choke point: rituals + oculus)");
+
+            // Stage 2c: mark WHICH working reached the choke point, so a completed ritual pays its
+            // own knob while oculus/grimoire pulses keep the floor weight. The prefix sets a
+            // thread-scoped marker, the choke point consumes it, and the postfix clears whatever
+            // survives (a refused ritual — wrong pattern, short reagents — returns without ever
+            // reaching the exp call, and a stale marker must not misattribute the next oculus
+            // pulse). Three-way clear; only an exception inside a trigger can leak the marker, and
+            // the next trigger or consume self-heals it.
+            int marked = 0;
+            foreach (string trigger in ArcDomain.RitualKnobByTrigger.Keys)
+            {
+                var m = AccessTools.DeclaredMethod(worldMagic, trigger);
+                if (m == null)
+                {
+                    TcmLog.Warn(api, $"ARC ritual trigger '{trigger}' not found; that working pays the floor weight this build");
+                    continue;
+                }
+                harmony.Patch(m,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(RitualMarkPrefix))),
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(RitualMarkClear))));
+                marked++;
+            }
+            TcmLog.Info(api, $"ARC per-ritual completion pay armed ({marked}/{ArcDomain.RitualKnobByTrigger.Count} triggers marked, all knobs shipped at {ArcDomain.RitualRawDefault} raw)");
         }
         else TcmLog.Warn(api, "ARC ritual/oculus seam not found (ModSystemWorldMagic.ApplyPlayerMagicExpGain); those laboratory grants are inactive this build");
 
@@ -543,6 +566,27 @@ public static class ArcPatches
     /// session.</summary>
     private static readonly Dictionary<string, string> foundryOwners = new();
 
+    /// <summary>The working currently inside its RBM trigger on this server thread, as its Bonus
+    /// knob key. Set by RitualMarkPrefix, consumed by RitualExpPostfix, cleared by RitualMarkClear.
+    /// Thread-static rather than a plain static: the marker must never cross threads, and the
+    /// server may run world magic off the main thread in a future RBM.</summary>
+    [ThreadStatic] private static string? activeRitualKnob;
+
+    /// <summary>Entering a ritual trigger: remember which working this is. __originalMethod names
+    /// the patched trigger, so one prefix serves all seventeen.</summary>
+    public static void RitualMarkPrefix(System.Reflection.MethodBase __originalMethod)
+    {
+        activeRitualKnob = ArcDomain.RitualKnobByTrigger.TryGetValue(__originalMethod.Name, out var knob) ? knob : null;
+    }
+
+    /// <summary>Leaving a ritual trigger by any normal return: drop the marker. A refused working
+    /// (bad pattern, short reagents) never reaches the choke point, and its marker must not
+    /// misattribute the next oculus pulse as a completed ritual.</summary>
+    public static void RitualMarkClear()
+    {
+        activeRitualKnob = null;
+    }
+
     private static string PosKey(BlockPos pos) => pos.X + "/" + pos.Y + "/" + pos.Z;
 
     /// <summary>Rituals and Oculus grimoire synthesis, credited at RBM's one XP choke point. Also
@@ -559,6 +603,34 @@ public static class ArcPatches
         if (playerIn?.World?.Side != EnumAppSide.Server) return;
         var player = playerIn.Player;
         if (player == null) return;
+
+        string? ritualKnob = activeRitualKnob;
+        if (ritualKnob != null)
+        {
+            // A completed working (Stage 2c): pay the ritual's own knob, expressed in RAW and
+            // divided by the CONFIGURED lab Raw so the two dials stay independent. Consumed here —
+            // one completed working pays once, and the minor rituals' multi-conversion dispatch
+            // (four TriggerRitualOfCreation1 calls in one cast) collapses into the same 30s bucket.
+            activeRitualKnob = null;
+            double labRaw = 4.0;
+            var configs = Core?.Ledger?.DomainConfigs;
+            if (configs != null && configs.TryGetValue(ArcDomain.Code, out var dc)
+                && dc.Techniques.TryGetValue(ArcDomain.TechLaboratory, out var tc)) labRaw = tc.Raw;
+            double ritualRaw = ArcDomain.Knob(ritualKnob, ArcDomain.RitualRawDefault);
+            double ritualWeight = labRaw > 0 ? ritualRaw / labRaw : ritualRaw / 4.0;
+            Core?.Ledger?.Log(player, ArcDomain.Code, ArcDomain.TechLaboratory,
+                HashCode.Combine("labritualdone", ritualKnob, player.PlayerUID, (int)(playerIn.World.ElapsedMilliseconds / 30000)),
+                ritualWeight);
+            TcmLog.Cat(playerIn.World.Api, "arc", $"completed working '{ritualKnob}' pays {ritualRaw:0.##} raw (x{ritualWeight:0.##} on lab Raw {labRaw:0.##}) to {player.PlayerName}");
+
+            var wa2 = playerIn.WatchedAttributes;
+            if (wa2.GetFloat(ArcDomain.AttrXpToNextLevel, 0f) != 0f)
+            {
+                wa2.SetFloat(ArcDomain.AttrXpToNextLevel, 0f);
+                wa2.MarkPathDirty(ArcDomain.AttrXpToNextLevel);
+            }
+            return;
+        }
 
         double weight = System.Math.Clamp(expIn, 1, 2);
         Core?.Ledger?.Log(player, ArcDomain.Code, ArcDomain.TechLaboratory,

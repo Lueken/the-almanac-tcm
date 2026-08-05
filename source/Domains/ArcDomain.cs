@@ -81,6 +81,28 @@ public static class ArcDomain
             [SchoolMasteryChannel] = 40000, // cumulative mana channeled to Master a school (the pace knob)
             [MeditationTranceRaw] = 25.0,   // raw a FULL empty->full trance banks (vs meditation K=40)
             [MemoryCrystalManaFrac] = 0.25, // fraction of the pool a crystallized memory restores
+            // Stage 2c: RAW practice per completed world ritual (RULED 2026-08-03) — one knob per
+            // working so pay can follow ritual tier server-side without a code change. 16 = 4x the
+            // lab Raw, ~62% of a day's laboratory curve at K=10: an evening's centerpiece. The
+            // choke-point patch divides by the CONFIGURED lab Raw at bank time, so tuning lab Raw
+            // does not skew ritual pay. Key list mirrors RitualKnobByTrigger below.
+            ["ritualRawDecay"] = 16.0,
+            ["ritualRawWorldEssence"] = 16.0,
+            ["ritualRawPurification"] = 16.0,
+            ["ritualRawCorruption"] = 16.0,
+            ["ritualRawMinorCreation"] = 16.0,
+            ["ritualRawMinorDestruction"] = 16.0,
+            ["ritualRawMinorBalance"] = 16.0,
+            ["ritualRawRunicPower1"] = 16.0,
+            ["ritualRawRunicPower2"] = 16.0,
+            ["ritualRawRunicPower3"] = 16.0,
+            ["ritualRawTheRust"] = 16.0,
+            ["ritualRawPyrolysis"] = 16.0,
+            ["ritualRawOrebringer"] = 16.0,
+            ["ritualRawWarding"] = 16.0,
+            ["ritualRawGrace"] = 16.0,
+            ["ritualRawResonance"] = 16.0,
+            ["ritualRawElementalInfusion"] = 16.0,
         },
     };
 
@@ -109,6 +131,38 @@ public static class ArcDomain
     /// repurposed into a one-shot mana burst: a stranger's practice is not transferable, but the
     /// reserves in the stone are. Fraction, not a flat number, so it stays useful at every rank.</summary>
     public const string MemoryCrystalManaFrac = "memoryCrystalManaFrac";
+
+    // ---- Stage 2c: per-ritual completion pay (RULED 2026-08-03). A completed world ritual is a
+    // large, resource-heavy, ONE-SHOT working (sixteen chalked runes, torches, an anchor, reagents,
+    // and a casting), yet RBM's XP choke point passes the same literal 1 for a finished ritual as
+    // for an oculus pulse — so 0.4.29 paid the floor. Each trigger method gets its own Bonus knob
+    // (defaults above) holding the RAW practice a completed working banks.
+    /// <summary>RBM ModSystemWorldMagic trigger-method name -> the Bonus knob holding that
+    /// working's completion raw. Method names verified against the 3.2.5 decompile; a name that
+    /// stops resolving warns and leaves that working on the floor weight (never throws).</summary>
+    public static readonly Dictionary<string, string> RitualKnobByTrigger = new()
+    {
+        ["TriggerRitualOfDecay"] = "ritualRawDecay",
+        ["TriggerRitualOfWorldEssence"] = "ritualRawWorldEssence",
+        ["TriggerRitualOfPurification"] = "ritualRawPurification",
+        ["TriggerRitualOfCorruption"] = "ritualRawCorruption",
+        ["TriggerRitualOfCreation1"] = "ritualRawMinorCreation",
+        ["TriggerRitualOfDestruction1"] = "ritualRawMinorDestruction",
+        ["TriggerRitualOfBalance1"] = "ritualRawMinorBalance",
+        ["TriggerRitualOfRunicPower1"] = "ritualRawRunicPower1",
+        ["TriggerRitualOfRunicPower2"] = "ritualRawRunicPower2",
+        ["TriggerRitualOfRunicPower3"] = "ritualRawRunicPower3",
+        ["TriggerRitualOfTheRust1"] = "ritualRawTheRust",
+        ["TriggerRitualOfPyrolysis1"] = "ritualRawPyrolysis",
+        ["TriggerRitualOfOrebringer1"] = "ritualRawOrebringer",
+        ["TriggerRitualOfWarding1"] = "ritualRawWarding",
+        ["TriggerRitualOfGrace1"] = "ritualRawGrace",
+        ["TriggerRitualOfResonance1"] = "ritualRawResonance",
+        ["TriggerWorldMagicGrimoireElementalInfusion"] = "ritualRawElementalInfusion",
+    };
+
+    /// <summary>Shipped raw per completed working, mirrored by every ritualRaw* default above.</summary>
+    public const double RitualRawDefault = 16.0;
 
     // ---- Tier gate (§3, RULED with amendment): the mana-cost thresholds that push a T3 into GM-only.
     /// <summary>T3 spells at/above this cost are the "storm/ultimate" class — GM-gated (not Master).</summary>
