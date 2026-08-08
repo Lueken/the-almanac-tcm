@@ -60,6 +60,12 @@ public static class MetMaterialGate
         ["iron"] = JourneymanI,
         ["meteoriciron"] = JourneymanI,
         ["nickel"] = JourneymanI,
+        // Industrial Story's iron-age intermediates (added 0.4.35 after an Apprentice II
+        // worked a puddled ingot live, 2026-08-08). roughwroughtiron is the puddling
+        // output and consolidates into game:ingot-iron; pigiron is the blast furnace
+        // product. Both are iron working and gate with it.
+        ["roughwroughtiron"] = JourneymanI,
+        ["pigiron"] = JourneymanI,
 
         // Tier IV — Master (steel + non-tool exotics). Chromium/titanium/etc. arrive via
         // ALC chemistry, not MET smelting; parked at Master pending the ALC gate review

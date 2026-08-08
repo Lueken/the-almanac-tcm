@@ -100,6 +100,15 @@ public static class MinPatches
             if (__instance.BlockMaterial != EnumBlockMaterial.Stone) return;
             if (byPlayer.InventoryManager?.ActiveTool != EnumTool.Pickaxe) return;
 
+            // rock-* only (0.4.35, LauCaRo's report): material Stone alone also paid for
+            // cobblestone and every other craftable stone block, which reads as being paid
+            // to demolish your own build, the log-cabin problem again. Cobble has no
+            // placed/worldgen variant split, so ruin cobble is the accepted casualty.
+            // Pristine-rock replace-and-rebury remains technically farmable and is accepted:
+            // strictly worse than mining fresh rock (7 placed per re-mine, same tiny credit,
+            // day-curve capped). Do not re-litigate per report.
+            if (!__instance.Code.Path.StartsWith("rock-")) return;
+
             Core?.Ledger?.Log(byPlayer, MinDomain.Code, MinDomain.TechMining,
                 pos.GetHashCode(), Knob(MinDomain.MiningStoneFraction, 0.2));
         }

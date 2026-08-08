@@ -171,10 +171,28 @@ public static class EngOverheatPatches
                 if (nodeObj is not IMechanicalPowerNode node) continue;
                 if (node.OverheatValue <= 1f) continue;
 
+                // The plateau gate (2026-08-05). Vanilla's accumulator has no upper clamp in its
+                // 2.5-to-4.5 band: the else-branch is floored by Math.Max(0f, ...) and capped by
+                // nothing, so ANY part above 2.5 arms given time. That includes a stock windmill on
+                // one large gear, which runs 3.3 at full wind. Measured on a creative rotor rig at
+                // effective 3.21: twelve seconds from cold to fire, against 11s predicted.
+                //
+                // Real friction reaches an equilibrium temperature and stops there. A bow drill
+                // turned slowly never lights, however long you turn it. Gate the roll on the node's
+                // live effective speed so the same is true here, and so the contract the readout
+                // already prints (warms 2.5, smokes 4.5, burns 5.5) is finally honest: until now it
+                // burned at 2.5. Vanilla's accumulator is left untouched; we simply stop believing
+                // it on its own. FireAt stays a compile-time const, never a Knob, because the
+                // readout renders this same number client-side and Knob is server-only.
+                float effective = Math.Abs(node.GearedRatio * net.Speed);
+                if (effective <= FireAt) continue;
+
                 BlockPos pos = node.GetPosition();
                 if (pos == null) continue;
 
-                double chance = IgnitionChanceFor(pos);
+                // Proportional to the mistake, not binary (2026-08-06). Barely over is a slow
+                // smoulder; grossly over is quick. Same principle as the gate itself.
+                double chance = IgnitionChanceFor(pos) * OverspeedScale(effective);
                 if (chance <= 0) continue;                       // guard only; no rank returns 0 since 2026-08-05
                 if (sapi.World.Rand.NextDouble() >= chance) continue;
 
@@ -182,6 +200,24 @@ public static class EngOverheatPatches
                 node.OverheatValue = 0f;                         // the fire is the discharge
             }
         }
+    }
+
+    /// <summary>How far past the burn line a part is running, as a multiplier on its ignition
+    /// chance. Zero exactly at FireAt and rising linearly from there, so 11.0 (twice the line) is
+    /// unit rate and everything below it is a discount. Clamped both ends: the floor stops a part
+    /// a hair over the line from being immortal, the cap stops a wildly overgeared train from
+    /// igniting on the first roll.
+    ///
+    /// SERVER ONLY. This reads Knob, so it must never be called from the readout: C-3, the knob
+    /// store does not exist client-side and a dedicated server would render defaults. The readout
+    /// shows the raw unclamped fraction instead, which is arithmetic over FireAt, a compile-time
+    /// const, and therefore honest on both sides.</summary>
+    private static double OverspeedScale(float effective)
+    {
+        double over = (effective - FireAt) / FireAt;
+        double floor = EngDomain.Knob(EngDomain.IgniteScaleFloor, 0.05);
+        double cap = EngDomain.Knob(EngDomain.IgniteScaleCap, 3.0);
+        return Math.Clamp(over, floor, cap);
     }
 
     /// <summary>The keeper lens: last servicer's rank where a wearandtear stamp stands, else the
@@ -208,28 +244,53 @@ public static class EngOverheatPatches
         };
     }
 
-    /// <summary>Ordinary vanilla fire, by vanilla's own rules: only a combustible block burns,
-    /// and the flame needs an open cell beside it (a fully enclosed shaft starves). The fire
-    /// block plus BEBehaviorBurning.OnFirePlaced is exactly what the firestarter does.</summary>
+    /// <summary>The overdriven part burns itself out and takes nothing with it.
+    ///
+    /// RULED 2026-08-06. This deliberately does NOT place a vanilla fire block. It used to, and
+    /// that fire spread like any other, which on a shared server means one player's gearing
+    /// mistake can cost a neighbour their house. It came close twice. Non-spreading is now a
+    /// property of the code rather than a tuning value: no fire block is created, so there is
+    /// nothing that could propagate even if something else in the pack patched fire behaviour.
+    ///
+    /// The event still reads as fire. Flame and smoke particles, the vanilla fire sound, and the
+    /// part is consumed with no drops. BreakBlock runs vanilla's own removal path, so multiblock
+    /// parts clean up their own stubs instead of leaving orphans.</summary>
     private static void TryIgnite(BlockPos fuelPos)
     {
         var accessor = sapi!.World.BlockAccessor;
         Block fuelBlock = accessor.GetBlock(fuelPos);
         if (fuelBlock?.CombustibleProps == null) return;          // physics, not rank
 
+        // Combustion still needs air, so a fully enclosed shaft starves. That was a happy
+        // accident of the old fire-placement loop and it is kept on purpose: boxing a drive line
+        // in is a real mitigation a player can choose, and it costs them the reading in exchange.
+        bool hasAir = false;
         foreach (BlockFacing facing in BlockFacing.ALLFACES)
         {
-            BlockPos firePos = fuelPos.AddCopy(facing);
-            if (accessor.GetBlock(firePos).Replaceable < 6000) continue;
-
-            Block fire = sapi.World.GetBlock(new AssetLocation("fire"));
-            if (fire == null) return;
-            accessor.SetBlock(fire.BlockId, firePos);
-            var burning = accessor.GetBlockEntity(firePos)?.GetBehavior<BEBehaviorBurning>();
-            burning?.OnFirePlaced(firePos, fuelPos, null, didSpread: false);
-            TcmLog.Cat(sapi, "eng", $"overspeed ignition at {fuelPos} ({fuelBlock.Code}); the wheel found its limit");
-            return;
+            if (accessor.GetBlock(fuelPos.AddCopy(facing)).Replaceable >= 6000) { hasAir = true; break; }
         }
+        if (!hasAir) return;
+
+        double cx = fuelPos.X + 0.5, cy = fuelPos.Y + 0.5, cz = fuelPos.Z + 0.5;
+        var min = new Vec3d(cx - 0.35, cy - 0.35, cz - 0.35);
+        var max = new Vec3d(cx + 0.35, cy + 0.35, cz + 0.35);
+
+        // ColorUtil.ToRgba is ARGB exactly as named, confirmed in game 2026-08-06: passing
+        // (255, 30, 140, 255) rendered bright blue, which is r=30 g=140 b=255. Ember orange is
+        // therefore r=255 g=140 b=30.
+        sapi.World.SpawnParticles(56f, ColorUtil.ToRgba(255, 255, 140, 30), min, max,
+            new Vec3f(-0.25f, 0.1f, -0.25f), new Vec3f(0.25f, 0.85f, 0.25f),
+            1.4f, -0.015f, 1.0f, EnumParticleModel.Quad);
+        sapi.World.SpawnParticles(28f, ColorUtil.ToRgba(160, 60, 60, 60), min, max,
+            new Vec3f(-0.15f, 0.25f, -0.15f), new Vec3f(0.15f, 0.6f, 0.15f),
+            2.6f, -0.005f, 1.6f, EnumParticleModel.Quad);
+        sapi.World.PlaySoundAt(new AssetLocation("sounds/environment/fire"), cx, cy, cz,
+            null, false, 24f, 1f);
+
+        accessor.BreakBlock(fuelPos, null, 0f);
+        accessor.MarkBlockDirty(fuelPos);
+
+        TcmLog.Cat(sapi, "eng", $"overspeed ignition at {fuelPos} ({fuelBlock.Code}); the wheel found its limit, and nothing else");
     }
 
     // ------------------------------------------------------------ the reading of the machine
@@ -301,6 +362,19 @@ public static class EngOverheatPatches
                 HeatFloor.ToString("0.#"), SmokeAt.ToString("0.#"), FireAt.ToString("0.#")));
             sb.AppendLine(Lang.Get("almanactcm:eng-read-load", torque.ToString("0.##"),
                 resistance.ToString("0.##"), net.TotalAvailableTorque.ToString("0.##")));
+
+            // THE DEADLOCK TELL (2026-08-07). The torque above is vanilla's SIGNED sum, so two
+            // sources rigged against each other cancel to about zero and print what an unpowered
+            // shaft prints. Gross is the same sources with their signs removed, captured during
+            // vanilla's own updateNetwork pass (EngGrossTorque) because per-source torque exists
+            // nowhere else and asking twice would spin the rotors up. Matching says nothing is
+            // fighting; the gap IS the fight. Shown whenever a figure has arrived and never gated
+            // on the values, the same reason the rest of this block is unconditional: the rank's
+            // worth is reading a machine that is behaving.
+            if (EngGrossTorque.TryGetGross(net.networkId, out float gross))
+                sb.AppendLine(Lang.Get("almanactcm:eng-read-gross",
+                    gross.ToString("0.##"), torque.ToString("0.##")));
+
             sb.AppendLine(Lang.Get("almanactcm:eng-read-surplus",
                 (surplus >= 0 ? "+" : "") + surplus.ToString("0.###")));
         }
@@ -318,7 +392,17 @@ public static class EngOverheatPatches
         if (effSpeed <= HeatFloor) return;
 
         if (effSpeed > FireAt)
+        {
             sb.AppendLine($"<font color=\"{Engine.TcmTooltip.PenaltyColor}\">" + Lang.Get("almanactcm:eng-moments-from-fire") + "</font>");
+
+            // Master up: how far past the limit, which is what actually sets the ignition rate now.
+            // Raw and unclamped on purpose. OverspeedScale's floor and cap are server-side Knobs and
+            // must not be read here (C-3); this is arithmetic over FireAt, a const, so it agrees on
+            // both sides. The clamps only bound the roll, they do not change how overdriven a part is.
+            if (readLevel >= EngDomain.ProvMaster)
+                sb.AppendLine(Lang.Get("almanactcm:eng-read-overspeed",
+                    ((effSpeed - FireAt) / FireAt * 100f).ToString("0")));
+        }
         else if (effSpeed > SmokeAt)
             sb.AppendLine(Lang.Get("almanactcm:eng-running-hot"));
         else

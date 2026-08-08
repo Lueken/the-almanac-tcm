@@ -63,6 +63,15 @@ public static class EngDomain
     public const string IgniteJourneyman = "igniteJourneyman";
     public const string IgniteMaster = "igniteMaster";
     public const string IgniteGm = "igniteGm";
+
+    /// <summary>Overspeed scaling, added 2026-08-06. The per-rank chances above are flat, so a part
+    /// 2% past the burn line rolled at exactly the same rate as one 300% past it. Real friction has
+    /// no such cliff: equilibrium temperature climbs smoothly with speed. The roll is now multiplied
+    /// by clamp((effective - 5.5) / 5.5, floor, cap), so creeping over the line is a slow smoulder a
+    /// builder can catch and gross overdrive is quick. Safe as knobs: ignition is server-side and the
+    /// readout never renders the chance, so C-3 does not apply here the way it does to FireAt.</summary>
+    public const string IgniteScaleFloor = "igniteScaleFloor";
+    public const string IgniteScaleCap = "igniteScaleCap";
     /// <summary>Part decay baseline on a machine RIGGED by a Grandmaster, held until first service
     /// (the orphaned optional from ENG ruling 7, substrate = the rigger stamp).</summary>
     public const string GmAssembledDecay = "gmAssembledDecay";
@@ -97,6 +106,9 @@ public static class EngDomain
             // Overheat ignition per 500ms check (0.03 = vanilla's stub parity).
             [IgniteUntrained] = 0.06, [IgniteNovice] = 0.03,
             [IgniteJourneyman] = 0.02, [IgniteMaster] = 0.012, [IgniteGm] = 0.006,
+            // Overspeed multiplier bounds. Floor 0.05 gives roughly 27 minutes at a GM's rate for a
+            // part barely over the line; cap 3.0 keeps grossly overdriven trains from being instant.
+            [IgniteScaleFloor] = 0.05, [IgniteScaleCap] = 3.0,
             [GmAssembledDecay] = 0.92,
         },
     };

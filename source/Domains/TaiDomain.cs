@@ -40,6 +40,7 @@ public static class TaiDomain
     public const string TechWeave = "weave";  // loom WeaveInput
     public const string TechKnit = "knit";    // ItemKnittingNeedles.OnHeldInteractStop
     public const string TechSew = "sew";       // vanilla clothing-repair recipe (GridRecipe.ConsumeInput)
+    public const string TechDye = "dye";       // barrel dye seal, routed from BRE's seal classifier (RULED 2026-08-08)
 
     // ---- The Tailor's Mark ladder (Axis 1 penalty + Axis 6 identity) knob keys.
     /// <summary>Warmth multiplier at the Untrained end — below the pattern (a beginner's coat holds less
@@ -94,6 +95,8 @@ public static class TaiDomain
             [TechKnit] = new() { Raw = 2, K = 18 },
             // Repair is rarer than making cloth: a lower ceiling.
             [TechSew] = new() { Raw = 2, K = 14 },
+            // Consumes real dye per rep, K-capped: farm-resistant by cost (RULED 2026-08-08).
+            [TechDye] = new() { Raw = 2, K = 12 },
         },
         Bonus = new Dictionary<string, double>
         {

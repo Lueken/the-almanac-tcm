@@ -193,5 +193,7 @@
   "almanactcm:eng-read-drive": "Network speed {0}, geared ratio {1}x",
   "almanactcm:eng-read-effspeed": "Speed at this part {0}  (warms {1}, smokes {2}, burns {3})",
   "almanactcm:eng-read-load": "Torque {0}, resistance {1}, available {2}",
-  "almanactcm:eng-read-surplus": "Surplus {0}  (positive speeds up, zero is equilibrium)"
+  "almanactcm:eng-read-gross": "Source torque {0} gross, {1} net  (the gap is sources fighting each other)",
+  "almanactcm:eng-read-surplus": "Surplus {0}  (positive speeds up, zero is equilibrium)",
+  "almanactcm:eng-read-overspeed": "Running {0}% past its limit. The further past, the sooner it goes."
 }

@@ -466,8 +466,32 @@ public static class FarPatches
         // FarDomain.HarvestRipeFloor for why the old 0.01 literal could never fire.
         if (ripeFrac < FarDomain.Knob(FarDomain.HarvestRipeFloor, 0.50)) return;
 
+        // The scythe premium (ruled 2026-08-08): a swing that has to be read and timed pays more
+        // per crop than a hand pull. Read the held tool rather than the break path, so a modded
+        // scythe that reaches this seam by any route still earns it. An edge case: if the scythe's
+        // last durability point breaks it mid-swing, the final crop of that swing sees an empty
+        // hand and misses the premium — one crop, and the swing that killed the tool.
+        double practice = ripeFrac;
+        if (UsingScythe(byPlayer)) practice *= FarDomain.Knob(FarDomain.HarvestScytheBonus, 1.15);
+
+        // PER-CROP CONTEXT (was pos.X >> 2 / pos.Z >> 2, a 4x4 column). The scythe multibreaks the
+        // struck crop plus up to five neighbours in one tick (ItemShears.OnBlockBrokenWith,
+        // MultiBreakQuantity 5), so a 3x3 of ripe grain landed in one or two dedup buckets inside
+        // the same 1s slice and banked one credit for six crops. Exact position gives every crop
+        // its own context; the time bucket stays so a tile re-sown and re-harvested later still
+        // pays. Two breaks of one position inside a second cannot happen — the first one took it.
         Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechHarvesting,
-            HashCode.Combine("crop", pos.X >> 2, pos.Z >> 2, world.ElapsedMilliseconds / 1000), ripeFrac);
+            HashCode.Combine("crop", pos.X, pos.Y, pos.Z, world.ElapsedMilliseconds / 1000), practice);
+    }
+
+    /// <summary>True when the player's active hand is a scythe. Checks the declared tool tag first
+    /// (vanilla scythe.json carries tool: "Scythe") and falls back to the class, which catches a
+    /// modded scythe that subclasses ItemScythe without declaring the tag.</summary>
+    private static bool UsingScythe(IPlayer byPlayer)
+    {
+        var held = byPlayer.InventoryManager?.ActiveHotbarSlot?.Itemstack?.Collectible;
+        if (held == null) return false;
+        return held.Tool == EnumTool.Scythe || held is Vintagestory.GameContent.ItemScythe;
     }
 
     // ------------------------------------------------------------ milking

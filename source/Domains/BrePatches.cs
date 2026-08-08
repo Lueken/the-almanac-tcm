@@ -133,6 +133,19 @@ public static class BrePatches
     private static bool IsNonEarning(string code) =>
         code.Contains("limewater") || code.Contains("slakedlime") || code.Contains("tannin");
 
+    /// <summary>A dye bath: any ingredient whose code path starts with "dye". Ingredient-keyed
+    /// rather than output-keyed so vanilla and wool-mod dye recipes both match unenumerated.</summary>
+    private static bool IsDyeing(BarrelRecipe recipe)
+    {
+        if (recipe.Ingredients == null) return false;
+        foreach (var ing in recipe.Ingredients)
+        {
+            string? path = ing?.Code?.Path;
+            if (path != null && path.StartsWith("dye")) return true;
+        }
+        return false;
+    }
+
     /// <summary>The seal is the skilled act: grant BRE (output-classified) to the online sealer and
     /// freeze their rank for the completion-time effects. Called from both barrel and fermenter.</summary>
     private static void StoreAndGrantSeal(ICoreAPI api, BlockPos pos, IPlayer player, BarrelRecipe? recipe)
@@ -147,6 +160,15 @@ public static class BrePatches
             Core?.Ledger?.Log(player, HunDomain.Code, HunDomain.TechTanning, cx);
             TcmLog.Cat(api, "bre", $"seal at {pos}: leather tanning ({code}) -> HUN tanning for {player.PlayerName}");
             return; // no BRE grant, no completion effects (tanning has no ruled spoilage/mark)
+        }
+        // Dyeing is a barrel seal, but it is TAI's verb (RULED 2026-08-08): cloth + dye in,
+        // dyed textile out. Detected by a dye ingredient, so it covers vanilla and the wool
+        // mod without enumerating outputs. Consumes real dye, so it is farm-resistant by cost.
+        if (IsDyeing(recipe))
+        {
+            Core?.Ledger?.Log(player, TaiDomain.Code, TaiDomain.TechDye, cx);
+            TcmLog.Cat(api, "bre", $"seal at {pos}: dye bath ({code}) -> TAI dye for {player.PlayerName}");
+            return; // no BRE grant, no completion effects
         }
         if (IsNonEarning(code)) // lime/tannin reagent prep: feeds tanning, earns nothing
         {

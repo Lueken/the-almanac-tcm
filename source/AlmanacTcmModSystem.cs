@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.32")]
+    Version = "0.4.35")]
 
 namespace AlmanacTcm;
 
@@ -143,6 +143,9 @@ public class AlmanacTcmModSystem : ModSystem
             Try("alloy-ledger-furnace", () => Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony));
             Try("almanac-chat", () => Engine.AlmanacChatChannel.PatchClient(api, harmony));
             Try("ENG-overheat-readout", () => Domains.EngOverheatPatches.PatchConditional(api, harmony));
+            // Gross source torque for the same panel: captured during vanilla's own updateNetwork
+            // pass, because per-source torque exists nowhere else and GetTorque mutates the rotor.
+            Try("ENG-gross-torque", () => Domains.EngGrossTorque.PatchConditional(api, harmony));
             TcmLog.Info(api, "Harmony patches applied (anvil, quench, mold, smelt, firepit, tooltip, gate, mining, cave-in, felling + conditionals)");
         }
     }
@@ -262,6 +265,9 @@ public class AlmanacTcmModSystem : ModSystem
         // rack carries the alchemist for the perish-slow rung). The Brand read is stateless.
         Domains.AlcPatches.RegisterServer(sapi);
         Domains.EngOverheatPatches.RegisterServer(sapi);
+        // The gross-torque sync: the capture patches run server-side only (updateNetwork is a
+        // server tick), and the panel that reads them renders client-side, so the sums need a wire.
+        Domains.EngGrossTorque.RegisterServer(sapi);
         Domains.AlcBrandPatches.RegisterServer(sapi);
         Domains.AlcEmphasis.RegisterServer(sapi);
 
@@ -316,6 +322,10 @@ public class AlmanacTcmModSystem : ModSystem
 
         // The Surveyor's depth bands arrive on their own channel (the PT tooltip reads them).
         Domains.PanSurveyor.RegisterClient(capi);
+
+        // Gross source torque for the ENG machine reading: server-captured, so the panel reads
+        // it off this channel rather than off state that does not exist on a client.
+        Domains.EngGrossTorque.RegisterClient(capi);
 
         // ALC emphasis: the Callings book's Potent/Lasting toggle sends on this channel.
         Domains.AlcEmphasis.RegisterClient(capi);
