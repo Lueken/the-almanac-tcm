@@ -2,6 +2,8 @@ using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -48,7 +50,8 @@ public static class BreDomain
 
     /// <summary>Provenance tiers (a mark means something from Journeyman up): the BRE curedBy tag on
     /// SOLID preserves. Cured by (J) -> Aged by (M) -> a masterwork-preserve line (GM).</summary>
-    public const int ProvJourneyman = 9, ProvMaster = 13, ProvGm = 17;
+    // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): this was one of ten identical
+    // `Rank.Journeyman = 9, Rank.Master = 13, Rank.Grandmaster = 17` triplets. Use Rank.Journeyman etc.
 
     public static DomainConfig Defaults() => new()
     {
@@ -85,9 +88,15 @@ public static class BreDomain
     /// ZERO from Journeyman I on. Linear from the Untrained chance at tier 0 to 0 at Journeyman.</summary>
     public static double SpoilChance(int tier)
     {
-        if (tier >= ProvJourneyman) return 0.0;
+        if (tier >= Rank.Journeyman) return 0.0;
         double full = Knob(SpoilUntrained, 0.50);
-        return full * (1.0 - tier / (double)ProvJourneyman); // full at 0, 0 at Journeyman I
+        // CAREFUL. The second use is a SPAN, not a threshold: Rank.Journeyman (9) is the width of
+        // the ramp from Untrained to zero, so it is a divisor here. The first use above is a real
+        // threshold. Both are correct in LEVEL space and must stay there.
+        // If anyone ever converts this mod to tier-scale comparisons, this line does NOT convert:
+        // at tier scale the divisor becomes 2 and the ramp goes negative for levels 3-8, silently.
+        // (Flagged 2026-08-12; it is the one site a mechanical level-to-tier pass would break.)
+        return full * (1.0 - tier / (double)Rank.Journeyman); // full at 0, 0 at Journeyman I
     }
 
     /// <summary>Server-side BRE level for a player (0 = Untrained when unknown).</summary>

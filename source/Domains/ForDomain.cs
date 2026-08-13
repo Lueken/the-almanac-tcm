@@ -22,7 +22,14 @@ public static class ForDomain
 
     public const string TechHarvesting = "harvesting"; // in-place pluck: bush, resin, reeds (renewable)
     public const string TechGathering = "gathering";   // destructive: break plant/mushroom/surface litter
-    public const string TechTapping = "tapping";       // ACA spile sap (owner-at-placement, passive drip)
+    /// <summary>Driving the spile into the trunk. Small, and once per trunk face for ever
+    /// (re-placing on a used site pays nothing) — siting a tapline is the skilled act, running
+    /// one is not.</summary>
+    public const string TechTapping = "tapping";
+    /// <summary>Taking the sap out of the tapline container. Credited to WHOEVER COLLECTS, not
+    /// the spile's owner (ruled 2026-08-11), scaled by the litres actually removed. This is
+    /// where a tapline's practice lives; the drip itself pays nothing.</summary>
+    public const string TechSapCollecting = "sapcollecting";
 
     // Bonus knob keys (DomainConfig.Bonus).
     public const string ForageYieldUntrained = "forageYieldUntrained"; // forageDropRate (in-place)
@@ -46,6 +53,13 @@ public static class ForDomain
     /// timer forward by this fraction (0.5 = roughly two-thirds output). NEVER kills the
     /// spile, the segment, or a resin node (ruled 2026-07-16: those are worldgen-precious).</summary>
     public const string UntrainedTapSlowdown = "untrainedTapSlowdown";
+    /// <summary>Litres of sap that earn one full raw of sapcollecting. All four tappable liquids
+    /// ship itemsPerLitre 100 and ACA moves one item per matured drip, so a drip is 10 mL: this
+    /// is deliberately fractional.</summary>
+    public const string SapLitresPerCredit = "sapLitresPerCredit";
+    /// <summary>Ceiling on the multiplier a SINGLE collection can pay, so emptying a long-brewed
+    /// barrel is a good haul rather than a level.</summary>
+    public const string SapCollectCap = "sapCollectCap";
 
     public static DomainConfig Defaults() => new()
     {
@@ -60,9 +74,11 @@ public static class ForDomain
             // (hard position-bucket contextHash on the hook side), so its raw sits lower.
             [TechHarvesting] = new() { Raw = 2, K = 60 },
             [TechGathering] = new() { Raw = 1, K = 60 },
-            // Passive per-session shape: credit accrues as a tapline actually drips (hours),
-            // never for placing the spile. Small K: one tapline sweep is most of the bank.
-            [TechTapping] = new() { Raw = 4, K = 15 },
+            // Siting a tapline: paid once per trunk face, ever. Nothing accrues while it drips.
+            [TechTapping] = new() { Raw = 3, K = 25 },
+            // The collection itself, scaled by litres taken. Small K: a season's taplines are
+            // most of the bank, and the player has to walk the circuit to earn any of it.
+            [TechSapCollecting] = new() { Raw = 8, K = 40 },
         },
         Bonus = new Dictionary<string, double>
         {
@@ -82,6 +98,9 @@ public static class ForDomain
             [TendBoostDaysGm] = 2.5,
             [WoundDays] = 1.5,
             [UntrainedTapSlowdown] = 0.5,
+            // Half a litre (50 drips) pays one full raw; a 2 L haul caps out at x4.
+            [SapLitresPerCredit] = 0.5,
+            [SapCollectCap] = 4.0,
         }
     };
 

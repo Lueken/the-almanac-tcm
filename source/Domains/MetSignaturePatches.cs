@@ -20,7 +20,7 @@ namespace AlmanacTcm.Domains;
 ///
 /// The flags live on the tool HEAD and ride it for life: through Toolsmith disassembly
 /// and onto the assembled tool (the head-for-life model, same as the maker quality).
-/// Assigned only to Grandmaster work (MakerTierAttr == 4). Stripped on an under-ranked
+/// Assigned only to Grandmaster work (the frozen maker level is Rank.Grandmaster). Stripped on an under-ranked
 /// REFORGE (Smithing+ OnSmithingFinished) — never on honing/sharpening (light
 /// maintenance, not smith-work). This file holds the constants, the type classifier,
 /// and the assignment helper; the consuming Harmony patches are added per build step.
@@ -34,9 +34,8 @@ public static class MetSignature
     /// <summary>Tool signature: deeper wear resistance. Set only on Grandmaster tools.</summary>
     public const string DurableAttr = "almanactcm:durable";
 
-    /// <summary>Grandmaster tier index (Leveling.Domain.TierOf: 0=Novice … 4=GM). The
-    /// signature is GM-only; Master and below carry provenance + quality but no edge.</summary>
-    public const int GrandmasterTier = 4;
+    // GrandmasterTier (a tier index, = 4) deleted 2026-08-12 with the move to level storage:
+    // it was an eleventh spelling of the same boundary. Use Rank.Grandmaster.
 
     public enum SignatureKind { None, Weapon, Tool }
 
@@ -47,13 +46,13 @@ public static class MetSignature
     public static System.Func<ItemStack, bool>? CoWeaponClassifier;
 
     /// <summary>Assign the GM signature to a freshly-marked stack, by type. GM-only
-    /// (<paramref name="makerTier"/> &lt; 4 → nothing). A weapon gets Honed; a classifiable
-    /// tool gets Durable; a bare tool HEAD (neither yet) gets nothing here and picks its
-    /// signature up when it becomes a tool at assembly. Idempotent — never re-flags a
-    /// stack that already carries a signature (so a copied head-flag is preserved).</summary>
-    public static void Assign(ItemStack? stack, int makerTier)
+    /// (<paramref name="makerLevel"/> below Grandmaster → nothing). A weapon gets Honed; a
+    /// classifiable tool gets Durable; a bare tool HEAD (neither yet) gets nothing here and
+    /// picks its signature up when it becomes a tool at assembly. Idempotent: never re-flags
+    /// a stack that already carries a signature (so a copied head-flag is preserved).</summary>
+    public static void Assign(ItemStack? stack, int makerLevel)
     {
-        if (stack?.Collectible == null || makerTier < GrandmasterTier) return;
+        if (stack?.Collectible == null || makerLevel < Rank.Grandmaster) return;
         if (HasSignature(stack)) return;
 
         switch (Classify(stack))
@@ -142,13 +141,10 @@ public static class MetSignaturePatches
         return fallback;
     }
 
-    /// <summary>The player's MET tier (0=Novice … 4=GM), server-side. Used by the
-    /// reforge-gate to compare the reforging smith against the head's frozen maker tier.</summary>
-    private static int MetTierOf(IPlayer player)
-    {
-        int lvl = AlmanacTcmModSystem.ServerInstance?.Server?.GetDomainSet(player)?.FindDomain(MetDomain.Code)?.Level ?? 0;
-        return Domain.TierOf(lvl);
-    }
+    /// <summary>The player's MET level, server-side. Used by the reforge-gate to compare the
+    /// reforging smith against the head's frozen maker level.</summary>
+    private static int MetLevelOf(IPlayer player)
+        => AlmanacTcmModSystem.ServerInstance?.Server?.GetDomainSet(player)?.FindDomain(MetDomain.Code)?.Level ?? 0;
 
     // ---------------------------------------------------- Part 1: GM wear-skip (Durable)
 
@@ -166,7 +162,7 @@ public static class MetSignaturePatches
             if (world?.Side != EnumAppSide.Server || amount <= 0) return;
             ItemStack? stack = itemSlot?.Itemstack;
             if (stack?.Collectible == null) return;
-            if (stack.Attributes.GetInt(MetPatches.MakerTierAttr, -1) < MetSignature.GrandmasterTier) return;
+            if (MetPatches.MarkLevel(stack) < Rank.Grandmaster) return;
 
             double skip = MetSignature.IsDurable(stack)
                 ? Knob(MetDomain.DurableWearSkip, 0.18)
@@ -210,9 +206,9 @@ public static class MetSignaturePatches
             if (instance?.Api?.Side != EnumAppSide.Server || itemstack == null || byPlayer == null) return;
             if (!MetSignature.HasSignature(itemstack)) return;
 
-            int headTier = itemstack.Attributes.GetInt(MetPatches.MakerTierAttr, -1);
-            if (headTier < MetSignature.GrandmasterTier) return;   // signature only exists on GM heads
-            if (MetTierOf(byPlayer) >= headTier) return;           // equal-or-greater smith preserves it
+            int headLevel = MetPatches.MarkLevel(itemstack);
+            if (headLevel < Rank.Grandmaster) return;       // signature only exists on GM heads
+            if (MetLevelOf(byPlayer) >= headLevel) return;  // equal-or-greater smith preserves it
 
             MetSignature.Strip(itemstack);
             TcmLog.Cat(instance.Api, TcmLog.Hooks,

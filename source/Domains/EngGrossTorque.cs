@@ -4,6 +4,7 @@ using HarmonyLib;
 using ProtoBuf;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent.Mechanics;
 
@@ -62,6 +63,8 @@ public static class EngGrossTorque
     {
         [ProtoMember(1)] public long[] NetworkIds = Array.Empty<long>();
         [ProtoMember(2)] public float[] Gross = Array.Empty<float>();
+        [ProtoMember(3)] public float[] CapAbs = Array.Empty<float>();
+        [ProtoMember(4)] public float[] CapEff = Array.Empty<float>();
     }
 
     // ------------------------------------------------------------ state
@@ -72,16 +75,32 @@ public static class EngGrossTorque
     /// <summary>Server truth, drained into every broadcast. Written on the server tick thread
     /// (vanilla's mech power tick is a plain game tick listener, MechanicalPowerMod.Start) and
     /// read on the same thread by the broadcast listener, so it needs no lock.</summary>
-    private static readonly Dictionary<long, float> serverGross = new();
+    private static readonly Dictionary<long, (float Gross, float CapAbs, float CapEff)> serverGross = new();
 
-    /// <summary>Client mirror: network id to the last figure and when it landed.</summary>
-    private static readonly Dictionary<long, (float Gross, long AtMs)> clientGross = new();
+    /// <summary>Client mirror: network id to the last figures and when they landed.</summary>
+    private static readonly Dictionary<long, (float Gross, float CapAbs, float CapEff, long AtMs)> clientGross = new();
+
+    // Capacity reads three protected members off the rotor during the same pass. capableSpeed is
+    // the rotor's smoothed capability follower, TorqueFactor its strength, and propagationDir
+    // against OutFacingForNetworkDiscovery is the same frame test GetTorque itself signs by.
+    // Mod interplay note: Ingenium flips a reversed-flow water wheel's propagationDir for the
+    // duration of GetTorque and restores it in a Finalizer, which runs AFTER postfixes, so the
+    // frame this postfix reads is the frame the original actually used. That is the correct one.
+    private static readonly AccessTools.FieldRef<BEBehaviorMPRotor, double> CapableSpeed =
+        AccessTools.FieldRefAccess<BEBehaviorMPRotor, double>("capableSpeed");
+    private static readonly System.Func<BEBehaviorMPRotor, float> TorqueFactorOf =
+        AccessTools.MethodDelegate<System.Func<BEBehaviorMPRotor, float>>(
+            AccessTools.PropertyGetter(typeof(BEBehaviorMPRotor), "TorqueFactor"));
+    private static readonly AccessTools.FieldRef<BEBehaviorMPBase, BlockFacing> PropagationDir =
+        AccessTools.FieldRefAccess<BEBehaviorMPBase, BlockFacing>("propagationDir");
 
     /// <summary>The network whose real updateNetwork pass is open right now, and the magnitude
     /// sum built during it. ThreadStatic so an off-thread caller can never fold its rotors into
     /// someone else's total.</summary>
     [ThreadStatic] private static MechanicalNetwork? capturing;
     [ThreadStatic] private static float accum;
+    [ThreadStatic] private static float capAbsAccum;
+    [ThreadStatic] private static float capSignedAccum;
 
     // ------------------------------------------------------------ registration
 
@@ -132,13 +151,16 @@ public static class EngGrossTorque
     {
         capturing = __instance;
         accum = 0f;
+        capAbsAccum = 0f;
+        capSignedAccum = 0f;
     }
 
     /// <summary>Publishes the finished sum. Only a pass that completed gets here, so a partial
     /// walk is never shown as a total.</summary>
     public static void UpdateNetworkPostfix(MechanicalNetwork __instance)
     {
-        if (ReferenceEquals(capturing, __instance)) serverGross[__instance.networkId] = accum;
+        if (ReferenceEquals(capturing, __instance))
+            serverGross[__instance.networkId] = (accum, capAbsAccum, Math.Abs(capSignedAccum));
         capturing = null;
     }
 
@@ -153,6 +175,20 @@ public static class EngGrossTorque
     {
         if (capturing == null || !ReferenceEquals(__instance?.Network, capturing)) return;
         accum += Math.Abs(__instance!.GearedRatio * __result);
+
+        // Capacity: what this source could deliver at stall, in the network frame, with the sign
+        // the frame test would give it. The absolute sum is total capacity; the magnitude of the
+        // signed sum is what survives opposition. Both are stable through transients, which is
+        // what makes them readable where instantaneous torque is not.
+        try
+        {
+            float cap = (float)CapableSpeed(__instance) * TorqueFactorOf(__instance) * __instance.GearedRatio;
+            BlockFacing pd = PropagationDir(__instance);
+            float num = (pd != null && pd == __instance.OutFacingForNetworkDiscovery) ? 1f : -1f;
+            capAbsAccum += Math.Abs(cap);
+            capSignedAccum += cap * num;
+        }
+        catch { /* reflection miss on a future build: capacity reads 0, gross still works */ }
     }
 
     // ------------------------------------------------------------ the wire
@@ -166,16 +202,20 @@ public static class EngGrossTorque
 
         var ids = new long[serverGross.Count];
         var vals = new float[serverGross.Count];
+        var caps = new float[serverGross.Count];
+        var effs = new float[serverGross.Count];
         int i = 0;
         foreach (var kv in serverGross)
         {
             ids[i] = kv.Key;
-            vals[i] = kv.Value;
+            vals[i] = kv.Value.Gross;
+            caps[i] = kv.Value.CapAbs;
+            effs[i] = kv.Value.CapEff;
             i++;
         }
         serverGross.Clear();
 
-        serverChannel.BroadcastPacket(new EngGrossPacket { NetworkIds = ids, Gross = vals });
+        serverChannel.BroadcastPacket(new EngGrossPacket { NetworkIds = ids, Gross = vals, CapAbs = caps, CapEff = effs });
     }
 
     private static void OnGrossPacket(EngGrossPacket packet)
@@ -184,7 +224,10 @@ public static class EngGrossTorque
 
         long now = capi.World.ElapsedMilliseconds;
         int n = Math.Min(packet.NetworkIds.Length, packet.Gross.Length);
-        for (int i = 0; i < n; i++) clientGross[packet.NetworkIds[i]] = (packet.Gross[i], now);
+        bool hasCaps = packet.CapAbs != null && packet.CapAbs.Length >= n && packet.CapEff != null && packet.CapEff.Length >= n;
+        for (int i = 0; i < n; i++)
+            clientGross[packet.NetworkIds[i]] = (packet.Gross[i],
+                hasCaps ? packet.CapAbs![i] : 0f, hasCaps ? packet.CapEff![i] : 0f, now);
 
         List<long>? gone = null;
         foreach (var kv in clientGross)
@@ -197,12 +240,12 @@ public static class EngGrossTorque
     /// <summary>The last gross figure for this network, or false when none has arrived recently.
     /// False for the first second after a join and for any network the server has stopped
     /// ticking; the panel drops the line rather than printing a number it cannot stand behind.</summary>
-    public static bool TryGetGross(long networkId, out float gross)
+    public static bool TryGetReadout(long networkId, out float gross, out float capAbs, out float capEff)
     {
-        gross = 0f;
+        gross = 0f; capAbs = 0f; capEff = 0f;
         if (capi == null || !clientGross.TryGetValue(networkId, out var entry)) return false;
         if (capi.World.ElapsedMilliseconds - entry.AtMs > StaleMs) return false;
-        gross = entry.Gross;
+        gross = entry.Gross; capAbs = entry.CapAbs; capEff = entry.CapEff;
         return true;
     }
 }

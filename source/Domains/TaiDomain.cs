@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -71,7 +73,8 @@ public static class TaiDomain
 
     /// <summary>Provenance tiers (a mark means something from Journeyman up): the TAI taiBy tag.
     /// Sewn by (J) -> Tailored by (M) -> Master-tailored by (GM). Level thresholds.</summary>
-    public const int ProvJourneyman = 9, ProvMaster = 13, ProvGm = 17;
+    // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): this was one of ten identical
+    // `Rank.Journeyman = 9, Rank.Master = 13, Rank.Grandmaster = 17` triplets. Use Rank.Journeyman etc.
 
     // Emphasis codes (per-player book choice, frozen onto the mark at the creating act).
     public const int EmphLasting = 0;   // the neutral default — a durable garment
@@ -131,7 +134,7 @@ public static class TaiDomain
     public static double WarmthMul(int level, int emphasis)
     {
         double f = level <= 0 ? Knob(WarmthUntrained, 0.90) : 1.0;
-        if (emphasis == EmphWarm && level >= ProvGm) f *= 1.0 + Knob(EmphasisBonus, 0.08);
+        if (emphasis == EmphWarm && level >= Rank.Grandmaster) f *= 1.0 + Knob(EmphasisBonus, 0.08);
         return f;
     }
 
@@ -141,7 +144,7 @@ public static class TaiDomain
     public static double WearMul(int level, int emphasis)
     {
         double f = QualityFactor(level, Knob(WearUntrained, 1.10), Knob(WearGm, 0.85));
-        if (emphasis == EmphLasting && level >= ProvGm) f *= 1.0 - Knob(EmphasisBonus, 0.08);
+        if (emphasis == EmphLasting && level >= Rank.Grandmaster) f *= 1.0 - Knob(EmphasisBonus, 0.08);
         return f;
     }
 
@@ -150,7 +153,7 @@ public static class TaiDomain
     public static double CoolingMul(int level, int emphasis)
     {
         double f = level <= 0 ? Knob(CoolingUntrained, 0.90) : 1.0;
-        if (emphasis == EmphCool && level >= ProvGm) f *= 1.0 + Knob(EmphasisBonus, 0.08);
+        if (emphasis == EmphCool && level >= Rank.Grandmaster) f *= 1.0 + Knob(EmphasisBonus, 0.08);
         return f;
     }
 
@@ -202,7 +205,7 @@ public static class TaiMark
         if (stack?.Collectible == null) return;
         stack.Attributes.SetInt(LevelAttr, level);
         stack.Attributes.SetInt(EmphasisAttr, emphasis);
-        if (level >= TaiDomain.ProvJourneyman)
+        if (level >= Rank.Journeyman)
         {
             stack.Attributes.SetString(ByAttr, uid);
             stack.Attributes.SetString(ByNameAttr, name);

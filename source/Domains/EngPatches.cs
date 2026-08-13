@@ -9,6 +9,8 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent.Mechanics;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -208,9 +210,9 @@ public static class EngPatches
         if (p.Length < 3 || !int.TryParse(p[2], out int level)) return;
         string name = p[1];
         string? line =
-            level >= EngDomain.ProvGm ? Lang.Get("almanactcm:eng-millwrights-mark", name)
-            : level >= EngDomain.ProvMaster ? Lang.Get("almanactcm:eng-master-serviced-by", name)
-            : level >= EngDomain.ProvJourneyman ? Lang.Get("almanactcm:eng-serviced-by", name)
+            level >= Rank.Grandmaster ? Lang.Get("almanactcm:eng-millwrights-mark", name)
+            : level >= Rank.Master ? Lang.Get("almanactcm:eng-master-serviced-by", name)
+            : level >= Rank.Journeyman ? Lang.Get("almanactcm:eng-serviced-by", name)
             : null;
         if (line != null) dsc.AppendLine(line);
     }

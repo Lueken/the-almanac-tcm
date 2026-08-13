@@ -50,6 +50,10 @@ public static class ForPatches
     {
         public Dictionary<string, HashSet<string>> Seen { get; set; } = new();
         public Dictionary<string, string> Taps { get; set; } = new();
+        /// <summary>Container position → litres of sap that tapline has produced but nobody has
+        /// collected yet. Written only by the SapDrip delta (so it can only ever hold liquid a
+        /// spile actually made), spent and cleared by whoever takes it out.</summary>
+        public Dictionary<string, double> PendingSap { get; set; } = new();
     }
 
     private static ForState state = new();
@@ -74,7 +78,8 @@ public static class ForPatches
             if (!File.Exists(file)) return;
             state = JsonConvert.DeserializeObject<ForState>(File.ReadAllText(file)) ?? new ForState();
             TcmLog.Cat(sapi, TcmLog.Config,
-                $"FOR state loaded: {state.Seen.Count} foragers' species memory, {state.Taps.Count} tapline(s)");
+                $"FOR state loaded: {state.Seen.Count} foragers' species memory, {state.Taps.Count} tapline(s), "
+                + $"{state.PendingSap.Count} uncollected catch container(s)");
         }
         catch (Exception e)
         {
@@ -98,6 +103,35 @@ public static class ForPatches
         => state.Taps.TryGetValue($"{pos.X}/{pos.Y}/{pos.Z}", out string? uid) ? uid : null;
 
     internal static void RememberTap(BlockPos pos, string uid) => state.Taps[$"{pos.X}/{pos.Y}/{pos.Z}"] = uid;
+
+    /// <summary>True the first time anyone ever drives a spile into this exact trunk face. The
+    /// anti-farm guard for the placement credit: place-break-replace on one site pays once.</summary>
+    internal static bool IsNewTapSite(BlockPos pos) => !state.Taps.ContainsKey($"{pos.X}/{pos.Y}/{pos.Z}");
+
+    /// <summary>Banks sap a tapline actually produced. No practice is credited here — the drip is
+    /// the tree's work, not the player's.</summary>
+    internal static void AddPendingSap(BlockPos containerPos, double litres)
+    {
+        if (litres <= 0) return;
+        string key = $"{containerPos.X}/{containerPos.Y}/{containerPos.Z}";
+        state.PendingSap.TryGetValue(key, out double have);
+        state.PendingSap[key] = have + litres;
+    }
+
+    /// <summary>Reads and CLEARS the pending sap at a container. Atomic by design: if two collect
+    /// seams fire for one player action (right-click pickup routing through a break), the second
+    /// gets zero, so a haul can never be paid twice.</summary>
+    internal static double TakePendingSap(BlockPos containerPos)
+    {
+        string key = $"{containerPos.X}/{containerPos.Y}/{containerPos.Z}";
+        if (!state.PendingSap.TryGetValue(key, out double litres)) return 0;
+        state.PendingSap.Remove(key);
+        return litres;
+    }
+
+    /// <summary>Whether this position is a tapline catch container, without spending it.</summary>
+    internal static bool HasPendingSap(BlockPos containerPos)
+        => state.PendingSap.ContainsKey($"{containerPos.X}/{containerPos.Y}/{containerPos.Z}");
 
     /// <summary>True exactly once per player per species code. The multiplier that rewards
     /// ranging wider instead of stripping one bush (novel-finds ruling).</summary>

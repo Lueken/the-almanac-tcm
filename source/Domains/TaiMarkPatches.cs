@@ -5,6 +5,8 @@ using Vintagestory.API.Config;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -202,9 +204,9 @@ public static class TaiMarkPatches
             if (string.IsNullOrEmpty(name) || __result == null) return;
             int level = attrs!.GetInt(TaiMark.LevelAttr);
             string? line =
-                level >= TaiDomain.ProvGm ? Lang.Get("almanactcm:tai-master-by", name)
-                : level >= TaiDomain.ProvMaster ? Lang.Get("almanactcm:tai-tailored-by", name)
-                : level >= TaiDomain.ProvJourneyman ? Lang.Get("almanactcm:tai-sewn-by", name)
+                level >= Rank.Grandmaster ? Lang.Get("almanactcm:tai-master-by", name)
+                : level >= Rank.Master ? Lang.Get("almanactcm:tai-tailored-by", name)
+                : level >= Rank.Journeyman ? Lang.Get("almanactcm:tai-sewn-by", name)
                 : null;
             if (line == null) return;
 

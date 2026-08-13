@@ -2,6 +2,8 @@ using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -45,7 +47,8 @@ public static class MasDomain
     /// chiseled block. Carved by (J) -> Dressed by Master (M) -> a work of Master Mason (GM). Level
     /// thresholds. Below Journeyman the carve still records its author (Jeffrey: know who carved it, and
     /// never let it be overridden), shown plainly.</summary>
-    public const int ProvJourneyman = 9, ProvMaster = 13, ProvGm = 17;
+    // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): this was one of ten identical
+    // `Rank.Journeyman = 9, Rank.Master = 13, Rank.Grandmaster = 17` triplets. Use Rank.Journeyman etc.
 
     public static DomainConfig Defaults() => new()
     {

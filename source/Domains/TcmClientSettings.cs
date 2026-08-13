@@ -36,6 +36,21 @@ public static class TcmClientSettings
     public static float ToastOffsetY = 130f;        // GUI px above the bottom edge (over the hotbar)
     public static bool ToastTechnique = false;      // append the technique name to the domain
 
+    // Discovery banners (the heraldic ribbon for rank-ups and named knowledge earns,
+    // 2026-08-08). Distinct surface from the practice toasts above: the toast is the
+    // running tally, the banner is the ceremony. Own renderer, not TriggerIngameDiscovery
+    // — vanilla's element has no backing and gold-on-sand was unreadable.
+    public static bool DiscoveryBanners = true;
+    public static float BannerOpacity = 0.8f;      // ribbon ink; lower ghosts it, 0 leaves bare text
+    public static float BannerFontSize = 26f;       // unscaled GUI points, decorative face
+    public static float BannerHold = 4f;            // seconds at full ink between the fades
+
+    // Quest-step toasts (the small parchment strip with a checklist line and a check
+    // dropping into its box, 2026-08-08). Fires when an earned knowledge key closes a
+    // `doneWhen` step in a guide's quest block. Shares the banner's opacity and ancestry,
+    // so it needs one knob of its own: on or off.
+    public static bool QuestToasts = true;
+
     private const string FileName = "almanactcm-client.json";
 
     private class Data
@@ -54,6 +69,11 @@ public static class TcmClientSettings
         public float toastMax { get; set; } = 4f;
         public float toastOffsetY { get; set; } = 130f;
         public bool toastTechnique { get; set; } = false;
+        public bool discoveryBanners { get; set; } = true;
+        public float bannerOpacity { get; set; } = 0.8f;
+        public float bannerFontSize { get; set; } = 26f;
+        public float bannerHold { get; set; } = 4f;
+        public bool questToasts { get; set; } = true;
     }
 
     public static void Register(ICoreClientAPI capi)
@@ -87,6 +107,11 @@ public static class TcmClientSettings
             ToastMax = Math.Clamp(d.toastMax, 1f, 8f);
             ToastOffsetY = Math.Clamp(d.toastOffsetY, 40f, 400f);
             ToastTechnique = d.toastTechnique;
+            DiscoveryBanners = d.discoveryBanners;
+            BannerOpacity = Math.Clamp(d.bannerOpacity, 0f, 1f);
+            BannerFontSize = Math.Clamp(d.bannerFontSize, 14f, 44f);
+            BannerHold = Math.Clamp(d.bannerHold, 1.5f, 10f);
+            QuestToasts = d.questToasts;
         }
         catch { /* malformed file: keep whatever we had */ }
     }

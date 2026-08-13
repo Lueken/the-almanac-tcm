@@ -6,6 +6,8 @@ using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -198,15 +200,36 @@ public static class PotBonusPatches
             if (string.IsNullOrEmpty(name) || __result == null) return;
             int tier = attrs!.GetInt(PotTierAttr);
             string? line =
-                tier >= PotDomain.ProvGm ? Lang.Get("almanactcm:masterwork-by", name)
-                : tier >= PotDomain.ProvMaster ? Lang.Get("almanactcm:masterpotted-by", name)
-                : tier >= PotDomain.ProvJourneyman ? Lang.Get("almanactcm:thrown-by", name)
+                tier >= Rank.Grandmaster ? Lang.Get("almanactcm:masterwork-by", name)
+                : tier >= Rank.Master ? Lang.Get("almanactcm:masterpotted-by", name)
+                : tier >= Rank.Journeyman ? Lang.Get("almanactcm:thrown-by", name)
                 : null;
             if (line == null) return;
 
             // The numbers ruling (2026-08-01): "it keeps what it holds" now says by how much.
             int pct = (int)System.Math.Round((1.0 - PotDomain.PreserveFactor(tier)) * 100.0);
             if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-contents-keep", pct));
+
+            // REVISIT (noted 2026-08-12, deliberately NOT changed yet).
+            //
+            // This is the last isolated spoilage percentage in the mod. COO and FAR both lost
+            // theirs in 0.4.38 because they postfix the SAME method (GetTransitionRateMul) and
+            // their factors composed, so each one stating its own factor was a lie. POT is not
+            // that bug: it rides GetContainingTransitionModifierPlaced/Contained instead, a
+            // different vanilla seam, so it does not compose with COO/FAR and it cancels cleanly
+            // out of Engine.Attribution's probe. The number here is currently TRUE.
+            //
+            // What is worth deciding later is whether it is COMPLETE. A player reading a crock
+            // sees POT's figure on the crock and the composed COO+FAR figure on the food inside,
+            // from two surfaces that never reference each other, and nothing states the whole
+            // effect on the thing they are about to eat. If a second contributor is ever added
+            // to the container seam (a TEM cellar, an ALC preservative), this line becomes the
+            // same bug COO and FAR just had, on a different method.
+            //
+            // Two options when it comes up: extend the Attribution probe to the container seam
+            // and annotate there the way the freshness line is annotated, or drop this clause
+            // and let the contained food's freshness line carry everything. Do not add a second
+            // container-seam contributor without picking one first.
 
             __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }

@@ -6,6 +6,8 @@ using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.Server;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -72,9 +74,9 @@ public static class AniBonusPatches
             if (string.IsNullOrEmpty(name)) return;
             int tier = wa!.GetInt(AniDomain.ProvTierAttr, 0);
             string? line =
-                tier >= AniDomain.ProvGm ? Lang.Get("almanactcm:mastersline-of", name)
-                : tier >= AniDomain.ProvMaster ? Lang.Get("almanactcm:bred-by", name)
-                : tier >= AniDomain.ProvJourneyman ? Lang.Get("almanactcm:raised-by", name)
+                tier >= Rank.Grandmaster ? Lang.Get("almanactcm:mastersline-of", name)
+                : tier >= Rank.Master ? Lang.Get("almanactcm:bred-by", name)
+                : tier >= Rank.Journeyman ? Lang.Get("almanactcm:raised-by", name)
                 : null;
             if (line != null) __result = (__result ?? "").TrimEnd() + "\n" + line;
         }

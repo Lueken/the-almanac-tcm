@@ -33,16 +33,41 @@ public static class MetPatches
     public const string MakerAttr = "almanactcm:maker";
     public const string MakerNameAttr = "almanactcm:makername";
 
-    /// <summary>Maker's MET tier frozen at creation (2=Journeyman … 4=Grandmaster). Drives
+    /// <summary>Maker's MET LEVEL frozen at creation (9=Journeyman I … 17=Grandmaster). Drives
     /// the tiered provenance line; the tool stays what its maker was even if they later
-    /// rank up, down, or log off (§162 Axis 6). PERMANENT — never stripped.</summary>
-    public const string MakerTierAttr = "almanactcm:makertier";
+    /// rank up, down, or log off (§162 Axis 6). PERMANENT: never stripped.
+    ///
+    /// LEVEL, not tier, since 2026-08-12. MET was the mod's last store of a collapsed tier:
+    /// every other persisted rank (PlayerDomain, the wire, FAR's grownTier) carries a level,
+    /// and a tier throws away which of the four sub-levels the smith actually held. Read it
+    /// through <see cref="MarkLevel(ItemStack?)"/>, never raw, so the legacy fallback stays
+    /// in one place.</summary>
+    public const string MakerLevelAttr = "almanactcm:makerlevel";
+
+    /// <summary>The superseded tier-valued key (2/3/4). READ ONLY, and only by
+    /// <see cref="MarkLevel(ItemStack?)"/>; nothing writes it any more. No other mod reads it
+    /// either (verified 2026-08-12 against Smithing+ 1.9.0-rc.1 and Toolsmith 1.2.17/1.2.18:
+    /// zero hits in any encoding), so retiring the key is ours alone to do.
+    ///
+    /// KEEP UNTIL 0.5.0 (RULED 2026-08-12). The Quire's world was wiped, so the SERVER holds
+    /// no tier-stamped tools. That is not the whole population: closed-beta testers run
+    /// SINGLEPLAYER worlds that were never wiped and can still be holding tools that carry
+    /// this key and its quality buff. They are the live consumer, and the reason the "no
+    /// server data, therefore no data" argument does not hold.
+    ///
+    /// REMOVAL PLAN. Announce it in the patch notes of the releases leading up to 0.5.0, then
+    /// delete this const and the fallback branch in MarkLevel as part of 0.5.0 itself.
+    /// Deleting it early does not crash anything: MarkLevel returns -1, the tool drops to the
+    /// flat "made-by" line, and it keeps its durability because that rides a separate float.
+    /// But a Grandmaster piece SILENTLY loses its masterwork line and its wear skip, and a
+    /// silent downgrade on someone's best tool is exactly what the advance warning is for.</summary>
+    private const string LegacyMakerTierAttr = "almanactcm:makertier";
 
     /// <summary>Smithing+'s own per-tool durability-quality attribute. We stamp it with the
     /// maker-quality multiplier at creation and Smithing+'s GetMaxDurability postfix applies
     /// it (RepairableToolDurabilityMultiplier defaults to 1.0), so we reuse its math instead
     /// of a parallel postfix — no double-count, and forge + cast are covered uniformly.
-    /// Smithing+ is a hard dep. Separate from the permanent MakerTierAttr, so the repair-gate
+    /// Smithing+ is a hard dep. Separate from the permanent MakerLevelAttr, so the repair-gate
     /// (stage 2) can restamp/strip the buff while the provenance line stays intact.</summary>
     public const string SmithingQualityAttr = "sp:smithingQuality";
 
@@ -73,40 +98,87 @@ public static class MetPatches
         return domainSet?.FindDomain(MetDomain.Code)?.Level ?? 0;
     }
 
-    /// <summary>Maker's MET tier by uid at mark time. Returns -1 below Journeyman (tier 2):
+    /// <summary>Maker's MET level by uid at mark time. Returns -1 below Journeyman I:
     /// Novice/Apprentice work is unmarked, so a mark always means something. Offline or
     /// unknown smith is also -1 (nothing to freeze).</summary>
-    private static int MakerTierOf(ICoreAPI? api, string? uid)
+    private static int MakerLevelOf(ICoreAPI? api, string? uid)
     {
         if (api == null || uid == null) return -1;
         IPlayer? p = api.World.PlayerByUid(uid);
         if (p == null) return -1;
-        int tier = Leveling.Domain.TierOf(MetLevel(p));
-        return tier >= 2 ? tier : -1;
+        int level = MetLevel(p);
+        return level >= Rank.Journeyman ? level : -1;
     }
 
-    /// <summary>Provenance lang key for a maker tier: Smithed (Journeyman), Master-forged
+    /// <summary>THE read for a stack's frozen maker level. -1 means unmarked. Every consumer
+    /// goes through here (MET's own tooltip and signature patches, and ToolPartMarks' lineage
+    /// line) so the legacy conversion below has exactly one home.</summary>
+    public static int MarkLevel(ItemStack? stack)
+    {
+        var attrs = stack?.Attributes;
+        if (attrs == null) return -1;
+        if (attrs.HasAttribute(MakerLevelAttr)) return attrs.GetInt(MakerLevelAttr, -1);
+        if (!attrs.HasAttribute(LegacyMakerTierAttr)) return -1;
+
+        // A pre-2026-08-12 stamp holds a TIER. Convert to the band-ENTRY level: the lowest
+        // level consistent with what was recorded. Deliberately conservative: the old stamp
+        // genuinely does not say whether that Journeyman was I or IV, so we must not invent a
+        // higher one. Tier is fully recoverable from the result, so nothing visible regresses.
+        //
+        // This branch is KEPT UNTIL 0.5.0 for singleplayer testers whose worlds were never
+        // wiped. See LegacyMakerTierAttr above for the ruling and the removal plan.
+        return attrs.GetInt(LegacyMakerTierAttr, -1) switch
+        {
+            >= 4 => Rank.Grandmaster,
+            3 => Rank.Master,
+            2 => Rank.Journeyman,
+            _ => -1,
+        };
+    }
+
+    /// <summary>Provenance lang key for a maker level: Smithed (Journeyman), Master-forged
     /// (Master), Masterwork (Grandmaster).</summary>
     // met-masterwork-by, NOT masterwork-by: that key belongs to POT, whose "vessel that
     // keeps what it holds" read absurdly on a Grandmaster pickaxe (caught in play 2026-08-01).
-    private static string MakerKey(int tier) => tier switch
+    // internal, not private, since 2026-08-12: ToolPartMarks reads a head's mark for the
+    // assembled-tool lineage line and had its own copy of this mapping.
+    internal static string MakerKey(int level) => level switch
     {
-        >= 4 => "almanactcm:met-masterwork-by",
-        3 => "almanactcm:master-forged-by",
+        >= Rank.Grandmaster => "almanactcm:met-masterwork-by",
+        >= Rank.Master => "almanactcm:master-forged-by",
         _ => "almanactcm:smithed-by",
     };
 
-    /// <summary>Durability multiplier for the maker-quality tier (§162 Axis 6): a modest,
-    /// tier-scaling bump to the HEAD's pool. Below Journeyman (or a stripped buff) = ×1.
+    /// <summary>Durability multiplier for the maker's rank (§162 Axis 6): a modest,
+    /// band-scaling bump to the HEAD's pool. Below Journeyman (or a stripped buff) = ×1.
     /// Handle and binding stay stock — they take their own quality from WOO / TAI-HUN later,
-    /// stacking per-part into the pinnacle tool.</summary>
-    private static double QualityFactor(int qualityTier) => qualityTier switch
+    /// stacking per-part into the pinnacle tool.
+    ///
+    /// Still bands, not per-level: the factor is a design ruling about what a Journeyman's
+    /// work is worth, and four distinct multipliers inside one band would be noise a player
+    /// cannot read. The STORAGE moved to level; the curve did not.</summary>
+    private static double QualityFactor(int makerLevel) => makerLevel switch
     {
-        >= 4 => 1.15,
-        3 => 1.10,
-        2 => 1.05,
+        >= Rank.Grandmaster => 1.15,
+        >= Rank.Master => 1.10,
+        >= Rank.Journeyman => 1.05,
         _ => 1.0,
     };
+
+    /// <summary>Apply the full Maker's Mark to a freshly-made stack: provenance, frozen level,
+    /// the Smithing+ quality stamp, the durability top-up, and the GM signature. One body, four
+    /// callers (forge-immediate, forge-rescan, forge-restamp, cast). They were four copies of
+    /// this until 2026-08-12, which is what let the level conversion have four places to go
+    /// wrong.</summary>
+    private static void ApplyMark(ItemStack stack, (string uid, string name, int level) maker, ICoreAPI? api)
+    {
+        stack.Attributes.SetString(MakerAttr, maker.uid);
+        stack.Attributes.SetString(MakerNameAttr, maker.name);
+        stack.Attributes.SetInt(MakerLevelAttr, maker.level);
+        stack.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.level));
+        RefreshHeadDurability(stack, api);
+        MetSignature.Assign(stack, maker.level);
+    }
 
     /// <summary>Top the head durability off to its NEW max after the quality buff raises it.
     /// Toolsmith reads head current-durability from the vanilla "durability" attribute; a fresh
@@ -296,7 +368,7 @@ public static class MetPatches
     /// <summary>Pending Maker's Mark for the synchronous CheckIfFinished→OnItemPickedUp
     /// window: the finished stack is a fresh recipe-output clone, so the workpiece
     /// stamp must be re-applied to it by ambient context.</summary>
-    private static (string uid, string name, int tier)? pendingMaker;
+    private static (string uid, string name, int level)? pendingMaker;
 
     /// <summary>Collectible id of the recipe output about to complete, captured in the prefix so
     /// the completion postfix can find that exact head in inventory or on the ground.</summary>
@@ -314,7 +386,7 @@ public static class MetPatches
             __state = __instance.SelectedRecipeId;
             string? uid = __instance.WorkItemStack?.Attributes.GetString(SmithAttr);
             string? name = __instance.WorkItemStack?.Attributes.GetString(SmithNameAttr);
-            pendingMaker = uid == null ? null : (uid, name ?? "", MakerTierOf(__instance.Api, uid));
+            pendingMaker = uid == null ? null : (uid, name ?? "", MakerLevelOf(__instance.Api, uid));
             pendingOutputId = __instance.SelectedRecipe?.Output?.ResolvedItemstack?.Collectible?.Id ?? 0;
             pendingOutputCode = __instance.SelectedRecipe?.Output?.ResolvedItemstack?.Collectible?.Code?.Path;
 
@@ -354,7 +426,7 @@ public static class MetPatches
             // pending window); if it is FULL the head is dropped as an entity and that seam is
             // skipped entirely, so the head is only picked up later with no pending (the live bug).
             // Scanning both inventory and nearby drops at completion catches every path.
-            if (pendingMaker is { } m && m.tier >= 2 && pendingOutputId != 0)
+            if (pendingMaker is { } m && m.level >= Rank.Journeyman && pendingOutputId != 0)
                 StampCompletedOutput(__instance, byPlayer, m, pendingOutputId);
         }
 
@@ -369,7 +441,7 @@ public static class MetPatches
     /// among items dropped near the anvil, and stamp the maker's mark on it. Runs shortly after
     /// completion so post-processors (Toolsmith/Smithing+ rebuilds) have settled.</summary>
     private static void StampCompletedOutput(BlockEntityAnvil anvil, IPlayer byPlayer,
-        (string uid, string name, int tier) maker, int collId)
+        (string uid, string name, int level) maker, int collId)
     {
         ICoreAPI api = anvil.Api;
         api.Event.RegisterCallback(_ =>
@@ -390,15 +462,10 @@ public static class MetPatches
         }, 150);
     }
 
-    private static bool StampIfMatch(ICoreAPI api, ItemStack? s, int collId, (string uid, string name, int tier) maker)
+    private static bool StampIfMatch(ICoreAPI api, ItemStack? s, int collId, (string uid, string name, int level) maker)
     {
         if (s?.Collectible?.Id != collId || s.Attributes.HasAttribute(MakerAttr)) return false;
-        s.Attributes.SetString(MakerAttr, maker.uid);
-        s.Attributes.SetString(MakerNameAttr, maker.name);
-        s.Attributes.SetInt(MakerTierAttr, maker.tier);
-        s.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.tier));
-        RefreshHeadDurability(s, api);
-        MetSignature.Assign(s, maker.tier);
+        ApplyMark(s, maker, api);
         return true;
     }
 
@@ -416,15 +483,10 @@ public static class MetPatches
             // (dropped-entity) and delayed-pickup cases are covered by StampCompletedOutput instead.
             if (pendingMaker == null || stack == null) return;
             var maker = pendingMaker.Value;
-            if (maker.tier < 2) return;   // Journeyman+ only: lesser work carries no mark
-            stack.Attributes.SetString(MakerAttr, maker.uid);
-            stack.Attributes.SetString(MakerNameAttr, maker.name);
-            stack.Attributes.SetInt(MakerTierAttr, maker.tier);
-            stack.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.tier));
-            RefreshHeadDurability(stack, byEntity?.Api);
-            // GM signature (Axis 6 stage 2): a directly-forged weapon/tool is classifiable
-            // here; a bare Toolsmith head is not and takes its edge at assembly instead.
-            MetSignature.Assign(stack, maker.tier);
+            if (maker.level < Rank.Journeyman) return;   // Journeyman+ only: lesser work carries no mark
+            // ApplyMark also assigns the GM signature: a directly-forged weapon/tool is
+            // classifiable here; a bare Toolsmith head is not and takes its edge at assembly.
+            ApplyMark(stack, maker, byEntity?.Api);
             if (byEntity?.Api == null) return;
             TcmLog.Cat(byEntity.Api, TcmLog.Hooks,
                 $"maker's mark applied to {stack.Collectible?.Code} for {maker.name}");
@@ -452,17 +514,12 @@ public static class MetPatches
             }, 500);
         }
 
-        private static void ReStamp(ICoreAPI api, ItemSlot slot, int collectibleId, (string uid, string name, int tier) maker)
+        private static void ReStamp(ICoreAPI api, ItemSlot slot, int collectibleId, (string uid, string name, int level) maker)
         {
             ItemStack? s = slot?.Itemstack;
             if (s?.Collectible?.Id != collectibleId) return;
             if (s.Attributes.HasAttribute(MakerAttr)) return;
-            s.Attributes.SetString(MakerAttr, maker.uid);
-            s.Attributes.SetString(MakerNameAttr, maker.name);
-            s.Attributes.SetInt(MakerTierAttr, maker.tier);
-            s.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.tier));
-            RefreshHeadDurability(s, api);
-            MetSignature.Assign(s, maker.tier);
+            ApplyMark(s, maker, api);
             slot!.MarkDirty();
             TcmLog.Cat(api, TcmLog.Hooks, $"maker's mark re-stamped on surviving {s.Collectible.Code}");
         }
@@ -474,13 +531,14 @@ public static class MetPatches
     {
         public static void Postfix(ItemSlot inSlot, System.Text.StringBuilder dsc)
         {
-            var attrs = inSlot?.Itemstack?.Attributes;
+            ItemStack? stack = inSlot?.Itemstack;
+            var attrs = stack?.Attributes;
             string? maker = attrs?.GetString(MakerNameAttr);
-            if (string.IsNullOrEmpty(maker)) return;
-            // Tiered provenance from the frozen maker tier; legacy tools (no tier) fall
-            // back to the flat line.
-            int tier = attrs!.GetInt(MakerTierAttr, -1);
-            string makerLine = Lang.Get(tier >= 2 ? MakerKey(tier) : "almanactcm:made-by", maker);
+            if (attrs == null || string.IsNullOrEmpty(maker)) return;
+            // Tiered provenance from the frozen maker level; tools stamped before the mark
+            // carried a rank at all fall back to the flat line.
+            int level = MarkLevel(stack);
+            string makerLine = Lang.Get(level >= Rank.Journeyman ? MakerKey(level) : "almanactcm:made-by", maker);
 
             // The numbers ruling (2026-08-01): the maker line carries the quality's percent
             // when the work is awake (the attribute is the multiplier Smithing+ applies), and
@@ -489,9 +547,9 @@ public static class MetPatches
             if (quality > 1f)
                 makerLine += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-durability",
                     (int)System.Math.Round((quality - 1f) * 100f)));
-            bool honed = MetSignature.IsHoned(inSlot!.Itemstack);
-            bool durable = MetSignature.IsDurable(inSlot.Itemstack);
-            if (tier >= MetSignature.GrandmasterTier && !durable)
+            bool honed = MetSignature.IsHoned(stack);
+            bool durable = MetSignature.IsDurable(stack);
+            if (level >= Rank.Grandmaster && !durable)
             {
                 int skipPct = (int)System.Math.Round(Knob(MetDomain.GmWearSkip, 0.08) * 100.0);
                 if (skipPct > 0)
@@ -501,7 +559,7 @@ public static class MetPatches
 
             // The fitting rule's face: an assembled tool whose maker's work is dormant says
             // so, and says what to do about it, or the rule reads as a silent nerf.
-            if (ToolsmithLoaded && tier >= 2
+            if (ToolsmithLoaded && level >= Rank.Journeyman
                 && attrs.HasAttribute("tinkeredToolHead")
                 && !attrs.HasAttribute(SmithingQualityAttr))
                 dsc.AppendLine(Lang.Get("almanactcm:unfitted-mark"));
@@ -639,7 +697,7 @@ public static class MetPatches
     /// cast head when the hardened contents are taken (RULED: cast heads carry
     /// their maker like forged ones). Session-scoped memory — a restart between
     /// pour and take loses the attribution, accepted for v1.</summary>
-    private static readonly Dictionary<string, (string uid, string name, int tier)> moldCasters = new();
+    private static readonly Dictionary<string, (string uid, string name, int level)> moldCasters = new();
 
     [HarmonyPatch(typeof(BlockEntityToolMold), nameof(BlockEntityToolMold.ReceiveLiquidMetal))]
     public static class ToolMoldFillPatch
@@ -657,7 +715,7 @@ public static class MetPatches
 
             if (moldCasters.Count > 128) moldCasters.Clear();
             moldCasters[__instance.Pos.ToString()] =
-                (pouringPlayer.PlayerUID, pouringPlayer.PlayerName, MakerTierOf(__instance.Api, pouringPlayer.PlayerUID));
+                (pouringPlayer.PlayerUID, pouringPlayer.PlayerName, MakerLevelOf(__instance.Api, pouringPlayer.PlayerUID));
 
             Core?.Ledger?.Log(pouringPlayer, MetDomain.Code, MetDomain.TechCasting,
                 HashCode.Combine(__instance.Pos));
@@ -671,17 +729,12 @@ public static class MetPatches
         {
             if (__result == null || __instance.Api?.Side != EnumAppSide.Server) return;
             if (!moldCasters.TryGetValue(__instance.Pos.ToString(), out var caster)) return;
-            if (caster.tier < 2) return;   // Journeyman+ only, same as forged work
+            if (caster.level < Rank.Journeyman) return;   // Journeyman+ only, same as forged work
 
             foreach (ItemStack stack in __result)
             {
                 if (stack == null || stack.Attributes.HasAttribute(MakerAttr)) continue;
-                stack.Attributes.SetString(MakerAttr, caster.uid);
-                stack.Attributes.SetString(MakerNameAttr, caster.name);
-                stack.Attributes.SetInt(MakerTierAttr, caster.tier);
-                stack.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(caster.tier));
-                RefreshHeadDurability(stack, __instance.Api);
-                MetSignature.Assign(stack, caster.tier);
+                ApplyMark(stack, caster, __instance.Api);
             }
         }
     }
@@ -718,23 +771,26 @@ public static class MetPatches
                 output.Attributes.SetString(MakerAttr, maker);
                 output.Attributes.SetString(MakerNameAttr,
                     input!.Itemstack!.Attributes.GetString(MakerNameAttr) ?? "");
-                output.Attributes.SetInt(MakerTierAttr,
-                    input.Itemstack.Attributes.GetInt(MakerTierAttr, -1));
+                int headLevel = MarkLevel(input.Itemstack);
+                output.Attributes.SetInt(MakerLevelAttr, headLevel);
 
                 // The fitting rule: with a bench in the world, only the bench wakes the
                 // maker's work. Provenance above always rides; the buffs below are earned
                 // by assembling properly. Without toolsmith there is no bench to ask for.
                 if (ToolsmithLoaded && !BenchAssemblyContext) return;
 
-                // Quality carries the head's CURRENT buff state (a stripped head passes a
-                // stripped tool), keeping the head-for-life model intact through assembly.
+                // Quality is COPIED, never recomputed from headLevel, and that is deliberate.
+                // The attribute is the head's CURRENT buff state, which the repair gate may
+                // have stripped or re-stamped since the mark was frozen; recomputing would
+                // hand a stripped head a full-quality tool and quietly undo the gate. The
+                // frozen level says who made it; this float says what condition it is in.
                 output.Attributes.SetFloat(SmithingQualityAttr,
                     input.Itemstack.Attributes.GetFloat(SmithingQualityAttr, 1f));
                 RefreshHeadDurability(output, outputSlot?.Inventory?.Api);
                 // GM signature: keep an already-marked head's edge; otherwise the bare head
                 // finally becomes a classifiable tool here, so assign by the finished type.
                 if (!MetSignature.CopySignature(input.Itemstack, output))
-                    MetSignature.Assign(output, input.Itemstack.Attributes.GetInt(MakerTierAttr, -1));
+                    MetSignature.Assign(output, headLevel);
                 return;
             }
         }

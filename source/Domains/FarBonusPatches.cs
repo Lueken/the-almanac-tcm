@@ -8,6 +8,8 @@ using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -127,11 +129,11 @@ public static class FarBonusPatches
         // No inherited mark: the HARVESTER's own rank sets the provenance, and a GM harvest MINTS
         // a fresh heirloom (the standing commission).
         int harvTier = byPlayer == null ? 0 : FarDomain.LevelOf(byPlayer);
-        if (grownBy == null && harvTier >= FarDomain.ProvJourneyman)
+        if (grownBy == null && harvTier >= Rank.Journeyman)
         {
             grownBy = byPlayer!.PlayerName;
             grownTier = harvTier;
-            if (harvTier >= FarDomain.ProvGm) seedGen = (int)FarDomain.Knob(FarDomain.HeirloomGenerations, 3);
+            if (harvTier >= Rank.Grandmaster) seedGen = (int)FarDomain.Knob(FarDomain.HeirloomGenerations, 3);
         }
         if (grownBy == null && yieldBonus <= 0) return; // ordinary crop, ordinary hand — nothing to mark
 
@@ -174,10 +176,11 @@ public static class FarBonusPatches
     {
         public static void Postfix(ItemSlot inSlot, EnumTransitionType transType, ref float __result)
         {
+            if (Engine.Attribution.Suppressed) return; // the freshness-line probe is measuring vanilla
             if (transType != EnumTransitionType.Perish) return;
             var attrs = inSlot?.Itemstack?.Attributes;
             if (attrs?.HasAttribute(GrownTierAttr) != true) return;
-            if (attrs.GetInt(GrownTierAttr) >= FarDomain.ProvGm)
+            if (attrs.GetInt(GrownTierAttr) >= Rank.Grandmaster)
                 __result *= (float)FarDomain.Knob(FarDomain.SpoilGrownGm, 0.70); // a GM's produce keeps
         }
     }
@@ -196,20 +199,22 @@ public static class FarBonusPatches
             int tier = attrs!.GetInt(GrownTierAttr);
             int gen = attrs.GetInt(HeirloomGenAttr);
             string? line =
-                tier >= FarDomain.ProvGm ? Lang.Get("almanactcm:heirloom-of", name)
-                : tier >= FarDomain.ProvMaster ? Lang.Get("almanactcm:cultivated-by", name)
-                : tier >= FarDomain.ProvJourneyman ? Lang.Get("almanactcm:grown-by", name)
+                tier >= Rank.Grandmaster ? Lang.Get("almanactcm:heirloom-of", name)
+                : tier >= Rank.Master ? Lang.Get("almanactcm:cultivated-by", name)
+                : tier >= Rank.Journeyman ? Lang.Get("almanactcm:grown-by", name)
                 : null;
             if (line == null) return;
             if (gen > 0) line += " " + Lang.Get("almanactcm:heirloom-tail", gen);
 
-            // The numbers ruling (2026-08-01): a GM grower's produce keeps, and the line
-            // says by how much (the spoil rate has no stat line of its own).
-            if (tier >= FarDomain.ProvGm)
-            {
-                int pct = (int)System.Math.Round((1.0 - FarDomain.Knob(FarDomain.SpoilGrownGm, 0.70)) * 100.0);
-                if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-spoils-slower", pct));
-            }
+            // SUPERSEDED 2026-08-12 (was: the numbers ruling of 2026-08-01, "the line says by how
+            // much"). FAR and COO both postfix the same CollectibleObject.GetTransitionRateMul, so
+            // their factors COMPOSE and a per-domain clause here stated one factor as the whole
+            // effect. Vanilla's freshness line already carries the composed truth, and
+            // Engine.PerishAttributionPatch annotates it with TCM's true delta.
+            //
+            // The 2026-08-01 ruling's intent is preserved: the spoil rate still has no stat line of
+            // its own, so the number rides vanilla's freshness line instead of this one.
+
             __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }
     }

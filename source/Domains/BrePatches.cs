@@ -7,6 +7,8 @@ using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -220,7 +222,7 @@ public static class BrePatches
         }
 
         // The Brewer's Mark: durable only on SOLID preserves (liquids merge and erase it).
-        if (tier >= BreDomain.ProvJourneyman && BlockLiquidContainerBase.GetContainableProps(stack) == null)
+        if (tier >= Rank.Journeyman && BlockLiquidContainerBase.GetContainableProps(stack) == null)
         {
             stack.Attributes.SetString(BreByAttr, p[0]);
             stack.Attributes.SetString(BreByNameAttr, p[1]);
@@ -328,9 +330,9 @@ public static class BrePatches
             if (string.IsNullOrEmpty(name) || __result == null) return;
             int tier = attrs!.GetInt(BreTierAttr);
             string? line =
-                tier >= BreDomain.ProvGm ? Lang.Get("almanactcm:masterpreserve-by", name)
-                : tier >= BreDomain.ProvMaster ? Lang.Get("almanactcm:aged-by", name)
-                : tier >= BreDomain.ProvJourneyman ? Lang.Get("almanactcm:cured-by", name)
+                tier >= Rank.Grandmaster ? Lang.Get("almanactcm:masterpreserve-by", name)
+                : tier >= Rank.Master ? Lang.Get("almanactcm:aged-by", name)
+                : tier >= Rank.Journeyman ? Lang.Get("almanactcm:cured-by", name)
                 : null;
             if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }

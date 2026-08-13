@@ -2,6 +2,8 @@ using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -94,7 +96,8 @@ public static class FarDomain
 
     /// <summary>Provenance tiers (a mark means something from Journeyman up): the shared FAR
     /// grownBy tag. Grown by (J) -> Cultivated by (M) -> Heirloom of (GM).</summary>
-    public const int ProvJourneyman = 9, ProvMaster = 13, ProvGm = 17;
+    // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): this was one of ten identical
+    // `Rank.Journeyman = 9, Rank.Master = 13, Rank.Grandmaster = 17` triplets. Use Rank.Journeyman etc.
     /// <summary>Graft resilience (the agent-designed lever, vanilla-floored by construction):
     /// chance at GM that a DYING cutting clings to life — the death is reverted and vanilla
     /// re-rolls its own unmodified chance on a later tick. No single graft is ever easier than

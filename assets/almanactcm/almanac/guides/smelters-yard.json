@@ -1,0 +1,540 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
+  "schemaVersion": 1,
+  "id": "almanactcm:smelters-yard",
+  "gate": "almanactcm",
+  "pinned": true,
+  "order": 10,
+  "title": "The Smelter's Yard",
+  "tabLabel": "Smelter's Yard",
+  "subtitle": "From stone to bronze",
+  "byline": "set down by Venah",
+  "accentColor": "#8a4b22",
+  "sections": [
+    {
+      "id": "the-road",
+      "title": "The road to first metal",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Metal does not come to you. It sits in the dark under the hills, bound in stone, and every hand that ever held a copper blade walked the same road to it: down, then back up, then through fire. These pages will not walk it for you. They fill in as you do, the way a smith's own notebook would."
+        },
+        {
+          "type": "paragraph",
+          "text": "Begin where every smith begins: with stone and patience. The ground gives ore to those who look for the stains it leaves in rock. What you carry up in your hands is not yet metal. It is a promise of metal, and promises must be worked."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "On this earth the old shortcuts are closed. Ore does not melt in a cookpot, and no clay vessel on a campfire will give you a blade. The first fire that answers is a humble one: a hole in the ground one block square, lined with <strong>clay</strong> and <strong>bone ash</strong>, charged with <strong>copper nuggets</strong>, and fed with <strong>charcoal</strong>. Fire alone tops out short of what copper demands. Something has to give the fire more air than the sky will; think on the <strong>reeds</strong> by the water."
+        },
+        {
+          "type": "callout",
+          "variant": "lore",
+          "text": "The Almanac keeps its ink for the ones who do. Each of the pages after this one fills in when your own hands earn it, not when a trader's do."
+        }
+      ]
+    },
+    {
+      "id": "the-anvil",
+      "title": "The anvil",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "No smith buys their first anvil. Somewhere near your fire stands a shoulder of bare rock, <strong>igneous or metamorphic</strong>, and it is an anvil that has not been asked yet. Crouch, take a <strong>stone hammer</strong> in hand, and press it to the stone's <strong>top face</strong>. The rock answers. What it becomes will hold every mass you win from the pit until bronze raises you something better."
+        }
+      ]
+    },
+    {
+      "id": "the-roasting-heap",
+      "title": "The roasting heap",
+      "revealedBy": "almanactcm:is-first-roast",
+      "hint": "This page takes its ink from the first fire you build only to change stone.",
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Some ores come out of the ground ready to argue with fire, and some come out sulking. The bright sulfide ores, chalcopyrite and its cousins, and the wet brown iron earths will sit in any furnace unchanged until they have been roasted first. For a handful of nuggets a firepit's cooking slot will do the work. For a season's worth of mining, you build a heap."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The heap is nothing but firewood and exactness. Stack a ground pile of <strong>firewood</strong> on a solid block, and make it <strong>exactly sixteen</strong>: two bulk armfuls, no more, no less. Fifteen refuses. Seventeen refuses. Neither says a word about it. Then crouch and press a roastable <strong>nugget</strong> to the pile, and the wood accepts its charge. Keep pressing nuggets in, up to <strong>two dozen</strong>, mixed as you please, and load all of it before you bring fire, because a lit heap takes nothing more."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Hold a lit torch to the lower half of the pile until it takes, and then leave it a full day's burn. Two things will kill it: water, and rain. A heap caught in a shower loses everything and starts from nothing, so <strong>build it under a roof</strong>. Heaps also light their neighbours, with no permission asked, which is a gift when you batch and a lesson when you did not mean to. When the burn is done there is no bell; the glow ends and grey ash remains. <strong>Break the ash</strong> to take your roasted ore, one for one, and the wood ash besides."
+        },
+        {
+          "type": "callout",
+          "variant": "tip",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The heap answers to no bellows, no hotter fuel, and no impatience. Sixteen firewood, up to twenty-four nuggets, one long burn, break to collect. Nothing in the world will tell you these numbers. Now something has."
+        },
+        {
+          "type": "quest",
+          "requires": [
+            "industrialstory"
+          ],
+          "items": [
+            { "text": "Stack exactly sixteen firewood on a solid block, under a roof", "doneWhen": "almanactcm:is-first-roast" },
+            { "text": "Crouch and press a sulfide or iron-earth nugget into the pile", "doneWhen": "almanactcm:is-first-roast" },
+            { "text": "Load up to two dozen nuggets before lighting", "doneWhen": "almanactcm:is-roast-loaded" },
+            { "text": "Hold a lit torch to the lower half until the heap takes", "doneWhen": "almanactcm:is-roast-lit" },
+            { "text": "Break the cold ash and carry off the roasted ore", "doneWhen": "almanactcm:is-roast-collected" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "first-metal",
+      "title": "The first metal",
+      "revealedBy": "almanactcm:first-met-smelting",
+      "hint": "This page takes its ink from the first metal your own fire wins from stone.",
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "You have felt it now: the moment the fire wins and the stone gives up what it was holding. Metal is not found. It is argued out of the earth with heat, and the heat is argued out of the fire with your own breath."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The pit smelter asks little and forgives less. A hole one block square, formed with clay while crouching, takes bone ash, copper nuggets by the dozen, and a measure of charcoal: one to every five nuggets. Native copper and malachite go in as they come from the ground; the sulfide ores, chalcopyrite and tetrahedrite, must pass through a roasting first, in a firepit for a handful or the heap for a batch. Lit and left alone, the pit never passes eight hundred degrees, and copper laughs at eight hundred. Put a blowpipe to it and keep a rhythm; stop blowing and the fire falls back fast. Two hours at full heat and the pit gives back one mass for every twenty nuggets it swallowed."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The mass comes out rough, hot, and honest, and it needs an anvil before it needs anything else. Reheat it in a firepit whenever it cools past working, and expect the taller furnaces, the ones that want crushed ore and bellows, to come later on this road, not sooner."
+        },
+        {
+          "type": "paragraph",
+          "text": "The Almanac counts the smelt to the one whose breath fed the fire and whose hand ran the tap, not to whoever stands nearest when the metal comes. Win your own metal; watching another smith work teaches your eyes, but not your hands."
+        },
+        {
+          "type": "link",
+          "requires": [
+            "industrialstory"
+          ],
+          "to": "handbook://industrialstory:pitsmelter",
+          "text": "The old handbook keeps the dry version of the pit."
+        }
+      ]
+    },
+    {
+      "id": "working-the-metal",
+      "title": "Working the metal",
+      "revealedBy": "almanactcm:first-met-smithing",
+      "hint": "This page takes its ink from your first work brought to finish on the anvil.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "The anvil is a conversation, and the hammer has more than one word in it. Change your grip and the same swing moves metal, splits it away, or turns the piece under your hands. Learn every mode the hammer offers before you trust yourself with good metal."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Raw masses come to the anvil dirty. The dark voxels are slag, and slag does not move for an honest blow; it must be split away and let fall. Shed the waste first, then shape what remains. A stone anvil and a stone hammer are enough for soft metal, if the smith is enough."
+        },
+        {
+          "type": "paragraph",
+          "text": "An untrained hand tells on itself in small ways. A blow now and then lands wide and shoves metal where it was not meant to go, and a bit split away sometimes crumbles to scale instead of falling clean. When it happens, stop. Breathe, reset your stance, and the next strikes will land true; a steadied hand does not err twice in a row. It passes. The Almanac remembers every strike, and the day you reach your first rank the clumsiness leaves your arms for good."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "smithingplus"
+          ],
+          "text": "In practiced hands, nothing struck from a piece needs to be lost. A bit comes away carrying the heat of the piece it left, and while it still glows it can be pressed straight back into the work. Wait, and it will not take again: no forge will warm a bit once it has gone cold, and only the crucible will have it back. A careful smith finishes a piece with the same weight of metal the pour gave them, and does it without letting anything cool in their hand."
+        }
+      ]
+    },
+    {
+      "id": "the-workbench",
+      "title": "The workbench",
+      "keepTogether": true,
+      "revealedBy": "almanactcm:first-met-assembly",
+      "hint": "A bench waits for your first fitting.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "toolsmith"
+          ],
+          "text": "A head is not a tool. Lay the head, the handle, and the binding on the bench, take up a hammer, and strike three times; on the third the parts become one and the finished tool lies on the bench before you. You can do the same work in your hands in the field, and the tool will serve. But the bench is where a tool is made <strong>properly</strong>, and the difference is not cosmetic."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "toolsmith"
+          ],
+          "text": "A marked head carries its maker's quality in the steel: the extra life a practised hand hammered into it, and the edge a Grandmaster left behind. That work <strong>wakes only on the bench</strong>. Haft the same head in the field and the mark still shows, but the quality lies dormant until the tool is taken apart and fitted properly. Rework a fitted tool by hand and the work sleeps again. The anvil makes the head; the bench makes the tool."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "toolsmith"
+          ],
+          "text": "The bench keeps two more services no other block offers. A tool head worn far enough down can be set in the staging corner and <strong>reforged</strong>: the shape returns to a glowing workitem of its metal, ready for the anvil again, and nothing is lost but the hours. And two damaged tools of a kind laid on the bench together will <strong>merge</strong>, their remaining life combined into one."
+        },
+        {
+          "type": "callout",
+          "variant": "tip",
+          "requires": [
+            "toolsmith"
+          ],
+          "text": "A smithy is not finished when the forge is lit. The bench earns its floor space."
+        }
+      ]
+    },
+    {
+      "id": "finished-work",
+      "title": "The finished work",
+      "revealedBy": "almanactcm:met-first-work",
+      "hint": "This page takes its ink from the first piece you carry from bar to blade with your own hands.",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "A piece begun by your hand and finished by your hand is a different thing from a piece bought, found, or handed over a fence. You know where its metal came from. So does the Almanac."
+        },
+        {
+          "type": "paragraph",
+          "text": "From Journeyman on, work you finish carries your mark, and the mark is not decoration. A marked head holds its edge longer, and the deeper your calling runs, the more of you the metal keeps. Buyers will learn your mark before they learn your face."
+        },
+        {
+          "type": "paragraph",
+          "text": "Quench with intent. Water is fast and hard on the metal; a slower bath is kinder. A poorly judged quench can shatter hot work outright in an unpracticed hand, and the same judgment that steadies the hammer steadies the tongs. Everything in this trade is one lesson wearing different aprons: the metal remembers what you do to it."
+        },
+        {
+          "type": "callout",
+          "variant": "author",
+          "text": "Past this page the road forks: alloys, casting in sand, the assembly bench, and metals that will not answer a novice at all. The Almanac gates nothing it has not seen you earn. Keep working."
+        }
+      ]
+    },
+    {
+      "id": "the-white-earth",
+      "title": "The white earth",
+      "keepTogether": true,
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Copper you can win with a hole in the ground and good lungs. Everything after copper asks for a hotter fire than clay can hold, and a hotter fire asks for a different earth. Before you alloy anything, before you cast anything, you must go and find a pale clay that most people walk over without a glance."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Look for <strong>red clay</strong>, and look for it in <strong>wet country</strong>. The pale earth never lies on the surface; it lies one course beneath a red clay patch, and only where the bedrock below is one of the honest grey stones: <strong>granite, diorite, andesite, shale, slate, phyllite, claystone</strong>. Red clay over any other rock is only red clay. Dig one block into the right patch and the white earth is there, in a sheet wide enough to keep a smith in fireclay for a season."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "It is rare enough that a poor start can cost you a long ride. Do not tunnel for it and do not trust a prospector's pick to point the way; neither will find it. This is a walking errand, done with an eye on the stone underfoot and the rain in the air."
+        },
+        {
+          "type": "callout",
+          "variant": "lore",
+          "text": "Every furnace past your first is made of this. A smith who cannot find the white earth is a smith who stays in copper, however good their arm."
+        }
+      ]
+    },
+    {
+      "id": "the-crucible",
+      "title": "The crucible",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Smash the raw stuff to powder with a hammer, then work it together with ordinary clay until you have <strong>fireclay</strong>, which is the first material in this trade that does not care how hot you are willing to go. Fireclay and a measure of <strong>crushed quartz</strong> give you bricks; fireclay alone, formed on the wheel, gives you the vessel that all of this has been for."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "None of it will fire in a pit. The pit that served you for pots and for your first copper cannot reach the heat that sets a firebrick, so the next thing you build is a <strong>stack kiln</strong>, and you build it out of the same fireclay it exists to fire. Every trade has one of these knots in it, where the tool must be made by a lesser version of itself. Work through it once and you are past it forever."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The quartz has its own small road. On this earth it mines at <strong>copper</strong>, not bronze, so the pit's first metal buys the pick that cuts it; and raw quartz only becomes workable after it has been <strong>heated glowing and quenched in water</strong>, shocked until it shatters to a crush under the hammer. Nothing in the world says so. Remember it."
+        },
+        {
+          "type": "paragraph",
+          "text": "A crucible is a small thing to have cost a season's walking and a kiln. Hold it a moment before you use it. It is the first vessel you have owned that can hold a metal in its liquid state, and everything from here happens inside one."
+        }
+      ]
+    },
+    {
+      "id": "the-stack-kiln",
+      "title": "The stack kiln",
+      "revealedBy": "almanactcm:is-first-stackkiln",
+      "hint": "This page takes its ink from the first chimney you raise with your own bricks.",
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The stack kiln is a hollow chimney one block square and five deep, standing on a <strong>brick grate</strong> over an open firebox, with a <strong>controller</strong> set at grate level in the front wall. Twenty-six <strong>kiln bricks</strong>, one grate, one controller, and the whole of it forms on a single right-click of the controller. Click it early and often while you build: every wrong or missing cell lights up in place, red where a wrong block stands, ghosted where a block is wanted, and that outline is a better drawing than any page can carry."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The shaft is walled on every side and open only at the sky, so give yourself a door: leave the five front bricks above the controller unplaced while you load each level, set them last, and break them again to unload. Ware goes in loose on the grate, twenty-four raw bricks to a level, or inside <strong>saggars</strong>, eight pieces of pottery to the vessel and four vessels to the stack. And here is the knot undone: a raw saggar is the one fireclay thing that <strong>fires in an ordinary pit kiln</strong>, so the kiln's own furniture needs no kiln."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Every firing has a price and a clock: <strong>twelve charcoal</strong> and <strong>four refractory daub</strong>, swallowed whole the moment the torch takes after a long four-count, and half a day's burn after that. The price is the same for one raw brick as for a full stack, so fire full loads. And know what the kiln is actually for: it gates <strong>fireclay ware</strong>, the crucible above all. The tier-three refractory bricks the tall furnaces want are not its business; a pit kiln fires those happily, whatever the old pages imply."
+        },
+        {
+          "type": "callout",
+          "variant": "tip",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "A saggar loaded with plain flint calcines sixteen of it a firing, and powdered calcined flint stands in for crushed quartz in daub and brick alike. One kiln, and the quartz errand is optional forever after."
+        },
+        {
+          "type": "quest",
+          "requires": [
+            "industrialstory"
+          ],
+          "items": [
+            { "text": "Raise the shaft: grate, controller, and twenty-six kiln bricks" },
+            { "text": "Right-click the controller and build to the ghost outline" },
+            { "text": "Load raw fireclay ware through the open door column" },
+            { "text": "Charge twelve charcoal and four daub into the controller" },
+            { "text": "Hold the torch a slow four-count, and give it its half day" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "the-smelter",
+      "title": "The smelter",
+      "revealedBy": "almanactcm:is-first-smelter",
+      "hint": "This page takes its ink from the first tower you raise of your own firebrick.",
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Eight fireclay bricks make the <strong>smelter base</strong>, four more make its <strong>chimney</strong>, and the chimney is not decoration: nothing in this yard burns without one over it. The base is the crushed-ore furnace, and crushed is the law. It takes no nugget whole. Roast what sulks, then break everything to a crush with a metal hammer on hard ground, and load one kind of ore only, up to two hundred and forty, before the fuel, one fuel to every twenty ore."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Lit with a long-held torch, the fire settles at nine hundred degrees and will not pass it on its own. Tin, lead, and bismuth melt below that line and ask nothing more. Copper, silver, and gold sit above it, and for them you put a <strong>bellows</strong> on the ground beside the base, facing it, and pump; air only counts once the fire is lit, and the fire only counts while you keep the rhythm. Two hours at heat and the charge becomes a pool of molten metal inside the tower."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The pool keeps its own clock. Eight hours after the smelt ends it sets solid, and that clock runs whether you are standing there or sleeping in another country. Tap it in time: crouch with a <strong>hammer</strong> and strike the tower's front face, and the metal runs out to the sand below. Break a tower with metal still molten in it and the metal is simply gone. Break one that has set, and the ore comes back to your hand; the earth forgives what the fire does not."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Iron will not melt here at all. Load a crushed iron earth and the same tower works as a bloomery instead: a bellows is not optional then but the whole engine, and what comes of it is not a pool but <strong>blooms</strong>, spongy iron that you collect by breaking the tower open. Every bloom run costs a few bricks of the tower's own body. Price it in before you light it."
+        },
+        {
+          "type": "callout",
+          "variant": "warning",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "One pool, one metal. A tower holding molten copper will burn a full charge of fuel over a load of silver and give you nothing for it. Tap it empty before you change metals."
+        }
+      ]
+    },
+    {
+      "id": "the-alloy",
+      "title": "The alloy",
+      "revealedBy": "almanactcm:first-met-alloying",
+      "hint": "This page takes its ink from the first alloy you draw out of a crucible.",
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "Two metals go in and a third comes out, and the third is not a mixture but a new thing, harder than either parent and deaf to the reasons why. This is the oldest piece of real chemistry in the trade, and it was worked out by people who had no word for chemistry."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The furnace is a <strong>brick furnace</strong> with a chimney above it, and the crucible sits inside. Give it <strong>bellows</strong>: the fire must beat the highest melting point in the vessel, not the average, so one stubborn component sets the price for the whole pour. The proportions are the old familiar ones and you need not relearn them."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "What has changed is what you put in. The crucible will not take raw nuggets any longer. It wants <strong>refined metal bits</strong>, which means every alloy is now downstream of metal you have already won and worked once. There are three mercies, each of them letting one input stay an ore if you add <strong>charcoal</strong> to the vessel to do the reducing: tin bronze from copper bits and <strong>crushed cassiterite</strong>, bismuth bronze from copper bits with zinc and <strong>roasted crushed bismuthinite</strong>, and brass by the same trick."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Three habits keep this furnace honest. The reducing charcoal is <strong>exactly one</strong>, whatever the batch size, and in an all-bits pour it is worse than useless: the vessel reads it as a metal, matches nothing, and sits silent until you take it out. This fire also drinks its air far faster than the smelter beside it, so pump like you mean it or drive the bellows from a wheel. And feed it the longest-burning fuel you own; here, and only here, the fuel's patience is what you are buying."
+        },
+        {
+          "type": "paragraph",
+          "text": "Bronze is not merely a better copper. A bronze anvil and a bronze pick are the two objects standing between you and the iron ores, and neither can be got any other way. Everything you have done since the white earth was in service of this one pour."
+        }
+      ]
+    },
+    {
+      "id": "the-retort",
+      "title": "The retort",
+      "revealedBy": "almanactcm:is-first-retort",
+      "hint": "This page takes its ink from the first metal you win without ever seeing it melt.",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Zinc will not pour for you the way honest metals do; it leaves the ore as a vapour and must be caught. The <strong>retort chamber</strong> sits between the smelter base and its chimney, a sealed belly with a crucible built into its making. Load the retort itself, not the base: roasted crushed zinc and <strong>powdered charcoal</strong>, one powder to every ten ore. The base beneath wants nothing but fuel, and one piece of it buys the whole burn."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The vapour condenses only past nine hundred degrees, which is exactly one breath more than the fire gives alone, so the bellows is not a helper here but a hard condition. When it has run its short course, tap the <strong>retort</strong>, not the base, and know its tap runs deeper: the channel lies one block out and <strong>two</strong> down, and it must be a carved channel, for the retort alone refuses to pour into a bare mold."
+        }
+      ]
+    },
+    {
+      "id": "casting-in-sand",
+      "title": "Casting in sand",
+      "revealedBy": "almanactcm:first-met-casting",
+      "hint": "This page takes its ink from the first metal you pour into a bed of sand.",
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "There is a second way to make a shape out of metal, and it does not involve the anvil at all. You cut the shape into sand, you let the metal find it, and you take out a finished thing while the smith at the anvil is still on their third heat."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Temper sand with a little <strong>fireclay</strong> and lay the beds on the ground. Crouch and press an empty hand to the <strong>top</strong> of a blank bed to choose the shape you want printed in it; a held ingot or a finished tool head stamps its own likeness without the asking. A <strong>shovel</strong> cuts channels between beds, and the channels find each other, so a run of them will carry one pour to a dozen molds at once. The whole bed lives on one level: metal walks flat, never up, never down, never diagonally, and a blank block in the run is a wall."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Feed it either way you like: tip a crucible straight into a single bed, or tap a smelter with a hammer and let the stream run. If you tap, remember the metal falls before it flows, so the channel must begin <strong>one course below</strong> the face you strike. A tap with nothing beneath it is metal on the floor."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Then wait for the word. A filled mold names its own state when you look at it, and the word you want is <strong>hardened</strong>; the glow dies long before the danger does, so read, do not look. A hardened casting lifts out by hand and the printed bed remains, ready for the next pour, for the rest of its days. The one exception is the anvil: nine hundred units of metal, dug out whole once it is truly cold, and the bed goes with it. An anvil is the only thing this sand charges for."
+        },
+        {
+          "type": "paragraph",
+          "text": "Understand what this is for. Sand casting is how you arm a settlement, not how you make an heirloom. The pour is quick, the yield is many, and the sand does not care whose hands filled it, so nothing that comes out of a bed carries a maker's mark. A cast head is a good head. It is simply nobody's in particular."
+        },
+        {
+          "type": "callout",
+          "variant": "warning",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The double ingot bed pays out only in whole ingots, and collecting early keeps the remainder. Fill it to the brim, both hundreds, or leave it until you can."
+        },
+        {
+          "type": "callout",
+          "variant": "author",
+          "text": "Two roads leave this page and both are honest. One ends in a hundred serviceable tools and a valley that eats better for it. The other ends in one blade that outlives you. Most smiths need to walk both, and the trick is knowing which day calls for which."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:tall-fires",
+          "text": "When the yard feels small, the tall fires are waiting."
+        }
+      ]
+    },
+    {
+      "id": "the-road-onward",
+      "title": "The road onward",
+      "whenChapterComplete": true,
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph", "dropcap": true, "text": "Every page of this yard now carries your ink. What the pit taught your breath and the bellows taught your arm, the next fires will ask of your patience, and they are built before they are ever lit." },
+        { "type": "paragraph", "requires": ["industrialstory"], "text": "Gather what the yard has already shown you how to make: <strong>iron</strong> bloomed in your own tower and beaten to plates, <strong>tier-three refractory brick</strong> from the pit kiln, <strong>lime</strong> for the charge, and bricks by the hundred for the shell. When the blast furnace's controller stands at the foot of its ghost, the next book begins to fill." },
+        { "type": "link", "to": "almanac://chapter/almanactcm:tall-fires", "text": "The Tall Fires." }
+      ]
+    }
+  ]
+}

@@ -41,21 +41,16 @@ public class AffinitySystem
         }
     }
 
-    private const int ApprenticeI = Domain.SubLevelsPerTier + 1;      // 5
-    private const int NoviceI = 1;
-    private const int GmCeiling = Domain.MaxLevelDefault;             // 20
-    private const int MasterIV = 4 * Domain.SubLevelsPerTier;         // 16
-    private const int MasterI = 3 * Domain.SubLevelsPerTier + 1;      // 13
-    private const int JourneymanIV = 3 * Domain.SubLevelsPerTier;     // 12
+    // Six hand re-derivations from SubLevelsPerTier deleted 2026-08-12; use Leveling/Rank.cs.
 
     public static Band BandFor(int score) => score switch
     {
-        >= 3 => new Band(ApprenticeI, GmCeiling, 1.20),
-        2 => new Band(NoviceI, GmCeiling, 1.13),
-        1 => new Band(NoviceI, GmCeiling, 1.07),
-        -1 => new Band(0, MasterI, 0.90),
-        <= -2 => new Band(0, JourneymanIV, 0.80),
-        _ => new Band(0, MasterIV, 1.00),
+        >= 3 => new Band(Rank.Apprentice, Rank.Grandmaster, 1.20),
+        2 => new Band(Rank.Novice, Rank.Grandmaster, 1.13),
+        1 => new Band(Rank.Novice, Rank.Grandmaster, 1.07),
+        -1 => new Band(0, Rank.Master, 0.90),
+        <= -2 => new Band(0, Rank.JourneymanIV, 0.80),
+        _ => new Band(0, Rank.MasterIV, 1.00),
     };
 
     private readonly ICoreServerAPI sapi;
@@ -138,11 +133,11 @@ public class AffinitySystem
     /// revokes attained GMs — this only gates future ascensions.</summary>
     public static int GmCount(PlayerDomainSet domainSet)
     {
-        int gmEntry = 4 * Domain.SubLevelsPerTier + 1;
+        // was: int Rank.Grandmaster = 4 * Domain.SubLevelsPerTier + 1;  (2026-08-12 -> Rank.Grandmaster)
         int count = 0;
         foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)
         {
-            if (playerDomain.Level >= gmEntry) count++;
+            if (playerDomain.Level >= Rank.Grandmaster) count++;
         }
         return count;
     }
@@ -178,7 +173,7 @@ public class AffinitySystem
             ["butcher"] = new() { ["FAR"] = -2, ["COO"] = 3, ["MEL"] = 1, ["RAN"] = -1, ["TAI"] = -1, ["ENG"] = -1, ["HUN"] = 3, ["ANI"] = 1 },
             ["clockmaker"] = new() { ["WOO"] = 1, ["FAR"] = -2, ["MET"] = 2, ["RAN"] = 1, ["TEM"] = 1, ["MAS"] = 1, ["ENG"] = 3 },
             ["farmhand"] = new() { ["MIN"] = -1, ["FAR"] = 3, ["FIS"] = 2, ["TEM"] = -1, ["FOR"] = 2 },
-            ["florist"] = new() { ["MIN"] = -1, ["FAR"] = 1, ["MEL"] = -1, ["RAN"] = -1, ["TEM"] = -1, ["ALC"] = 2, ["ANI"] = 1, ["FOR"] = 2 },
+            ["florist"] = new() { ["MIN"] = -1, ["FAR"] = 1, ["MEL"] = -1, ["RAN"] = -1, ["TEM"] = -1, ["ALC"] = 2, ["ANI"] = 1, ["FOR"] = 2, ["BEE"] = 2 },  // BEE ruled 2026-08-08: the grid predated the domain; florist ANI+1 was always bee flavour
             ["forester"] = new() { ["MIN"] = -1, ["WOO"] = 3, ["MET"] = 1, ["MEL"] = 1, ["TEM"] = -1 },
             ["hunter"] = new() { ["MIN"] = -1, ["RAN"] = 3, ["TEM"] = -1, ["TAI"] = 1, ["HUN"] = 3 },
             ["malefactor"] = new() { ["FAR"] = -2, ["RAN"] = 1, ["ALC"] = 1, ["TAI"] = -1, ["ENG"] = 1 },

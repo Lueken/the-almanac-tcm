@@ -6,6 +6,8 @@ using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -39,6 +41,13 @@ public static class GlaPatches
     public const string TolAttr = "almanactcm:glatol";      // maker tier -> the shatter window
     public const string GlaByAttr = "almanactcm:glaby";     // maker uid
     public const string GlaByNameAttr = "almanactcm:glabyname";
+
+    /// <summary>The glassmaker's rank on the piece. Named 2026-08-12; it was a bare literal at
+    /// three sites (one write, two reads). NOTE the key string says "tier" but the value is a
+    /// LEVEL (0-17), matching the other eight *tier-named keys in the mod. The key string is
+    /// deliberately NOT renamed: it already holds the right value and renaming costs a migration
+    /// for nothing.</summary>
+    public const string GlaProvAttr = "almanactcm:glaprovtier";
 
     public static void RegisterServer(ICoreServerAPI api)
     {
@@ -258,7 +267,7 @@ public static class GlaPatches
             if (p.Length < 3) continue;
             st.Attributes.SetString(GlaByAttr, p[0]);
             st.Attributes.SetString(GlaByNameAttr, p[1]);
-            if (int.TryParse(p[2], out int tier)) st.Attributes.SetInt("almanactcm:glaprovtier", tier);
+            if (int.TryParse(p[2], out int tier)) st.Attributes.SetInt(GlaProvAttr, tier);
             inv[i].MarkDirty();
         }
     }
@@ -279,12 +288,12 @@ public static class GlaPatches
             if (string.IsNullOrEmpty(name) || __result == null) return;
             // The annealed piece carries the provenance tier; a still-raw piece carries the maker
             // tolerance tier. Either reads the same rank for the tooltip.
-            int tier = attrs!.HasAttribute("almanactcm:glaprovtier")
-                ? attrs.GetInt("almanactcm:glaprovtier") : attrs.GetInt(TolAttr);
+            int tier = attrs!.HasAttribute(GlaProvAttr)
+                ? attrs.GetInt(GlaProvAttr) : attrs.GetInt(TolAttr);
             string? line =
-                tier >= GlaDomain.ProvGm ? Lang.Get("almanactcm:flawless-by", name)
-                : tier >= GlaDomain.ProvMaster ? Lang.Get("almanactcm:masterblown-by", name)
-                : tier >= GlaDomain.ProvJourneyman ? Lang.Get("almanactcm:blown-by", name)
+                tier >= Rank.Grandmaster ? Lang.Get("almanactcm:flawless-by", name)
+                : tier >= Rank.Master ? Lang.Get("almanactcm:masterblown-by", name)
+                : tier >= Rank.Journeyman ? Lang.Get("almanactcm:blown-by", name)
                 : null;
             if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }

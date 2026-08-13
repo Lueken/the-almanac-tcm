@@ -10,6 +10,8 @@ using Vintagestory.API.Util;
 using Vintagestory.GameContent;
 using Vintagestory.GameContent.Mechanics;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -340,7 +342,9 @@ public static class EngOverheatPatches
         if (__instance!.Blockentity is { } be && EngPatches.TryGetServicerLevel(be, out int servicerLevel))
             readLevel = Math.Max(readLevel, servicerLevel);
 
-        if (readLevel < EngDomain.ProvJourneyman || Leveling.Domain.TierOf(readLevel) < 2) return;
+        // One test, not two: TierOf(l) < 2 is the same predicate as l < Rank.Journeyman. The
+        // pair survived the 2026-08-12 threshold sweep as belt-and-braces; the braces are cut.
+        if (readLevel < Rank.Journeyman) return;
 
         float ratio = __instance.GearedRatio;
         float effSpeed = Math.Abs(ratio * net.Speed);
@@ -350,7 +354,7 @@ public static class EngOverheatPatches
         // a heat band. Every value here is broadcast to clients by MechanicalNetwork.broadcastData,
         // so it is honest on a dedicated server. OverheatValue itself is server-only and never
         // shown; effective speed is the same proxy vanilla's smoke uses.
-        if (readLevel >= EngDomain.ProvGm)
+        if (readLevel >= Rank.Grandmaster)
         {
             float torque = Math.Abs(net.NetworkTorque);
             float resistance = net.NetworkResistance;
@@ -363,26 +367,57 @@ public static class EngOverheatPatches
             sb.AppendLine(Lang.Get("almanactcm:eng-read-load", torque.ToString("0.##"),
                 resistance.ToString("0.##"), net.TotalAvailableTorque.ToString("0.##")));
 
-            // THE DEADLOCK TELL (2026-08-07). The torque above is vanilla's SIGNED sum, so two
-            // sources rigged against each other cancel to about zero and print what an unpowered
-            // shaft prints. Gross is the same sources with their signs removed, captured during
-            // vanilla's own updateNetwork pass (EngGrossTorque) because per-source torque exists
-            // nowhere else and asking twice would spin the rotors up. Matching says nothing is
-            // fighting; the gap IS the fight. Shown whenever a figure has arrived and never gated
-            // on the values, the same reason the rest of this block is unconditional: the rank's
-            // worth is reading a machine that is behaving.
-            if (EngGrossTorque.TryGetGross(net.networkId, out float gross))
-                sb.AppendLine(Lang.Get("almanactcm:eng-read-gross",
-                    gross.ToString("0.##"), torque.ToString("0.##")));
+            // CAPACITY AND LOAD (2026-08-08, superseding the gross/net line of 0.4.34). Gross
+            // and net were instantaneous torque: they loaf at equilibrium, thrash in transients,
+            // and in game they read as a riddle. Capacity is what the sources could deliver at
+            // stall, load is what the network takes, headroom is the machines you have not built
+            // yet. All three are stable through transients. Opposition shows as capacity LOST
+            // (absolute sum minus the magnitude of the signed sum), the fight stated in the only
+            // currency that matters. Values arrive on the EngGrossTorque channel; absent a recent
+            // packet the line drops rather than guessing.
+            if (EngGrossTorque.TryGetReadout(net.networkId, out float _, out float capAbs, out float capEff)
+                && capAbs > 0.005f)
+            {
+                float lost = capAbs - capEff;
+                float headroom = capEff - resistance;
+                if (lost > capAbs * 0.02f && lost > 0.01f)
+                    sb.AppendLine(Lang.Get("almanactcm:eng-read-capacity-opposed",
+                        capAbs.ToString("0.##"), lost.ToString("0.##"),
+                        resistance.ToString("0.##"), headroom.ToString("0.##")));
+                else
+                    sb.AppendLine(Lang.Get("almanactcm:eng-read-capacity",
+                        capAbs.ToString("0.##"), resistance.ToString("0.##"), headroom.ToString("0.##")));
+            }
 
             sb.AppendLine(Lang.Get("almanactcm:eng-read-surplus",
                 (surplus >= 0 ? "+" : "") + surplus.ToString("0.###")));
         }
         // ---- Master: the number behind the warning, but only once the part is actually accumulating.
-        else if (readLevel >= EngDomain.ProvMaster && effSpeed > HeatFloor)
+        else if (readLevel >= Rank.Master && effSpeed > HeatFloor)
         {
             sb.AppendLine(Lang.Get("almanactcm:eng-read-effspeed", effSpeed.ToString("0.##"),
                 HeatFloor.ToString("0.#"), SmokeAt.ToString("0.#"), FireAt.ToString("0.#")));
+        }
+
+        // ---- THE CAPACITY LADDER (2026-08-08). The exact panel skipped the ladder the heat
+        // readout proved: words at Journeyman, coarse figures at Master, the instrument at GM.
+        // Same synced numbers, display-gated only, so every tier is honest and the sellable
+        // service (GM panel for anyone, via servicer) is untouched and advertised by the tiers.
+        if (readLevel < Rank.Grandmaster
+            && EngGrossTorque.TryGetReadout(net.networkId, out float _, out float capA, out float capE)
+            && capA > 0.005f)
+        {
+            float load = net.NetworkResistance;
+            bool opposed = (capA - capE) > capA * 0.02f && (capA - capE) > 0.01f;
+            if (readLevel >= Rank.Master)
+                sb.AppendLine(Lang.Get("almanactcm:eng-read-capacity-coarse",
+                    Math.Round(capA).ToString("0"), Math.Round(load).ToString("0")));
+            else
+                sb.AppendLine(Lang.Get(
+                    load < capE * 0.5f ? "almanactcm:eng-read-shaft-easy"
+                    : load < capE * 0.85f ? "almanactcm:eng-read-shaft-room"
+                    : "almanactcm:eng-read-shaft-limit"));
+            if (opposed) sb.AppendLine(Lang.Get("almanactcm:eng-read-shaft-opposed"));
         }
 
         // ---- The heat words, Journeyman up. Floor moved 4.5 -> 2.5 (2026-08-05): the old floor sat
@@ -399,7 +434,7 @@ public static class EngOverheatPatches
             // Raw and unclamped on purpose. OverspeedScale's floor and cap are server-side Knobs and
             // must not be read here (C-3); this is arithmetic over FireAt, a const, so it agrees on
             // both sides. The clamps only bound the roll, they do not change how overdriven a part is.
-            if (readLevel >= EngDomain.ProvMaster)
+            if (readLevel >= Rank.Master)
                 sb.AppendLine(Lang.Get("almanactcm:eng-read-overspeed",
                     ((effSpeed - FireAt) / FireAt * 100f).ToString("0")));
         }

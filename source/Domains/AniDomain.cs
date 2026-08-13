@@ -2,6 +2,8 @@ using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -50,7 +52,8 @@ public static class AniDomain
     public const string ProvTierAttr = "almanacProvTier";
 
     /// <summary>The provenance tier thresholds (a mark means something from Journeyman up).</summary>
-    public const int ProvJourneyman = 9, ProvMaster = 13, ProvGm = 17;
+    // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): this was one of ten identical
+    // `Rank.Journeyman = 9, Rank.Master = 13, Rank.Grandmaster = 17` triplets. Use Rank.Journeyman etc.
 
     /// <summary>Stamp (or UPGRADE) an animal's Master's Line provenance from an owner's current
     /// ANI tier. Upgrade-only: a GM-raised animal stays a Master's Line even after a novice buyer
@@ -60,7 +63,7 @@ public static class AniDomain
     {
         if (animal?.WatchedAttributes == null || owner == null) return;
         int tier = LevelOf(owner);
-        if (tier < ProvJourneyman) return;
+        if (tier < Rank.Journeyman) return;
         if (animal.WatchedAttributes.GetInt(ProvTierAttr, 0) >= tier) return; // never downgrade
         animal.WatchedAttributes.SetInt(ProvTierAttr, tier);
         animal.WatchedAttributes.SetString(ProvNameAttr, owner.PlayerName);

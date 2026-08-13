@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.4.35")]
+    Version = "0.4.38")]
 
 namespace AlmanacTcm;
 
@@ -27,8 +27,10 @@ public class AlmanacTcmModSystem : ModSystem
     /// which Illuminated only honours from 0.0.18. Below that the field is ignored and the
     /// chapter degrades open, so nothing breaks loudly: the earned reveal simply never
     /// happens and the chapter sits visible from the first login, which is the whole thing
-    /// it exists to prevent. Pinned to 0.1.2 rather than 0.0.18 so the pair stays in step.</summary>
-    private const string MinIlluminatedVersion = "0.1.2";
+    /// it exists to prevent. Pinned to 0.1.2 rather than 0.0.18 so the pair stays in step.
+    /// Raised to 0.1.4, which carries the quest-step API (GetQuestStepsFor, the fuel for
+    /// TCM's step toasts) and the `doneWhen` rendering that ticks those steps in the book.</summary>
+    private const string MinIlluminatedVersion = "0.1.4";
 
     /// <summary>Static access for Harmony patches, split by side (set in Start, cleared in
     /// Dispose). Singleplayer loads BOTH a client-side and a server-side ModSystem in one
@@ -118,6 +120,11 @@ public class AlmanacTcmModSystem : ModSystem
             Try("FAR-bonus", () => Domains.FarBonusPatches.PatchConditional(api, harmony));
             Try("COO", () => Domains.CooPatches.PatchConditional(api, harmony));
             Try("COO-bonus", () => Domains.CooBonusPatches.PatchConditional(api, harmony));
+            // Annotates vanilla's freshness line with the COMPOSED TCM perish delta, replacing the
+            // per-domain clauses that each stated one factor as if it were the whole effect.
+            // Registration order is irrelevant: it probes GetTransitionRateMul at runtime, by which
+            // point every contributor is applied.
+            Try("perish-attribution", () => Engine.PerishAttributionPatch.PatchConditional(api, harmony));
             Try("ANI", () => Domains.AniPatches.PatchConditional(api, harmony));
             Try("ANI-bonus", () => Domains.AniBonusPatches.PatchConditional(api, harmony));
             Try("POT", () => Domains.PotPatches.PatchConditional(api, harmony));
@@ -143,6 +150,9 @@ public class AlmanacTcmModSystem : ModSystem
             Try("alloy-ledger-furnace", () => Gui.AlloyLedgerBrickFurnacePatch.Register(api, harmony));
             Try("almanac-chat", () => Engine.AlmanacChatChannel.PatchClient(api, harmony));
             Try("ENG-overheat-readout", () => Domains.EngOverheatPatches.PatchConditional(api, harmony));
+            // Industrial Story milestone detectors: the six heap/blast-furnace moments that
+            // live in block-entity state, which the declarative trigger registry cannot see.
+            Try("IS-milestones", () => Domains.IsMilestonePatches.PatchConditional(api, harmony));
             // Gross source torque for the same panel: captured during vanilla's own updateNetwork
             // pass, because per-source torque exists nowhere else and GetTorque mutates the rotor.
             Try("ENG-gross-torque", () => Domains.EngGrossTorque.PatchConditional(api, harmony));
@@ -197,6 +207,12 @@ public class AlmanacTcmModSystem : ModSystem
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
         Commands = new Engine.TcmCommands(sapi, this);
+
+        // The declarative knowledge mint (almanac/triggers/*.json, any domain): block
+        // placed/used/broken → per-player knowledge key + optional banner. Registers after
+        // the LevelingServer so SetKnowledge is live; the asset category is Illuminated's
+        // (hard dep), so the scan path always exists.
+        Engine.KnowledgeTriggers.RegisterServer(sapi);
 
         // MIN's zero-Harmony server hooks (knapping practice, oreDropRate reconcile) need
         // the ledger live, so they register after it — the vanilla mining/cave-in patches
@@ -358,6 +374,11 @@ public class AlmanacTcmModSystem : ModSystem
         Toasts = new Gui.PracticeToastRenderer(capi, Template);
         Client.PracticeGain += Toasts.OnPracticeGain;
 
+        // Discovery banners: rank-ups + named knowledge earns, center-screen with a
+        // readable plate (own renderer; vanilla's TriggerIngameDiscovery has no backing).
+        Banners = new Gui.DiscoveryBannerRenderer(capi);
+        Client.Banner += Banners.Show;
+
         // The Tracker's Eye HUD (sneak + look read of live game). Client-only, reads networked
         // entity state and the local HUN rank; no server round-trip.
         new Domains.HunTrackerEye(capi);
@@ -377,6 +398,13 @@ public class AlmanacTcmModSystem : ModSystem
         illuminated?.RegisterRevealProvider("almanactcm",
             key => client.Knowledge.TryGetValue(key, out int v) && v > 0);
 
+        // Quest-step toasts: a knowledge key that closes a `doneWhen` checklist line in a
+        // guide gets its line ticked on screen. Wired here rather than beside the banners
+        // above because it needs Illuminated's handle. Suppression rule lives in
+        // LevelingClient: only keys WITHOUT a banner of their own reach this.
+        QuestToasts = new Gui.QuestStepToastRenderer(capi, illuminated);
+        Client.QuestKnowledge += QuestToasts.OnKnowledgeEarned;
+
         // Axis 4 Apprentice unlock: the Alloy Ledger modal. It opens on an empty-handed
         // right-click of a placed crucible (see MetSignaturePatches / the crucible interact
         // hook), gated to Apprentice+ MET on open. Held here so the interact patch can toggle it.
@@ -389,6 +417,13 @@ public class AlmanacTcmModSystem : ModSystem
 
     /// <summary>Client-only practice toast renderer (null server-side).</summary>
     public Gui.PracticeToastRenderer? Toasts { get; private set; }
+
+    /// <summary>The discovery-banner renderer (rank-ups, named knowledge earns). Null on the server.</summary>
+    public Gui.DiscoveryBannerRenderer? Banners { get; private set; }
+
+    /// <summary>The quest-step toast renderer (checklist lines ticked by an earned key).
+    /// Null on the server.</summary>
+    public Gui.QuestStepToastRenderer? QuestToasts { get; private set; }
 
     /// <summary>Client mirror of the server's <see cref="Config.TcmGlobalConfig.AlloyLedgerGated"/>,
     /// synced on join. Defaults to the ruled gated state until the server says otherwise.</summary>
@@ -434,6 +469,12 @@ public class AlmanacTcmModSystem : ModSystem
         harmony = null;
         Toasts?.Dispose();
         Toasts = null;
+        // The two parchment surfaces unregister their own Ortho renderers; without this they
+        // outlived the mod (pre-existing for Banners, caught while adding QuestToasts).
+        Banners?.Dispose();
+        Banners = null;
+        QuestToasts?.Dispose();
+        QuestToasts = null;
         // Singleplayer disposes the two instances independently, so clear only the static
         // that points at this one (a blind null would drop the surviving side's handle).
         if (ReferenceEquals(ServerInstance, this)) ServerInstance = null;

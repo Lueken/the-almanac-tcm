@@ -6,6 +6,8 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -22,7 +24,8 @@ namespace AlmanacTcm.Domains;
 ///     stamina, and Vigor's own exhaustion/recovery takes over (soft — no-op without Vigor).
 ///   • Potions [alchemy, conditional] — StrengthMul + Duration, read from PotionData.SourceStack at
 ///     PotionConsumableLogic.TryProcessPotionEffects; potency scales GetStrengthMultiplier, duration
-///     scales the PotionContext from BuildPotionDef. Reflection-only (TCM never references Alchemy.dll).
+///     scales the context built by the potion registry (PotionContext/BuildPotionDef on alchemy 2.1.11,
+///     EffectContext/Build on 2.1.17). Reflection-only (TCM never references Alchemy.dll).
 ///
 /// The GM emphasis (Potent = deeper strength / Lasting = longer duration) rides the same read: Potent
 /// adds its bump to potency, Lasting to duration. Provenance is a bottom-of-tooltip maker line (J up).
@@ -51,8 +54,14 @@ public static class AlcBrandPatches
         var logic = AccessTools.TypeByName("Alchemy.PotionConsumableLogic");
         var apply = logic == null ? null : AccessTools.Method(logic, "TryProcessPotionEffects");
         var strength = logic == null ? null : AccessTools.Method(logic, "GetStrengthMultiplier");
-        var registry = AccessTools.TypeByName("Alchemy.PotionRegistry");
-        var build = registry == null ? null : AccessTools.Method(registry, "BuildPotionDef");
+        // alchemy 2.1.17 renamed the potion pipeline: PotionRegistry.BuildPotionDef -> EffectRegistry.Build,
+        // PotionContext -> EffectContext. Same signature (string, float) and the same int Duration, so the
+        // postfix below is untouched and only the lookup is dual-version. 2.1.11's PotionRegistry has no
+        // method named "Build", so the fallback cannot resolve the wrong seam on either version.
+        var registry = AccessTools.TypeByName("Alchemy.EffectRegistry")
+                    ?? AccessTools.TypeByName("Alchemy.PotionRegistry");
+        var build = registry == null ? null
+                  : AccessTools.Method(registry, "Build") ?? AccessTools.Method(registry, "BuildPotionDef");
         if (apply != null && strength != null && build != null)
         {
             harmony.Patch(apply,
@@ -60,7 +69,7 @@ public static class AlcBrandPatches
                 finalizer: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(PotionApplyFinalizer))));
             harmony.Patch(strength, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(StrengthPostfix))));
             harmony.Patch(build, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(BuildPotionDefPostfix))));
-            TcmLog.Info(api, "ALC potion Brand read hooked (potency + duration scaling at drink)");
+            TcmLog.Info(api, $"ALC potion Brand read hooked via {registry!.Name}.{build.Name} (potency + duration scaling at drink)");
         }
         else TcmLog.Cat(api, TcmLog.Config, "ALC potion read seams not found (alchemy); potion Brand scaling inactive (poultices unaffected)");
     }
@@ -210,9 +219,9 @@ public static class AlcBrandPatches
             if (string.IsNullOrEmpty(name) || __result == null) return;
             int level = attrs!.GetInt(AlcBrand.LevelAttr);
             string? line =
-                level >= AlcDomain.ProvGm ? Lang.Get("almanactcm:alc-master-by", name)
-                : level >= AlcDomain.ProvMaster ? Lang.Get("almanactcm:alc-compounded-by", name)
-                : level >= AlcDomain.ProvJourneyman ? Lang.Get("almanactcm:alc-prepared-by", name)
+                level >= Rank.Grandmaster ? Lang.Get("almanactcm:alc-master-by", name)
+                : level >= Rank.Master ? Lang.Get("almanactcm:alc-compounded-by", name)
+                : level >= Rank.Journeyman ? Lang.Get("almanactcm:alc-prepared-by", name)
                 : null;
             if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }

@@ -1,0 +1,231 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
+  "schemaVersion": 1,
+  "id": "almanactcm:tall-fires",
+  "gate": "almanactcm",
+  "pinned": true,
+  "order": 11,
+  "revealedBy": "almanactcm:is-first-smelter",
+  "title": "The Tall Fires",
+  "tabLabel": "Tall Fires",
+  "subtitle": "Iron, and what stands above it",
+  "byline": "set down by Venah",
+  "accentColor": "#6b3226",
+  "sections": [
+    {
+      "id": "the-tall-fires",
+      "title": "The tall fires",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "The pit gave you copper for the price of your breath. The yard gave you bronze for the price of a bellows arm. What comes now is taller than you are, hungrier than both, and it does not negotiate: the iron age is built, brick on brick, before it is ever lit."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Every fire in this chapter stands on <strong>tier-three refractory brick</strong>, and here is the mercy nobody advertises: those bricks fire in an ordinary <strong>pit kiln</strong>. The stack kiln guards the fireclay ware, not these. What the tall fires truly gate is iron itself, for their fittings want <strong>iron plates</strong>, and so your first iron must come the slow way, bloomed in the smelter's yard and beaten out on the anvil, before you can build the fire that makes iron in bulk."
+        },
+        {
+          "type": "callout",
+          "variant": "lore",
+          "text": "Every builder of tall fires learns the same lesson the yard taught in miniature: the structure is the easy half. The discipline is the fire."
+        }
+      ]
+    },
+    {
+      "id": "wind-and-air",
+      "title": "Wind, and the machines that make it",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Before the first brick, understand air, because half of every dead furnace is a bellows aimed at nothing. A bellows blows into exactly <strong>one</strong> cell: the block its nozzle faces, at its own height. Not the block beside it, not the structure in general, and never a plain brick, which swallows the stroke without a word. And no furnace anywhere breathes before it burns; light first, pump second, always."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The <strong>large bellows</strong> is a machine, not a tool. It wants a <strong>wooden linkage arm</strong> one block down and one behind it, driven from a turning network, and its nozzle set square against the mouth it feeds. Where the forge forgave a lazy rhythm, the tall fires do not: their air leaks away in real breaths, not in hours, so the wheel that drives the arm must be geared up until the bellows works faster than the fire forgets."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "thequire"
+          ],
+          "text": "One caution for this earth in particular: a machine bellows that huffs is working, and one that merely moves is not. The arm can swing prettily on a network turning the wrong way and deliver nothing at all. Trust your ears over your eyes."
+        }
+      ]
+    },
+    {
+      "id": "the-blast-furnace",
+      "title": "The blast furnace",
+      "revealedBy": "almanactcm:is-first-blastfurnace",
+      "hint": "This page takes its ink from the first fire you build taller than yourself.",
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Five wide, five deep, seven tall, and none of it guesswork: place the <strong>controller</strong> at the bottom front, right-click it, and build into the ghost it draws, red where a block is wrong, shadowed where one is wanted. The hearth behind the controller is four different stones, a polished <strong>slab</strong> ringed by three polished <strong>full blocks</strong>, and the lining above the tuyeres is a plus, never a ring. When the count runs to zero the click that formed it says so."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Two openings decide whether the thing you built is a furnace or a monument. The <strong>tap arch</strong>, two cells in front of the controller, is never checked by the forming, so a furnace bricked shut there works perfectly and can never be tapped. And the <strong>chimney mouth</strong> at the crown is the only door the charge has: there is no interface, only you on the roof, dropping the makings down the throat."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The charge is taken in strict measures: <strong>forty crushed iron ore, two fuel, one lime</strong>, all three together or nothing at all, and the first fuel it accepts, charcoal or coke, is the only fuel it will ever accept again. Light the controller with a long-held torch, then throw <strong>one more fuel</strong> down the throat, because ignition ate one and the furnace counts exactly. Then to the bellows, aimed at an <strong>outer tuyere</strong>, one course above the controller, and pump without pity: iron asks twelve hundred and fifty degrees of a fire that idles at nine hundred and forgets its air in seconds."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "What comes down is <strong>pig iron</strong>, molten, four hundred units a batch, and the vessel holds only sixteen hundred: tap as you go or the furnace stalls with ore still in its belly. Crouch with a hammer and strike the controller's front face through the arch, into a carved channel one out and one down. And guard the shell with your life's own care, for the furnace checks itself every few breaths and one broken brick unforms the whole: the charge spills, and molten metal still inside is lost outright."
+        },
+        {
+          "type": "quest",
+          "requires": [
+            "industrialstory"
+          ],
+          "items": [
+            { "text": "Form the tower to the controller's ghost, arch and chimney mouth open", "doneWhen": "almanactcm:is-first-blastfurnace" },
+            { "text": "Drop the charge down the throat in whole measures: forty, two, one", "doneWhen": "almanactcm:is-blast-charged" },
+            { "text": "Light the controller, then repay the fire its one fuel", "doneWhen": "almanactcm:is-blast-lit" },
+            { "text": "Drive air into an outer tuyere until the flames leap taller" },
+            { "text": "Tap the arch before the belly fills", "doneWhen": "almanactcm:is-blast-tapped" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "the-reverberatory",
+      "title": "The reverberatory furnace",
+      "revealedBy": "almanactcm:is-first-reverb",
+      "hint": "This page takes its ink from the first fire whose heat arrives by reflection.",
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Know first what this is not: it is not a better smelter. Ore gives the same metal here as in the yard, from a hearth that holds less. The reverberatory exists for the work nothing else will do: it <strong>puddles pig iron into wrought iron</strong>, the only road there is, and it alone will smelt <strong>gold and silver nuggets</strong> whole. Copper stays in the yard, where it belongs."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "A hundred and twelve bricks in a long low body, a hatch at the front, and no forming click at all: this one furnace assembles itself in silence when the last brick lands. The tell is under your feet, for the nine hearth tiles sink to three-quarter height when the structure takes. When it will not, hold <strong>ctrl</strong> and right-click the hatch, and it will show you every cell it objects to. The two taps hide in plain sight: the outermost side bricks of the middle row, which alone answer to the hatch's own name when you look at them."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Its one commandment: <strong>three fuel piles, all burning at once</strong>. Two of three is not two-thirds of the heat, it is none of it, while the piles burn down all the same. Build them the same size, light them together, and stand clear of the firebox, which cooks the careless as readily as the charge. Each of the nine hearth cells then works alone, and each locks to the first trade you give it, roasting, smelting, or puddling, until it is emptied to the last item."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Puddling is patience: pig iron in, a long day of full fire, and <strong>rough wrought iron</strong> out, taken by hand, never tapped. If the finished ingots read cold, nothing is wrong; the fire was long dead when you came for them, and the iron converted all the same. What smelts molten, taps from either tap block into sand one out and one down, and one strike drains <strong>every</strong> cell at once, so run one metal at a time or sort your molds after. The rough iron itself wants a hot anvil and a fast arm: work it the moment it clears the fire, and expect three short heats where bronze gave you one."
+        }
+      ]
+    },
+    {
+      "id": "steel",
+      "title": "A word on steel",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Between wrought iron and the last fire lies steel, and here the new roads end. None of these furnaces makes steel, and none of them demands it either; the old <strong>cementation</strong> way, chests of carbon and long fires, remains the one road, exactly as the elder handbook keeps it. The tall fires will happily <strong>melt</strong> steel once you have earned it. Making it is still the old world's business."
+        }
+      ]
+    },
+    {
+      "id": "the-wind-furnace",
+      "title": "The wind furnace",
+      "revealedBy": "almanactcm:is-first-windfurnace",
+      "hint": "This page takes its ink from the hottest fire a smith can raise.",
+      "pageBreakBefore": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "The last fire is a narrow chimney over a buried box, and it burns at <strong>sixteen hundred degrees</strong>, flat, always, the hottest anything in this trade will ever run. It asks no bellows and never will; and whatever the chimney's shape suggests, no wind, no weather, and no open sky enters into it. Form it with a right-click on the <strong>firebox</strong>, and set the <strong>iron hatch on top of the firebox itself</strong>, not in a wall, whatever your coke-oven hands remember."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "It is particular to the point of insult. The fuel slot takes <strong>coke</strong> and nothing else, not slower, not worse, but not at all. The vessel slot takes one thing in this world: the <strong>graphite crucible</strong>. Graphite is won at a bronze pick's tier, crushed under the hammer, worked one to one into fireclay, formed on the wheel, fired in the <strong>stack kiln</strong>, and seasoned with four measures of <strong>powdered borax</strong> held at heat. A long road for a pot, and the only pot that survives the destination."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "Lit once with a long-held torch, it feeds itself from the fuel slot thereafter and gives back one <strong>wood ash</strong> for every coke, quietly discarding the surplus when the ash slot fills; empty it as you go. Its manners have two edges: pull the crucible with ore still in the slots and the furnace dumps that ore inside its own sealed brickwork, so empty the charge first, always. And a running wind furnace sheds <strong>no light at all</strong>. Listen for it, or watch the smoke."
+        },
+        {
+          "type": "paragraph",
+          "requires": [
+            "industrialstory"
+          ],
+          "text": "What is it for? The metals that laughed at the brick furnace: nickel from its oxide, cupronickel, and the melting of steel itself for casting. And know its one ceiling before you plan around it: sixteen hundred is a wall. The blistered half-steel of the cementation chests misses that wall by two degrees, and no patience will carry it over."
+        },
+        {
+          "type": "callout",
+          "variant": "author",
+          "text": "The pit wanted your breath. This wants nothing from your body at all, only everything you have learned since the first hole in the ground. When it runs dark and silent at full heat, a stranger would walk past it. You will hear it from the road."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:smelters-yard",
+          "text": "The road here began in the Smelter's Yard."
+        }
+      ]
+    },
+    {
+      "id": "the-last-page",
+      "title": "The last page",
+      "whenChapterComplete": true,
+      "keepTogether": true,
+      "blocks": [
+        { "type": "paragraph", "dropcap": true, "text": "Every fire a smith can raise now answers to your hand, from a hole in the ground to a chimney that melts steel in the dark. There is no taller fire to build. What remains is the work, and the mark you leave in it." },
+        { "type": "callout", "variant": "lore", "text": "The Almanac closes no book. It only waits for the next thing worth setting down." }
+      ]
+    }
+  ]
+}

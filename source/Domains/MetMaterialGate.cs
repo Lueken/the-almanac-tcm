@@ -24,10 +24,7 @@ public static class MetMaterialGate
 {
     // §162 tier thresholds, as levels: copper 0, bronze Apprentice I, iron/nickel/
     // meteoric Journeyman I, steel + non-tool exotics Master I.
-    public const int Untrained = 0;
-    public const int ApprenticeI = Domain.SubLevelsPerTier + 1;       // 5
-    public const int JourneymanI = 2 * Domain.SubLevelsPerTier + 1;   // 9
-    public const int MasterI = 3 * Domain.SubLevelsPerTier + 1;       // 13
+    // Four private copies of the rank boundaries deleted 2026-08-12; use Leveling/Rank.cs.
 
     /// <summary>metal code → required MET level. Absent = UNMAPPED: logged once and
     /// defaulted (see <see cref="RequiredLevel"/>), never silently gated wrong.</summary>
@@ -37,45 +34,45 @@ public static class MetMaterialGate
         // currency metals. Tin/zinc/bismuth MUST stay free or bronze is unmakeable;
         // molybdochalkos sits below copper (vanilla tier 0); cupronickel is an easy
         // alloy though its nickel input is itself gated.
-        ["copper"] = Untrained,
-        ["lead"] = Untrained,
-        ["tin"] = Untrained,
-        ["zinc"] = Untrained,
-        ["bismuth"] = Untrained,
-        ["silver"] = Untrained,
-        ["gold"] = Untrained,
-        ["electrum"] = Untrained,
-        ["cupronickel"] = Untrained,
-        ["molybdochalkos"] = Untrained,
+        ["copper"] = Rank.Untrained,
+        ["lead"] = Rank.Untrained,
+        ["tin"] = Rank.Untrained,
+        ["zinc"] = Rank.Untrained,
+        ["bismuth"] = Rank.Untrained,
+        ["silver"] = Rank.Untrained,
+        ["gold"] = Rank.Untrained,
+        ["electrum"] = Rank.Untrained,
+        ["cupronickel"] = Rank.Untrained,
+        ["molybdochalkos"] = Rank.Untrained,
 
         // Tier II — Apprentice (bronze alloys). Brass is a tool-capable bronze-equivalent
         // and must gate here or it becomes a bronze-gate bypass.
-        ["tinbronze"] = ApprenticeI,
-        ["bismuthbronze"] = ApprenticeI,
-        ["blackbronze"] = ApprenticeI,
-        ["brass"] = ApprenticeI,
+        ["tinbronze"] = Rank.Apprentice,
+        ["bismuthbronze"] = Rank.Apprentice,
+        ["blackbronze"] = Rank.Apprentice,
+        ["brass"] = Rank.Apprentice,
 
         // Tier III — Journeyman (iron age). Nickel gates here: its ore already needs
         // iron-tier mining, so tier I would be inconsistent (RULED 2026-07-14).
-        ["iron"] = JourneymanI,
-        ["meteoriciron"] = JourneymanI,
-        ["nickel"] = JourneymanI,
+        ["iron"] = Rank.Journeyman,
+        ["meteoriciron"] = Rank.Journeyman,
+        ["nickel"] = Rank.Journeyman,
         // Industrial Story's iron-age intermediates (added 0.4.35 after an Apprentice II
         // worked a puddled ingot live, 2026-08-08). roughwroughtiron is the puddling
         // output and consolidates into game:ingot-iron; pigiron is the blast furnace
         // product. Both are iron working and gate with it.
-        ["roughwroughtiron"] = JourneymanI,
-        ["pigiron"] = JourneymanI,
+        ["roughwroughtiron"] = Rank.Journeyman,
+        ["pigiron"] = Rank.Journeyman,
 
         // Tier IV — Master (steel + non-tool exotics). Chromium/titanium/etc. arrive via
         // ALC chemistry, not MET smelting; parked at Master pending the ALC gate review
         // (RULED 2026-07-14), so they are never left ungated in the meantime.
-        ["steel"] = MasterI,
-        ["stainlesssteel"] = MasterI,
-        ["chromium"] = MasterI,
-        ["platinum"] = MasterI,
-        ["titanium"] = MasterI,
-        ["uranium"] = MasterI,
+        ["steel"] = Rank.Master,
+        ["stainlesssteel"] = Rank.Master,
+        ["chromium"] = Rank.Master,
+        ["platinum"] = Rank.Master,
+        ["titanium"] = Rank.Master,
+        ["uranium"] = Rank.Master,
     };
 
     /// <summary>Item-code prefixes whose last '-' segment names the metal directly.</summary>

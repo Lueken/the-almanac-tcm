@@ -7,8 +7,12 @@ namespace AlmanacTcm.Leveling;
 
 /// <summary>
 /// A trade domain (MET, COO, …) — the vendored Skill, minus abilities.
-/// Level 0 = Untrained; levels 1-20 are the climbable sub-levels
-/// (Novice I → Grandmaster IV, four per tier, five tiers).
+/// Level 0 = Untrained (tier -1, deliberately outside the named tiers); levels 1-16 are
+/// Novice I … Master IV, four per tier; level 17 is Grandmaster, terminal and unnumbered.
+/// 18 states in all, max level 17.
+/// (Corrected 2026-08-12. This summary described the ORIGINAL ladder: 1-20, Novice I →
+/// Grandmaster IV. The 2026-07-15 ruling below made Grandmaster terminal and resized the
+/// ladder to 17; MaxLevelDefault was updated, this summary was not.)
 /// </summary>
 public class Domain
 {

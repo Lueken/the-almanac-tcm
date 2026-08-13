@@ -10,6 +10,8 @@ using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -197,8 +199,8 @@ public static class MasPatches
             if (p.Length < 3 || !int.TryParse(p[2], out int level)) return;
             string name = p[1];
             string line =
-                level >= MasDomain.ProvGm ? Lang.Get("almanactcm:mas-master-by", name)
-                : level >= MasDomain.ProvMaster ? Lang.Get("almanactcm:mas-dressed-by", name)
+                level >= Rank.Grandmaster ? Lang.Get("almanactcm:mas-master-by", name)
+                : level >= Rank.Master ? Lang.Get("almanactcm:mas-dressed-by", name)
                 : Lang.Get("almanactcm:mas-carved-by", name);
             dsc.AppendLine(line);
         }

@@ -269,15 +269,15 @@ public static class WooFallingTreePatches
     {
         double untrained = WooDomain.Knob(WooDomain.FellBiasUntrained, 35);
         double gm = WooDomain.Knob(WooDomain.FellBiasGm, -22);
-        int masterEntry = 3 * Leveling.Domain.SubLevelsPerTier + 1; // Master I — the zero crossing
+        // was: int Leveling.Rank.Master = 3 * Leveling.Domain.SubLevelsPerTier + 1;  (2026-08-12 -> Rank.Master)
         int max = Leveling.Domain.MaxLevelDefault;
 
         if (level <= 0) return untrained;
         if (level >= max) return gm;
         // Untrained → Master I: toward the feller, decaying to zero.
-        if (level <= masterEntry) return untrained * (1.0 - level / (double)masterEntry);
+        if (level <= Leveling.Rank.Master) return untrained * (1.0 - level / (double)Leveling.Rank.Master);
         // Master I → GM: rotate away from the feller.
-        return gm * ((level - masterEntry) / (double)(max - masterEntry));
+        return gm * ((level - Leveling.Rank.Master) / (double)(max - Leveling.Rank.Master));
     }
 
     private static double Lerp(double a, double b, double t) => a + (b - a) * t;

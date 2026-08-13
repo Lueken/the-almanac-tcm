@@ -132,8 +132,11 @@ public class CallingsTab : IAlmanacBookTab
             }
             else
             {
-                int filledPips = atCeiling ? Domain.TierCount : Domain.TierOf(level);
-                int currentPip = atCeiling ? -1 : Domain.TierOf(level);
+                // level 0 guard, matching the detail page at :221-222. TierOf(0) is -1 by design
+                // (Untrained sits outside the named tiers), so an unguarded read gave the
+                // overview card -1 pips for an untrained domain. Added 2026-08-12.
+                int filledPips = atCeiling ? Domain.TierCount : (level > 0 ? Domain.TierOf(level) : 0);
+                int currentPip = atCeiling ? -1 : (level > 0 ? Domain.TierOf(level) : 0);
 
                 comps.Add(new RichTextComponent(capi, Domain.RankName(level) + "  ", rank));
                 comps.Add(new InkPipsComponent(capi, Domain.TierCount, filledPips, currentPip, barred));
@@ -255,7 +258,7 @@ public class CallingsTab : IAlmanacBookTab
         {
             comps.Add(new ClearFloatTextComponent(capi, 14));
             comps.Add(new RichTextComponent(capi, "Your emphasis\n", subhead));
-            if (level >= Domains.AlcDomain.ProvGm)
+            if (level >= Rank.Grandmaster)
             {
                 bool potent = Domains.AlcEmphasis.IsPotent(capi.World.Player);
                 comps.Add(new EmphasisStampComponent(capi, "Potent", potent, body,
@@ -281,7 +284,7 @@ public class CallingsTab : IAlmanacBookTab
         {
             comps.Add(new ClearFloatTextComponent(capi, 14));
             comps.Add(new RichTextComponent(capi, "Your emphasis\n", subhead));
-            if (level >= Domains.TaiDomain.ProvGm)
+            if (level >= Rank.Grandmaster)
             {
                 int emph = Domains.TaiEmphasis.EmphasisOf(capi.World.Player);
                 void Stamp(string label, int val)

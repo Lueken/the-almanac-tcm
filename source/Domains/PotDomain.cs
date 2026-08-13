@@ -2,6 +2,8 @@ using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -50,7 +52,8 @@ public static class PotDomain
 
     /// <summary>Provenance tiers (a mark means something from Journeyman up): the shared POT
     /// potterBy tag. Thrown by (J) -> Master-potted by (M) -> Masterwork (GM).</summary>
-    public const int ProvJourneyman = 9, ProvMaster = 13, ProvGm = 17;
+    // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): this was one of ten identical
+    // `Rank.Journeyman = 9, Rank.Master = 13, Rank.Grandmaster = 17` triplets. Use Rank.Journeyman etc.
 
     public static DomainConfig Defaults() => new()
     {

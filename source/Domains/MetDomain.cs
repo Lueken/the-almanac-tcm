@@ -120,10 +120,10 @@ public static class MetDomain
     public static double FuelEconomy(int level, double untrained, double apprentice, double gm)
     {
         if (level <= 0) return untrained;
-        int apprenticeEntry = Leveling.Domain.SubLevelsPerTier + 1;
-        if (level < apprenticeEntry) return 0.0;
+        // was: int Leveling.Rank.Apprentice = Leveling.Domain.SubLevelsPerTier + 1;  (2026-08-12 -> Rank.Apprentice)
+        if (level < Leveling.Rank.Apprentice) return 0.0;
         int max = Leveling.Domain.MaxLevelDefault;
-        double t = (level - apprenticeEntry) / (double)(max - apprenticeEntry);
+        double t = (level - Leveling.Rank.Apprentice) / (double)(max - Leveling.Rank.Apprentice);
         return apprentice + t * (gm - apprentice);
     }
 }

@@ -153,6 +153,59 @@
       "comment": "almanactcm:cfg-toast-technique-c",
       "default": false,
       "weight": 0.89
+    },
+    {
+      "type": "separator",
+      "title": "almanactcm:cfg-sep-banners",
+      "weight": 0.9
+    },
+    {
+      "code": "discoveryBanners",
+      "type": "boolean",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-discovery-banners",
+      "comment": "almanactcm:cfg-discovery-banners-c",
+      "default": true,
+      "weight": 0.91
+    },
+    {
+      "code": "bannerOpacity",
+      "type": "float",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-banner-opacity",
+      "comment": "almanactcm:cfg-banner-opacity-c",
+      "default": 0.8,
+      "range": { "min": 0.0, "max": 1.0, "step": 0.05 },
+      "weight": 0.92
+    },
+    {
+      "code": "bannerFontSize",
+      "type": "float",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-banner-fontsize",
+      "comment": "almanactcm:cfg-banner-fontsize-c",
+      "default": 26.0,
+      "range": { "min": 16.0, "max": 40.0, "step": 1.0 },
+      "weight": 0.93
+    },
+    {
+      "code": "bannerHold",
+      "type": "float",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-banner-hold",
+      "comment": "almanactcm:cfg-banner-hold-c",
+      "default": 4.0,
+      "range": { "min": 2.0, "max": 8.0, "step": 0.5 },
+      "weight": 0.94
+    },
+    {
+      "code": "questToasts",
+      "type": "boolean",
+      "clientSide": true,
+      "ingui": "almanactcm:cfg-quest-toasts",
+      "comment": "almanactcm:cfg-quest-toasts-c",
+      "default": true,
+      "weight": 0.95
     }
   ]
 }

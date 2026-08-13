@@ -1,0 +1,67 @@
+{
+  "triggers": [
+    {
+      "key": "almanactcm:is-first-roast",
+      "requires": ["industrialstory"],
+      "onBlockPlaced": ["industrialstory:roastingheap*"],
+      "onBlockUsed": ["industrialstory:roastingheap*"],
+      "toast": "almanactcm:knowledge-is-roast"
+    },
+    {
+      "key": "almanactcm:is-first-pitfurnace",
+      "requires": ["industrialstory"],
+      "onBlockPlaced": ["industrialstory:pitfurnace*"],
+      "onBlockUsed": ["industrialstory:pitfurnace*"],
+      "toast": "almanactcm:knowledge-is-pitfurnace"
+    },
+    {
+      "key": "almanactcm:is-first-stackkiln",
+      "requires": ["industrialstory"],
+      "onBlockPlaced": ["industrialstory:stackkiln*"],
+      "onBlockUsed": ["industrialstory:stackkiln*"],
+      "toast": "almanactcm:knowledge-is-stackkiln"
+    },
+    {
+      "key": "almanactcm:is-first-smelter",
+      "requires": ["industrialstory"],
+      "onBlockPlaced": ["industrialstory:smallsmelter*", "industrialstory:brickfurnacebase*"],
+      "onBlockUsed": ["industrialstory:smallsmelter*", "industrialstory:brickfurnacebase*"],
+      "toast": "almanactcm:knowledge-is-smelter"
+    },
+    {
+      "key": "almanactcm:is-first-retort",
+      "requires": ["industrialstory"],
+      "onBlockPlaced": ["industrialstory:retortchamber*"],
+      "onBlockUsed": ["industrialstory:retortchamber*"],
+      "toast": "almanactcm:knowledge-is-retort"
+    },
+    {
+      "key": "almanactcm:is-first-sandcast",
+      "requires": ["industrialstory"],
+      "onBlockPlaced": ["industrialstory:castingsand*", "industrialstory:dynamiccastingsand*"],
+      "onBlockUsed": ["industrialstory:castingsand*", "industrialstory:dynamiccastingsand*"],
+      "toast": "almanactcm:knowledge-is-sandcast"
+    },
+    {
+      "key": "almanactcm:is-first-blastfurnace",
+      "requires": ["industrialstory"],
+      "onBlockPlaced": ["industrialstory:blastfurnace*", "industrialstory:blastfurnacetuyere*"],
+      "onBlockUsed": ["industrialstory:blastfurnace*", "industrialstory:blastfurnacetuyere*"],
+      "toast": "almanactcm:knowledge-is-blastfurnace"
+    },
+    {
+      "key": "almanactcm:is-first-reverb",
+      "requires": ["industrialstory"],
+      "onBlockPlaced": ["industrialstory:reverbhatch*"],
+      "onBlockUsed": ["industrialstory:reverbhatch*"],
+      "toast": "almanactcm:knowledge-is-reverb"
+    },
+    {
+      "key": "almanactcm:is-first-windfurnace",
+      "requires": ["industrialstory"],
+      "onBlockPlaced": ["industrialstory:windfurnacefirebox*"],
+      "onBlockUsed": ["industrialstory:windfurnacefirebox*"],
+      "toast": "almanactcm:knowledge-is-windfurnace"
+    }
+  ]
+}

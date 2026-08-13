@@ -1,4 +1,5 @@
 using System;
+using AlmanacTcm.Leveling;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -30,7 +31,9 @@ public static class ToolPartMarks
 {
     public const string ByAttr = "almanactcm:partby";
     public const string ByNameAttr = "almanactcm:partbyname";
-    public const string TierAttr = "almanactcm:parttier";
+    // TierAttr ("almanactcm:parttier") deleted 2026-08-12: written on every marked part, read
+    // nowhere in the repo. It was also one of only two true-tier stores, doubling the
+    // level-vs-tier naming hazard for no benefit.
     public const string VerbAttr = "almanactcm:partverb";   // hafted | bound | wrapped
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
@@ -122,12 +125,13 @@ public static class ToolPartMarks
         if (stack!.Attributes.HasAttribute(ByAttr)) return;
 
         int level = verb == "hafted" ? WooDomain.LevelOf(player) : TaiDomain.LevelOf(player);
-        int tier = Leveling.Domain.TierOf(level);
-        if (tier < 2) return;   // Journeyman+ only: lesser work carries no mark
+        if (level < Rank.Journeyman) return;   // Journeyman+ only: lesser work carries no mark
 
         stack.Attributes.SetString(ByAttr, player.PlayerUID);
         stack.Attributes.SetString(ByNameAttr, player.PlayerName);
-        stack.Attributes.SetInt(TierAttr, tier);
+        // TierAttr write deleted 2026-08-12: almanactcm:parttier was written on every marked
+        // part and read by nothing. The lineage read below goes through MetPatches.MarkLevel,
+        // which reads a different key entirely. Dead persisted data; not migrated, just stopped.
         stack.Attributes.SetString(VerbAttr, verb);
     }
 
@@ -166,11 +170,10 @@ public static class ToolPartMarks
             string? smith = head?.Attributes?.GetString(MetPatches.MakerNameAttr);
             if (!string.IsNullOrEmpty(smith))
             {
-                int tier = head!.Attributes.GetInt(MetPatches.MakerTierAttr, -1);
-                string key = tier >= 4 ? "almanactcm:met-masterwork-by"
-                    : tier == 3 ? "almanactcm:master-forged-by"
-                    : "almanactcm:smithed-by";
-                dsc.AppendLine(Lang.Get(key, smith));
+                // One mapping and one read, both in MetPatches. This was a duplicate of
+                // MakerKey with bare literals (2026-08-12); the two could drift independently,
+                // and this is the mod's only cross-domain read of another domain's mark.
+                dsc.AppendLine(Lang.Get(MetPatches.MakerKey(MetPatches.MarkLevel(head)), smith));
             }
         }
 

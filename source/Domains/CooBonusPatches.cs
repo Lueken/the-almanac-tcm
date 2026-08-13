@@ -7,6 +7,8 @@ using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -70,7 +72,8 @@ public static class CooBonusPatches
     }
 
     /// <summary>Provenance thresholds (ruled: a mark means something from Journeyman up).</summary>
-    private const int TierJourneyman = 9, TierMaster = 13, TierGm = 17;
+    // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): was COO's private
+    // `Rank.Journeyman/Rank.Master/Rank.Grandmaster` variant of the same 9/13/17 triplet.
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
@@ -301,12 +304,13 @@ public static class CooBonusPatches
     {
         public static void Postfix(ItemSlot inSlot, EnumTransitionType transType, ref float __result)
         {
+            if (Engine.Attribution.Suppressed) return; // the freshness-line probe is measuring vanilla
             if (transType != EnumTransitionType.Perish) return;
             var attrs = inSlot?.Itemstack?.Attributes;
             if (attrs?.HasAttribute(CookTierAttr) != true) return;
             int tier = attrs.GetInt(CookTierAttr);
             if (tier <= 0) __result *= (float)CooDomain.Knob(CooDomain.SpoilUntrained, 1.15);
-            else if (tier >= TierGm) __result *= (float)CooDomain.Knob(CooDomain.SpoilGm, 0.70);
+            else if (tier >= Rank.Grandmaster) __result *= (float)CooDomain.Knob(CooDomain.SpoilGm, 0.70);
         }
     }
 
@@ -423,27 +427,43 @@ public static class CooBonusPatches
             var attrs = __instance?.Attributes;
             string? name = attrs?.GetString(CookByNameAttr);
             if (name == null || __result == null) return;
-            int tier = attrs!.GetInt(CookTierAttr);
+            // CookTierAttr is LEVEL-valued (StampCooked writes CooDomain.LevelOf); the key name
+            // predates the level/tier cleanup and is kept for save compatibility.
+            int level = attrs!.GetInt(CookTierAttr);
             string? line =
-                tier >= TierGm ? Lang.Get("almanactcm:signature-by", name)
-                : tier >= TierMaster ? Lang.Get("almanactcm:prepared-by", name)
-                : tier >= TierJourneyman ? Lang.Get("almanactcm:cooked-by", name)
+                level >= Rank.Grandmaster ? Lang.Get("almanactcm:signature-by", name)
+                : level >= Rank.Master ? Lang.Get("almanactcm:prepared-by", name)
+                : level >= Rank.Journeyman ? Lang.Get("almanactcm:cooked-by", name)
+                // The Untrained penalty names ITSELF (RULED 2026-08-12). It is the only band
+                // below Journeyman that gets a line, because it is the only one that changes the
+                // rules: PerishPatch multiplies the perish rate at exactly this level. A penalty
+                // the player cannot see is hidden state, and hidden state that changes the rules
+                // has to publish its reason. Guarded on the knob so a server that tunes the
+                // penalty away does not keep the accusation.
+                : level <= Rank.Untrained && CooDomain.Knob(CooDomain.SpoilUntrained, 1.15) > 1.0
+                    ? $"<font color=\"{Engine.TcmTooltip.PenaltyColor}\">"
+                      + Lang.Get("almanactcm:careless-cooking") + "</font>"
                 : null;
 
-            // The numbers ruling: the spoilage rates have no stat line, so the mark's own
-            // lines carry them. A GM's food keeps; careless cooking is a visible penalty.
-            if (tier >= TierGm)
-            {
-                int pct = (int)Math.Round((1.0 - CooDomain.Knob(CooDomain.SpoilGm, 0.70)) * 100.0);
-                if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-spoils-slower", pct));
-            }
-            else if (tier <= 0)
-            {
-                int pct = (int)Math.Round((CooDomain.Knob(CooDomain.SpoilUntrained, 1.15) - 1.0) * 100.0);
-                if (pct > 0)
-                    line = $"<font color=\"{Engine.TcmTooltip.PenaltyColor}\">"
-                         + Lang.Get("almanactcm:tip-spoils-faster", pct) + "</font>";
-            }
+            // SUPERSEDED 2026-08-12: the spoilage number is no longer stated here.
+            //
+            // Both this domain and FAR postfix the same CollectibleObject.GetTransitionRateMul, so
+            // their factors COMPOSE. A per-domain clause here stated one factor as if it were the
+            // whole effect: two GM marks printed "spoils 30% slower" twice for a real ~51%, and an
+            // Untrained cook on a GM grower's produce printed "15% faster" AND "30% slower" for a
+            // real ~19.5% slower. The old clauses were: tip-spoils-slower at GM, tip-spoils-faster
+            // at Untrained (which also REPLACED this line, since the mark itself is Journeyman-up
+            // by ruling).
+            //
+            // Vanilla's own freshness line already carries the composed truth, because
+            // AppendPerishableInfoText divides FreshHoursLeft by the fully composed rate.
+            // Engine.PerishAttributionPatch now annotates that line with TCM's true delta, red or
+            // green automatically. The effect is stated once, on the line where it cannot lie.
+            //
+            // The split that replaces it: this line carries the REASON ("Carelessly cooked"),
+            // vanilla's freshness line carries the composed MAGNITUDE ("Fresh for 8.7 days
+            // (-1.1)" in red). Neither repeats the other, and only the composed one states a
+            // number, so nothing here can contradict what the item actually does.
 
             if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
         }

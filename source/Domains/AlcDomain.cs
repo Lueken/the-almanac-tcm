@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
+using AlmanacTcm.Leveling;
+
 namespace AlmanacTcm.Domains;
 
 /// <summary>
@@ -74,7 +76,8 @@ public static class AlcDomain
 
     /// <summary>Provenance tiers (a mark means something from Journeyman up): the ALC alcBy tag.
     /// Prepared by (J) -> Compounded by (M) -> a master-remedy line (GM). Level thresholds.</summary>
-    public const int ProvJourneyman = 9, ProvMaster = 13, ProvGm = 17;
+    // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): this was one of ten identical
+    // `Rank.Journeyman = 9, Rank.Master = 13, Rank.Grandmaster = 17` triplets. Use Rank.Journeyman etc.
 
     public static DomainConfig Defaults() => new()
     {
@@ -126,7 +129,7 @@ public static class AlcDomain
     public static double PotencyMul(int level, bool potent)
     {
         double f = RemedyFactor(level, Knob(PotencyUntrained, 0.85), Knob(PotencyGm, 1.15));
-        if (potent && level >= ProvGm) f *= 1.0 + Knob(EmphasisBonus, 0.10);
+        if (potent && level >= Rank.Grandmaster) f *= 1.0 + Knob(EmphasisBonus, 0.10);
         return f;
     }
 
@@ -135,7 +138,7 @@ public static class AlcDomain
     public static double DurationMul(int level, bool potent)
     {
         double f = RemedyFactor(level, Knob(DurationUntrained, 0.85), Knob(DurationGm, 1.15));
-        if (!potent && level >= ProvGm) f *= 1.0 + Knob(EmphasisBonus, 0.10);
+        if (!potent && level >= Rank.Grandmaster) f *= 1.0 + Knob(EmphasisBonus, 0.10);
         return f;
     }
 
@@ -222,7 +225,7 @@ public static class AlcBrand
         stack.Attributes.SetInt(LevelAttr, level);
         stack.Attributes.SetInt(PotentAttr, potent ? 1 : 0);
         // The named provenance only from Journeyman up (below that the climb is silent).
-        if (level >= AlcDomain.ProvJourneyman)
+        if (level >= Rank.Journeyman)
         {
             stack.Attributes.SetString(ByAttr, uid);
             stack.Attributes.SetString(ByNameAttr, name);

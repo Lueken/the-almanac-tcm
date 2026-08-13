@@ -1,5 +1,6 @@
 // Derived from XLib/XLeveling by Xandu (MIT) — see THIRD-PARTY-LICENSES/XLIB-LICENSE.txt.
 // Source: github.com/Xandu93/VSMods via github.com/DeadSigma/xskills-fork_xlib-fork.
+using System.Collections.Generic;
 using System.ComponentModel;
 using ProtoBuf;
 
@@ -119,7 +120,11 @@ public class PracticeGainPacket
     }
 }
 
-/// <summary>Server→client knowledge/discovery sync.</summary>
+/// <summary>Server→client knowledge/discovery sync. A LIVE packet (sent the moment a key
+/// is earned) may carry a toast lang key; the client resolves it in the player's own
+/// locale and raises the discovery banner. The join-time replay travels as
+/// <see cref="KnowledgeBatchPacket"/> instead, which never toasts — a returning player's
+/// whole store replayed as banners would be noise, not ceremony.</summary>
 [ProtoContract]
 public class KnowledgePacket
 {
@@ -131,11 +136,63 @@ public class KnowledgePacket
     [DefaultValue(0)]
     public int level;
 
+    /// <summary>Lang key naming this discovery for the banner ("The Stack Kiln").
+    /// Null = silent earn (the auto-minted first-practice stream stays quiet).</summary>
+    [ProtoMember(3)]
+    [DefaultValue(null)]
+    public string? toast;
+
     public KnowledgePacket() { }
 
-    public KnowledgePacket(string name, int level)
+    public KnowledgePacket(string name, int level, string? toast = null)
     {
         this.name = name;
         this.level = level;
+        this.toast = toast;
+    }
+}
+
+/// <summary>The join-time knowledge replay, whole store in one packet (was one
+/// KnowledgePacket per key — chatty as the vocabulary grows, and every entry risked
+/// reading as a live earn). Applied silently on the client, never toasted.</summary>
+[ProtoContract]
+public class KnowledgeBatchPacket
+{
+    [ProtoMember(1)]
+    public Dictionary<string, int>? entries;
+
+    public KnowledgeBatchPacket() { }
+
+    public KnowledgeBatchPacket(Dictionary<string, int> entries)
+    {
+        this.entries = new Dictionary<string, int>(entries);
+    }
+}
+
+/// <summary>The rank-up ceremony: server→client, display sensation only (the STATE
+/// travelled in PlayerDomainPacket at grant time; delaying this packet delays nothing
+/// but the banner). Strings are pre-composed server-side exactly like the morning chat
+/// line, so the client needs no tier math. Sent immediately for a 3am rank-up caught
+/// in play; held for a login-consolidation rank-up until login protection clears
+/// (RULED 2026-08-08: the banner fires when the player is fully in-game and aware).</summary>
+[ProtoContract]
+public class RankUpPacket
+{
+    /// <summary>The attained rank, e.g. "Journeyman II".</summary>
+    [ProtoMember(1)]
+    [DefaultValue(null)]
+    public string? rank;
+
+    /// <summary>The domain's display name, e.g. "Farming & Husbandry".</summary>
+    [ProtoMember(2)]
+    [DefaultValue(null)]
+    public string? domainName;
+
+    public RankUpPacket() { }
+
+    public RankUpPacket(string rank, string domainName)
+    {
+        this.rank = rank;
+        this.domainName = domainName;
     }
 }

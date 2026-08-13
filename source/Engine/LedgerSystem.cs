@@ -458,7 +458,7 @@ public class LedgerSystem
         PlayerDomain? playerDomain = leveling.GetDomainSet(player)?[domain.Id];
         if (playerDomain == null) return 0;
 
-        bool depthPhase = playerDomain.Level >= JourneymanEntry;
+        bool depthPhase = playerDomain.Level >= Rank.Journeyman;
         string? dominant = depthPhase
             ? LedgerFor(player).DominantTechnique(domain.Code, CurrentBoundary(), config.DominantWindowDays)
             : null;
@@ -586,14 +586,16 @@ public class LedgerSystem
 
     private void OnPlayerNowPlaying(IServerPlayer byPlayer)
     {
-        // Offline boundaries collapse into exactly ONE consolidation at login.
-        TryConsolidate(byPlayer);
+        // Offline boundaries collapse into exactly ONE consolidation at login. atLogin
+        // marks any rank-up from it as a delayed ceremony: the banner holds until login
+        // protection releases the player (RULED 2026-08-08).
+        TryConsolidate(byPlayer, atLogin: true);
     }
 
     /// <summary>Boundary-keyed and idempotent: no-ops unless the calendar-derived
     /// index advanced past the ledger's. Login/logout/death never trigger this,
     /// so splitting a day across sessions can never beat the concave curve.</summary>
-    public void TryConsolidate(IPlayer player)
+    public void TryConsolidate(IPlayer player, bool atLogin = false)
     {
         PracticeLedger ledger = LedgerFor(player);
         long current = CurrentBoundary();
@@ -602,10 +604,10 @@ public class LedgerSystem
         PlayerDomainSet? domainSet = leveling.GetDomainSet(player);
         if (domainSet == null) return;
 
-        Consolidate(player, domainSet, ledger, current);
+        Consolidate(player, domainSet, ledger, current, atLogin);
     }
 
-    private void Consolidate(IPlayer player, PlayerDomainSet domainSet, PracticeLedger ledger, long boundary)
+    private void Consolidate(IPlayer player, PlayerDomainSet domainSet, PracticeLedger ledger, long boundary, bool atLogin)
     {
         // Pass 1 — each domain's own banked value (phase rules) + per-technique
         // banked for co-grant fan-out and dominant-technique history.
@@ -621,7 +623,7 @@ public class LedgerSystem
             PlayerDomain? playerDomain = domainSet[domain.Id];
             if (playerDomain == null) continue;
 
-            bool depthPhase = playerDomain.Level >= JourneymanEntry;
+            bool depthPhase = playerDomain.Level >= Rank.Journeyman;
             string? dominant = depthPhase
                 ? ledger.DominantTechnique(domain.Code, boundary, config.DominantWindowDays)
                 : null;
@@ -675,7 +677,7 @@ public class LedgerSystem
             if (adjacentSum <= 0) continue;
 
             double fade = SaturationMath.SpilloverFade(
-                playerDomain.Level, JourneymanEntry, Domain.SubLevelsPerTier);
+                playerDomain.Level, Rank.Journeyman, Domain.SubLevelsPerTier);
             if (fade <= 0) continue;
 
             double spill = Math.Min(
@@ -707,6 +709,7 @@ public class LedgerSystem
             if (playerDomain.Level > levelBefore)
             {
                 SendMorningLine(player as IServerPlayer, playerDomain);
+                QueueRankUpCeremony(player, playerDomain, delayed: atLogin);
             }
         }
 
@@ -772,7 +775,7 @@ public class LedgerSystem
             PlayerDomain? playerDomain = domainSet[domain.Id];
             if (playerDomain == null) continue;
 
-            bool depthPhase = playerDomain.Level >= JourneymanEntry;
+            bool depthPhase = playerDomain.Level >= Rank.Journeyman;
             string? dominant = depthPhase
                 ? ledger.DominantTechnique(domain.Code, boundary, config.DominantWindowDays)
                 : null;
@@ -818,7 +821,7 @@ public class LedgerSystem
             if (adjacentSum <= 0) continue;
 
             double fade = SaturationMath.SpilloverFade(
-                playerDomain.Level, JourneymanEntry, Domain.SubLevelsPerTier);
+                playerDomain.Level, Rank.Journeyman, Domain.SubLevelsPerTier);
             if (fade <= 0) continue;
 
             double spill = Math.Min(
@@ -858,18 +861,30 @@ public class LedgerSystem
         return Math.Clamp(banked, 0, Math.Max(capacity, 0));
     }
 
-    private static readonly string[] TierNames = { "Novice", "Apprentice", "Journeyman", "Master", "Grandmaster" };
-    private static readonly string[] Roman = { "", "I", "II", "III", "IV" };
+    // Was a private re-implementation of Domain.RankName with its own TierNames/Roman arrays.
+    // It appended the sub-level numeral unconditionally, so level 17 printed "Grandmaster I":
+    // SubLevelOf(17) = (17-1) % 4 + 1 = 1. Correct under the ORIGINAL 20-level ladder, where
+    // Grandmaster ran I-IV. Wrong since the 2026-07-15 ruling made Grandmaster terminal and
+    // unnumbered (see Leveling/Domain.cs:18-19), which this copy was never updated for.
+    // Deleted 2026-08-12: one rank-naming function, in Domain, where the ruling lives.
 
     private void SendMorningLine(IServerPlayer? player, PlayerDomain playerDomain)
     {
         if (player == null) return;
-        int tier = Domain.TierOf(playerDomain.Level);
-        if (tier < 0) return;
-        string rank = $"{TierNames[tier]} {Roman[Domain.SubLevelOf(playerDomain.Level)]}";
+        string rank = Domain.RankName(playerDomain.Level);
+        if (rank.Length == 0) return;
         player.SendMessage(GlobalConstants.GeneralChatGroup,
             Lang.GetL(player.LanguageCode, "almanactcm:morning-rankup", rank, playerDomain.Domain.DisplayName),
             EnumChatType.Notification);
+    }
+
+    /// <summary>The banner half of the rank-up (the chat line above is the log; the banner
+    /// is the moment). Delayed ceremonies wait out login protection in LevelingServer.</summary>
+    private void QueueRankUpCeremony(IPlayer player, PlayerDomain playerDomain, bool delayed)
+    {
+        string rank = Domain.RankName(playerDomain.Level);
+        if (rank.Length == 0) return;
+        leveling.QueueRankUpCeremony(player, rank, playerDomain.Domain.DisplayName, delayed);
     }
 
     // -------------------------------------------------------------------- death
@@ -950,5 +965,5 @@ public class LedgerSystem
         }
     }
 
-    private static int JourneymanEntry => 2 * Domain.SubLevelsPerTier + 1;
+    // JourneymanEntry deleted 2026-08-12 (was 2 * Domain.SubLevelsPerTier + 1); use Rank.Journeyman.
 }

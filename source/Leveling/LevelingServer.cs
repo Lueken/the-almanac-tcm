@@ -70,13 +70,18 @@ public class LevelingServer
         channel = sapi.Network.RegisterChannel("almanactcm");
         channel.RegisterMessageType(typeof(PlayerDomainPacket));
         channel.RegisterMessageType(typeof(KnowledgePacket));
+        channel.RegisterMessageType(typeof(KnowledgeBatchPacket));
         channel.RegisterMessageType(typeof(AffinityPacket));
         channel.RegisterMessageType(typeof(ClientConfigPacket));
         channel.RegisterMessageType(typeof(PracticeGainPacket));
+        channel.RegisterMessageType(typeof(RankUpPacket));
 
         sapi.Event.PlayerNowPlaying += OnPlayerNowPlaying;
         sapi.Event.PlayerDisconnect += OnPlayerDisconnect;
         sapi.Event.GameWorldSave += SaveData;
+
+        // Held rank-up ceremonies flush on a slow poll; a no-op when nothing is pending.
+        sapi.Event.RegisterGameTickListener(FlushPendingCeremonies, 1000);
     }
 
     private int LoadFromFile(string fileName)
@@ -185,9 +190,11 @@ public class LevelingServer
         {
             channel.SendPacket(new PlayerDomainPacket(playerDomain), byPlayer);
         }
-        foreach (string key in domainSet.Knowledge.Keys)
+        // The whole store in one silent batch — never per-key packets at join (per-key is
+        // the LIVE path and now carries toast ceremony; a replay must not re-celebrate).
+        if (domainSet.Knowledge.Count > 0)
         {
-            channel.SendPacket(new KnowledgePacket(key, domainSet.Knowledge[key]), byPlayer);
+            channel.SendPacket(new KnowledgeBatchPacket(domainSet.Knowledge), byPlayer);
         }
     }
 
@@ -273,11 +280,107 @@ public class LevelingServer
             $"{player.PlayerName} discovered domain {playerDomain.Domain.Code}");
     }
 
-    public void SetKnowledge(IPlayer player, string name, int level)
+    /// <summary>Write one knowledge key and sync it live. No-ops when the stored value
+    /// already equals <paramref name="level"/> — no packet, no toast, so callers need no
+    /// ContainsKey dance to stay idempotent. <paramref name="toastLangKey"/> names the
+    /// discovery for the client banner; null keeps the earn silent (the auto-mint stream).</summary>
+    public void SetKnowledge(IPlayer player, string name, int level, string? toastLangKey = null)
     {
         PlayerDomainSet? domainSet = GetDomainSet(player);
         if (domainSet == null) return;
+        if (domainSet.Knowledge.TryGetValue(name, out int existing) && existing == level) return;
         domainSet.Knowledge[name] = level;
-        channel.SendPacket(new KnowledgePacket(name, level), player as IServerPlayer);
+        channel.SendPacket(new KnowledgePacket(name, level, toastLangKey), player as IServerPlayer);
+    }
+
+    // ------------------------------------------------------- rank-up ceremonies
+
+    /// <summary>Ceremonies held for players still inside login protection. The STATE
+    /// already synced at grant; only the banner waits (RULED 2026-08-08).</summary>
+    private readonly Dictionary<string, List<RankUpPacket>> pendingCeremonies = new();
+
+    /// <summary>Elapsed-ms each player's ceremonies were queued; enforces the grace floor.</summary>
+    private readonly Dictionary<string, long> ceremonyQueuedMs = new();
+
+    /// <summary>Minimum hold on a delayed ceremony even once protection reads clear —
+    /// the fallback "fully in-game" proxy when loginprotection is not installed.</summary>
+    private const long CeremonyGraceMs = 5000;
+
+    /// <summary>Queue (or immediately send) the rank-up banner. <paramref name="delayed"/>
+    /// marks a login-consolidation rank-up: hold it until login protection has released
+    /// the player, which is the signal they are fully in-game and aware. A 3am rank-up
+    /// caught in play sends at once.</summary>
+    public void QueueRankUpCeremony(IPlayer player, string rank, string domainName, bool delayed)
+    {
+        if (player is not IServerPlayer serverPlayer) return;
+        var packet = new RankUpPacket(rank, domainName);
+        if (!delayed)
+        {
+            channel.SendPacket(packet, serverPlayer);
+            return;
+        }
+        if (!pendingCeremonies.TryGetValue(player.PlayerUID, out var list))
+        {
+            list = new List<RankUpPacket>();
+            pendingCeremonies[player.PlayerUID] = list;
+            ceremonyQueuedMs[player.PlayerUID] = sapi.World.ElapsedMilliseconds;
+        }
+        list.Add(packet);
+    }
+
+    private void FlushPendingCeremonies(float dt)
+    {
+        if (pendingCeremonies.Count == 0) return;
+        long now = sapi.World.ElapsedMilliseconds;
+
+        List<string>? done = null;
+        foreach (var (uid, packets) in pendingCeremonies)
+        {
+            IServerPlayer? player = sapi.World.PlayerByUid(uid) as IServerPlayer;
+            if (player == null || player.ConnectionState == EnumClientState.Offline)
+            {
+                (done ??= new List<string>()).Add(uid);
+                continue;
+            }
+            if (now - ceremonyQueuedMs.GetValueOrDefault(uid) < CeremonyGraceMs) continue;
+            if (IsLoginProtected(player)) continue;
+
+            foreach (RankUpPacket packet in packets) channel.SendPacket(packet, player);
+            (done ??= new List<string>()).Add(uid);
+        }
+        if (done != null)
+        {
+            foreach (string uid in done) { pendingCeremonies.Remove(uid); ceremonyQueuedMs.Remove(uid); }
+        }
+    }
+
+    // LoginProtection (server-only mod, no compile-time ref) resolved once by reflection.
+    // Protection ends on >0.5 block movement, fire, lava, or its own timeout
+    // (LoginProtectionModSystem.StopProtectionIfPlayersHaveMoved, decompiled 1.4.1).
+    private bool loginProtResolved;
+    private ModSystem? loginProtSystem;
+    private System.Reflection.MethodInfo? loginProtIsProtected;
+
+    private bool IsLoginProtected(IServerPlayer player)
+    {
+        if (!loginProtResolved)
+        {
+            loginProtResolved = true;
+            if (sapi.ModLoader.IsModEnabled("loginprotection"))
+            {
+                foreach (ModSystem system in sapi.ModLoader.Systems)
+                {
+                    if (system.GetType().FullName != "LoginProtection.LoginProtectionModSystem") continue;
+                    loginProtSystem = system;
+                    loginProtIsProtected = system.GetType().GetMethod("IsPlayerProtected");
+                    break;
+                }
+                if (loginProtIsProtected == null)
+                    TcmLog.Warn(sapi, "loginprotection present but IsPlayerProtected not found; rank-up banners fall back to the grace timer alone");
+            }
+        }
+        if (loginProtSystem == null || loginProtIsProtected == null) return false;
+        try { return loginProtIsProtected.Invoke(loginProtSystem, new object[] { player }) is true; }
+        catch { return false; }
     }
 }
