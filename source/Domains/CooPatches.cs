@@ -78,7 +78,10 @@ public static class CooPatches
         if (api.ModLoader.IsModEnabled("aculinaryartillery"))
             HookPair(api, harmony, "ACulinaryArtillery.ItemExpandedRawFood", "DoSmelt",
                 nameof(SmeltPrefix), nameof(DirectHeatPostfix), "COO direct-heat (ACA)");
-        Hook(api, harmony, "Vintagestory.GameContent.BlockEntityQuern", "grindInput", nameof(QuernPostfix), "COO+FAR quern milling");
+        // Prefix as well as postfix since 0.4.38: the grind CONSUMES the input, so the grower's
+        // mark has to be captured before it is gone and re-applied to the flour after.
+        HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockEntityQuern", "grindInput",
+            nameof(QuernPrefix), nameof(QuernPostfix), "COO+FAR quern milling");
 
         // --- player-attributed verbs (1a, unchanged) ---------------------------------------
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFruitPress", "OnBlockInteractStop", nameof(JuicePostfix), "COO juicing");
@@ -173,12 +176,66 @@ public static class CooPatches
     // ------------------------------------------------------------ oven baking (credit at pickup)
 
     /// <summary>Snapshot the oven's slots before the interact so the postfix can see what left.</summary>
-    public static void OvenTakePrefix(BlockEntity __instance, out string?[] __state)
+    public static void OvenTakePrefix(BlockEntity __instance, IPlayer byPlayer, out string?[] __state)
     {
         var inv = (__instance as BlockEntityContainer)?.Inventory;
         __state = new string?[inv?.Count ?? 0];
         for (int i = 0; i < __state.Length; i++)
             __state[i] = inv![i]?.Itemstack?.Collectible?.Code?.Path;
+
+        // Stamp the finished loaves HERE, before the interaction can carry one off. The postfix
+        // fires after the take, by which point the bread is in the player's hands and finding it
+        // again means scanning inventories. In the prefix it is still sitting in a known slot.
+        //
+        // This also closes COO's documented v1 gap ("oven goods carry no stamp yet"): bread has
+        // real nutritionProps, so it is FOOD, so the baker owns it and the grower's mark is
+        // displaced (RULED 2026-08-13, docs/design/food-provenance-chain.md).
+        //
+        // The baker, not the taker. XP is credited at pickup by an earlier ruling, but the MARK
+        // is provenance: it belongs to whoever loaded and fired the oven, which is exactly what
+        // the lastCook map records and what the fuel economy and char clock already read.
+        if (__instance?.Api?.Side != EnumAppSide.Server || inv == null || byPlayer == null) return;
+
+        // THE OVEN HAD NO COOK STAMP AT ALL until 0.4.38, and nothing said so. lastCook was
+        // written only by the firepit interact and the seafarer griddle load, on the reasoning
+        // (line 65-71) that oven XP credits the picker, who is already in scope. True for XP, but
+        // it left CookAt returning null for every oven, which silently disabled TWO things:
+        // this stamp, and COO's char clock, which patches BlockEntityOven.IncrementallyBake and
+        // looks the cook up exactly the same way. The Axis 3 browning lever has never fired.
+        //
+        // Read BEFORE writing, deliberately. The stamp on a finished loaf belongs to whoever
+        // loaded and fired the oven, which is the PREVIOUS interact, not this one. So a loaf baked
+        // by A and collected by B still reads as A's work, while B becomes the cook of record for
+        // whatever is loaded next. XP keeps crediting the taker under the 2026-07-21 ruling; a
+        // mark is provenance, which is a different question.
+        IPlayer? baker = CookAt(__instance.Api.World, __instance.Pos) ?? byPlayer;
+
+        string key = PosKey(__instance.Pos);
+        bool changed = !lastCook.TryGetValue(key, out string? prev) || prev != byPlayer.PlayerUID;
+        lastCook[key] = byPlayer.PlayerUID;
+        if (changed)
+            TcmLog.Cat(__instance.Api, "coo", $"oven cook stamp: {__instance.Pos} -> {byPlayer.PlayerName}");
+
+        int cx = (int)CooDomain.Knob(CooDomain.CxBaking, 1);
+        for (int i = 0; i < __state.Length && i < inv.Count; i++)
+        {
+            string? code = __state[i];
+            if (code == null) continue;
+            if (code.StartsWith("dough") || code.Contains("partbaked")) continue; // not finished work
+            if (code.Contains("charred")) continue;                               // ruined, unsigned
+
+            ItemStack? loaf = inv[i]?.Itemstack;
+            if (loaf == null) continue;
+            // FOOD ONLY, and it must be the guard rather than the code-path filter above. The
+            // oven's inventory includes its FUEL slot, so without this the firewood got stamped
+            // too, and since attributes are part of stack identity, attributed firewood stopped
+            // merging with plain firewood: you could load one log at a time instead of six.
+            // Regression found in play 2026-08-13, same day it shipped.
+            if (!Engine.FoodProvenance.IsDirectlyEdible(loaf.Collectible)) continue;
+            if (loaf.Attributes.HasAttribute(CooBonusPatches.CookTierAttr)) continue; // already signed
+            CooBonusPatches.StampCooked(loaf, baker, cx);
+            inv[i].MarkDirty();
+        }
     }
 
     /// <summary>RULED 2026-07-21: baking XP fires on PICKUP of the finished good, one credit per
@@ -205,6 +262,38 @@ public static class CooPatches
             Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechBaking,
                 HashCode.Combine("bake", __instance.Pos.X, __instance.Pos.Z, i, __instance.Api.World.ElapsedMilliseconds / 2000));
         }
+    }
+
+    /// <summary>Mark flour the quern ejected because its output slot could not take it. The
+    /// expected output collectible comes from the input's own grinding properties, so this only
+    /// ever looks at the exact item this grind produced.</summary>
+    private static void MarkSpilledGrind(BlockEntity be, ItemStack? source)
+    {
+        if (be?.Api == null || source?.Collectible == null) return;
+        var ground = source.Collectible.GrindingProps?.GroundStack?.ResolvedItemstack?.Collectible;
+        if (ground == null) return;
+
+        ICoreAPI api = be.Api;
+        int collId = ground.Id;
+        var centre = be.Pos.ToVec3d().Add(0.5, 0.5, 0.5);
+
+        api.Event.RegisterCallback(_ =>
+        {
+            int marked = 0;
+            foreach (var e in api.World.GetEntitiesAround(centre, 2f, 2f,
+                         ent => ent is EntityItem ei
+                                && ei.Itemstack?.Collectible?.Id == collId))
+            {
+                var stack = (e as EntityItem)?.Itemstack;
+                if (stack == null) continue;
+                // Carry is idempotent: it skips a stack that already holds the mark, so a second
+                // grind cannot re-stamp the same ejected pile.
+                Engine.FoodProvenance.Carry(new[] { source }, stack, api);
+                marked++;
+            }
+            if (marked > 0)
+                TcmLog.Cat(api, "far", $"quern spill at {be.Pos}: {marked} ejected stack(s) carried the grower's mark");
+        }, 100);
     }
 
     private static IPlayer? CookAt(IWorldAccessor world, BlockPos? pos)
@@ -319,9 +408,49 @@ public static class CooPatches
     /// <summary>One grind completion: credit every player currently cranking (the BE's own
     /// playersGrinding dict) HALF a share in COO milling and HALF in FAR milling (RULED
     /// 2026-07-08 COO Q3). The automated quern credits nobody.</summary>
-    public static void QuernPostfix(BlockEntity __instance)
+    /// <summary>Snapshot the grain before the grind eats it, AND lift any mark off the output slot
+    /// so vanilla's merge sees plain flour against plain flour.
+    ///
+    /// The order matters and is the whole point. Vanilla creates the flour and merges it into the
+    /// output slot inside grindInput, so marking the slot from a postfix alone guarantees the NEXT
+    /// merge fails on mismatched attributes and ejects that flour unmarked. That broke the ordinary
+    /// way a quern is used (a stack in, collected later) even when every grain came from one
+    /// farmer. Found in play 2026-08-13.
+    ///
+    /// Flour is an INGREDIENT (no nutritionProps of its own, verified 1.22.5), so milling carries
+    /// the grower's mark rather than handing it to the cook: the farmer keeps it to the oven door.
+    /// See docs/design/food-provenance-chain.md.</summary>
+    public static void QuernPrefix(BlockEntity __instance, out (ItemStack? input, Engine.FoodProvenance.PendingMerge merge) __state)
+    {
+        __state = (null, default);
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        if (inv == null) return;
+
+        // Quern inventory is [0] input, [1] output. Clone: the real stack is consumed below us.
+        ItemStack? input = inv.Count > 0 ? inv[0]?.Itemstack?.Clone() : null;
+        var merge = Engine.FoodProvenance.TakeForMerge(inv.Count > 1 ? inv[1]?.Itemstack : null);
+        __state = (input, merge);
+    }
+
+    public static void QuernPostfix(BlockEntity __instance, (ItemStack? input, Engine.FoodProvenance.PendingMerge merge) __state)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server) return;
+
+        {
+            var inv = (__instance as BlockEntityContainer)?.Inventory;
+            ItemStack? ground = inv != null && inv.Count > 1 ? inv[1]?.Itemstack : null;
+            Engine.FoodProvenance.RestoreAfterMerge(__state.merge, __state.input, ground, __instance.Api);
+
+            // THE SPILL PATH. With the output slot deliberately blocked (a scrap block in the
+            // slot so everything ejects into hoppers, which is how an automated mill is actually
+            // built) vanilla never puts the flour in the slot at all, so the restore above cannot
+            // reach it. Scan the ejected items instead. Same shape as MET's completion stamp,
+            // and the same accepted tradeoff: a tight radius and a short window, so unmarked
+            // flour a player happened to drop beside the quern in that instant could be caught.
+            MarkSpilledGrind(__instance, __state.input);
+        }
+
         if (Traverse.Create(__instance).Field("automated").GetValue<bool>()) return;
         if (Traverse.Create(__instance).Field("playersGrinding").GetValue() is not Dictionary<string, long> grinding
             || grinding.Count == 0) return;

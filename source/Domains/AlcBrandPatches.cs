@@ -206,24 +206,19 @@ public static class AlcBrandPatches
 
     // ------------------------------------------------------------ provenance tooltip
 
-    /// <summary>The Alchemist's Brand maker line (Journeyman up), bottom of the tooltip after a blank
-    /// line, like the other domain marks. Reads the alcBy tag written on branded remedies and potions.</summary>
-    [HarmonyPatch(typeof(ItemStack), nameof(ItemStack.GetDescription))]
-    [HarmonyPriority(HarmonyLib.Priority.Last)]
-    public static class ProvenancePatch
+    /// <summary>The Alchemist's Brand maker line (Journeyman up). Reads the alcBy tag written on
+    /// branded remedies and potions. Placement, order and spacing belong to
+    /// <see cref="Engine.ProvenanceLine"/>; this only decides what ALC has to say.</summary>
+    public static string? MarkLine(ItemStack stack)
     {
-        public static void Postfix(ItemStack __instance, ref string __result)
-        {
-            var attrs = __instance?.Attributes;
-            string? name = attrs?.GetString(AlcBrand.ByNameAttr);
-            if (string.IsNullOrEmpty(name) || __result == null) return;
-            int level = attrs!.GetInt(AlcBrand.LevelAttr);
-            string? line =
-                level >= Rank.Grandmaster ? Lang.Get("almanactcm:alc-master-by", name)
-                : level >= Rank.Master ? Lang.Get("almanactcm:alc-compounded-by", name)
-                : level >= Rank.Journeyman ? Lang.Get("almanactcm:alc-prepared-by", name)
-                : null;
-            if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
-        }
+        var attrs = stack?.Attributes;
+        string? name = attrs?.GetString(AlcBrand.ByNameAttr);
+        if (string.IsNullOrEmpty(name)) return null;
+        int level = attrs!.GetInt(AlcBrand.LevelAttr);
+        return
+            level >= Rank.Grandmaster ? Lang.Get("almanactcm:alc-master-by", name)
+            : level >= Rank.Master ? Lang.Get("almanactcm:alc-compounded-by", name)
+            : level >= Rank.Journeyman ? Lang.Get("almanactcm:alc-prepared-by", name)
+            : null;
     }
 }

@@ -85,7 +85,8 @@ public static class FarBonusPatches
             TcmLog.Info(api, "FAR Cultivator's Mark hooked (BlockCrop.GetDrops)");
         }
         else TcmLog.Warn(api, "FAR Cultivator's Mark seam not found (BlockCrop.GetDrops)");
-        // The perish signature and provenance tooltip are attribute patches below.
+        // The perish signature is an attribute patch below. The Cultivator's Mark LINE is not:
+        // it is contributed to Engine.ProvenanceLine (see MarkLine below).
     }
 
     // ------------------------------------------------------------ planting: carry the mark
@@ -180,6 +181,10 @@ public static class FarBonusPatches
             if (transType != EnumTransitionType.Perish) return;
             var attrs = inSlot?.Itemstack?.Attributes;
             if (attrs?.HasAttribute(GrownTierAttr) != true) return;
+            // Precedence, not a second rule: the cook DISPLACES the grower on edible food and the
+            // strip should already have removed this mark. Belt and braces, so a stamp path that
+            // ever misses the strip degrades to a hidden mark rather than a doubled effect.
+            if (attrs.HasAttribute(CooBonusPatches.CookTierAttr)) return;
             if (attrs.GetInt(GrownTierAttr) >= Rank.Grandmaster)
                 __result *= (float)FarDomain.Knob(FarDomain.SpoilGrownGm, 0.70); // a GM's produce keeps
         }
@@ -187,35 +192,35 @@ public static class FarBonusPatches
 
     // ------------------------------------------------------------ provenance tooltip
 
-    [HarmonyPatch(typeof(ItemStack), nameof(ItemStack.GetDescription))]
-    [HarmonyPriority(Priority.Last)]
-    public static class GrownProvenancePatch
+    /// <summary>The Cultivator's Mark line (Journeyman up). Placement, order and spacing belong
+    /// to <see cref="Engine.ProvenanceLine"/>; this only decides what FAR has to say.</summary>
+    public static string? MarkLine(ItemStack stack)
     {
-        public static void Postfix(ItemStack __instance, ref string __result)
-        {
-            var attrs = __instance?.Attributes;
-            string? name = attrs?.GetString(GrownByAttr);
-            if (string.IsNullOrEmpty(name) || __result == null) return;
-            int tier = attrs!.GetInt(GrownTierAttr);
-            int gen = attrs.GetInt(HeirloomGenAttr);
-            string? line =
-                tier >= Rank.Grandmaster ? Lang.Get("almanactcm:heirloom-of", name)
-                : tier >= Rank.Master ? Lang.Get("almanactcm:cultivated-by", name)
-                : tier >= Rank.Journeyman ? Lang.Get("almanactcm:grown-by", name)
-                : null;
-            if (line == null) return;
-            if (gen > 0) line += " " + Lang.Get("almanactcm:heirloom-tail", gen);
+        var attrs = stack?.Attributes;
+        string? name = attrs?.GetString(GrownByAttr);
+        if (string.IsNullOrEmpty(name)) return null;
+        // Same precedence as the perish patch: a cook's mark hides the grower's rather than
+        // printing both. See Engine.FoodProvenance.
+        if (attrs!.HasAttribute(CooBonusPatches.CookTierAttr)) return null;
+        int tier = attrs.GetInt(GrownTierAttr);
+        int gen = attrs.GetInt(HeirloomGenAttr);
+        string? line =
+            tier >= Rank.Grandmaster ? Lang.Get("almanactcm:heirloom-of", name)
+            : tier >= Rank.Master ? Lang.Get("almanactcm:cultivated-by", name)
+            : tier >= Rank.Journeyman ? Lang.Get("almanactcm:grown-by", name)
+            : null;
+        if (line == null) return null;
+        if (gen > 0) line += " " + Lang.Get("almanactcm:heirloom-tail", gen);
 
-            // SUPERSEDED 2026-08-12 (was: the numbers ruling of 2026-08-01, "the line says by how
-            // much"). FAR and COO both postfix the same CollectibleObject.GetTransitionRateMul, so
-            // their factors COMPOSE and a per-domain clause here stated one factor as the whole
-            // effect. Vanilla's freshness line already carries the composed truth, and
-            // Engine.PerishAttributionPatch annotates it with TCM's true delta.
-            //
-            // The 2026-08-01 ruling's intent is preserved: the spoil rate still has no stat line of
-            // its own, so the number rides vanilla's freshness line instead of this one.
+        // SUPERSEDED 2026-08-12 (was: the numbers ruling of 2026-08-01, "the line says by how
+        // much"). FAR and COO both postfix the same CollectibleObject.GetTransitionRateMul, so
+        // their factors COMPOSE and a per-domain clause here stated one factor as the whole
+        // effect. Vanilla's freshness line already carries the composed truth, and
+        // Engine.PerishAttributionPatch annotates it with TCM's true delta.
+        //
+        // The 2026-08-01 ruling's intent is preserved: the spoil rate still has no stat line of
+        // its own, so the number rides vanilla's freshness line instead of this one.
 
-            __result = __result.TrimEnd() + "\n\n" + line + "\n";
-        }
+        return line;
     }
 }

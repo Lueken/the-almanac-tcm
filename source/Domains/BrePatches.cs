@@ -113,7 +113,8 @@ public static class BrePatches
             TcmLog.Info(api, "BRE fermentaria clay-fermenter hooked (parallel seal grant + completion)");
         }
         else TcmLog.Cat(api, TcmLog.Config, "BRE fermentaria absent; clay-fermenter variant inactive (barrel unaffected)");
-        // The Brewer's Mark tooltip is an attribute patch below (applied by the Start PatchAll pass).
+        // The Brewer's Mark line is contributed to Engine.ProvenanceLine (see MarkLine below),
+        // which owns the whole provenance block's order and spacing.
     }
 
     // ------------------------------------------------------------ classification + grant
@@ -317,24 +318,18 @@ public static class BrePatches
     // ------------------------------------------------------------ Brewer's Mark tooltip
 
     /// <summary>The Brewer's Mark line (Journeyman up, solid preserves only): Cured by / Aged by /
-    /// a masterwork-preserve line. Last priority, bottom of the tooltip after a blank line, like the
-    /// other domain marks.</summary>
-    [HarmonyPatch(typeof(ItemStack), nameof(ItemStack.GetDescription))]
-    [HarmonyPriority(HarmonyLib.Priority.Last)]
-    public static class ProvenancePatch
+    /// a masterwork-preserve line. Placement, order and spacing belong to
+    /// <see cref="Engine.ProvenanceLine"/>; this only decides what BRE has to say.</summary>
+    public static string? MarkLine(ItemStack stack)
     {
-        public static void Postfix(ItemStack __instance, ref string __result)
-        {
-            var attrs = __instance?.Attributes;
-            string? name = attrs?.GetString(BreByNameAttr);
-            if (string.IsNullOrEmpty(name) || __result == null) return;
-            int tier = attrs!.GetInt(BreTierAttr);
-            string? line =
-                tier >= Rank.Grandmaster ? Lang.Get("almanactcm:masterpreserve-by", name)
-                : tier >= Rank.Master ? Lang.Get("almanactcm:aged-by", name)
-                : tier >= Rank.Journeyman ? Lang.Get("almanactcm:cured-by", name)
-                : null;
-            if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
-        }
+        var attrs = stack?.Attributes;
+        string? name = attrs?.GetString(BreByNameAttr);
+        if (string.IsNullOrEmpty(name)) return null;
+        int tier = attrs!.GetInt(BreTierAttr);
+        return
+            tier >= Rank.Grandmaster ? Lang.Get("almanactcm:masterpreserve-by", name)
+            : tier >= Rank.Master ? Lang.Get("almanactcm:aged-by", name)
+            : tier >= Rank.Journeyman ? Lang.Get("almanactcm:cured-by", name)
+            : null;
     }
 }

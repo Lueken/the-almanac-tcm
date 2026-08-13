@@ -189,33 +189,28 @@ public static class TaiMarkPatches
 
     // ------------------------------------------------------------ provenance tooltip
 
-    /// <summary>The Tailor's Mark maker line (Journeyman up), bottom of the tooltip after a blank line,
-    /// like the other domain marks. Reads the taiBy tag written on marked garments. Carries the
-    /// wear-rate percent (the effect with no vanilla number): a master's seams wear slower, and
-    /// the line now says by how much.</summary>
-    [HarmonyPatch(typeof(ItemStack), nameof(ItemStack.GetDescription))]
-    [HarmonyPriority(HarmonyLib.Priority.Last)]
-    public static class ProvenancePatch
+    /// <summary>The Tailor's Mark maker line (Journeyman up). Reads the taiBy tag written on
+    /// marked garments and carries the wear-rate percent (an effect with no vanilla number of its
+    /// own): a master's seams wear slower, and the line says by how much. Placement, order and
+    /// spacing belong to <see cref="Engine.ProvenanceLine"/>; this only decides what TAI has to
+    /// say.</summary>
+    public static string? MarkLine(ItemStack stack)
     {
-        public static void Postfix(ItemStack __instance, ref string __result)
-        {
-            var attrs = __instance?.Attributes;
-            string? name = attrs?.GetString(TaiMark.ByNameAttr);
-            if (string.IsNullOrEmpty(name) || __result == null) return;
-            int level = attrs!.GetInt(TaiMark.LevelAttr);
-            string? line =
-                level >= Rank.Grandmaster ? Lang.Get("almanactcm:tai-master-by", name)
-                : level >= Rank.Master ? Lang.Get("almanactcm:tai-tailored-by", name)
-                : level >= Rank.Journeyman ? Lang.Get("almanactcm:tai-sewn-by", name)
-                : null;
-            if (line == null) return;
+        var attrs = stack?.Attributes;
+        string? name = attrs?.GetString(TaiMark.ByNameAttr);
+        if (string.IsNullOrEmpty(name)) return null;
+        int level = attrs!.GetInt(TaiMark.LevelAttr);
+        string? line =
+            level >= Rank.Grandmaster ? Lang.Get("almanactcm:tai-master-by", name)
+            : level >= Rank.Master ? Lang.Get("almanactcm:tai-tailored-by", name)
+            : level >= Rank.Journeyman ? Lang.Get("almanactcm:tai-sewn-by", name)
+            : null;
+        if (line == null) return null;
 
-            // The line prints Journeyman-up only, where the wear factor is never a penalty.
-            double wearMul = TaiDomain.WearMul(level, TaiMark.EmphasisOf(__instance));
-            int pct = (int)System.Math.Round((1.0 - wearMul) * 100.0);
-            if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-wears-slower", pct));
-
-            __result = __result.TrimEnd() + "\n\n" + line + "\n";
-        }
+        // The line prints Journeyman-up only, where the wear factor is never a penalty.
+        double wearMul = TaiDomain.WearMul(level, TaiMark.EmphasisOf(stack));
+        int pct = (int)System.Math.Round((1.0 - wearMul) * 100.0);
+        if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-wears-slower", pct));
+        return line;
     }
 }

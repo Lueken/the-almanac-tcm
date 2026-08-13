@@ -109,8 +109,8 @@ public static class GlaPatches
         }
         else TcmLog.Warn(api, "GLA provenance seam not found (BlockEntityAnnealer.OnCommonTick); anneal mark inactive");
 
-        // The provenance tooltip is an attribute patch below (applied by the Start PatchAll pass;
-        // harmless without GLA since no stack carries the mark).
+        // The Glassmaker's Mark line is contributed to Engine.ProvenanceLine (see MarkLine
+        // below); harmless without GLA since no stack carries the mark.
     }
 
     private static void Hook(ICoreAPI api, Harmony harmony, string typeName, string method, string? prefix, string? postfix, string label)
@@ -275,27 +275,21 @@ public static class GlaPatches
     // ------------------------------------------------------------ provenance tooltip
 
     /// <summary>The Glassmaker's Mark line (Journeyman up): Blown by / Master-blown by / a
-    /// flawless-work line. Last priority, bottom of the tooltip after a blank line — the same
-    /// placement as the Cook's/Potter's mark. Non-stacking vessels carry it durably.</summary>
-    [HarmonyPatch(typeof(ItemStack), nameof(ItemStack.GetDescription))]
-    [HarmonyPriority(HarmonyLib.Priority.Last)]
-    public static class ProvenancePatch
+    /// flawless-work line. Non-stacking vessels carry it durably. Placement, order and spacing
+    /// belong to <see cref="Engine.ProvenanceLine"/>; this only decides what GLA has to say.</summary>
+    public static string? MarkLine(ItemStack stack)
     {
-        public static void Postfix(ItemStack __instance, ref string __result)
-        {
-            var attrs = __instance?.Attributes;
-            string? name = attrs?.GetString(GlaByNameAttr);
-            if (string.IsNullOrEmpty(name) || __result == null) return;
-            // The annealed piece carries the provenance tier; a still-raw piece carries the maker
-            // tolerance tier. Either reads the same rank for the tooltip.
-            int tier = attrs!.HasAttribute(GlaProvAttr)
-                ? attrs.GetInt(GlaProvAttr) : attrs.GetInt(TolAttr);
-            string? line =
-                tier >= Rank.Grandmaster ? Lang.Get("almanactcm:flawless-by", name)
-                : tier >= Rank.Master ? Lang.Get("almanactcm:masterblown-by", name)
-                : tier >= Rank.Journeyman ? Lang.Get("almanactcm:blown-by", name)
-                : null;
-            if (line != null) __result = __result.TrimEnd() + "\n\n" + line + "\n";
-        }
+        var attrs = stack?.Attributes;
+        string? name = attrs?.GetString(GlaByNameAttr);
+        if (string.IsNullOrEmpty(name)) return null;
+        // The annealed piece carries the provenance tier; a still-raw piece carries the maker
+        // tolerance tier. Either reads the same rank for the tooltip.
+        int tier = attrs!.HasAttribute(GlaProvAttr)
+            ? attrs.GetInt(GlaProvAttr) : attrs.GetInt(TolAttr);
+        return
+            tier >= Rank.Grandmaster ? Lang.Get("almanactcm:flawless-by", name)
+            : tier >= Rank.Master ? Lang.Get("almanactcm:masterblown-by", name)
+            : tier >= Rank.Journeyman ? Lang.Get("almanactcm:blown-by", name)
+            : null;
     }
 }

@@ -125,6 +125,12 @@ public class AlmanacTcmModSystem : ModSystem
             // Registration order is irrelevant: it probes GetTransitionRateMul at runtime, by which
             // point every contributor is applied.
             Try("perish-attribution", () => Engine.PerishAttributionPatch.PatchConditional(api, harmony));
+            // The one arbiter for the domain provenance block. Replaced seven separate annotation
+            // patches on ItemStack.GetDescription that all declared Priority.Last, so their order
+            // came from Assembly.GetTypes() and their blank lines compounded. Registered here
+            // rather than by attribute so a missing seam warns and skips (CONVENTIONS.md 6).
+            Try("provenance-line", () => Engine.ProvenanceLine.PatchConditional(api, harmony));
+            Try("food-provenance", () => Engine.FoodProvenance.PatchConditional(api, harmony));
             Try("ANI", () => Domains.AniPatches.PatchConditional(api, harmony));
             Try("ANI-bonus", () => Domains.AniBonusPatches.PatchConditional(api, harmony));
             Try("POT", () => Domains.PotPatches.PatchConditional(api, harmony));

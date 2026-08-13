@@ -9,7 +9,70 @@ The Almanac: Trades, Callings & Mastery.
 **Living document.** Updated as work lands, not written at release. Everything below is
 measured against 0.4.37, the build currently live on The Quire.
 
+### Added
+
+**Provenance follows food all the way to the plate.**
+
+A Grandmaster's rice used to lose everything the moment it became flour. Marks now survive
+processing: milling at a quern, baking in a clay oven, and any recipe on the crafting grid
+carry the maker's mark onto whatever comes out, so a loaf remembers the field it grew in and
+the hands that shaped the dough. Where several marked ingredients go in, the highest-ranked
+of each kind comes out, one name per trade.
+
+Two rules keep it honest. The cook's mark **replaces** the grower's on anything edible: no
+matter how well a crop was raised, a bad cook still ruins it and a great one gets more out of
+it, so a finished dish carries the cook and nothing else. And a marked stack still stacks
+with itself, which was the whole reason milling a full sack of grain had to work.
+
+**A skilled cook's meals feed you better.**
+
+Meals now carry a satiety bonus alongside the slower spoilage. Meals only: pies, pastries and
+single-serving foods are deliberately left alone, because a pie already restores enough that
+a bonus on top would break it.
+
 ### Fixed
+
+**The Potter's Mark belonged to whoever lit the kiln.**
+
+Shaping a crock and handing it to somebody else to fire gave *them* the mark. It now belongs
+to the potter who shaped the clay, stamped when the last piece is placed and carried intact
+through the firing, whoever lights it. Lighting the kiln still earns the firing practice; the
+two are separate.
+
+The mark is also now limited to ware that can actually use it, meaning the vessels that hold
+food: the crock and the storage vessel. Molds, tiles, shingles, bullets, bowls and flowerpots
+no longer carry a decorative line, which also keeps them stacking with everybody else's.
+
+**A masterwork storage vessel preserved nothing.**
+
+It said "it keeps what it holds" and it did not. Storage vessels and crocks are built on two
+different foundations in the game and only the crock's was ever wired up, so a vessel showed
+the potter's line and the percentage while its contents spoiled at the ordinary rate.
+
+The vessel now preserves for real, and its own "Stored food perish speed" panel moves with it.
+Rice flour in a pair of identical vessels, measured: 83 days in a Grandmaster's, 64 days in an
+Untrained potter's.
+
+Worth knowing which way that cuts. An UNMARKED vessel is neutral. A vessel thrown by an
+Untrained potter is worse than neutral, because sealing badly is the Untrained penalty, and the
+mark now lands when the clay is shaped rather than when the kiln is lit. Early vessels will
+carry it.
+
+**Clayforming never granted a single point of practice.**
+
+The Pottery skill listened for an event the game only raises for ware that is handed straight
+to you. Every clay item in the game is set down on the ground instead, so bowls, crocks,
+crucibles, flowerpots, jugs, lamps, planters, pots, storage vessels, molds and watering cans
+all granted nothing. Pottery's main verb has been dead since it shipped. It is now measured
+where the ware is actually produced.
+
+**A cook's mark vanished when the serving emptied the pot.**
+
+Filling a crock from a pot lost the mark, while filling a bowl from the same pot kept it. It
+looked like the crock was at fault; it was the pot. A crock takes four servings and a bowl
+takes one, so the crock drained the pot dry, and an emptied pot is swapped for a fresh empty
+one that remembers nothing. A bowl filled from a pot holding its last serving lost the mark
+the same way. The mark is now read before the pot can be emptied.
 
 **Spoilage figures on marked food were telling you the wrong number.**
 
@@ -42,6 +105,14 @@ Grandmaster has been terminal and unnumbered since the 2026-07-15 ruling, but an
 of the rank-naming code still appended a sub-level numeral to it. The rank-up line and the
 ledger now both read "Grandmaster".
 
+**Items carrying more than one maker's mark read as one block.**
+
+A crock thrown by one Grandmaster and filled by another carries two marks. Those used to
+render as two separate paragraphs with a blank line stranded between them, in an order
+neither you nor the mod chose. They now sit together as a single block, in a fixed order
+that follows the chain of making: what it was grown or made from, then what was done to it,
+then the vessel holding it. A crock of stew is a stew first.
+
 ### Changed under the hood
 
 Nothing in this section changes how anything plays. It is recorded because one item has a
@@ -63,6 +134,15 @@ will carry a reminder. After removal, a tool stamped before 0.4.38 falls back to
 "Made by" line and keeps its durability bonus, but a Grandmaster piece loses its masterwork
 line and its wear resistance. Reforging it under 0.4.38 or later re-stamps it in the new
 format.
+
+**One arbiter owns the provenance block.** Seven domains each carried their own patch on the
+same tooltip method, every one claiming last place in the queue. With nothing to break the
+tie, their order came from the order the runtime happened to load the classes, which is
+stable for a given build and can shift when an unrelated class is added. Each also added its
+own blank line, so the spacing grew with the number of marks. They are now seven plain
+functions feeding a single arbiter that owns order and spacing, which also gives the mod its
+first vantage point on all of an item's marks at once. That matters for the one preservation
+figure still stated per domain, on crocks, which now has somewhere a rule could live.
 
 **Other internal work.** Rank boundaries were spelled a dozen different ways across the mod
 and now resolve from a single definition, so changing the shape of the ladder can no longer

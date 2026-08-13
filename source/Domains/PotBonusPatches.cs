@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
+using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 
@@ -25,12 +26,32 @@ namespace AlmanacTcm.Domains;
 /// double-apply. The two factors (this vessel factor and any COO food-side stamp) compose
 /// multiplicatively in the same chain and never collide.
 ///
-/// The lifecycle re-carry (miss one hop and the mark dies there): stamped at OnFired (PotPatches,
-/// owner-at-ignite) -> placed vessel writes the mark to a persisted pos map (the BE does not
-/// serialize custom attrs) -> the placed read consults that map -> the carried read consults the
-/// stack attr -> pickup restores the stack attr from the map. Crock carriage is wired fully;
-/// the generic storage vessel is hooked opportunistically (warns-and-skips if it does not declare
-/// the hop). The carried-vessel edge works for every stamped vessel with no carriage at all.
+/// The lifecycle re-carry (miss one hop and the mark dies there): stamped at CLAYFORMING on the
+/// raw piece (PotPatches, the former's rank -- RULED 2026-08-13, was owner-at-ignite until then)
+/// -> the firing carry moves it onto the fired ware, because vanilla OnFired clones the
+/// SmeltedStack and drops custom attrs -> placed vessel writes the mark to a persisted pos map
+/// (the BE does not serialize custom attrs either) -> the placed read consults that map -> the
+/// carried read consults the stack attr -> pickup restores the stack attr from the map. Crock
+/// carriage is wired fully; the generic storage vessel is hooked opportunistically (warns-and-skips
+/// if it does not declare the hop). The carried-vessel edge works with no carriage at all.
+///
+/// TWO LINEAGES, TWO MECHANISMS (confirmed in vanilla source 2026-08-13). The four reads above
+/// only ever reach the crock: GetContainingTransitionModifierPlaced has exactly one call site in
+/// the whole game, BECrock.Inv_OnAcquireTransitionSpeed (BECrock.cs:46), nothing calls the
+/// BlockContainer base, and BlockGenericTypedContainer does not descend from BlockContainer at
+/// all. Until 0.4.38 a placed storage vessel therefore stored its mark, PRINTED its mark and its
+/// percentage, and preserved exactly nothing. The vessel now scales its own
+/// InventoryGeneric.TransitionableSpeedMulByType instead (see ScaleVesselInventory), which is the
+/// one value both the block-info panel and GetTransitionSpeedMul read.
+///
+/// STILL OPEN: that covers the PLACED vessel. A CARRIED vessel holding contents has no reachable
+/// per-instance hook found so far, so its tooltip percentage is a placed-only claim. The crock
+/// has both.
+///
+/// NAMING DEBT: PotTierAttr holds a LEVEL (PotDomain.LevelOf), and PreserveFactor's "tier"
+/// parameter feeds RankLinear, which is also level-based. The behaviour is right; only the word is
+/// wrong. Renaming the attribute key would orphan every mark already in a world for no behaviour
+/// change, so it waits for a wipe.
 /// </summary>
 public static class PotBonusPatches
 {
@@ -79,6 +100,24 @@ public static class PotBonusPatches
         HookRead(api, harmony, "Vintagestory.GameContent.BlockCrock", "GetContainingTransitionModifierContained",
             nameof(ContainedReadPostfix), "POT preservation read (crock, carried)");
 
+        // The storage vessel's placed read (added 2026-08-13, reshaped the same day; see
+        // ScaleVesselInventory for why the first shape was invisible). None of the four hooks
+        // above ever reach a vessel: BlockGenericTypedContainer does not descend from
+        // BlockContainer, and GetContainingTransitionModifierPlaced has exactly one call site in
+        // the whole game (BECrock.Inv_OnAcquireTransitionSpeed, BECrock.cs:46).
+        //
+        // Three hooks, because the factor has to be re-applied wherever the inventory is rebuilt
+        // and wherever the mark arrives, and those are different moments on the two sides:
+        //   Initialize      - server, placed vessel on chunk load (mark from the position store)
+        //   FromTreeAttributes - CLIENT, and the server on world load (mark from the BE tree)
+        //   OnBlockPlaced   - server, fresh placement (already hooked below for the store)
+        HookCarry(api, harmony, "Vintagestory.GameContent.BlockEntityGenericTypedContainer", "Initialize",
+            nameof(VesselInitPostfix), "POT preservation read (storage vessel, placed)");
+        HookCarry(api, harmony, "Vintagestory.GameContent.BlockEntityGenericTypedContainer", "ToTreeAttributes",
+            nameof(VesselToTreePostfix), "POT vessel mark sync (write)");
+        HookCarry(api, harmony, "Vintagestory.GameContent.BlockEntityGenericTypedContainer", "FromTreeAttributes",
+            nameof(VesselFromTreePostfix), "POT vessel mark sync (read)");
+
         // Placed/pickup carriage — the crock (primary) fully; the generic storage vessel
         // opportunistically. The carried read needs no carriage (the stamp rides the stack).
         HookCarry(api, harmony, "Vintagestory.GameContent.BlockEntityCrock", "OnBlockPlaced",
@@ -90,7 +129,8 @@ public static class PotBonusPatches
         HookCarry(api, harmony, "Vintagestory.GameContent.BlockGenericTypedContainer", "OnPickBlock",
             nameof(VesselPickPostfix), "POT mark carriage (storage vessel pickup)");
 
-        // The provenance tooltip is an attribute patch below (applied by the Start PatchAll pass).
+        // The Potter's Mark line is contributed to Engine.ProvenanceLine (see MarkLine below),
+        // which orders vessels last in the block.
     }
 
     private static void HookRead(ICoreAPI api, Harmony harmony, string typeName, string method, string postfix, string label)
@@ -113,18 +153,29 @@ public static class PotBonusPatches
 
     // ------------------------------------------------------------ the stamp
 
-    /// <summary>Stamp a freshly fired ware with its firer's mark (PotPatches.FiredPostfix, called
-    /// per ware slot). Harmless on non-keep-vessels: bricks stack-merge and lose it, bowls carry it
-    /// cosmetically; only the crock/storage-vessel/amphora keep-line reads it for preservation.</summary>
-    public static void StampFired(ItemStack? stack, string uid, string name, int tier)
+    /// <summary>Stamp a freshly FORMED raw piece with its former's mark (PotPatches.TryStampFormed,
+    /// which owns the gate on what is worth stamping). RULED 2026-08-13: the Potter's Mark belongs
+    /// to whoever shaped the clay, not whoever lit the kiln, so this fires at clayforming and the
+    /// firing carry moves it onto the fired ware.</summary>
+    public static void StampFormed(ItemStack? stack, string uid, string name, int level)
     {
         if (stack == null) return;
         stack.Attributes.SetString(PotByAttr, uid);
         stack.Attributes.SetString(PotByNameAttr, name);
-        stack.Attributes.SetInt(PotTierAttr, tier);
+        stack.Attributes.SetInt(PotTierAttr, level);
     }
 
-    private static void ApplyPacked(ItemStack? stack, string packed)
+    /// <summary>Lift a stamped mark off a stack as "uid|name|level", or null if unmarked. The
+    /// firing carry needs this: vanilla OnFired replaces the slot with a clone of the SmeltedStack,
+    /// which drops every custom attribute, so the mark has to be read before and written after.</summary>
+    public static string? PackOf(ItemStack? stack)
+    {
+        var attrs = stack?.Attributes;
+        if (attrs?.HasAttribute(PotTierAttr) != true) return null;
+        return $"{attrs.GetString(PotByAttr)}|{attrs.GetString(PotByNameAttr)}|{attrs.GetInt(PotTierAttr)}";
+    }
+
+    public static void ApplyPacked(ItemStack? stack, string packed)
     {
         if (stack == null) return;
         string[] p = packed.Split('|');
@@ -149,6 +200,12 @@ public static class PotBonusPatches
             TcmLog.Cat(__instance.Api, "pot", $"vessel placed at {__instance.Pos} carries the mark of {attrs.GetString(PotByNameAttr)}; stored");
         }
         else vesselMarks.Remove(key);
+
+        // Fresh placement never passes through FromTreeAttributes, so scale here too. An unmarked
+        // vessel scales by 1.0, which also UNDOES a previous mark if this position used to hold a
+        // marked vessel and the block entity was reused.
+        ScaleVesselInventory(__instance, MarkedLevel(__instance.Pos));
+        __instance.MarkDirty(true); // ship the tree, so the client scales its copy as well
     }
 
     /// <summary>Pickup rebuilds the vessel stack from BE data (custom attrs lost); restore the mark
@@ -173,6 +230,93 @@ public static class PotBonusPatches
         __result *= (float)PotDomain.PreserveFactor(tier);
     }
 
+    // ------------------------------------------------------------ the storage vessel's factor
+
+    /// <summary>Which factor each inventory has already been scaled by, so a re-apply corrects
+    /// rather than compounds. Weak on the inventory because InitInventory builds a NEW
+    /// InventoryGeneric every time it runs, and the old one should be collectable.</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<InventoryBase,
+        System.Runtime.CompilerServices.StrongBox<float>> vesselScaled = new();
+
+    /// <summary>Fold the potter's factor into the vessel's own TransitionableSpeedMulByType.
+    ///
+    /// SHAPE RULED 2026-08-13, and the reason is the whole point. The first attempt subscribed to
+    /// Inventory.OnAcquireTransitionSpeed, which does drive real spoilage, and was invisible: the
+    /// block-info panel a player actually reads is built by BEContainer.GetBlockInfo (:133) out of
+    /// GetPerishRate x TransitionableSpeedMulByType x PerishableFactorByFoodCategory, and never
+    /// calls GetTransitionSpeedMul at all. A bonus nobody can see is not a bonus. Writing the
+    /// factor into the dictionary instead puts it in the ONE value both the display and
+    /// InventoryGeneric.GetTransitionSpeedMul (:178) read, so the number on screen and the number
+    /// the game uses cannot drift apart. That is the same rule 0.4.38 applied to the freshness
+    /// line when COO and FAR each stated a partial figure.
+    ///
+    /// Safe to mutate: InitInventory deserializes a fresh dictionary per block entity
+    /// (BEGenericTypedContainer.cs:222), so nothing here is shared between vessels.</summary>
+    private static void ScaleVesselInventory(BlockEntity? be, int level)
+    {
+        if (be is not Vintagestory.GameContent.BlockEntityGenericTypedContainer vessel) return;
+        if (vessel.Inventory is not InventoryGeneric inv) return;
+
+        // A negative level means UNMARKED, which is neutral. Untrained is not neutral: it is the
+        // penalty band. Keeping those apart is the whole reason MarkedLevel returns -1 rather
+        // than 0 for a vessel nobody signed.
+        float factor = level < 0 ? 1f : (float)PotDomain.PreserveFactor(level);
+        var applied = vesselScaled.GetOrCreateValue(inv);
+        if (System.Math.Abs(applied.Value - factor) < 0.0001f) return; // already carrying exactly this
+
+        inv.TransitionableSpeedMulByType ??= new Dictionary<EnumTransitionType, float>();
+        if (!inv.TransitionableSpeedMulByType.TryGetValue(EnumTransitionType.Perish, out float current) || current <= 0)
+            current = 1f;
+        if (applied.Value > 0) current /= applied.Value; // back out the previous factor first
+        inv.TransitionableSpeedMulByType[EnumTransitionType.Perish] = current * factor;
+        applied.Value = factor;
+    }
+
+    /// <summary>The level stored for a position, or -1. -1 and Untrained are NOT the same thing:
+    /// an unmarked vessel is neutral, an Untrained potter's vessel carries the penalty band.</summary>
+    private static int MarkedLevel(BlockPos? pos)
+    {
+        if (pos == null || !vesselMarks.TryGetValue(PosKey(pos), out string? packed) || packed == null) return -1;
+        string[] p = packed.Split('|');
+        return p.Length >= 3 && int.TryParse(p[2], out int level) ? level : -1;
+    }
+
+    /// <summary>Human-readable mark for /tcm perish.</summary>
+    public static string DescribeMark(BlockPos pos)
+    {
+        if (!vesselMarks.TryGetValue(PosKey(pos), out string? packed) || packed == null) return "none (neutral)";
+        string[] p = packed.Split('|');
+        if (p.Length < 3 || !int.TryParse(p[2], out int level)) return $"unreadable ({packed})";
+        return $"{p[1]} at level {level}, factor x{PotDomain.PreserveFactor(level):0.###}";
+    }
+
+    /// <summary>Placed vessel coming back on chunk load: the mark lives in the position store on
+    /// this side, and Pos is guaranteed valid by Initialize (it is not during InitInventory, which
+    /// also runs from FromTreeAttributes).</summary>
+    public static void VesselInitPostfix(BlockEntity __instance)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        ScaleVesselInventory(__instance, MarkedLevel(__instance.Pos));
+    }
+
+    /// <summary>Put the level in the BE tree so the CLIENT can scale its own copy. Without this the
+    /// block-info panel computes an unmarked rate and reports it confidently, which is exactly the
+    /// disagreement this whole shape exists to prevent.</summary>
+    public static void VesselToTreePostfix(BlockEntity __instance, ITreeAttribute tree)
+    {
+        if (__instance?.Api?.Side != EnumAppSide.Server || tree == null) return;
+        int level = MarkedLevel(__instance.Pos);
+        if (level >= 0) tree.SetInt(PotTierAttr, level);
+    }
+
+    /// <summary>The client's only source for the mark, and the server's on world load for a vessel
+    /// saved before the position store knew about it.</summary>
+    public static void VesselFromTreePostfix(BlockEntity __instance, ITreeAttribute tree)
+    {
+        if (tree?.HasAttribute(PotTierAttr) != true) return;
+        ScaleVesselInventory(__instance, tree.GetInt(PotTierAttr));
+    }
+
     /// <summary>Carried vessel: the same edge, read from the stack's own stamp attribute (no
     /// carriage needed — the fired stamp rides the stack).</summary>
     public static void ContainedReadPostfix(ItemSlot inSlot, EnumTransitionType transType, ref float __result)
@@ -186,52 +330,52 @@ public static class PotBonusPatches
     // ------------------------------------------------------------ provenance tooltip
 
     /// <summary>The Potter's Mark line (from Journeyman up, ruled): Thrown by / Master-potted by /
-    /// Masterwork. Last priority so it sits at the very bottom of the tooltip, after a blank line —
-    /// same placement as the Cook's Mark. Non-stacking vessels carry it durably; bricks and
-    /// stackable smallware merge and never show it.</summary>
-    [HarmonyPatch(typeof(ItemStack), nameof(ItemStack.GetDescription))]
-    [HarmonyPriority(HarmonyLib.Priority.Last)]
-    public static class ProvenancePatch
+    /// Masterwork. Non-stacking vessels carry it durably; bricks and stackable smallware merge and
+    /// never show it. Placement, order and spacing belong to <see cref="Engine.ProvenanceLine"/>,
+    /// which puts vessels last: a crock of stew is a stew first. This only decides what POT has
+    /// to say.</summary>
+    public static string? MarkLine(ItemStack stack)
     {
-        public static void Postfix(ItemStack __instance, ref string __result)
-        {
-            var attrs = __instance?.Attributes;
-            string? name = attrs?.GetString(PotByNameAttr);
-            if (string.IsNullOrEmpty(name) || __result == null) return;
-            int tier = attrs!.GetInt(PotTierAttr);
-            string? line =
-                tier >= Rank.Grandmaster ? Lang.Get("almanactcm:masterwork-by", name)
-                : tier >= Rank.Master ? Lang.Get("almanactcm:masterpotted-by", name)
-                : tier >= Rank.Journeyman ? Lang.Get("almanactcm:thrown-by", name)
-                : null;
-            if (line == null) return;
+        var attrs = stack?.Attributes;
+        string? name = attrs?.GetString(PotByNameAttr);
+        if (string.IsNullOrEmpty(name)) return null;
+        int tier = attrs!.GetInt(PotTierAttr);
+        string? line =
+            tier >= Rank.Grandmaster ? Lang.Get("almanactcm:masterwork-by", name)
+            : tier >= Rank.Master ? Lang.Get("almanactcm:masterpotted-by", name)
+            : tier >= Rank.Journeyman ? Lang.Get("almanactcm:thrown-by", name)
+            : null;
+        if (line == null) return null;
 
-            // The numbers ruling (2026-08-01): "it keeps what it holds" now says by how much.
-            int pct = (int)System.Math.Round((1.0 - PotDomain.PreserveFactor(tier)) * 100.0);
-            if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-contents-keep", pct));
+        // The numbers ruling (2026-08-01): "it keeps what it holds" now says by how much.
+        int pct = (int)System.Math.Round((1.0 - PotDomain.PreserveFactor(tier)) * 100.0);
+        if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-contents-keep", pct));
 
-            // REVISIT (noted 2026-08-12, deliberately NOT changed yet).
-            //
-            // This is the last isolated spoilage percentage in the mod. COO and FAR both lost
-            // theirs in 0.4.38 because they postfix the SAME method (GetTransitionRateMul) and
-            // their factors composed, so each one stating its own factor was a lie. POT is not
-            // that bug: it rides GetContainingTransitionModifierPlaced/Contained instead, a
-            // different vanilla seam, so it does not compose with COO/FAR and it cancels cleanly
-            // out of Engine.Attribution's probe. The number here is currently TRUE.
-            //
-            // What is worth deciding later is whether it is COMPLETE. A player reading a crock
-            // sees POT's figure on the crock and the composed COO+FAR figure on the food inside,
-            // from two surfaces that never reference each other, and nothing states the whole
-            // effect on the thing they are about to eat. If a second contributor is ever added
-            // to the container seam (a TEM cellar, an ALC preservative), this line becomes the
-            // same bug COO and FAR just had, on a different method.
-            //
-            // Two options when it comes up: extend the Attribution probe to the container seam
-            // and annotate there the way the freshness line is annotated, or drop this clause
-            // and let the contained food's freshness line carry everything. Do not add a second
-            // container-seam contributor without picking one first.
+        // REVISIT (noted 2026-08-12, deliberately NOT changed yet).
+        //
+        // This is the last isolated spoilage percentage in the mod. COO and FAR both lost
+        // theirs in 0.4.38 because they postfix the SAME method (GetTransitionRateMul) and
+        // their factors composed, so each one stating its own factor was a lie. POT is not
+        // that bug: it rides GetContainingTransitionModifierPlaced/Contained instead, a
+        // different vanilla seam, so it does not compose with COO/FAR and it cancels cleanly
+        // out of Engine.Attribution's probe. The number here is currently TRUE.
+        //
+        // What is worth deciding later is whether it is COMPLETE. A player reading a crock
+        // sees POT's figure on the crock and the composed COO+FAR figure on the food inside,
+        // from two surfaces that never reference each other, and nothing states the whole
+        // effect on the thing they are about to eat. If a second contributor is ever added
+        // to the container seam (a TEM cellar, an ALC preservative), this line becomes the
+        // same bug COO and FAR just had, on a different method.
+        //
+        // Two options when it comes up: extend the Attribution probe to the container seam
+        // and annotate there the way the freshness line is annotated, or drop this clause
+        // and let the contained food's freshness line carry everything. Do not add a second
+        // container-seam contributor without picking one first.
+        //
+        // UPDATE 2026-08-13: the vantage point now exists. Engine.ProvenanceLine sees every
+        // domain's mark on a stack at once, so a rule spanning POT and COO has somewhere to
+        // live. That is a decision about what to say, not a missing seam any more.
 
-            __result = __result.TrimEnd() + "\n\n" + line + "\n";
-        }
+        return line;
     }
 }

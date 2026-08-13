@@ -2,6 +2,7 @@ using System.Text;
 using AlmanacTcm.Leveling;
 using Vintagestory.API.Common;
 using Vintagestory.API.Server;
+using Vintagestory.GameContent;
 
 namespace AlmanacTcm.Engine;
 
@@ -51,6 +52,11 @@ public class TcmCommands
                 .WithDescription("(admin) Print the held item's TCM attributes, server-side truth")
                 .RequiresPrivilege(Privilege.controlserver)
                 .HandleWith(OnInspect)
+            .EndSubCommand()
+            .BeginSubCommand("perish")
+                .WithDescription("(admin) Print the SERVER's real spoilage rate for the container you are looking at")
+                .RequiresPrivilege(Privilege.controlserver)
+                .HandleWith(OnPerish)
             .EndSubCommand()
             .BeginSubCommand("knowledge")
                 .WithDescription("(admin) List, set, or clear knowledge keys (guide reveal testing)")
@@ -231,6 +237,34 @@ public class TcmCommands
         return TextCommandResult.Success($"Logged {times}x {domain}/{technique} practice. See /tcm status.");
     }
 
+    /// <summary>Keys this mod writes that do NOT start with "almanac". Each is a foreign key we
+    /// stamp deliberately, so inspect has to show them or it reports a tool as unmarked while its
+    /// tooltip says otherwise.</summary>
+    private static readonly string[] ForeignKeysWeWrite =
+    {
+        "sp:smithingQuality",   // MET stamps Smithing+'s own durability-quality attribute
+        "colliersMark",         // WOO's Collier mark
+    };
+
+    /// <summary>Does this attribute belong to the Almanac?
+    ///
+    /// WAS <c>key.StartsWith("almanactcm")</c> until 2026-08-13, which silently hid SIX of our own
+    /// keys because they predate the almanactcm: prefix convention: almanacGrownBy,
+    /// almanacGrownTier, almanacHeirloomGen (FAR), almanacProvName, almanacProvTier and
+    /// almanacRaisedBy. So inspect reported "(no almanactcm attributes)" on a rice grain whose
+    /// tooltip was reading "Heirloom of Venah" off exactly those keys. A debug command that
+    /// disagrees with the tooltip sends you hunting the wrong bug, which is what it did.
+    ///
+    /// Matching "almanac" rather than "almanactcm" covers both conventions at once, so no key has
+    /// to be renamed and no save has to migrate.</summary>
+    private static bool IsOurs(string key)
+    {
+        if (key.StartsWith("almanac", System.StringComparison.Ordinal)) return true;
+        foreach (string k in ForeignKeysWeWrite)
+            if (key == k) return true;
+        return false;
+    }
+
     private TextCommandResult OnInspect(TextCommandCallingArgs args)
     {
         if (args.Caller.Player is not IServerPlayer player)
@@ -243,11 +277,49 @@ public class TcmCommands
         bool any = false;
         foreach (var (key, value) in stack.Attributes)
         {
-            if (!key.StartsWith("almanactcm")) continue;
+            if (!IsOurs(key)) continue;
             sb.AppendLine($"  {key} = {value.GetValue()}");
             any = true;
         }
-        if (!any) sb.AppendLine("  (no almanactcm attributes)");
+        if (!any) sb.AppendLine("  (no Almanac attributes)");
+        return TextCommandResult.Success(sb.ToString());
+    }
+
+    /// <summary>Ask the SERVER what a container's contents actually spoil at, rather than reading
+    /// the block-info tooltip and hoping the two agree.
+    ///
+    /// Built 2026-08-13 after a play test read the storage vessel's "Stored food perish speed"
+    /// lines as proof the Potter's Mark was doing nothing. Those lines cannot show it: BEContainer
+    /// .GetBlockInfo (:133) builds them from GetPerishRate x TransitionableSpeedMulByType x
+    /// PerishableFactorByFoodCategory and never calls GetTransitionSpeedMul, and it renders
+    /// client-side where the server's marks do not exist. This calls the real method, on the real
+    /// side, on the real stack, so "is the multiplier applying" stops being a matter of opinion.</summary>
+    private TextCommandResult OnPerish(TextCommandCallingArgs args)
+    {
+        if (args.Caller.Player is not IServerPlayer player)
+            return TextCommandResult.Error("Player-only command.");
+        var pos = player.CurrentBlockSelection?.Position;
+        if (pos == null) return TextCommandResult.Error("Look at a container.");
+        if (sapi.World.BlockAccessor.GetBlockEntity(pos) is not BlockEntity be)
+            return TextCommandResult.Error("No block entity there.");
+
+        var inv = (be as BlockEntityContainer)?.Inventory;
+        if (inv == null) return TextCommandResult.Error($"{be.Block?.Code} holds no inventory.");
+
+        StringBuilder sb = new();
+        sb.AppendLine($"{be.Block?.Code} at {pos}");
+        sb.AppendLine($"  potter's mark: {Domains.PotBonusPatches.DescribeMark(pos)}");
+
+        bool anyFood = false;
+        foreach (var slot in inv)
+        {
+            if (slot?.Itemstack == null) continue;
+            anyFood = true;
+            // The one number that decides real spoilage. Everything else on screen is a summary.
+            float mul = inv.GetTransitionSpeedMul(EnumTransitionType.Perish, slot.Itemstack);
+            sb.AppendLine($"  {slot.Itemstack.Collectible?.Code}: perish x{mul:0.###}");
+        }
+        if (!anyFood) sb.AppendLine("  (empty; put food in it to read a rate)");
         return TextCommandResult.Success(sb.ToString());
     }
 
