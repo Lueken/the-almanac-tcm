@@ -523,7 +523,11 @@ public static class CooBonusPatches
         // predates the level/tier cleanup and is kept for save compatibility.
         int level = attrs!.GetInt(CookTierAttr);
         string? line =
-            level >= Rank.Grandmaster ? Lang.Get("almanactcm:signature-by", name)
+            // A pie's GM line must not say "It will keep": pies traded the slow-spoil away for
+            // the satiety edge (RULED 2026-08-14), so the standard line would claim a keeping
+            // quality the ruling removed. Same signature, no promise.
+            level >= Rank.Grandmaster
+                ? Lang.Get(stack?.Block is BlockPie ? "almanactcm:signature-by-pie" : "almanactcm:signature-by", name)
             : level >= Rank.Master ? Lang.Get("almanactcm:prepared-by", name)
             : level >= Rank.Journeyman ? Lang.Get("almanactcm:cooked-by", name)
             // The Untrained penalty names ITSELF (RULED 2026-08-12). It is the only band

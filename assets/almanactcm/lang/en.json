@@ -125,6 +125,7 @@
   "almanactcm:cooked-by": "Cooked by {0}",
   "almanactcm:prepared-by": "Prepared by {0}",
   "almanactcm:signature-by": "Signature dish by {0}. It will keep.",
+  "almanactcm:signature-by-pie": "Signature dish by {0}.",
   "almanactcm:grown-by": "Grown by {0}",
   "almanactcm:cultivated-by": "Cultivated by {0}",
   "almanactcm:heirloom-of": "Heirloom of {0}. Bred for the yield.",
