@@ -26,9 +26,13 @@ with itself, which was the whole reason milling a full sack of grain had to work
 
 **A skilled cook's meals feed you better.**
 
-Meals now carry a satiety bonus alongside the slower spoilage. Meals only: pies, pastries and
-single-serving foods are deliberately left alone, because a pie already restores enough that
-a bonus on top would break it.
+Meals carry a satiety bonus alongside the slower spoilage.
+
+**Pies made a different bargain.** A pie's high satiety has always been priced by how fast it
+rots, so pies take the satiety bonus in full and give up the slow-spoil signature: a master's
+pie feeds more and rots honestly, at its natural rate. Careless baking still ruins one, the
+same as any other dish. Pastries and other single-serving foods carry the mark and the
+spoilage effects but no satiety bonus.
 
 ### Fixed
 

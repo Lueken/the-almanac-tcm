@@ -348,7 +348,12 @@ public static class CooBonusPatches
 
     /// <summary>Stamped food perishes by its cook: the Untrained end is the penalty (their
     /// cooking spoils faster), the GM end is the Cook's Mark signature (a GM's rations keep).
-    /// Mid ranks are vanilla — this is a two-ended lever by ruling, not a curve.</summary>
+    /// Mid ranks are vanilla: this is a two-ended lever by ruling, not a curve.
+    ///
+    /// PIES keep only the penalty end (RULED 2026-08-14): a pie's high satiety is priced by how
+    /// fast it rots, so pies got the REAL satiety edge in exchange for losing the GM slow-spoil.
+    /// "Feeds more, rots honestly." Careless baking still ruins one, which keeps the penalty
+    /// symmetric with every other dish.</summary>
     [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.GetTransitionRateMul))]
     public static class PerishPatch
     {
@@ -360,7 +365,37 @@ public static class CooBonusPatches
             if (attrs?.HasAttribute(CookTierAttr) != true) return;
             int tier = attrs.GetInt(CookTierAttr);
             if (tier <= 0) __result *= (float)CooDomain.Knob(CooDomain.SpoilUntrained, 1.15);
-            else if (tier >= Rank.Grandmaster) __result *= (float)CooDomain.Knob(CooDomain.SpoilGm, 0.70);
+            else if (tier >= Rank.Grandmaster && inSlot!.Itemstack!.Block is not BlockPie)
+                __result *= (float)CooDomain.Knob(CooDomain.SpoilGm, 0.70);
+        }
+    }
+
+    /// <summary>The pie's REAL satiety edge (RULED 2026-08-14, superseding pies-never from
+    /// 2026-08-13). BlockPie.GetNutritionHealthMul builds its own array and never calls the
+    /// BlockMeal base NutritionPatch rides, which until today was the guard that kept pies
+    /// plain; now it is the reason pies need their own patch. Same edge, same knobs, so a pie
+    /// and a meal by the same cook always agree. The slot resolution mirrors vanilla's own
+    /// (BlockPie.cs:445): a PLACED pie arrives with a null slot and a position.</summary>
+    [HarmonyPatch(typeof(BlockPie), nameof(BlockPie.GetNutritionHealthMul))]
+    public static class PieNutritionPatch
+    {
+        public static void Postfix(BlockPie __instance, BlockPos? pos, ItemSlot? slot, ref float[] __result)
+        {
+            if (__result is not { Length: >= 2 }) return;
+            if (slot == null && pos != null)
+            {
+                // CollectibleObject.api is protected; Traverse reaches it on both sides, and the
+                // client needs this path too (tooltips of a PLACED pie render client-side).
+                var api = Traverse.Create(__instance).Field("api").GetValue<ICoreAPI>();
+                slot = (api?.World.BlockAccessor.GetBlockEntity(pos) as BlockEntityPie)?.Inventory[0];
+            }
+            var attrs = slot?.Itemstack?.Attributes;
+            if (attrs?.HasAttribute(CookTierAttr) != true) return;
+            double t = CooDomain.BonusT(attrs.GetInt(CookTierAttr));
+            if (t <= 0) return;
+            double cxWeight = Math.Clamp(attrs.GetInt(CookCxAttr) / 3.0, 0, 1);
+            __result[0] *= (float)(1.0 + t * cxWeight * CooDomain.Knob(CooDomain.SatietyGmC3, 0.12));
+            __result[1] *= (float)(1.0 + t * cxWeight * CooDomain.Knob(CooDomain.HealthGmC3, 0.05));
         }
     }
 
@@ -374,11 +409,10 @@ public static class CooBonusPatches
     {
         public static void Postfix(ItemSlot slot, ref float[] __result)
         {
-            // PIES NEVER, by ruling (2026-08-13): "pies would be pushed too far into broken
-            // territory... upwards of 1700 satiety between all 4 pieces." Today this guard is
-            // unreachable, because BlockPie overrides GetNutritionHealthMul without calling the
-            // BlockMeal base this patch rides. It exists so the ruling survives a vanilla update
-            // that adds a base call, instead of silently breaking the day pies start stamping.
+            // Pies are PieNutritionPatch's business (RULED 2026-08-14: real edge, own patch,
+            // because BlockPie never calls this base). This guard stays for the opposite reason
+            // it was born: if a vanilla update ever adds a base call, it prevents the edge
+            // applying TWICE rather than preventing it applying at all.
             if (slot?.Itemstack?.Block is BlockPie) return;
             var attrs = slot?.Itemstack?.Attributes;
             if (attrs?.HasAttribute(CookTierAttr) != true || __result is not { Length: >= 2 }) return;
@@ -408,6 +442,10 @@ public static class CooBonusPatches
             float nutritionMul, float healthMul, ref string __result)
         {
             if (string.IsNullOrEmpty(__result)) return;
+            // Pies pass again since the 2026-08-14 ruling: PieNutritionPatch puts the edge into
+            // the pie's REAL multipliers, so the annotation's divide-the-edge-back-out math is
+            // true for pies exactly as it is for meals. (For one build between the two rulings
+            // this guard existed because the display fabricated a boost eating never delivered.)
             var attrs = inSlotorFirstSlot?.Itemstack?.Attributes;
             if (attrs?.HasAttribute(CookTierAttr) != true) return;
 

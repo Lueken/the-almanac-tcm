@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 using Vintagestory.API.Common;
 
@@ -103,6 +103,25 @@ public static class FoodProvenance
     /// counts inside a dish? See the conjunction warning on the class: consult this ONLY from a
     /// COO stamp path, never on its own.</summary>
     public static bool IsDirectlyEdible(CollectibleObject? coll) => coll?.NutritionProps != null;
+
+    /// <summary>
+    /// Is this output a finished dish the COOK signs, as opposed to an ingredient the grower keeps?
+    ///
+    /// IsDirectlyEdible alone cannot answer it, and the play tests found every gap one meal at a
+    /// time: vanilla computes a dish's nutrition from its CONTENTS, so the NutritionProps FIELD is
+    /// null on every meal carrier. Three lineages carry meals and none of them meet:
+    ///   • BlockMeal: bowls of food (and pies, which get their own oven-side handling);
+    ///   • BlockCookedContainerBase: POTS and crocks of food. This one fell out of a salad: ACA's
+    ///     mixing bowl outputs meals as claypot-*-cooked, a BlockCookedContainer, which is neither
+    ///     nutritious-by-field nor a BlockMeal, so a Grandmaster's salad came out unsigned
+    ///     (found in play 2026-08-13);
+    ///   • plain items with real NutritionProps: bread, boiled eggs, breaded things.
+    /// One predicate so the next station cannot rediscover the family one member at a time.
+    /// </summary>
+    public static bool IsCooksDish(CollectibleObject? coll)
+        => IsDirectlyEdible(coll)
+           || coll is Vintagestory.GameContent.BlockMeal
+           || coll is Vintagestory.GameContent.BlockCookedContainerBase;
 
     /// <summary>
     /// Is this a liquid portion (juice, milk, cider, brine)? Those are excluded from the carry.

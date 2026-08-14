@@ -119,6 +119,14 @@ public static class CooPatches
             // (playersMixing :778) and an automated flag; mixInput (:1034) fires on completion.
             HookPairDeclared(api, harmony, "ACulinaryArtillery.BlockEntityMixingBowl", "mixInput",
                 nameof(MixingPrefix), nameof(MixingPostfix), "COO bowl mixing");
+            // The bowl's cook OF RECORD, because playersMixing alone is a race: SetPlayerMixing
+            // removes a cranker the instant the hold ends and entries expire after ONE second
+            // (dev.21 :425, :445), so whether anyone is still in the dict at the completion tick
+            // is timing. Every other station already solves this the same way: any right-click on
+            // the apparatus records the cook. The crank dict stays the PREFERRED source (it knows
+            // who actually turned the handle); this is the fallback that cannot miss.
+            HookDeclared(api, harmony, "ACulinaryArtillery.BlockEntityMixingBowl", "OnPlayerRightClick",
+                nameof(ApparatusInteractPostfix), "COO bowl cook-stamp");
             // Meat hooks: the second rack-drying BE (one verb, two racks — the casting-merge
             // precedent). Same TryTake signature as the seafarer frame, one shared pair.
             HookPairDeclared(api, harmony, "ACulinaryArtillery.BlockEntityMeatHooks", "TryTake",
@@ -151,7 +159,7 @@ public static class CooPatches
             // a cook OF RECORD for that position (the firebox stamp lands on the controller's pos,
             // one block over). One adapter closes the whole gap for pots AND saucepans at once.
             HookDeclared(api, harmony, "StoneBakeOven.BlockEntityOvenCookingTop", "OnPlayerRightClick",
-                nameof(CookingTopInteractPostfix), "COO stone cooking-top cook-stamp");
+                nameof(ApparatusInteractPostfix), "COO stone cooking-top cook-stamp");
         }
     }
 
@@ -605,18 +613,18 @@ public static class CooPatches
 
     // ------------------------------------------------------------ stone cooking top
 
-    /// <summary>The stone oven's stove: any right-click on it makes that player the cook of record
-    /// for ITS position, which is all the meal-pot and saucepan seams were missing (their position
-    /// plumbing already resolves through InventoryCookingTop : InventorySmelting). Mirrors the
-    /// firepit stamp: loading the stove IS the cook's touch.</summary>
-    public static void CookingTopInteractPostfix(BlockEntity __instance, IPlayer byPlayer)
+    /// <summary>Any right-click on a cooking apparatus makes that player the cook of record for
+    /// ITS position (the firepit pattern). Shared by the stone oven's cooking top (whose meal-pot
+    /// and saucepan seams already resolve the position but found nobody there) and the ACA mixing
+    /// bowl (whose crank dict is a one-second race; see the bowl hook).</summary>
+    public static void ApparatusInteractPostfix(BlockEntity __instance, IPlayer byPlayer)
     {
         if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
         string key = PosKey(__instance.Pos);
         bool changed = !lastCook.TryGetValue(key, out string? prev) || prev != byPlayer.PlayerUID;
         lastCook[key] = byPlayer.PlayerUID;
         if (changed)
-            TcmLog.Cat(__instance.Api, "coo", $"stone cooking-top cook stamp: {__instance.Pos} -> {byPlayer.PlayerName}");
+            TcmLog.Cat(__instance.Api, "coo", $"apparatus cook stamp: {__instance.Pos} -> {byPlayer.PlayerName}");
     }
 
     // ------------------------------------------------------------ saucepan simmering (ACA)
@@ -656,10 +664,9 @@ public static class CooPatches
         BlockPos? pos = (cookingSlotsProvider as BlockEntity)?.Pos ?? (cookingSlotsProvider as InventorySmelting)?.pos;
         IPlayer? cook = CookAt(world, pos);
 
-        // Same BlockMeal extension as the mixing bowl: a meal-block output is the cook's dish
-        // even though its NutritionProps field is null (content-derived nutrition).
-        if (cook != null && (Engine.FoodProvenance.IsDirectlyEdible(made.Collectible)
-            || made.Block is BlockMeal))
+        // IsCooksDish: the shared finished-dish predicate (see FoodProvenance for the family
+        // of null-nutrition meal carriers it exists to cover).
+        if (cook != null && Engine.FoodProvenance.IsCooksDish(made.Collectible))
             CooBonusPatches.StampCooked(made, cook, (int)CooDomain.Knob(CooDomain.CxSimmering, 2));
         else
             Engine.FoodProvenance.Carry(__state, made, world.Api);
@@ -755,8 +762,13 @@ public static class CooPatches
         bool automated = Traverse.Create(__instance).Field("automated").GetValue<bool>();
         var mixing = Traverse.Create(__instance).Field("playersMixing").GetValue() as Dictionary<string, long>;
 
-        // The cook, if a person actually turned the crank. An automated bowl has no cook, so its
-        // output carries the growers forward and nobody's rank touches it.
+        // The cook: whoever is cranking right now, or failing that the cook of record from the
+        // bowl's own interact (the crank dict empties within a second of a released hold, so the
+        // completion tick can find it bare; found in play 2026-08-14 when a Grandmaster's salad
+        // came out unsigned). An automated bowl still has no cranker, but its LOADER is its cook
+        // of record, which matches the stone cooking top's rule rather than the quern's; the
+        // quern's no-cook automation stance is about mechanized GRINDING paying nobody, and
+        // practice below still pays only real crankers.
         IPlayer? cook = null;
         if (!automated && mixing != null)
         {
@@ -766,20 +778,25 @@ public static class CooPatches
                 if (p != null && (cook == null || CooDomain.LevelOf(p) > CooDomain.LevelOf(cook))) cook = p;
             }
         }
+        cook ??= CookAt(__instance.Api.World, __instance.Pos);
 
         if (mixed != null && !mixed.Attributes.HasAttribute(CooBonusPatches.CookTierAttr))
         {
-            // BlockMeal alongside IsDirectlyEdible, and the bowl is exactly why: a salad comes out
-            // as a MEAL block, and every meal block's NutritionProps FIELD is null because its
-            // nutrition is computed from contents. The field test alone would have carried the
-            // grower onto salads instead of stamping the cook, on the very station Jeffrey named
-            // when he killed the heat test. A meal is a finished dish; the cook signs it.
-            if (cook != null && (Engine.FoodProvenance.IsDirectlyEdible(mixed.Collectible)
-                || mixed.Block is BlockMeal))
+            // IsCooksDish, not IsDirectlyEdible, and the salad found the gap TWICE: first the
+            // BlockMeal case in review, then in play, because ACA's mixing recipes output the meal
+            // as a POT (claypot-*-cooked, a BlockCookedContainer), which is a third lineage the
+            // BlockMeal test also missed. The predicate now owns the whole family; see its doc.
+            bool dish = Engine.FoodProvenance.IsCooksDish(mixed.Collectible);
+            if (cook != null && dish)
                 CooBonusPatches.StampCooked(mixed, cook, (int)CooDomain.Knob(CooDomain.CxMixing, 3));
             else
                 Engine.FoodProvenance.Carry(__state.inputs, mixed, __instance.Api);
             inv?[MixingOutputSlot]?.MarkDirty();
+            // Say what happened, every mix. Two silent failure modes have already cost a play test
+            // each (the pot lineage and the crank race); a third should name itself in the log.
+            TcmLog.Cat(__instance.Api, "coo", $"mix at {__instance.Pos}: {mixed.Collectible?.Code?.Path}, "
+                + $"dish={dish}, cook={(cook?.PlayerName ?? "NONE")} (crankers={mixing?.Count ?? -1}, automated={automated}) -> "
+                + (cook != null && dish ? "stamped" : "carried"));
         }
 
         if (automated || mixing == null || mixing.Count == 0) return;
