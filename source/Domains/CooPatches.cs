@@ -134,6 +134,25 @@ public static class CooPatches
             // the vanilla base method) still runs inside the base call, and the take-stamp rides
             // OnInteract, which it does not override at all.
         }
+
+        // --- the stone bake oven (all seams verified against stonebakeoven 1.3.8, 2026-08-13) ---
+        // A four-block estate that is NOT the clay oven: the baking top reimplements its own bake
+        // loop on BlockEntityDisplay, so none of the clay-oven hooks reach it, and it has baked
+        // anonymously (no stamp, no char clock, no practice) since the mod entered the pack. The
+        // signatures line up with the clay oven's by parameter name, so the SAME prefix/postfix
+        // pair serves both ovens (the casting-merge precedent), and the char clock hooks its
+        // IncrementallyBake from CooBonusPatches the same way.
+        if (api.ModLoader.IsModEnabled("stonebakeoven"))
+        {
+            HookPairDeclared(api, harmony, "StoneBakeOven.BlockEntityOvenBakingTop", "OnInteract",
+                nameof(OvenTakePrefix), nameof(OvenTakePostfix), "COO stone-oven baking (stamp + credit at pickup)");
+            // The cooking top is a stove whose InventoryCookingTop : InventorySmelting, so the
+            // meal-pot and saucepan seams already resolve its POSITION; what nobody ever wrote was
+            // a cook OF RECORD for that position (the firebox stamp lands on the controller's pos,
+            // one block over). One adapter closes the whole gap for pots AND saucepans at once.
+            HookDeclared(api, harmony, "StoneBakeOven.BlockEntityOvenCookingTop", "OnPlayerRightClick",
+                nameof(CookingTopInteractPostfix), "COO stone cooking-top cook-stamp");
+        }
     }
 
     private static void Hook(ICoreAPI api, Harmony harmony, string typeName, string method, string postfix, string label)
@@ -582,6 +601,22 @@ public static class CooPatches
         if (cook == null) return;
         Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechGriddling,
             HashCode.Combine("griddle", __instance.Pos.X, __instance.Pos.Z, slotIndex, __instance.Api.World.ElapsedMilliseconds / 10000));
+    }
+
+    // ------------------------------------------------------------ stone cooking top
+
+    /// <summary>The stone oven's stove: any right-click on it makes that player the cook of record
+    /// for ITS position, which is all the meal-pot and saucepan seams were missing (their position
+    /// plumbing already resolves through InventoryCookingTop : InventorySmelting). Mirrors the
+    /// firepit stamp: loading the stove IS the cook's touch.</summary>
+    public static void CookingTopInteractPostfix(BlockEntity __instance, IPlayer byPlayer)
+    {
+        if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        string key = PosKey(__instance.Pos);
+        bool changed = !lastCook.TryGetValue(key, out string? prev) || prev != byPlayer.PlayerUID;
+        lastCook[key] = byPlayer.PlayerUID;
+        if (changed)
+            TcmLog.Cat(__instance.Api, "coo", $"stone cooking-top cook stamp: {__instance.Pos} -> {byPlayer.PlayerName}");
     }
 
     // ------------------------------------------------------------ saucepan simmering (ACA)

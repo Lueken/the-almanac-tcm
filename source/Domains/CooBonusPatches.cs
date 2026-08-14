@@ -98,6 +98,23 @@ public static class CooBonusPatches
             TcmLog.Info(api, "COO char clock hooked (IncrementallyBake dt, perfect stage only)");
         }
 
+        // The stone bake oven's baking top REIMPLEMENTS IncrementallyBake on its own class
+        // (verified 1.3.8: BlockEntityOvenBakingTop : BlockEntityDisplay, nothing shared with
+        // the clay oven), so the clock has to be hung on it separately. Same prefix, second oven:
+        // the signature matches by parameter name, and the cook lookup rides the same lastCook
+        // map, which the take-stamp pair (hooked in CooPatches) writes at the top's own pos.
+        if (api.ModLoader.IsModEnabled("stonebakeoven"))
+        {
+            var ts = AccessTools.TypeByName("StoneBakeOven.BlockEntityOvenBakingTop");
+            var ms = ts == null ? null : AccessTools.DeclaredMethod(ts, "IncrementallyBake");
+            if (ms == null) TcmLog.Warn(api, "COO char-clock seam not found on the stone baking top (StoneBakeOven.BlockEntityOvenBakingTop.IncrementallyBake); stone bakes never char-scale");
+            else
+            {
+                harmony.Patch(ms, prefix: new HarmonyMethod(AccessTools.Method(typeof(CooBonusPatches), nameof(CharClockPrefix))));
+                TcmLog.Info(api, "COO char clock hooked (stone baking top, same clock)");
+            }
+        }
+
         // The stamp must TRAVEL with the food (Jeffrey's serving-path walkthrough, 2026-07-21):
         // a meal is stamped on the POT, but what is eaten is a BOWL served from it (or a crock
         // stored from it). All three common serving paths funnel through ServeIntoStack (the
