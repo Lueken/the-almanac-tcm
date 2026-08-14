@@ -12,6 +12,7 @@
   "almanactcm:part-wrapped-by": "Wrapped by {0}",
   "almanactcm:unfitted-mark": "The maker's work lies dormant. Fit it at a workbench.",
   "almanactcm:masterwork-by": "A masterwork vessel by {0}. It keeps what it holds.",
+  "almanactcm:masterwork-by-raw": "A masterwork vessel by {0}, once it is fired.",
   "almanactcm:practice-gain": "{0}: {1} +{2}, {3:0.#} settling today",
   "almanactcm:practice-repeat": "{0}: {1} repeated, nothing new learned",
   "almanactcm:gate-blocked": "Your hands don't yet know how to work {0}. That takes {1} Metalworking.",

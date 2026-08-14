@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -80,8 +80,18 @@ public static class CooPatches
                 nameof(SmeltPrefix), nameof(DirectHeatPostfix), "COO direct-heat (ACA)");
         // Prefix as well as postfix since 0.4.38: the grind CONSUMES the input, so the grower's
         // mark has to be captured before it is gone and re-applied to the flour after.
+        // Priority.First on the PREFIX, and it is load-bearing whenever ACA is installed.
+        //
+        // ACA registers its own bool-returning prefix on this same method
+        // (BlockEntityQuernPatch.grindInputWIthInheritedAttributes, verified against 2.0.0-dev.21).
+        // When the ground output is an IExpandedFood it runs EF's own attribute inheritance, then
+        // repeats vanilla's merge-or-spawn dance itself, then returns false to skip the original.
+        // Our prefix has to lift the mark off the output slot BEFORE that runs, or ACA's merge
+        // compares marked flour against plain and takes the spawn branch, ejecting it unmarked.
+        // That is precisely the bug fixed on 2026-08-13, and load order alone would bring it back.
+        // Neither patch declared a priority, so the order was whatever Harmony happened to pick.
         HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockEntityQuern", "grindInput",
-            nameof(QuernPrefix), nameof(QuernPostfix), "COO+FAR quern milling");
+            nameof(QuernPrefix), nameof(QuernPostfix), "COO+FAR quern milling", Priority.First);
 
         // --- player-attributed verbs (1a, unchanged) ---------------------------------------
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFruitPress", "OnBlockInteractStop", nameof(JuicePostfix), "COO juicing");
@@ -107,11 +117,22 @@ public static class CooPatches
         {
             // Mixing bowl: the quern shape exactly — the BE tracks its cranking players
             // (playersMixing :778) and an automated flag; mixInput (:1034) fires on completion.
-            HookDeclared(api, harmony, "ACulinaryArtillery.BlockEntityMixingBowl", "mixInput", nameof(MixingPostfix), "COO bowl mixing");
+            HookPairDeclared(api, harmony, "ACulinaryArtillery.BlockEntityMixingBowl", "mixInput",
+                nameof(MixingPrefix), nameof(MixingPostfix), "COO bowl mixing");
             // Meat hooks: the second rack-drying BE (one verb, two racks — the casting-merge
             // precedent). Same TryTake signature as the seafarer frame, one shared pair.
             HookPairDeclared(api, harmony, "ACulinaryArtillery.BlockEntityMeatHooks", "TryTake",
                 nameof(DryTakePrefix), nameof(DryTakePostfix), "COO rack drying (meat hooks)");
+            // Saucepan simmering: the pan rides the firepit input slot, ingredients ride the
+            // firepit's cooking slots, and BlockSaucepan.DoSmelt builds the result as a clone of
+            // the recipe's SmeltedStack (verified dev.21), so provenance dies there without this.
+            HookPairDeclared(api, harmony, "ACulinaryArtillery.BlockSaucepan", "DoSmelt",
+                nameof(SimmerPrefix), nameof(SimmerPostfix), "COO saucepan simmering (provenance)");
+            // The EXPANDED OVEN needs nothing, verified against dev.21 and worth recording so
+            // nobody re-audits it: BlockEntityExpandedOven overrides only OnBurnTick and
+            // IncrementallyBake, and both scale dt then CALL BASE, so the char clock (patched on
+            // the vanilla base method) still runs inside the base call, and the take-stamp rides
+            // OnInteract, which it does not override at all.
         }
     }
 
@@ -146,15 +167,19 @@ public static class CooPatches
         TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
     }
 
-    private static void HookPairDeclared(ICoreAPI api, Harmony harmony, string typeName, string method, string prefix, string postfix, string label)
+    /// <param name="prefixPriority">Harmony priority for the PREFIX only. Defaults to Normal.
+    /// Raise it when another mod prefixes the same method and our prefix has to win the race, which
+    /// is the quern's situation: see the ACA note at the grind hook.</param>
+    private static void HookPairDeclared(ICoreAPI api, Harmony harmony, string typeName, string method, string prefix, string postfix, string label,
+        int prefixPriority = Priority.Normal)
     {
         var t = AccessTools.TypeByName(typeName);
         var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
         if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName} does not DECLARE {method}); that verb is inactive this build"); return; }
         harmony.Patch(m,
-            prefix: new HarmonyMethod(AccessTools.Method(typeof(CooPatches), prefix)),
+            prefix: new HarmonyMethod(AccessTools.Method(typeof(CooPatches), prefix)) { priority = prefixPriority },
             postfix: new HarmonyMethod(AccessTools.Method(typeof(CooPatches), postfix)));
-        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared{(prefixPriority == Priority.Normal ? "" : $", prefix priority {prefixPriority}")})");
     }
 
     // ------------------------------------------------------------ the cook stamp
@@ -222,6 +247,7 @@ public static class CooPatches
             string? code = __state[i];
             if (code == null) continue;
             if (code.StartsWith("dough") || code.Contains("partbaked")) continue; // not finished work
+            if (code.Contains("-raw")) continue;                                  // an unbaked pie is not finished work either
             if (code.Contains("charred")) continue;                               // ruined, unsigned
 
             ItemStack? loaf = inv[i]?.Itemstack;
@@ -231,7 +257,17 @@ public static class CooPatches
             // too, and since attributes are part of stack identity, attributed firewood stopped
             // merging with plain firewood: you could load one log at a time instead of six.
             // Regression found in play 2026-08-13, same day it shipped.
-            if (!Engine.FoodProvenance.IsDirectlyEdible(loaf.Collectible)) continue;
+            //
+            // PIES pass a different way (added 2026-08-13). A pie's nutrition is computed from its
+            // CONTENTS via a GetNutritionProperties override, so the NutritionProps FIELD that
+            // IsDirectlyEdible reads is null and pies were silently never signed. A baked pie is a
+            // finished dish a player eats, so the baker owns it, same as bread. The satiety ruling
+            // ("pies would be pushed too far") holds: BlockPie.GetNutritionHealthMul builds its own
+            // array and never calls the BlockMeal base our satiety patch rides, and the patch now
+            // guards against pies explicitly anyway.
+            bool signable = Engine.FoodProvenance.IsDirectlyEdible(loaf.Collectible)
+                || loaf.Block is BlockPie;
+            if (!signable) continue;
             if (loaf.Attributes.HasAttribute(CooBonusPatches.CookTierAttr)) continue; // already signed
             CooBonusPatches.StampCooked(loaf, baker, cx);
             inv[i].MarkDirty();
@@ -518,14 +554,81 @@ public static class CooPatches
 
     /// <summary>Per-SLOT context (playtest 2026-07-21: a four-slot griddle finishes its slots
     /// near-simultaneously, and a shared pos bucket collapsed the batch to one credit — batches
-    /// must fit through; the K cap is the real governor).</summary>
-    public static void GriddleCompletePostfix(BlockEntity __instance, int slotIndex)
+    /// must fit through; the K cap is the real governor).
+    ///
+    /// Also the provenance hop, added 2026-08-13. Seafarer's CompleteCooking builds its output as
+    /// `new ItemStack(val, recipe.Output.Quantity)` and hand-copies ONLY the "contents" tree
+    /// (decompiled from 0.5.15), so every other attribute is dropped and a griddled Grandmaster's
+    /// fish landed anonymous. The method hands us the inputStack directly, which makes this the
+    /// cleanest seam of the set: no snapshot, no merge dance, the source is a parameter.</summary>
+    public static void GriddleCompletePostfix(BlockEntity __instance, int slotIndex, ItemStack inputStack)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server) return;
         IPlayer? cook = CookAt(__instance.Api.World, __instance.Pos);
+
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        ItemStack? cooked = inv != null && slotIndex >= 0 && slotIndex < inv.Count ? inv[slotIndex]?.Itemstack : null;
+        if (cooked != null && !cooked.Attributes.HasAttribute(CooBonusPatches.CookTierAttr))
+        {
+            // Griddled output is eaten as it comes off, so it belongs to the cook. An unattended
+            // finish with no recorded cook still carries the grower forward rather than losing it.
+            if (cook != null && Engine.FoodProvenance.IsDirectlyEdible(cooked.Collectible))
+                CooBonusPatches.StampCooked(cooked, cook, (int)CooDomain.Knob(CooDomain.CxGriddling, 2));
+            else
+                Engine.FoodProvenance.Carry(new[] { inputStack }, cooked, __instance.Api);
+            inv?[slotIndex]?.MarkDirty();
+        }
+
         if (cook == null) return;
         Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechGriddling,
             HashCode.Combine("griddle", __instance.Pos.X, __instance.Pos.Z, slotIndex, __instance.Api.World.ElapsedMilliseconds / 10000));
+    }
+
+    // ------------------------------------------------------------ saucepan simmering (ACA)
+
+    /// <summary>Snapshot the firepit's cooking slots before DoSmelt consumes them (it nulls every
+    /// slot on success). Clones, for the same reason the quern clones.</summary>
+    public static void SimmerPrefix(IWorldAccessor world, ISlotProvider cookingSlotsProvider, out ItemStack?[] __state)
+    {
+        __state = System.Array.Empty<ItemStack?>();
+        if (world?.Side != EnumAppSide.Server || cookingSlotsProvider?.Slots == null) return;
+        var slots = cookingSlotsProvider.Slots;
+        var snapshot = new ItemStack?[slots.Length];
+        for (int i = 0; i < slots.Length; i++) snapshot[i] = slots[i]?.Itemstack?.Clone();
+        __state = snapshot;
+    }
+
+    /// <summary>The simmer result landed in the firepit's output slot: sign it or carry onto it.
+    ///
+    /// Three outcomes, decided by what the output IS rather than by recipe list:
+    ///   • a LIQUID (syrup, clarified butter): vanilla pours it into the pan and moves the PAN to
+    ///     the output slot, so the slot holds a container, not food. The liquid ruling excludes
+    ///     portions anyway (pooling beats provenance), so this skips.
+    ///   • directly edible food (breaded nuggets, cooked pasta): the cook's work, stamped, and the
+    ///     stamp displaces any grower's mark.
+    ///   • an ingredient (something still bound for another dish): the growers' marks carry.
+    /// The cook is the firepit's cook of record (lastCook via the pit's own GUI-open stamp), read
+    /// off the ISlotProvider the same way the meal-pot path reads it.</summary>
+    public static void SimmerPostfix(IWorldAccessor world, ISlotProvider cookingSlotsProvider, ItemSlot outputSlot, ItemStack?[] __state)
+    {
+        if (world?.Side != EnumAppSide.Server || __state.Length == 0) return;
+        ItemStack? made = outputSlot?.Itemstack;
+        if (made?.Collectible == null) return;
+        if (made.Collectible is Vintagestory.GameContent.BlockLiquidContainerBase) return; // the pan came through: liquid branch
+        if (Engine.FoodProvenance.IsLiquidPortion(made)) return;
+        if (made.Attributes.HasAttribute(CooBonusPatches.CookTierAttr)) return; // already signed
+
+        BlockPos? pos = (cookingSlotsProvider as BlockEntity)?.Pos ?? (cookingSlotsProvider as InventorySmelting)?.pos;
+        IPlayer? cook = CookAt(world, pos);
+
+        // Same BlockMeal extension as the mixing bowl: a meal-block output is the cook's dish
+        // even though its NutritionProps field is null (content-derived nutrition).
+        if (cook != null && (Engine.FoodProvenance.IsDirectlyEdible(made.Collectible)
+            || made.Block is BlockMeal))
+            CooBonusPatches.StampCooked(made, cook, (int)CooDomain.Knob(CooDomain.CxSimmering, 2));
+        else
+            Engine.FoodProvenance.Carry(__state, made, world.Api);
+        outputSlot!.MarkDirty();
     }
 
     // ------------------------------------------------------------ rack drying (seafarer frame + ACA meat hooks)
@@ -564,16 +667,87 @@ public static class CooPatches
 
     // ------------------------------------------------------------ bowl mixing (ACA)
 
-    /// <summary>One mix completion: credit every cranking player (the BE's own playersMixing
-    /// dict, the quern shape). The mechanized bowl credits nobody (automation stays vanilla;
-    /// the ENG co-grant waits for the ENG domain).</summary>
-    public static void MixingPostfix(BlockEntity __instance)
+    /// <summary>Snapshot the ingredients before mixInput consumes them, and lift any mark off the
+    /// output slot so vanilla's merge compares plain against plain.
+    ///
+    /// The quern's bug, waiting to happen a second time. ACA's mixInput (decompiled from
+    /// 2.0.0-dev.21) builds the output and then does
+    /// `OutputSlot.Itemstack.StackSize += val.StackSize` after a GetMergableQuantity check, all
+    /// inside the method body. Mark the slot from a postfix alone and the NEXT mix fails that
+    /// check on mismatched attributes and takes the third branch, which SpawnItemEntity's the
+    /// result onto the floor. Same shape, same fix: take the mark off before, put it back after.
+    ///
+    /// ACA's inventory is [0] the container, [1] the output, and the ingredients are a separate
+    /// IngredSlots view, so the snapshot reads the whole inventory and lets Carry pick the
+    /// highest-ranked per domain rather than guessing at slot indices.</summary>
+    public static void MixingPrefix(BlockEntity __instance, out (ItemStack?[] inputs, Engine.FoodProvenance.PendingMerge merge) __state)
+    {
+        __state = (System.Array.Empty<ItemStack?>(), default);
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        if (inv == null) return;
+
+        var snapshot = new List<ItemStack?>(inv.Count);
+        for (int i = 0; i < inv.Count; i++)
+        {
+            if (i == MixingOutputSlot) continue;      // the destination is not an ingredient
+            snapshot.Add(inv[i]?.Itemstack?.Clone()); // clone: mixInput consumes the originals
+        }
+        var merge = Engine.FoodProvenance.TakeForMerge(inv.Count > MixingOutputSlot ? inv[MixingOutputSlot]?.Itemstack : null);
+        __state = (snapshot.ToArray(), merge);
+    }
+
+    /// <summary>ACA's mixing bowl inventory: [0] container, [1] output, ingredients beyond.</summary>
+    private const int MixingOutputSlot = 1;
+
+    /// <summary>One mix completion: carry the provenance onto what came out, then credit every
+    /// cranking player (the BE's own playersMixing dict, the quern shape). The mechanized bowl
+    /// credits nobody (automation stays vanilla; the ENG co-grant waits for the ENG domain).
+    ///
+    /// The bowl is the case that killed the heat test. Jeffrey: "what about the mixing bowl, this
+    /// needs to be included as well since there is zero heat applied and can make salads." So the
+    /// split here is the ruled property test, not a temperature: a salad is directly edible and
+    /// belongs to the COOK, while dough is an ingredient and keeps carrying the grower's mark to
+    /// whoever bakes it.</summary>
+    public static void MixingPostfix(BlockEntity __instance, (ItemStack?[] inputs, Engine.FoodProvenance.PendingMerge merge) __state)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server) return;
-        if (Traverse.Create(__instance).Field("automated").GetValue<bool>()) return;
-        if (Traverse.Create(__instance).Field("playersMixing").GetValue() is not Dictionary<string, long> mixing
-            || mixing.Count == 0) return;
 
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        ItemStack? mixed = inv != null && inv.Count > MixingOutputSlot ? inv[MixingOutputSlot]?.Itemstack : null;
+        Engine.FoodProvenance.RestoreAfterMerge(__state.merge, null, mixed, __instance.Api);
+
+        bool automated = Traverse.Create(__instance).Field("automated").GetValue<bool>();
+        var mixing = Traverse.Create(__instance).Field("playersMixing").GetValue() as Dictionary<string, long>;
+
+        // The cook, if a person actually turned the crank. An automated bowl has no cook, so its
+        // output carries the growers forward and nobody's rank touches it.
+        IPlayer? cook = null;
+        if (!automated && mixing != null)
+        {
+            foreach (string uid in mixing.Keys)
+            {
+                IPlayer? p = __instance.Api.World.PlayerByUid(uid);
+                if (p != null && (cook == null || CooDomain.LevelOf(p) > CooDomain.LevelOf(cook))) cook = p;
+            }
+        }
+
+        if (mixed != null && !mixed.Attributes.HasAttribute(CooBonusPatches.CookTierAttr))
+        {
+            // BlockMeal alongside IsDirectlyEdible, and the bowl is exactly why: a salad comes out
+            // as a MEAL block, and every meal block's NutritionProps FIELD is null because its
+            // nutrition is computed from contents. The field test alone would have carried the
+            // grower onto salads instead of stamping the cook, on the very station Jeffrey named
+            // when he killed the heat test. A meal is a finished dish; the cook signs it.
+            if (cook != null && (Engine.FoodProvenance.IsDirectlyEdible(mixed.Collectible)
+                || mixed.Block is BlockMeal))
+                CooBonusPatches.StampCooked(mixed, cook, (int)CooDomain.Knob(CooDomain.CxMixing, 3));
+            else
+                Engine.FoodProvenance.Carry(__state.inputs, mixed, __instance.Api);
+            inv?[MixingOutputSlot]?.MarkDirty();
+        }
+
+        if (automated || mixing == null || mixing.Count == 0) return;
         int ctx = HashCode.Combine("mix", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 4000);
         foreach (string uid in mixing.Keys)
         {

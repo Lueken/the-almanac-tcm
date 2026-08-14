@@ -153,6 +153,25 @@ public static class PotBonusPatches
 
     // ------------------------------------------------------------ the stamp
 
+    /// <summary>Can this collectible hold food, and therefore mean anything by "it keeps what it
+    /// holds"? Vanilla has two container lineages that never meet, so both have to be named:
+    /// BlockContainer, which declares GetContainingTransitionModifier{Placed,Contained} (crock,
+    /// meal pot, jug), and the "Container" BLOCK behaviour, which is how BlockGenericTypedContainer
+    /// stores things without descending from BlockContainer at all (storage vessel).
+    ///
+    /// Mind the registry: "Container" in a blocktype's `behaviors` list is BlockBehaviorContainer
+    /// (Core.cs:659), NOT CollectibleBehaviorContainer. Collectible.HasBehavior&lt;T&gt; searches
+    /// only the collectible list and answers false here, which cost two play tests to find.
+    ///
+    /// ONE predicate, TWO questions, and the difference is the whole point. PotPatches asks it of
+    /// what a raw piece FIRES INTO, to decide whether to stamp. MarkLine asks it of the stack
+    /// ITSELF, to decide whether the preservation clause is true yet. Raw clay answers yes to the
+    /// first and no to the second, which is exactly right: the potter earned the mark when they
+    /// shaped it, and it keeps nothing until the kiln has been.</summary>
+    public static bool HoldsFood(CollectibleObject? coll)
+        => coll is Vintagestory.GameContent.BlockContainer
+           || (coll as Block)?.GetBehavior(typeof(Vintagestory.GameContent.BlockBehaviorContainer), true) != null;
+
     /// <summary>Stamp a freshly FORMED raw piece with its former's mark (PotPatches.TryStampFormed,
     /// which owns the gate on what is worth stamping). RULED 2026-08-13: the Potter's Mark belongs
     /// to whoever shaped the clay, not whoever lit the kiln, so this fires at clayforming and the
@@ -340,16 +359,25 @@ public static class PotBonusPatches
         string? name = attrs?.GetString(PotByNameAttr);
         if (string.IsNullOrEmpty(name)) return null;
         int tier = attrs!.GetInt(PotTierAttr);
+
+        // Is this thing a vessel YET? Since 0.4.38 the mark lands at clayforming, so it rides raw
+        // clay that cannot hold anything until it has been fired. Saying "it keeps what it holds"
+        // and quoting a percentage on a lump of wet clay is a claim about a thing that does not
+        // exist. The provenance is still real and still shown; only the promise waits for the kiln.
+        bool fired = HoldsFood(stack?.Collectible);
+
         string? line =
-            tier >= Rank.Grandmaster ? Lang.Get("almanactcm:masterwork-by", name)
+            tier >= Rank.Grandmaster
+                ? Lang.Get(fired ? "almanactcm:masterwork-by" : "almanactcm:masterwork-by-raw", name)
             : tier >= Rank.Master ? Lang.Get("almanactcm:masterpotted-by", name)
             : tier >= Rank.Journeyman ? Lang.Get("almanactcm:thrown-by", name)
             : null;
         if (line == null) return null;
 
-        // The numbers ruling (2026-08-01): "it keeps what it holds" now says by how much.
+        // The numbers ruling (2026-08-01): "it keeps what it holds" now says by how much. Only
+        // once there is something it can hold.
         int pct = (int)System.Math.Round((1.0 - PotDomain.PreserveFactor(tier)) * 100.0);
-        if (pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-contents-keep", pct));
+        if (fired && pct > 0) line += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-contents-keep", pct));
 
         // REVISIT (noted 2026-08-12, deliberately NOT changed yet).
         //

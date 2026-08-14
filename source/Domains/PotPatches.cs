@@ -177,18 +177,12 @@ public static class PotPatches
 
     /// <summary>Stamp one raw piece with its former's mark, if the mark will ever mean anything on
     /// it. The gate is a property test, not a list: the mark's only mechanical effect is the
-    /// preservation multiplier, so the question is whether the fired ware is something that HOLDS
-    /// food. Two ways vanilla says yes, because it has two container lineages that do not meet:
-    ///   • BlockContainer, which declares GetContainingTransitionModifier{Placed,Contained} (the
-    ///     crock, the meal pot, the jug);
-    ///   • the "Container" BLOCK behaviour, which is how BlockGenericTypedContainer says it stores
-    ///     things without descending from BlockContainer at all (the storage vessel).
-    /// Note the registry: "Container" in a blocktype's `behaviors` list resolves to
-    /// BlockBehaviorContainer (Core.cs:659), NOT CollectibleBehaviorContainer, and the two live in
-    /// separate registries reached by separate accessors. Collectible.HasBehavior&lt;T&gt; only ever
-    /// sees the collectible list, so it answers false here; Block.GetBehavior(Type, bool) is the
-    /// block-behaviour accessor and is what this uses.
-    /// Across vanilla's fired clay that resolves to exactly the crock and the storage vessel, the
+    /// preservation multiplier, so the question is whether the piece FIRES INTO something that
+    /// holds food. PotBonusPatches.HoldsFood owns that test and documents its two lineages; the
+    /// tooltip asks the same predicate of the stack ITSELF, which is how raw clay ends up marked
+    /// but silent about keeping.
+    ///
+    /// Across vanilla's fired clay this resolves to exactly the crock and the storage vessel, the
     /// keep-vessel line. Molds, tiles, shingles, bullets, empty bowls and flowerpots fire into
     /// plain Blocks, and stamping those would buy a decorative attribute at the price of their
     /// stacking, since attributes are part of stack identity. Returns whether anything was
@@ -198,8 +192,7 @@ public static class PotPatches
         if (raw?.Collectible == null) return false;
         var fired = raw.Collectible.GetCombustibleProperties(world, raw, null)?.SmeltedStack?.ResolvedItemstack?.Collectible;
         if (fired == null) return false;
-        if (fired is not BlockContainer
-            && (fired as Block)?.GetBehavior(typeof(BlockBehaviorContainer), true) == null)
+        if (!PotBonusPatches.HoldsFood(fired))
         {
             // Say WHY, once per piece. This gate has now been wrong twice (BlockContainer alone
             // missed the storage vessel; the collectible-behaviour registry never sees "Container"),

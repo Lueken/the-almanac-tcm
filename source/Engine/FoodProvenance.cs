@@ -104,6 +104,24 @@ public static class FoodProvenance
     /// COO stamp path, never on its own.</summary>
     public static bool IsDirectlyEdible(CollectibleObject? coll) => coll?.NutritionProps != null;
 
+    /// <summary>
+    /// Is this a liquid portion (juice, milk, cider, brine)? Those are excluded from the carry.
+    ///
+    /// RULED 2026-08-13, and it is a real trade rather than an oversight. Liquids exist to POOL:
+    /// litres from many pressings run into one barrel, and vanilla merges those portions by
+    /// comparing attributes. A maker's mark is an attribute, so marking juice would mean a
+    /// Grandmaster's pressing refuses to mix with anyone else's, and a barrel that used to hold
+    /// 50 litres of apple juice becomes several stacks that will not combine. That is the quern
+    /// flour bug again, except unfixable, because for a liquid the merging IS the feature.
+    ///
+    /// So the farmer's mark ends at the press. It is worth knowing this is a decision and not a
+    /// gap: if liquid provenance is ever wanted, it needs a per-container mark like POT's, not a
+    /// per-portion attribute.
+    /// </summary>
+    public static bool IsLiquidPortion(ItemStack? stack)
+        => stack != null
+           && Vintagestory.GameContent.BlockLiquidContainerBase.GetContainableProps(stack) != null;
+
     /// <summary>Read a mark's level off a stack, or -1 when the stack does not carry it.</summary>
     private static int LevelOf(Mark mark, ItemStack? stack)
     {
@@ -214,6 +232,7 @@ public static class FoodProvenance
     {
         if (output?.Collectible == null || inputs == null) return;
         if (!IsFood(output.Collectible)) return;
+        if (IsLiquidPortion(output)) return;   // see below: pooling beats provenance
 
         foreach (Mark mark in Carryable)
         {
@@ -255,6 +274,48 @@ public static class FoodProvenance
         harmony.Patch(target, postfix: new HarmonyMethod(
             AccessTools.Method(typeof(FoodProvenance), nameof(GridCarryPostfix))));
         TcmLog.Info(api, $"food provenance carry hooked (grid recipes, {Carryable.Length} marks)");
+
+        // The SECOND-widest carry, and the one that pays for itself: every timed transformation.
+        //
+        // OnTransitionNow is where a stack that has finished curing, drying, ripening or converting
+        // becomes its transitioned form, and vanilla builds that form as a fresh clone of
+        // props.TransitionedStack (Collectible.cs:3114), so it lands with no attributes at all,
+        // the same way the pit kiln's SmeltedStack does. One postfix here covers ACA's meat hooks,
+        // Seafarer's drying frame, vanilla curing and drying, and anything else in the pack built
+        // on transition properties, INCLUDING things not yet installed. Those all looked like
+        // separate seams until it turned out they share this one.
+        var transition = AccessTools.Method(typeof(CollectibleObject),
+            nameof(CollectibleObject.OnTransitionNow));
+        if (transition == null)
+        {
+            TcmLog.Warn(api, "food provenance: CollectibleObject.OnTransitionNow not found; cured and dried food will not carry its marks");
+            return;
+        }
+
+        harmony.Patch(transition, postfix: new HarmonyMethod(
+            AccessTools.Method(typeof(FoodProvenance), nameof(TransitionCarryPostfix))));
+        TcmLog.Info(api, "food provenance carry hooked (transitions: cure, dry, ripen, convert)");
+    }
+
+    /// <summary>
+    /// A food finished transitioning: carry its marks onto what it became.
+    ///
+    /// PERISH IS EXCLUDED, deliberately and permanently. That branch turns food into ROT, and
+    /// stamping "Heirloom of Venah" on a pile of rot would be both wrong and funny, in the order
+    /// that gets noticed. Perishing is the food failing, not an act anyone performed.
+    ///
+    /// Nothing is STAMPED here, only carried. A transition is unattended time, with no player and
+    /// no rank in play, so no domain has earned a new mark on the result. That also means the
+    /// cook-displaces-grower rule cannot fire here, which is correct: drying a Grandmaster's
+    /// tomatoes is not cooking them, and the grower keeps the credit.
+    /// </summary>
+    public static void TransitionCarryPostfix(ItemSlot slot, TransitionableProperties props, ItemStack __result)
+    {
+        if (__result?.Collectible == null || props == null) return;
+        if (props.Type == EnumTransitionType.Perish) return;
+        ItemStack? from = slot?.Itemstack;
+        if (from?.Collectible == null) return;
+        Carry(new[] { from }, __result, slot?.Inventory?.Api);
     }
 
     public static void GridCarryPostfix(ItemSlot[] allInputSlots, ItemSlot outputSlot)

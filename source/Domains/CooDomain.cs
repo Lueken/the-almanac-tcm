@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
@@ -49,6 +49,7 @@ public static class CooDomain
     public const string CxBaking = "cxBaking";
     public const string CxGriddling = "cxGriddling";
     public const string CxMixing = "cxMixing";
+    public const string CxSimmering = "cxSimmering"; // ACA saucepan (provenance cx only; simmering grants no practice yet)
     public const string CxMilling = "cxMilling";
     public const string CxJuicing = "cxJuicing";
     public const string CxDrying = "cxDrying";
@@ -116,7 +117,7 @@ public static class CooDomain
             // The complexity table (tool-gate study census, ruled): C0 bare heat, C1 vessel,
             // C2 station, C3 chain apparatus.
             [CxMealpot] = 1, [CxDirectheat] = 0, [CxBaking] = 2, [CxGriddling] = 2,
-            [CxMixing] = 3, [CxMilling] = 2, [CxJuicing] = 2, [CxDrying] = 2,
+            [CxMixing] = 3, [CxSimmering] = 2, [CxMilling] = 2, [CxJuicing] = 2, [CxDrying] = 2,
             [CxSalting] = 2, [CxPrep] = 3,
             // The ruled illustrative ends (MET numeric posture, playtest-tuned).
             [FuelUntrained] = 0.90, [FuelGm] = 1.15,

@@ -357,6 +357,12 @@ public static class CooBonusPatches
     {
         public static void Postfix(ItemSlot slot, ref float[] __result)
         {
+            // PIES NEVER, by ruling (2026-08-13): "pies would be pushed too far into broken
+            // territory... upwards of 1700 satiety between all 4 pieces." Today this guard is
+            // unreachable, because BlockPie overrides GetNutritionHealthMul without calling the
+            // BlockMeal base this patch rides. It exists so the ruling survives a vanilla update
+            // that adds a base call, instead of silently breaking the day pies start stamping.
+            if (slot?.Itemstack?.Block is BlockPie) return;
             var attrs = slot?.Itemstack?.Attributes;
             if (attrs?.HasAttribute(CookTierAttr) != true || __result is not { Length: >= 2 }) return;
             double t = CooDomain.BonusT(attrs.GetInt(CookTierAttr));
