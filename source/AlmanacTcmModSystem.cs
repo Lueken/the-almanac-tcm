@@ -50,7 +50,7 @@ public class AlmanacTcmModSystem : ModSystem
 
     public TcmGlobalConfig GlobalConfig { get; private set; } = new();
 
-    /// <summary>The domain registry. Populated (all 21 domains, conditionals marked
+    /// <summary>The domain registry. Populated (all 22 domains, conditionals marked
     /// Enabled=false when their mod is absent) before any player joins.</summary>
     public DomainSetTemplate Template { get; } = new();
 

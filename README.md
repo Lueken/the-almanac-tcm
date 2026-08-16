@@ -1,7 +1,7 @@
 # The Almanac: Trades, Callings & Mastery (TCM)
 
 A knowledge and progression mod for Vintage Story 1.22 — identity-first trade ranks
-(Novice through Grandmaster) across 21 domains, built on earned practice, never grind.
+(Novice through Grandmaster) across 22 domains, built on earned practice, never grind.
 Part of The Almanac suite (Codex, Illuminated, TCM). Author: Venah.
 
 - modid: `almanactcm`
