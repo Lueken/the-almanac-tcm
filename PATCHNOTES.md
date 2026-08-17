@@ -4,7 +4,14 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
-## 0.4.38 (in development)
+## 0.4.39 (in development)
+
+- The retort finally teaches. `is-first-retort` targeted `retortchamber*`, but Industrial
+  Story registers the block as `retortsmelter` (the blocktype FILE is retort-chamber.json;
+  the code field inside is what counts), so the trigger never fired and the smelters-yard
+  retort chapter never revealed for anyone. Both patterns corrected.
+
+## 0.4.38 (released 2026-08-16)
 
 **Living document.** Updated as work lands, not written at release. Everything below is
 measured against 0.4.37, the build currently live on The Quire.

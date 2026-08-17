@@ -31,8 +31,8 @@
     {
       "key": "almanactcm:is-first-retort",
       "requires": ["industrialstory"],
-      "onBlockPlaced": ["industrialstory:retortchamber*"],
-      "onBlockUsed": ["industrialstory:retortchamber*"],
+      "onBlockPlaced": ["industrialstory:retortsmelter*"],
+      "onBlockUsed": ["industrialstory:retortsmelter*"],
       "toast": "almanactcm:knowledge-is-retort"
     },
     {
