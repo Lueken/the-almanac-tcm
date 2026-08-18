@@ -240,8 +240,8 @@ public static class CooPatches
         // again means scanning inventories. In the prefix it is still sitting in a known slot.
         //
         // This also closes COO's documented v1 gap ("oven goods carry no stamp yet"): bread has
-        // real nutritionProps, so it is FOOD, so the baker owns it and the grower's mark is
-        // displaced (RULED 2026-08-13, docs/design/food-provenance-chain.md).
+        // real nutritionProps, so it is FOOD, so the baker signs it, and since the
+        // 2026-08-18 ruling the grower's mark stays on the loaf beside the baker's.
         //
         // The baker, not the taker. XP is credited at pickup by an earlier ruling, but the MARK
         // is provenance: it belongs to whoever loaded and fired the oven, which is exactly what
@@ -701,7 +701,7 @@ public static class CooPatches
     ///     the output slot, so the slot holds a container, not food. The liquid ruling excludes
     ///     portions anyway (pooling beats provenance), so this skips.
     ///   • directly edible food (breaded nuggets, cooked pasta): the cook's work, stamped, and the
-    ///     stamp displaces any grower's mark.
+    ///     stamp lands beside any grower's mark (both names stay, RULED 2026-08-18).
     ///   • an ingredient (something still bound for another dish): the growers' marks carry.
     /// The cook is the firepit's cook of record (lastCook via the pit's own GUI-open stamp), read
     /// off the ISlotProvider the same way the meal-pot path reads it.</summary>

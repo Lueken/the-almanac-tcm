@@ -181,9 +181,9 @@ public static class FarBonusPatches
             if (transType != EnumTransitionType.Perish) return;
             var attrs = inSlot?.Itemstack?.Attributes;
             if (attrs?.HasAttribute(GrownTierAttr) != true) return;
-            // Precedence, not a second rule: the cook DISPLACES the grower on edible food and the
-            // strip should already have removed this mark. Belt and braces, so a stamp path that
-            // ever misses the strip degrades to a hidden mark rather than a doubled effect.
+            // The cook's hand governs the dish's numbers (RULED 2026-08-18: the grower's NAME
+            // stays on cooked food, the grower's EFFECT does not follow it into the dish; a bad
+            // cook still ruins a great crop). This guard IS the rule now, not a backstop.
             if (attrs.HasAttribute(CooBonusPatches.CookTierAttr)) return;
             if (attrs.GetInt(GrownTierAttr) >= Rank.Grandmaster)
                 __result *= (float)FarDomain.Knob(FarDomain.SpoilGrownGm, 0.70); // a GM's produce keeps
@@ -199,9 +199,10 @@ public static class FarBonusPatches
         var attrs = stack?.Attributes;
         string? name = attrs?.GetString(GrownByAttr);
         if (string.IsNullOrEmpty(name)) return null;
-        // Same precedence as the perish patch: a cook's mark hides the grower's rather than
-        // printing both. See Engine.FoodProvenance.
-        if (attrs!.HasAttribute(CooBonusPatches.CookTierAttr)) return null;
+        // Both names render (RULED 2026-08-18): the ordered block puts grown-by above
+        // cooked-by, and this line carries no effect clause, so it stays honest on a dish.
+        // When the same hand grew and cooked, COO renders the fold and FAR stands down.
+        if (Engine.FoodProvenance.SameHandGrownAndCooked(stack)) return null;
         int tier = attrs.GetInt(GrownTierAttr);
         int gen = attrs.GetInt(HeirloomGenAttr);
         string? line =

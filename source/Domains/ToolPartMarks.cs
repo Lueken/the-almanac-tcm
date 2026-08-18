@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AlmanacTcm.Leveling;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -164,6 +165,12 @@ public static class ToolPartMarks
         // The assembled tool: lineage from the stored parts.
         if (!attrs.HasAttribute("tinkeredToolHandle") && !attrs.HasAttribute("tinkeredToolBinding")) return;
 
+        // Collect the lineage as (verb, name, level) in the order of making, then fold shared
+        // hands into one line each (RULED 2026-08-18: "Forged, hafted & bound by X"). A
+        // Grandmaster masterwork head keeps its own line; specialness never folds. A hand with
+        // a single verb keeps the original tiered wording, so nothing changes for mixed crews.
+        var lineage = new List<(string Verb, string Name, int Level)>();
+
         if (string.IsNullOrEmpty(attrs.GetString(MetPatches.MakerNameAttr)))
         {
             var head = attrs.GetItemstack("tinkeredToolHead");
@@ -173,13 +180,46 @@ public static class ToolPartMarks
                 // One mapping and one read, both in MetPatches. This was a duplicate of
                 // MakerKey with bare literals (2026-08-12); the two could drift independently,
                 // and this is the mod's only cross-domain read of another domain's mark.
-                dsc.AppendLine(Lang.Get(MetPatches.MakerKey(MetPatches.MarkLevel(head)), smith));
+                int forgedLevel = MetPatches.MarkLevel(head);
+                if (forgedLevel >= Rank.Grandmaster)
+                    dsc.AppendLine(Lang.Get(MetPatches.MakerKey(forgedLevel), smith));
+                else
+                    lineage.Add(("forged", smith!, forgedLevel));
             }
         }
 
-        string? haft = PartLine(attrs.GetItemstack("tinkeredToolHandle"));
-        if (haft != null) dsc.AppendLine(haft);
-        string? bind = PartLine(attrs.GetItemstack("tinkeredToolBinding"));
-        if (bind != null) dsc.AppendLine(bind);
+        CollectPart(lineage, attrs.GetItemstack("tinkeredToolHandle"));
+        CollectPart(lineage, attrs.GetItemstack("tinkeredToolBinding"));
+
+        var hands = new List<string>();
+        foreach ((_, string n, _) in lineage) if (!hands.Contains(n)) hands.Add(n);
+
+        foreach (string hand in hands)
+        {
+            var mine = lineage.FindAll(t => t.Name == hand);
+            if (mine.Count == 1)
+            {
+                (string v, _, int lvl) = mine[0];
+                dsc.AppendLine(v == "forged"
+                    ? Lang.Get(MetPatches.MakerKey(lvl), hand)
+                    : Lang.Get($"almanactcm:part-{v}-by", hand));
+            }
+            else
+            {
+                string phrase = Lang.Get($"almanactcm:lineage-{mine[0].Verb}");
+                for (int i = 1; i < mine.Count; i++)
+                    phrase += (i == mine.Count - 1 ? " & " : ", ")
+                        + Lang.Get($"almanactcm:lineage-{mine[i].Verb}").ToLowerInvariant();
+                dsc.AppendLine(Lang.Get("almanactcm:lineage-by", phrase, hand));
+            }
+        }
+    }
+
+    private static void CollectPart(List<(string Verb, string Name, int Level)> lineage, ItemStack? part)
+    {
+        var attrs = part?.Attributes;
+        string? name = attrs?.GetString(ByNameAttr);
+        string? verb = attrs?.GetString(VerbAttr);
+        if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(verb)) lineage.Add((verb!, name!, 0));
     }
 }

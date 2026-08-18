@@ -187,8 +187,7 @@ public static class CooBonusPatches
         if (int.TryParse(p[2], out int tier)) stack.Attributes.SetInt(CookTierAttr, tier);
         if (int.TryParse(p[3], out int cx)) stack.Attributes.SetInt(CookCxAttr, cx);
         // The three propagation hops (serve to bowl, placed-vessel serve, vessel pickup) all land
-        // here, so the displacement covers them without four separate call sites.
-        Engine.FoodProvenance.CookDisplacesGrower(stack, sapi);
+        // here. The grower's mark rides along untouched (RULED 2026-08-18: both names stay).
     }
 
     /// <summary>Pickup rebuilds the vessel stack from BE data (custom attrs lost); restore the
@@ -294,8 +293,8 @@ public static class CooBonusPatches
         stack.Attributes.SetString(CookByNameAttr, cook.PlayerName);
         stack.Attributes.SetInt(CookTierAttr, CooDomain.LevelOf(cook));
         stack.Attributes.SetInt(CookCxAttr, cxClass);
-        // The cook now owns it, if it is something a player eats (RULED 2026-08-13).
-        Engine.FoodProvenance.CookDisplacesGrower(stack, sapi);
+        // The cook signs it; the grower's name stays above (RULED 2026-08-18, superseding
+        // the 2026-08-13 displacement).
     }
 
     /// <summary>Anchor the completion stamp to the VESSEL'S POSITION as well (the firepit at
@@ -522,6 +521,9 @@ public static class CooBonusPatches
         // CookTierAttr is LEVEL-valued (StampCooked writes CooDomain.LevelOf); the key name
         // predates the level/tier cleanup and is kept for save compatibility.
         int level = attrs!.GetInt(CookTierAttr);
+        // The same-hand fold (RULED 2026-08-18): one player grew and cooked it, one line says so.
+        if (Engine.FoodProvenance.SameHandGrownAndCooked(stack))
+            return Lang.Get("almanactcm:grown-cooked-by", name);
         string? line =
             // A pie's GM line must not say "It will keep": pies traded the slow-spoil away for
             // the satiety edge (RULED 2026-08-14), so the standard line would claim a keeping

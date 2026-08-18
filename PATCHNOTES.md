@@ -22,6 +22,15 @@ The Almanac: Trades, Callings & Mastery.
   ALC small-m rises to 3 with an ALC-matter supplier installed; the available-technique
   clamp keeps other servers unchanged.
 
+- A dish keeps both names now (ruled 2026-08-18, superseding 0.4.38's cook-displaces
+  rule). The grower's line renders above the cook's in the ordered block, so a plate says
+  who grew it and who cooked it. The numbers do not move: the cook's hand still governs
+  how a dish keeps and feeds, and the grower's effect stays on raw produce and ingredients.
+- One hand, one line. When the same player grew and cooked, the two lines fold into
+  "Grown & cooked by". Assembled tools fold the same way: a tool forged, hafted and bound
+  by one maker reads "Forged, hafted & bound by" instead of three lines. Grandmaster forms
+  never fold: Heirloom of, Signature dish by and a masterwork head each keep their own line.
+
 ## 0.4.38 (released 2026-08-16)
 
 **Living document.** Updated as work lands, not written at release. Everything below is

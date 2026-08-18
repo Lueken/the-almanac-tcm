@@ -1,24 +1,28 @@
 ﻿using System;
+using AlmanacTcm.Leveling;
 using HarmonyLib;
 using Vintagestory.API.Common;
 
 namespace AlmanacTcm.Engine;
 
 /// <summary>
-/// Provenance that survives the kitchen (docs/design/food-provenance-chain.md, RULED 2026-08-13).
+/// Provenance that survives the kitchen (docs/design/food-provenance-chain.md, RULED 2026-08-13;
+/// the displacement half SUPERSEDED 2026-08-18).
 ///
 /// THE RULING. A grower's mark carries through PROCESSING, so a Grandmaster's grain makes marked
-/// flour and marked dough and those keep longer in a pantry. A COOK DISPLACES IT: the moment a COO
-/// act produces something edible, FAR's mark is removed and the cook's replaces it. Jeffrey's
-/// reasoning is the rule: regardless of how well cultivated an item is, a bad cook still ruins it
-/// and a great chef gets more out of it. Provenance is a handoff, not an accumulation.
+/// flour and marked dough and those keep longer in a pantry. A FINISHED DISH KEEPS BOTH NAMES
+/// (RULED 2026-08-18, superseding the 2026-08-13 displacement): the grower's line renders above
+/// the cook's in the ordered block, so a plate says who grew it and who cooked it. The cook's
+/// hand still governs the dish's NUMBERS, because a bad cook still ruins a great crop: FAR's
+/// effect contributors defer whenever a cook's mark sits on the stack (FarBonusPatches). Display
+/// keeps the name; effect follows the cook.
 ///
-/// THE DISPLACEMENT TEST IS A CONJUNCTION, and both halves are load-bearing:
+/// THE EDIBILITY TEST IS A CONJUNCTION, and both halves are load-bearing:
 ///
 ///     a COO act PRODUCED this output   AND   the output is DIRECTLY EDIBLE
 ///
 /// Raw crops are edible. <c>grain</c>, vegetables and fruit all carry real nutrition. Drop the
-/// first half and every harvest in the game would strip its own farmer's mark at the moment of
+/// first half and every harvest in the game would count as a cook's dish at the moment of
 /// creation. That is why <see cref="IsDirectlyEdible"/> is only ever consulted from a COO stamp
 /// path, and why this class exposes no free-standing "does COO own this food" helper: the first
 /// caller to forget the first half would reintroduce the bug silently, and only on marked produce.
@@ -31,7 +35,7 @@ namespace AlmanacTcm.Engine;
 ///
 ///     flour   no nutrition at all                 -> ingredient, FAR carries
 ///     dough   nutritionPropsWhenInMeal only       -> ingredient, FAR carries
-///     bread   nutritionProps                      -> food, COO displaces
+///     bread   nutritionProps                      -> food, cook signs, both names stay
 ///     grain   nutritionProps + WhenInMeal         -> food, but a FAR harvest made it
 ///
 /// In the API that distinction is exactly <see cref="CollectibleObject.NutritionProps"/> (the
@@ -324,8 +328,7 @@ public static class FoodProvenance
     /// that gets noticed. Perishing is the food failing, not an act anyone performed.
     ///
     /// Nothing is STAMPED here, only carried. A transition is unattended time, with no player and
-    /// no rank in play, so no domain has earned a new mark on the result. That also means the
-    /// cook-displaces-grower rule cannot fire here, which is correct: drying a Grandmaster's
+    /// no rank in play, so no domain has earned a new mark on the result. Drying a Grandmaster's
     /// tomatoes is not cooking them, and the grower keeps the credit.
     /// </summary>
     public static void TransitionCarryPostfix(ItemSlot slot, TransitionableProperties props, ItemStack __result)
@@ -348,32 +351,21 @@ public static class FoodProvenance
         Carry(stacks, output, outputSlot?.Inventory?.Api);
     }
 
-    /// <summary>
-    /// The displacement: a COO act has just stamped <paramref name="stack"/>, so the grower's mark
-    /// gives way if the result is something a player eats.
-    ///
-    /// Call this from EVERY COO stamp path. There are four (StampCooked and the three propagation
-    /// hops), and a mark that survives on one of them is a mark that shows up next to the cook's,
-    /// which is the visible failure. FAR's own contributors additionally treat a COO mark as
-    /// precedence, so a missed path degrades to a hidden mark rather than a doubled one.
-    /// </summary>
-    public static void CookDisplacesGrower(ItemStack? stack, ICoreAPI? api = null)
+
+    /// <summary>The same-hand fold (RULED 2026-08-18): when one player both grew and cooked a
+    /// dish, the two plain lines fold into one "Grown &amp; cooked by". COO emits the folded
+    /// line; FAR defers. Grandmaster forms never fold: Heirloom of and Signature dish have
+    /// each earned their own line. Compared by display name, which is what both attributes
+    /// store and exactly what would have rendered twice.</summary>
+    public static bool SameHandGrownAndCooked(ItemStack? stack)
     {
-        if (stack?.Collectible == null) return;
-        if (!IsDirectlyEdible(stack.Collectible)) return;   // an ingredient: the farmer keeps it
-
-        foreach (Mark mark in Carryable)
-        {
-            if (mark.Domain != "FAR") continue;
-            if (!stack.Attributes.HasAttribute(mark.LevelAttr)) return;
-            StripMark(mark, stack);
-
-            // Logged because the edibility test reads mod-supplied data. A mod that gives a true
-            // INGREDIENT real nutritionProps would displace where it should carry, and this line is
-            // how that shows up in play rather than in a bug report six weeks later.
-            if (api != null)
-                TcmLog.Cat(api, "coo", $"cook displaces grower on {stack.Collectible.Code}: FAR mark removed");
-            return;
-        }
+        var a = stack?.Attributes;
+        if (a == null) return false;
+        string? grower = a.GetString(Domains.FarBonusPatches.GrownByAttr);
+        if (string.IsNullOrEmpty(grower) || grower != a.GetString(Domains.CooBonusPatches.CookByNameAttr)) return false;
+        int grownTier = a.GetInt(Domains.FarBonusPatches.GrownTierAttr);
+        int cookLevel = a.GetInt(Domains.CooBonusPatches.CookTierAttr);
+        return grownTier >= Rank.Journeyman && grownTier < Rank.Grandmaster
+            && cookLevel >= Rank.Journeyman && cookLevel < Rank.Grandmaster;
     }
 }
