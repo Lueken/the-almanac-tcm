@@ -15,6 +15,12 @@ The Almanac: Trades, Callings & Mastery.
   product in cooking slot 0; the meal-pot stamp picked the changed slot and marked the
   pot itself ("Carelessly cooked" dirty pots, surfaced by Conjunction's rust-touched pot
   2026-08-17). The stamp now redirects from any cooking container to the actual product.
+- Alchemical matter is ALC, never COO (ruled 2026-08-17). Item types may declare
+  `attributes.tcmCraftDomain: "ALC"` (Conjunction's reagents do); grinding them at the
+  quern and working them at the pot then banks the new ALC `reagentwork` technique and
+  abstains from COO/FAR entirely — no milling credit, no cook's mark, no serving proc.
+  ALC small-m rises to 3 with an ALC-matter supplier installed; the available-technique
+  clamp keeps other servers unchanged.
 
 ## 0.4.38 (released 2026-08-16)
 

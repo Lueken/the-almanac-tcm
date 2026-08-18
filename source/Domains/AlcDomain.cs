@@ -40,6 +40,7 @@ public static class AlcDomain
     // The 2 verbs: #2 remedy crafting [vanilla, always]; #1 wet chemistry [industrialstory].
     public const string TechRemedy = "remedy";       // grid-craft a healing item (GridRecipe.ConsumeInput)
     public const string TechChemistry = "chemistry";  // ApparatusReactionVesselEntity.FinishReaction
+    public const string TechReagentWork = "reagentwork"; // processing alchemical matter (quern grind + pot work of tcmCraftDomain=ALC items; RULED 2026-08-17: all processing of Conjunction items is ALC, never COO)
 
     // ---- The Alchemist's Brand ladder (Axis 1 penalty + Axis 6 identity) knob keys.
     /// <summary>Remedy potency (Health / potion StrengthMul) at the Untrained end — below the
@@ -83,9 +84,10 @@ public static class AlcDomain
     {
         Code = Code,
         Smax = 100,
-        // small-m: 2 with industrialstory (remedy + chemistry); a pure-vanilla server has only the
-        // remedy verb and reads as 1 (the HUN available-technique clamp). The Quire ships industrialstory.
-        M = 2,
+        // small-m: 3 with industrialstory + a tcmCraftDomain=ALC supplier like Conjunction
+        // (remedy + chemistry + reagentwork); the HUN available-technique clamp reads 2 without
+        // an ALC-matter mod and 1 on pure vanilla. The Quire ships industrialstory + Conjunction.
+        M = 3,
         // Consumables + ingredient neighbourhood.
         Adjacency = new List<string> { "COO", "FOR", "BRE" },
         Techniques = new Dictionary<string, TechniqueConfig>
@@ -94,6 +96,8 @@ public static class AlcDomain
             [TechRemedy] = new() { Raw = 2, K = 20 },
             // Rare metal-gated apparatus, per-session: the contextHash keys on the reaction session.
             [TechChemistry] = new() { Raw = 3, K = 12 },
+            // Per-action reagent processing (quern, pot): cheap and repeatable like remedy. [TUNE]
+            [TechReagentWork] = new() { Raw = 2, K = 16 },
         },
         Bonus = new Dictionary<string, double>
         {

@@ -399,6 +399,20 @@ public static class CooPatches
             TcmLog.Cat(world.Api, "coo", $"meal-pot completed at {__state.Pos?.ToString() ?? "unknown pos"} but no cook stamped; uncredited");
             return;
         }
+        // Alchemical matter abstains from COO entirely (RULED 2026-08-17: all processing of
+        // Conjunction items is ALC). Detection is the soft-integration attribute
+        // tcmCraftDomain=ALC on the item type; on the cooksInto path the product sits in
+        // cooking slot 0 post-smelt. No cook stamp, no serving proc: this is the work of
+        // the alchemist, not the kitchen.
+        var alcProduct = cookingSlotsProvider?.Slots is { Length: > 0 } cs ? cs[0]?.Itemstack : null;
+        if (IsAlcMatter(alcProduct))
+        {
+            TcmLog.Cat(world.Api, "coo", $"alchemical matter at the pot ({alcProduct!.Collectible?.Code?.Path}) -> ALC reagentwork, COO abstains");
+            Core?.Ledger?.Log(cook, AlcDomain.Code, AlcDomain.TechReagentWork,
+                HashCode.Combine("reagentpot", __state.Pos!.X, __state.Pos.Z, world.ElapsedMilliseconds / 30000));
+            return;
+        }
+
         TcmLog.Cat(world.Api, "coo", $"meal-pot completed at {__state.Pos} -> {cook.PlayerName}");
         Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechMealPot,
             HashCode.Combine("mealpot", __state.Pos!.X, __state.Pos.Z, world.ElapsedMilliseconds / 30000));
@@ -535,14 +549,34 @@ public static class CooPatches
         // context and the K cap does the daily throttling. The 0.3.136 30s bucket collapsed a
         // 5-grain session into one credit, which under-read a per-action verb.
         int ctx = HashCode.Combine("quern", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 4000);
+
+        // Alchemical matter at the quern is ALC reagentwork, never COO/FAR milling
+        // (RULED 2026-08-17). The consumed input was captured by the prefix; the item-type
+        // attribute survives on any stack of it.
+        bool alcGrind = IsAlcMatter(__state.input);
+
         foreach (string uid in grinding.Keys)
         {
             IPlayer? player = __instance.Api.World.PlayerByUid(uid);
             if (player == null) continue;
+            if (alcGrind)
+            {
+                Core?.Ledger?.Log(player, AlcDomain.Code, AlcDomain.TechReagentWork, ctx);
+                continue;
+            }
             Core?.Ledger?.Log(player, CooDomain.Code, CooDomain.TechMilling, ctx, 0.5);
             Core?.Ledger?.Log(player, FarDomain.Code, FarDomain.TechMilling, ctx, 0.5);
         }
+        if (alcGrind && grinding.Count > 0)
+            TcmLog.Cat(__instance.Api, "coo", $"alchemical matter at the quern ({__state.input?.Collectible?.Code?.Path}) -> ALC reagentwork, COO/FAR abstain");
     }
+
+    /// <summary>The soft-integration signal (RULED 2026-08-17): item types may declare
+    /// attributes.tcmCraftDomain = "ALC" (Conjunction's reagents do) and their processing
+    /// then feeds ALC and abstains from COO/FAR. Collectible attributes, so it holds for
+    /// every stack of the item and costs nothing when TCM is absent.</summary>
+    private static bool IsAlcMatter(ItemStack? stack)
+        => stack?.Collectible?.Attributes?["tcmCraftDomain"]?.AsString() == "ALC";
 
     // ------------------------------------------------------------ juicing
 
