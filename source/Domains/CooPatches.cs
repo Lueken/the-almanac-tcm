@@ -407,9 +407,15 @@ public static class CooPatches
         var alcProduct = cookingSlotsProvider?.Slots is { Length: > 0 } cs ? cs[0]?.Itemstack : null;
         if (IsAlcMatter(alcProduct))
         {
-            TcmLog.Cat(world.Api, "coo", $"alchemical matter at the pot ({alcProduct!.Collectible?.Code?.Path}) -> ALC reagentwork, COO abstains");
+            // Credit scales with servings produced (the product stack IS the serving count
+            // on the cooksInto path), and the bucket is per-completion like the quern's:
+            // the 30s mealpot bucket under-read batch work (6 fixed riftbloom banked one
+            // flat credit — found in game 2026-08-17; same lesson as the 0.3.136 quern).
+            int servings = Math.Max(1, alcProduct!.StackSize);
+            TcmLog.Cat(world.Api, "coo", $"alchemical matter at the pot ({alcProduct.Collectible?.Code?.Path} x{servings}) -> ALC reagentwork x{servings}, COO abstains");
             Core?.Ledger?.Log(cook, AlcDomain.Code, AlcDomain.TechReagentWork,
-                HashCode.Combine("reagentpot", __state.Pos!.X, __state.Pos.Z, world.ElapsedMilliseconds / 30000));
+                HashCode.Combine("reagentpot", __state.Pos!.X, __state.Pos.Z, world.ElapsedMilliseconds / 4000),
+                servings);
             return;
         }
 
