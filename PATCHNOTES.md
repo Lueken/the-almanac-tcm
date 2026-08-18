@@ -10,6 +10,11 @@ The Almanac: Trades, Callings & Mastery.
   Story registers the block as `retortsmelter` (the blocktype FILE is retort-chamber.json;
   the code field inside is what counts), so the trigger never fired and the smelters-yard
   retort chapter never revealed for anyone. Both patterns corrected.
+- Cookware no longer earns a cook's mark. On the cooksInto path (candles, potash, glue,
+  and modded pot chemistry) vanilla parks the VESSEL in the firepit input slot and the
+  product in cooking slot 0; the meal-pot stamp picked the changed slot and marked the
+  pot itself ("Carelessly cooked" dirty pots, surfaced by Conjunction's rust-touched pot
+  2026-08-17). The stamp now redirects from any cooking container to the actual product.
 
 ## 0.4.38 (released 2026-08-16)
 

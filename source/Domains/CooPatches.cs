@@ -390,7 +390,7 @@ public static class CooPatches
 
     /// <summary>Meal pot: the recipe path returns early on a null/burned/invalid match leaving the
     /// slots untouched, so a slot transform IS the success gate (ruled: burned banks nothing).</summary>
-    public static void MealPotPostfix(IWorldAccessor world, ItemSlot inputSlot, ItemSlot outputSlot, SmeltState __state)
+    public static void MealPotPostfix(IWorldAccessor world, ISlotProvider cookingSlotsProvider, ItemSlot inputSlot, ItemSlot outputSlot, SmeltState __state)
     {
         if (world?.Side != EnumAppSide.Server || !Changed(inputSlot, outputSlot, __state)) return;
         IPlayer? cook = CookAt(world, __state.Pos);
@@ -413,6 +413,19 @@ public static class CooPatches
             || (outputSlot?.Itemstack?.StackSize ?? 0) != __state.OutSize) meal = outputSlot?.Itemstack;
         if (meal == null && ((inputSlot?.Itemstack?.Collectible?.Id ?? -1) != __state.InId
             || (inputSlot?.Itemstack?.StackSize ?? 0) != __state.InSize)) meal = inputSlot?.Itemstack;
+
+        // CooksInto corrections (the rust-touched-pot find, 2026-08-17): on that path
+        // vanilla parks the VESSEL in the input slot and the product in cooking slot 0
+        // (BlockCookingContainer.DoSmelt :187-194), so the changed-slot pick above lands
+        // on the pot and hands cookware a cook's mark (this also stamped vanilla dirty
+        // pots after candle/potash making). Never stamp a vessel; redirect to the product.
+        if (meal?.Collectible is BlockCookingContainer)
+        {
+            meal = cookingSlotsProvider?.Slots is { Length: > 0 } slots ? slots[0]?.Itemstack : null;
+            if (meal != null)
+                TcmLog.Cat(world.Api, "coo", $"cooksInto path: redirected stamp from vessel to product {meal.Collectible?.Code?.Path}");
+        }
+
         CooBonusPatches.StampCooked(meal, cook, (int)CooDomain.Knob(CooDomain.CxMealpot, 1));
         // Anchor the stamp to the firepit's position too: the pack converts fresh-cooked pots
         // into differently-coded stacks (attrs discarded), so the serve heals from this store.
