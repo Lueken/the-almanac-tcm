@@ -149,6 +149,17 @@ public static class MetPatches
         _ => "almanactcm:smithed-by",
     };
 
+    /// <summary>The awake-quality percent clause of the maker line, or empty. Shared with
+    /// ToolPartMarks so a folded lineage line (RULED 2026-08-18) keeps the figure the
+    /// numbers ruling promised.</summary>
+    internal static string QualityClause(ItemStack? stack)
+    {
+        float quality = stack?.Attributes?.GetFloat(SmithingQualityAttr, 0f) ?? 0f;
+        if (quality <= 1f) return "";
+        return Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-durability",
+            (int)System.Math.Round((quality - 1f) * 100f)));
+    }
+
     /// <summary>Durability multiplier for the maker's rank (§162 Axis 6): a modest,
     /// band-scaling bump to the HEAD's pool. Below Journeyman (or a stripped buff) = ×1.
     /// Handle and binding stay stock — they take their own quality from WOO / TAI-HUN later,
@@ -538,24 +549,30 @@ public static class MetPatches
             // Tiered provenance from the frozen maker level; tools stamped before the mark
             // carried a rank at all fall back to the flat line.
             int level = MarkLevel(stack);
-            string makerLine = Lang.Get(level >= Rank.Journeyman ? MakerKey(level) : "almanactcm:made-by", maker);
-
-            // The numbers ruling (2026-08-01): the maker line carries the quality's percent
-            // when the work is awake (the attribute is the multiplier Smithing+ applies), and
-            // the generic GM wear-skip rides here when no Durable line will claim its own.
-            float quality = attrs.GetFloat(SmithingQualityAttr, 0f);
-            if (quality > 1f)
-                makerLine += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-durability",
-                    (int)System.Math.Round((quality - 1f) * 100f)));
             bool honed = MetSignature.IsHoned(stack);
             bool durable = MetSignature.IsDurable(stack);
-            if (level >= Rank.Grandmaster && !durable)
+
+            // When one hand forged the tool AND made a part of it, ToolPartMarks folds the
+            // forged credit into its lineage line (RULED 2026-08-18) and this maker line
+            // stands down. Below Grandmaster only; a masterwork never folds. The quality
+            // clause travels with the fold via QualityClause. The unfitted and signature
+            // lines below still render either way.
+            if (!ToolPartMarks.WillFoldToolMark(stack))
             {
-                int skipPct = (int)System.Math.Round(Knob(MetDomain.GmWearSkip, 0.08) * 100.0);
-                if (skipPct > 0)
-                    makerLine += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-wear-skip", skipPct));
+                string makerLine = Lang.Get(level >= Rank.Journeyman ? MakerKey(level) : "almanactcm:made-by", maker);
+
+                // The numbers ruling (2026-08-01): the maker line carries the quality's percent
+                // when the work is awake (the attribute is the multiplier Smithing+ applies), and
+                // the generic GM wear-skip rides here when no Durable line will claim its own.
+                makerLine += QualityClause(stack);
+                if (level >= Rank.Grandmaster && !durable)
+                {
+                    int skipPct = (int)System.Math.Round(Knob(MetDomain.GmWearSkip, 0.08) * 100.0);
+                    if (skipPct > 0)
+                        makerLine += Engine.TcmTooltip.Clause(Lang.Get("almanactcm:tip-wear-skip", skipPct));
+                }
+                dsc.AppendLine(makerLine);
             }
-            dsc.AppendLine(makerLine);
 
             // The fitting rule's face: an assembled tool whose maker's work is dormant says
             // so, and says what to do about it, or the rule reads as a silent nerf.

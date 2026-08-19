@@ -171,7 +171,14 @@ public static class ToolPartMarks
         // a single verb keeps the original tiered wording, so nothing changes for mixed crews.
         var lineage = new List<(string Verb, string Name, int Level)>();
 
-        if (string.IsNullOrEmpty(attrs.GetString(MetPatches.MakerNameAttr)))
+        if (WillFoldToolMark(stack))
+        {
+            // The tool carries its own MET mark and the same hand made a part: MET's maker
+            // line stands down (MarkTooltipPatch checks this same predicate) and the forged
+            // credit joins the lineage here, quality clause and all.
+            lineage.Add(("forged", attrs.GetString(MetPatches.MakerNameAttr)!, MetPatches.MarkLevel(stack)));
+        }
+        else if (string.IsNullOrEmpty(attrs.GetString(MetPatches.MakerNameAttr)))
         {
             var head = attrs.GetItemstack("tinkeredToolHead");
             string? smith = head?.Attributes?.GetString(MetPatches.MakerNameAttr);
@@ -210,9 +217,30 @@ public static class ToolPartMarks
                 for (int i = 1; i < mine.Count; i++)
                     phrase += (i == mine.Count - 1 ? " & " : ", ")
                         + Lang.Get($"almanactcm:lineage-{mine[i].Verb}").ToLowerInvariant();
-                dsc.AppendLine(Lang.Get("almanactcm:lineage-by", phrase, hand));
+                string line = Lang.Get("almanactcm:lineage-by", phrase, hand);
+                // A folded forged credit keeps the awake-quality figure the maker line
+                // would have carried (the numbers ruling).
+                if (mine.Exists(t => t.Verb == "forged" && t.Level > 0))
+                    line += MetPatches.QualityClause(stack);
+                dsc.AppendLine(line);
             }
         }
+    }
+
+    /// <summary>True when the assembled tool's own MET mark should fold into the lineage
+    /// line instead of rendering separately (RULED 2026-08-18): the tool carries a maker
+    /// below Grandmaster, and that same hand made the handle or the binding. MetPatches'
+    /// MarkTooltipPatch consults this same predicate, so the two renderers cannot both
+    /// print or both stand down, whatever Harmony's postfix order.</summary>
+    internal static bool WillFoldToolMark(ItemStack? stack)
+    {
+        var attrs = stack?.Attributes;
+        if (attrs == null) return false;
+        string? maker = attrs.GetString(MetPatches.MakerNameAttr);
+        if (string.IsNullOrEmpty(maker)) return false;
+        if (MetPatches.MarkLevel(stack) >= Rank.Grandmaster) return false;
+        return maker == attrs.GetItemstack("tinkeredToolHandle")?.Attributes?.GetString(ByNameAttr)
+            || maker == attrs.GetItemstack("tinkeredToolBinding")?.Attributes?.GetString(ByNameAttr);
     }
 
     private static void CollectPart(List<(string Verb, string Name, int Level)> lineage, ItemStack? part)

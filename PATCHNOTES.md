@@ -31,6 +31,13 @@ The Almanac: Trades, Callings & Mastery.
   by one maker reads "Forged, hafted & bound by" instead of three lines. Grandmaster forms
   never fold: Heirloom of, Signature dish by and a masterwork head each keep their own line.
 
+- The fold reaches the common tool. An assembled tool usually carries its maker's own
+  mark, which used to render separately from the part lineage, so one maker throughout
+  still read as two lines. When the tool's maker also made the handle or the binding
+  (and the mark is below Grandmaster), the forged credit now folds into the lineage
+  line, quality figure and all: "Forged, hafted & bound by X (+12% durability)". A
+  masterwork still keeps its own line.
+
 ## 0.4.38 (released 2026-08-16)
 
 **Living document.** Updated as work lands, not written at release. Everything below is
