@@ -525,11 +525,13 @@ public static class CooBonusPatches
         if (Engine.FoodProvenance.SameHandGrownAndCooked(stack))
             return Lang.Get("almanactcm:grown-cooked-by", name);
         string? line =
-            // A pie's GM line must not say "It will keep": pies traded the slow-spoil away for
-            // the satiety edge (RULED 2026-08-14), so the standard line would claim a keeping
-            // quality the ruling removed. Same signature, no promise.
+            // The signature names the cook and promises nothing (RULED 2026-08-19, cutting
+            // "It will keep."). The freshness line above already states the composed keeping
+            // figure, so a prose promise here could only repeat it or contradict it, and on a
+            // pie it contradicted: pies traded slow-spoil for the satiety edge (RULED
+            // 2026-08-14). One line now serves every dish, and the pie variant is retired.
             level >= Rank.Grandmaster
-                ? Lang.Get(stack?.Block is BlockPie ? "almanactcm:signature-by-pie" : "almanactcm:signature-by", name)
+                ? Lang.Get("almanactcm:signature-by", name)
             : level >= Rank.Master ? Lang.Get("almanactcm:prepared-by", name)
             : level >= Rank.Journeyman ? Lang.Get("almanactcm:cooked-by", name)
             // The Untrained penalty names ITSELF (RULED 2026-08-12). It is the only band

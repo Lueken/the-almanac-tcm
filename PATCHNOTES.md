@@ -38,6 +38,11 @@ The Almanac: Trades, Callings & Mastery.
   line, quality figure and all: "Forged, hafted & bound by X (+12% durability)". A
   masterwork still keeps its own line.
 
+- The Grandmaster signature promises nothing. "Signature dish by {name}. It will keep."
+  loses its second sentence: the freshness line directly above already states the composed
+  keeping figure, so the prose could only repeat it or, on a pie, contradict it. One line
+  now serves every dish and the separate pie wording is retired.
+
 ## 0.4.38 (released 2026-08-16)
 
 **Living document.** Updated as work lands, not written at release. Everything below is
