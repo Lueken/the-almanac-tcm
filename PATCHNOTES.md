@@ -43,6 +43,12 @@ The Almanac: Trades, Callings & Mastery.
   keeping figure, so the prose could only repeat it or, on a pie, contradict it. One line
   now serves every dish and the separate pie wording is retired.
 
+- A shattered quench taught you nothing, and now it really does not. Practice was paid
+  from the cooling tick, which runs before the piece is out of danger, so a blade that
+  burst in the barrel still banked the work (and said so, since practice notes are on by
+  default). The credit moved to the settle, which vanilla reaches only on a quench that
+  held. Same amount, same repeat rules, paid on success.
+
 ## 0.4.38 (released 2026-08-16)
 
 **Living document.** Updated as work lands, not written at release. Everything below is

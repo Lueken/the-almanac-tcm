@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using AlmanacTcm.Leveling;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -627,6 +628,18 @@ public static class MetPatches
     /// the parameterless GetShatterChance seam can know whose hands hold the tongs.</summary>
     private static IPlayer? quenchingPlayer;
 
+    /// <summary>One pending quench, remembered from the cooling tick that saw the tongs
+    /// until the settle that decides whether the work survived. Keyed weakly on the stack
+    /// itself: a shattered piece has its stack nulled by vanilla, so its entry becomes
+    /// unreachable and collectable without any cleanup pass of ours.</summary>
+    private sealed class QuenchAttempt
+    {
+        internal string Uid = "";
+        internal int Cx;
+    }
+
+    private static readonly ConditionalWeakTable<ItemStack, QuenchAttempt> quenchAttempts = new();
+
     [HarmonyPatch(typeof(CollectibleBehaviorQuenchable), "IsGettingCooled")]
     public static class QuenchContextPatch
     {
@@ -635,17 +648,48 @@ public static class MetPatches
             if (world.Side != EnumAppSide.Server) return;
             quenchingPlayer = (slot.Inventory as InventoryBasePlayer)?.Player;
 
+            // The tongs are noted here, but NOT paid here (RULED 2026-08-19). This method
+            // runs on every cooling tick and only ROLLS the break; the piece can still
+            // shatter afterwards, and a shatter must teach nothing. The credit is handed
+            // over in QuenchSettledPatch, which vanilla reaches only on a quench that held.
             if (quenchingPlayer != null && slot.Itemstack != null)
             {
-                Core?.Ledger?.Log(quenchingPlayer, MetDomain.Code, MetDomain.TechQuenching,
-                    HashCode.Combine(slot.Itemstack.Collectible.Id,
-                        (int)pos.X / 4, (int)pos.Y / 4, (int)pos.Z / 4));
+                var attempt = new QuenchAttempt
+                {
+                    Uid = quenchingPlayer.PlayerUID,
+                    Cx = HashCode.Combine(slot.Itemstack.Collectible.Id,
+                        (int)pos.X / 4, (int)pos.Y / 4, (int)pos.Z / 4),
+                };
+                quenchAttempts.Remove(slot.Itemstack);
+                quenchAttempts.Add(slot.Itemstack, attempt);
             }
         }
 
         public static void Finalizer()
         {
             quenchingPlayer = null;
+        }
+    }
+
+    /// <summary>The quench that held. Vanilla calls applyQuenchedStats from trySettleWorkItem
+    /// only when a piece settles after real time in the quench range, and a shattered piece
+    /// never gets there (IsGettingCooled nulls the slot stack first), so this is the seam
+    /// where the work is actually finished. Practice is paid once, against the context the
+    /// attempt recorded, so the ledger repeat rules read it exactly as before.</summary>
+    [HarmonyPatch(typeof(CollectibleBehaviorQuenchable), "applyQuenchedStats")]
+    public static class QuenchSettledPatch
+    {
+        public static void Postfix(IWorldAccessor world, ItemStack itemstack)
+        {
+            if (world.Side != EnumAppSide.Server || itemstack == null) return;
+            if (!quenchAttempts.TryGetValue(itemstack, out QuenchAttempt? attempt)) return;
+            quenchAttempts.Remove(itemstack);
+
+            // Resolved by UID rather than held as a reference: the table outlives the tick,
+            // and a smith who logs out mid-cool should not be kept alive by a work item.
+            IPlayer? smith = world.PlayerByUid(attempt.Uid);
+            if (smith == null) return;
+            Core?.Ledger?.Log(smith, MetDomain.Code, MetDomain.TechQuenching, attempt.Cx);
         }
     }
 
