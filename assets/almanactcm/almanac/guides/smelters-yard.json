@@ -57,8 +57,8 @@
     {
       "id": "the-roasting-heap",
       "title": "The roasting heap",
-      "revealedBy": "almanactcm:is-first-roast",
-      "hint": "This page takes its ink from the first fire you build only to change stone.",
+      "revealedBy": "almanactcm:is-first-roastable",
+      "hint": "This page takes its ink from the first ore you carry up that fire alone will not answer.",
       "pageBreakBefore": true,
       "blocks": [
         {
