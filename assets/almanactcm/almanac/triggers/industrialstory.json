@@ -1,11 +1,23 @@
 {
   "triggers": [
     {
+      "key": "almanactcm:is-first-roastable",
+      "requires": ["industrialstory"],
+      "onBlockBroken": [
+        "game:*chalcopyrite*",
+        "game:*tetrahedrite*",
+        "game:*sphalerite*",
+        "game:*galena*",
+        "game:*bismuthinite*",
+        "game:*limonite*"
+      ],
+      "toast": "almanactcm:knowledge-is-roast"
+    },
+    {
       "key": "almanactcm:is-first-roast",
       "requires": ["industrialstory"],
       "onBlockPlaced": ["industrialstory:roastingheap*"],
-      "onBlockUsed": ["industrialstory:roastingheap*"],
-      "toast": "almanactcm:knowledge-is-roast"
+      "onBlockUsed": ["industrialstory:roastingheap*"]
     },
     {
       "key": "almanactcm:is-first-pitfurnace",

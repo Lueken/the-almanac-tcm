@@ -6,6 +6,16 @@ The Almanac: Trades, Callings & Mastery.
 
 ## 0.4.39 (in development)
 
+- The roasting heap page arrives when you need it, not after you no longer do. Its
+  reveal keyed on `is-first-roast`, which mints on contact with the heap BLOCK — and the
+  heap does not exist until sixteen firewood have been stacked and a nugget pressed in.
+  The chapter therefore opened at the exact instant the player had already worked out
+  everything it explains (reported by yaro, beta-discussion 2026-08-19). The reveal now
+  keys on a new `is-first-roastable`, minted the first time you break an ore that fire
+  alone will not answer: chalcopyrite, tetrahedrite, sphalerite, galena, bismuthinite or
+  limonite. The page opens when you first hold the problem. `is-first-roast` stays, quiet
+  now, and still ticks the first two steps of the heap's checklist.
+
 - The retort finally teaches. `is-first-retort` targeted `retortchamber*`, but Industrial
   Story registers the block as `retortsmelter` (the blocktype FILE is retort-chamber.json;
   the code field inside is what counts), so the trigger never fired and the smelters-yard
