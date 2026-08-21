@@ -52,6 +52,15 @@ because Grandmaster work builds directly on this state.
   own save record, written at the drink and read back at the restore, so the effect
   resumes with exactly the time it had left. Potency was never affected; only time was.
 
+- A rust-mob kill wakes the temporal sense. Killing a drifter, shiver, bowtorn, bell or
+  locust now banks Temporal practice at half the kill's worth, alongside the full credit
+  to the weapon's own calling. The tier scaling rides along: a deep drifter teaches more
+  than a surface one. This is the practice loop the coming translocator gate stands on.
+- Butchering a raised animal pays the barn and the knife alike. Dressing a beast that a
+  player raised (the trough's own attribution) now splits its practice evenly between
+  Hunting's dressing and a new Farming butchery verb, same total as before. Wild game is
+  untouched: no stamp, full Hunting credit, exactly as it was.
+
 ## 0.4.40 (hotfix, released 2026-08-21)
 
 One fix, nothing else. The trough breakage was reported against the 0.4.39 build and

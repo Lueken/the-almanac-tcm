@@ -42,6 +42,7 @@ public static class TemDomain
 
     public const string TechWarding = "warding";   // BlockEntityRiftWard.OnInteract (fuel/toggle)
     public const string TechRepair = "repair";      // BlockEntityStaticTranslocator.DoRepair + teleporter recharge
+    public const string TechTemporalKill = "temporalkill"; // rust-mob kills, 50% co-grant beside MEL/RAN (ruled 2026-08-21)
 
     // ---- Axis 2 gear economy knob keys.
     /// <summary>temporalGearTLRepairCost multiplier at Untrained — a beginner burns MORE gears repairing a
@@ -91,6 +92,9 @@ public static class TemDomain
             [TechWarding] = new() { Raw = 3, K = 10 },
             // Rare (translocators are sparse worldgen finds): small K.
             [TechRepair] = new() { Raw = 3, K = 8 },
+            // Mirrors the combat kill config (Raw 4, K 30) so the 0.5 share multiplier
+            // yields exactly half the method's practice at the same saturation cadence.
+            [TechTemporalKill] = new() { Raw = 4, K = 30 },
         },
         Bonus = new Dictionary<string, double>
         {

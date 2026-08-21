@@ -308,8 +308,24 @@ public static class HunPatches
             // wild-game test as the kill grant, so only animals bank HUN dressing.
             var carcass = HarmonyLib.AccessTools.Field(typeof(EntityBehavior), "entity")?.GetValue(__instance) as Entity;
             if (carcass == null || !IsHuntableGame(carcass)) return;
-            Core?.Ledger?.Log(byPlayer!, HunDomain.Code, HunDomain.TechDressing,
-                HashCode.Combine(HunDomain.TechDressing, world.ElapsedMilliseconds / 1000));
+
+            // The raised-animal split (ruled 2026-08-21, A7): butchering a beast a player
+            // RAISED (the trough-feed raisedBy stamp, ANI's attribution spine) is husbandry's
+            // harvest as much as the knife's, so the act's practice splits 50/50 between HUN
+            // dressing and FAR butchery, same total as a wild dressing. Wild game, no stamp,
+            // pays full HUN exactly as before. The butcher gets both credits, whoever raised
+            // it: the condition is that a player did, not that this player did.
+            bool raised = carcass.WatchedAttributes?.HasAttribute(AniDomain.RaisedByAttr) == true;
+            int ctx = HashCode.Combine(HunDomain.TechDressing, world.ElapsedMilliseconds / 1000);
+            if (raised)
+            {
+                Core?.Ledger?.Log(byPlayer!, HunDomain.Code, HunDomain.TechDressing, ctx, 0.5);
+                Core?.Ledger?.Log(byPlayer!, FarDomain.Code, FarDomain.TechButchery, ctx, 0.5);
+            }
+            else
+            {
+                Core?.Ledger?.Log(byPlayer!, HunDomain.Code, HunDomain.TechDressing, ctx);
+            }
         }
     }
 

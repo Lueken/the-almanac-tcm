@@ -191,7 +191,23 @@ public static class MelRanKillPatches
             Core?.Ledger?.Log(player, RanDomain.Code, RanDomain.TechShooting, ctx, mult);
         else
             Core?.Ledger?.Log(player, MelDomain.Code, MelDomain.TechFighting, ctx, mult);
+
+        // The temporal-kill co-grant (ruled 2026-08-21, A7 of the 0.5 gap pass): a rust-mob
+        // kill pays the method its full practice above AND TEM half, sharing ctx so the two
+        // credits dedup in step. The 0.5 rides mult, so DifficultyMult carries through:
+        // a deep-tier drifter teaches more temporal awareness than a surface one, by ruling.
+        // Direct call rather than a CoGrants config entry because the fan is conditional on
+        // the TARGET, and CoGrants fans per technique, blind to what died.
+        if (IsTemporalCreature(species))
+            Core?.Ledger?.Log(player, TemDomain.Code, TemDomain.TechTemporalKill, ctx, mult * 0.5);
     }
+
+    /// <summary>The temporal bestiary, by first code part: the set DifficultyMult tiers plus
+    /// the hostiles HunPatches excludes from the hunt (drifter/shiver/bowtorn/bell/locust).
+    /// Wildlife and modded beasts are never temporal quarry.</summary>
+    private static bool IsTemporalCreature(string first) =>
+        first == "drifter" || first.StartsWith("shiver") || first.StartsWith("bowtorn")
+        || first.StartsWith("bell") || first.StartsWith("locust");
 
     // ------------------------------------------------------------ ruled fences
 

@@ -41,6 +41,7 @@ public static class FarDomain
     public const string TechOrchard = "orchard";       // BlockEntityFruitTreePart.OnBlockInteractStop
     public const string TechBeekeeping = "beekeeping"; // BlockSkep.OnBlockBroken harvest
     public const string TechShearing = "shearing";     // EntityBehaviorShearable.DoShear (shearlib)
+    public const string TechButchery = "butchery";     // dressing a player-raised animal (50/50 with HUN, ruled 2026-08-21)
     public const string TechFurrow = "furrow";         // primitivesurvival furrow (DEFERRED to 1b)
     public const string TechVermiculture = "vermiculture"; // ithania worm bin (DEFERRED to 1b)
     /// <summary>FAR's half of the ruled COO 50 / FAR 50 quern split (technique-maps COO #7).
@@ -129,6 +130,9 @@ public static class FarDomain
             [TechOrchard] = new() { Raw = 2, K = 20 },
             [TechBeekeeping] = new() { Raw = 5, K = 12 },
             [TechShearing] = new() { Raw = 2, K = 20 },
+            // Half of the dressing act's total (HUN dressing Raw 2): the 0.5 share at the
+            // call site makes the raised-animal split an even 1+1 (ruled 50/50, 2026-08-21).
+            [TechButchery] = new() { Raw = 2, K = 30 },
             [TechFurrow] = new() { Raw = 2, K = 15 },
             [TechVermiculture] = new() { Raw = 3, K = 12 },
             // The 50-share of the quern event (COO's listener grants both halves at 0.5 raw).
