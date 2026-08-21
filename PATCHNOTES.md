@@ -4,7 +4,32 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
-## 0.4.39 (in development)
+## 0.4.40 (hotfix, in development)
+
+One fix, nothing else. The trough breakage was reported against the 0.4.39 build and
+its fix landed hours after 0.4.39 deployed.
+
+- Marked produce feeds troughs again. The trough compares feed with the game's standard
+  ignore-list, which does not know our marks, and every vanilla trough recipe names an exact
+  item. So the moment your rank put a "Grown by" line on your harvest, that harvest stopped
+  fitting the trough: marked grain bounced off an empty trough, and marked and plain crops of
+  the same kind refused to share a filled one, in both directions. Which crops failed depended
+  on your rank when each was picked and on what the trough already held, which is why it looked
+  arbitrary (reported by LauCaRo, 2026-08-21). The trough is mark-blind now, and feed sheds its
+  mark as it goes in: a trough launders nothing, the animal reads no tooltip, and feeding has
+  always been paid by the FILLER's hand, never the crop's pedigree. Only the portion that enters
+  loses its mark; the stack in your hand keeps its keeping. Troughs filled with marked feed
+  before this fix clean themselves the first time anyone touches them.
+
+## 0.4.39 (released 2026-08-21)
+
+- Finishing a knit no longer ends your session. The Tailor's Mark stamp looks through your
+  inventories for the garment you just made, and it looked through all of them, the creative
+  inventory included. On a dedicated server that one has no tab built, so asking it how many
+  slots it holds throws, and an exception thrown inside a Harmony postfix takes the player's
+  connection with it ("Threw an exception at the server"). Observed live on The Quire
+  2026-08-20. The creative inventory is skipped outright now, and any other inventory that
+  refuses to be read is logged and passed over: a cosmetic mark must never cost a session.
 
 - The retort finally teaches. `is-first-retort` targeted `retortchamber*`, but Industrial
   Story registers the block as `retortsmelter` (the blocktype FILE is retort-chamber.json;
@@ -66,26 +91,6 @@ The Almanac: Trades, Callings & Mastery.
   themselves are unchanged: a dormant calling still banks nothing and still cannot climb.
   A rank already lost to this cannot be recovered, since the save on disk holds nothing
   to restore.
-
-- Marked produce feeds troughs again. The trough compares feed with the game's standard
-  ignore-list, which does not know our marks, and every vanilla trough recipe names an exact
-  item. So the moment your rank put a "Grown by" line on your harvest, that harvest stopped
-  fitting the trough: marked grain bounced off an empty trough, and marked and plain crops of
-  the same kind refused to share a filled one, in both directions. Which crops failed depended
-  on your rank when each was picked and on what the trough already held, which is why it looked
-  arbitrary (reported by LauCaRo, 2026-08-21). The trough is mark-blind now, and feed sheds its
-  mark as it goes in: a trough launders nothing, the animal reads no tooltip, and feeding has
-  always been paid by the FILLER's hand, never the crop's pedigree. Only the portion that enters
-  loses its mark; the stack in your hand keeps its keeping. Troughs filled with marked feed
-  before this fix clean themselves the first time anyone touches them.
-
-- Finishing a knit no longer ends your session. The Tailor's Mark stamp looks through your
-  inventories for the garment you just made, and it looked through all of them, the creative
-  inventory included. On a dedicated server that one has no tab built, so asking it how many
-  slots it holds throws, and an exception thrown inside a Harmony postfix takes the player's
-  connection with it ("Threw an exception at the server"). Observed live on The Quire
-  2026-08-20. The creative inventory is skipped outright now, and any other inventory that
-  refuses to be read is logged and passed over: a cosmetic mark must never cost a session.
 
 ## 0.4.38 (released 2026-08-16)
 
