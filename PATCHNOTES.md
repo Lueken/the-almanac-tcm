@@ -45,6 +45,13 @@ because Grandmaster work builds directly on this state.
   is groundwork as much as courtesy: the ceremony pipeline is what a Grandmaster
   ascension will one day extend, and it had to be durable first.
 
+- A Lasting brand outlives a relog. A branded potion's extended duration was applied at
+  the drink and forgotten: logging out and back mid-effect rebuilt the effect at its base
+  duration and clamped the remaining time down to it, so the Grandmaster's headline
+  emphasis quietly died on every reconnect. The brand's multiplier now rides the effect's
+  own save record, written at the drink and read back at the restore, so the effect
+  resumes with exactly the time it had left. Potency was never affected; only time was.
+
 ## 0.4.40 (hotfix, released 2026-08-21)
 
 One fix, nothing else. The trough breakage was reported against the 0.4.39 build and

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -66,10 +67,25 @@ public static class AlcBrandPatches
         {
             harmony.Patch(apply,
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(PotionApplyPrefix))),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(PotionApplyPostfix))),
                 finalizer: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(PotionApplyFinalizer))));
             harmony.Patch(strength, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(StrengthPostfix))));
             harmony.Patch(build, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(BuildPotionDefPostfix))));
             TcmLog.Info(api, $"ALC potion Brand read hooked via {registry!.Name}.{build.Name} (potency + duration scaling at drink)");
+
+            // The relog seam (0.5, verb-review blocker 3). EffectManager.RestoreEffects
+            // re-runs Build with no drink in flight, then clamps the restored duration to
+            // Min(remainingSec, rebuiltBase): a Lasting brand's extension died on relog.
+            var manager = AccessTools.TypeByName("Alchemy.EffectManager");
+            var restore = manager == null ? null : AccessTools.Method(manager, "RestoreEffects");
+            if (restore != null)
+            {
+                harmony.Patch(restore,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(RestorePrefix))),
+                    finalizer: new HarmonyMethod(AccessTools.Method(typeof(AlcBrandPatches), nameof(RestoreFinalizer))));
+                TcmLog.Info(api, "ALC brand relog seam hooked (EffectManager.RestoreEffects)");
+            }
+            else TcmLog.Warn(api, "ALC brand relog seam not found (EffectManager.RestoreEffects); Lasting durations truncate on relog");
         }
         else TcmLog.Cat(api, TcmLog.Config, "ALC potion read seams not found (alchemy); potion Brand scaling inactive (poultices unaffected)");
     }
@@ -79,13 +95,62 @@ public static class AlcBrandPatches
     public static void PotionApplyPrefix(object data)
     {
         pendingPotionLevel = null;
+        drinkBuiltEffects = null;
         var src = Traverse.Create(data)?.Field("SourceStack")?.GetValue() as ItemStack;
         if (!AlcBrand.HasBrand(src)) return;
         pendingPotionLevel = AlcBrand.LevelOf(src);
         pendingPotionPotent = AlcBrand.IsPotent(src);
+        drinkBuiltEffects = new List<(string, float)>();
     }
 
-    public static void PotionApplyFinalizer() => pendingPotionLevel = null;
+    /// <summary>Effect ids Built during the current branded drink, with the duration multiplier
+    /// each received. Consumed by <see cref="PotionApplyPostfix"/> to stamp the save record:
+    /// alchemy persists per-effect subtrees under WatchedAttributes["alchemyEffects"] (created
+    /// at apply, strengthMul written at :412, only remainingSec updated at Suspend), so a
+    /// stamp written once at drink survives every save until the effect ends.</summary>
+    private static List<(string id, float durMul)>? drinkBuiltEffects;
+
+    /// <summary>Non-null while EffectManager.RestoreEffects runs: the restoring player's
+    /// alchemyEffects tree, so the Build postfix can re-apply the stamped multiplier.</summary>
+    private static Vintagestory.API.Datastructures.ITreeAttribute? restoringEffects;
+
+    private const string DurMulAttr = "almanacDurMul";
+
+    public static void PotionApplyFinalizer()
+    {
+        pendingPotionLevel = null;
+        drinkBuiltEffects = null;
+    }
+
+    /// <summary>Stamp the duration multiplier onto each effect subtree this drink created
+    /// (0.5, verb-review blocker 3). The ids come from the Build calls inside THIS drink, so
+    /// an unrelated effect already running from someone else's batch is never touched. A
+    /// re-drink of the same effect id refreshes its stamp along with its subtree.</summary>
+    public static void PotionApplyPostfix(EntityAgent byEntity)
+    {
+        if (drinkBuiltEffects == null || drinkBuiltEffects.Count == 0) return;
+        var tree = byEntity?.WatchedAttributes?.GetTreeAttribute("alchemyEffects");
+        if (tree == null) return;
+        foreach (var (id, durMul) in drinkBuiltEffects)
+        {
+            var sub = tree.GetTreeAttribute(id);
+            if (sub == null) continue;
+            sub.SetFloat(DurMulAttr, durMul);
+        }
+        byEntity!.WatchedAttributes.MarkPathDirty("alchemyEffects");
+    }
+
+    /// <summary>RestoreEffects re-runs Build with no drink in flight and then clamps to
+    /// Min(remainingSec, rebuiltBase) (decompiled 2.1.17 :232), so the rebuilt base must carry
+    /// the brand's extension or the clamp truncates it. The prefix exposes the restoring
+    /// player's effect tree to the Build postfix; the finalizer clears it whatever happens.</summary>
+    public static void RestorePrefix(object __instance)
+    {
+        var player = Traverse.Create(__instance).Field("entity").GetValue() as Entity;
+        restoringEffects = player?.WatchedAttributes?.GetTreeAttribute("alchemyEffects");
+    }
+
+    public static void RestoreFinalizer() => restoringEffects = null;
 
     /// <summary>Potency: scale the potion's strength multiplier by the maker's Brand (Potent emphasis
     /// included). Only inside a branded TryProcessPotionEffects (pendingPotionLevel set) — other callers
@@ -97,13 +162,30 @@ public static class AlcBrandPatches
     }
 
     /// <summary>Duration: scale the built PotionContext.Duration by the maker's Brand (Lasting emphasis
-    /// included). Reflection on the returned PotionContext.</summary>
-    public static void BuildPotionDefPostfix(object __result)
+    /// included). Reflection on the returned PotionContext. Two callers matter: the drink (brand read
+    /// live off the potion, multiplier recorded for the save-record stamp) and the relog restore (brand
+    /// read back off the stamped subtree, so the extension survives alchemy's Min clamp).</summary>
+    public static void BuildPotionDefPostfix(string __0, object __result)
     {
-        if (__result == null || pendingPotionLevel is not int level) return;
+        // __0 is the effect id, bound positionally: 2.1.17 names it effectId, 2.1.11's
+        // BuildPotionDef may not, and a name-bound argument would fail the patch there.
+        if (__result == null) return;
+        float mul;
+        if (pendingPotionLevel is int level)
+        {
+            mul = (float)AlcDomain.DurationMul(level, pendingPotionPotent);
+            drinkBuiltEffects?.Add((__0, mul));
+        }
+        else if (restoringEffects != null)
+        {
+            mul = restoringEffects.GetTreeAttribute(__0)?.GetFloat(DurMulAttr, 1f) ?? 1f;
+            if (mul <= 1f) return;
+        }
+        else return;
+
         var t = Traverse.Create(__result).Property("Duration");
         int dur = t.GetValue<int>();
-        if (dur > 0) t.SetValue((int)(dur * AlcDomain.DurationMul(level, pendingPotionPotent)));
+        if (dur > 0) t.SetValue((int)(dur * mul));
     }
 
     // ------------------------------------------------------------ poultice/bandage read (vanilla)
