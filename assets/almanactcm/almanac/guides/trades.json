@@ -38,7 +38,7 @@
       "keepTogether": true,
       "blocks": [
         { "type": "paragraph",
-          "text": "Every calling climbs the same road. <strong>Novice</strong>, then <strong>Apprentice</strong>, then <strong>Journeyman</strong>, then <strong>Master</strong>, and at the summit, <strong>Grandmaster</strong>. Four steps to each tier, twenty rungs from the first day to the last." },
+          "text": "Every calling climbs the same road. <strong>Novice</strong>, then <strong>Apprentice</strong>, then <strong>Journeyman</strong>, then <strong>Master</strong>, and at the summit, <strong>Grandmaster</strong>. Four steps to each tier, and Grandmaster alone has none: seventeen rungs from the first day to the last." },
         { "type": "paragraph",
           "text": "Your standing in every trade waits on the Callings page. A bar shows the road left within your rank, and a row of marks shows the tiers already behind you. Open it and read yourself at a glance." }
       ]
