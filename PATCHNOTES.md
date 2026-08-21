@@ -79,6 +79,14 @@ The Almanac: Trades, Callings & Mastery.
   loses its mark; the stack in your hand keeps its keeping. Troughs filled with marked feed
   before this fix clean themselves the first time anyone touches them.
 
+- Finishing a knit no longer ends your session. The Tailor's Mark stamp looks through your
+  inventories for the garment you just made, and it looked through all of them, the creative
+  inventory included. On a dedicated server that one has no tab built, so asking it how many
+  slots it holds throws, and an exception thrown inside a Harmony postfix takes the player's
+  connection with it ("Threw an exception at the server"). Observed live on The Quire
+  2026-08-20. The creative inventory is skipped outright now, and any other inventory that
+  refuses to be read is logged and passed over: a cosmetic mark must never cost a session.
+
 ## 0.4.38 (released 2026-08-16)
 
 **Living document.** Updated as work lands, not written at release. Everything below is

@@ -23,13 +23,15 @@ public class AlmanacTcmModSystem : ModSystem
     /// <summary>Minimum sibling version enforced at runtime; modinfo declares the
     /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).
     ///
-    /// 0.1.2, because this build's guides use PACK-LEVEL `revealedBy` (alloys, smithing),
-    /// which Illuminated only honours from 0.0.18. Below that the field is ignored and the
-    /// chapter degrades open, so nothing breaks loudly: the earned reveal simply never
-    /// happens and the chapter sits visible from the first login, which is the whole thing
-    /// it exists to prevent. Pinned to 0.1.2 rather than 0.0.18 so the pair stays in step.
-    /// Raised to 0.1.4, which carries the quest-step API (GetQuestStepsFor, the fuel for
-    /// TCM's step toasts) and the `doneWhen` rendering that ticks those steps in the book.</summary>
+    /// 0.1.4, which carries the quest-step API (GetQuestStepsFor, the fuel for TCM's step
+    /// toasts) and the `doneWhen` rendering that ticks those steps in the book.
+    ///
+    /// History, since the reasoning still applies: the floor before this was 0.1.2, for the
+    /// PACK-LEVEL `revealedBy` the guides use (alloys, smithing), which Illuminated only
+    /// honours from 0.0.18. Below that the field is ignored and the chapter degrades open,
+    /// so nothing breaks loudly: the earned reveal simply never happens and the chapter sits
+    /// visible from the first login, which is the whole thing it exists to prevent. Pinned
+    /// to 0.1.2 rather than 0.0.18 so the pair stays in step, and that holds at 0.1.4.</summary>
     private const string MinIlluminatedVersion = "0.1.4";
 
     /// <summary>Static access for Harmony patches, split by side (set in Start, cleared in

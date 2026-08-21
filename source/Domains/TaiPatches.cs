@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Config;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
@@ -229,16 +230,32 @@ public static class TaiPatches
     }
 
     /// <summary>Find the slot holding a fresh unmarked stack of the given collectible in the player's
-    /// inventory — the garment just knitted (no Tailor's Mark yet).</summary>
+    /// inventory — the garment just knitted (no Tailor's Mark yet). Skips the creative inventory:
+    /// InventoryPlayerCreative.Count reads currentTab.Inventory.Count, and currentTab is never built on
+    /// a dedicated server, so enumerating it throws. An exception escaping the knit postfix disconnects
+    /// the player ("Threw an exception at the server"), which is what happened on 2026-08-20.</summary>
     private static ItemSlot? FindUnmarked(IPlayer player, CollectibleObject want)
     {
         foreach (var inv in player.InventoryManager.Inventories.Values)
         {
-            if (inv == null) continue;
-            foreach (var slot in inv)
+            if (inv == null || inv.ClassName == GlobalConstants.creativeInvClassName) continue;
+
+            try
             {
-                var st = slot?.Itemstack;
-                if (st?.Collectible == want && !TaiMark.HasMark(st)) return slot;
+                foreach (var slot in inv)
+                {
+                    var st = slot?.Itemstack;
+                    if (st?.Collectible == want && !TaiMark.HasMark(st)) return slot;
+                }
+            }
+            catch (Exception e)
+            {
+                // Warns and skips, per this file's contract: a cosmetic mark must never cost a session.
+                var api = player.Entity?.Api;
+                if (api != null)
+                {
+                    TcmLog.Warn(api, $"TAI mark: inventory '{inv.ClassName}' could not be enumerated, skipped ({e.Message})");
+                }
             }
         }
         return null;
