@@ -27,6 +27,16 @@ because Grandmaster work builds directly on this state.
   line. The sweep now takes its notes first and lights its fires after, so every part over
   the line gets its roll on every tick.
 
+- The Glassmaker's Mark names the glassmaker. The maker stamp and the thermal window used
+  to be written when a piece was LOADED into the annealer, by whoever held it: the mark
+  could name the wrong hand, a Grandmaster could stamp a novice's work by doing the
+  loading, and the ranked shatter window did not exist during the carry from the mold to
+  the annealer, which is exactly when a cooling piece is in danger. The stamp now lands
+  the moment a blown or cast piece reaches its maker's hands, survives the workbench's
+  cold-working steps, and the annealer only stamps a piece that arrives with no mark at
+  all, naming the holder, as it always did for pieces from before this change. A freehand
+  piece annealed straight off the pipe still carries no mark; that gap is known and stays.
+
 ## 0.4.40 (hotfix, released 2026-08-21)
 
 One fix, nothing else. The trough breakage was reported against the 0.4.39 build and

@@ -80,8 +80,11 @@ public static class GlaPatches
         // Casting: the collect.
         Hook(api, harmony, "GlassMaking.Blocks.BlockEntityGlassCastingMold", "TryTakeContents", null, nameof(CastPostfix), "GLA casting (collect)");
 
-        // Workbench cold-working step completion.
-        Hook(api, harmony, "GlassMaking.Blocks.BlockEntityWorkbench", "TryCompleteStep", null, nameof(WorkbenchPostfix), "GLA workbench");
+        // Workbench cold-working step completion. The prefix/postfix pair also carries the
+        // maker mark across the final step's template-clone swap (workpieceSlot.Itemstack =
+        // recipe.Output.ResolvedItemStack.Clone(), decompile :908): without it, a piece
+        // stamped at creation and then cold-worked arrived at the annealer bare.
+        Hook(api, harmony, "GlassMaking.Blocks.BlockEntityWorkbench", "TryCompleteStep", nameof(WorkbenchMarkPrefix), nameof(WorkbenchPostfix), "GLA workbench");
 
         // Annealing: the load prefix stamps the window + maker on the held raw piece; the take
         // postfix credits a retrieved CONVERTED piece.
@@ -158,39 +161,133 @@ public static class GlaPatches
             HashCode.Combine("blow", p.PlayerUID, (serverWorld?.ElapsedMilliseconds ?? 0) / 1000));
     }
 
-    /// <summary>Blowing into a mold: same verb, mold completion hook.</summary>
+    /// <summary>Blowing into a mold: same verb, mold completion hook. Also the maker stamp:
+    /// TakeGlass hands the piece to the blower, so the fresh stack is in their inventory by
+    /// postfix time and the mark names the hands that blew it (0.5, verb-review blocker 2).</summary>
     public static void BlowMoldPostfix(BlockEntity __instance, EntityAgent byEntity)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server) return;
-        Grant(PlayerOf(byEntity), GlaDomain.TechBlowing,
+        IPlayer? maker = PlayerOf(byEntity);
+        Grant(maker, GlaDomain.TechBlowing,
             HashCode.Combine("blowmold", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
                 (serverWorld?.ElapsedMilliseconds ?? 0) / 1000));
+        StampFreshInInventory(maker);
     }
 
-    /// <summary>Ladle casting: credit at the successful collect of a hardened cast.</summary>
+    /// <summary>Ladle casting: credit at the successful collect of a hardened cast, and the
+    /// maker stamp on the collected pieces (TryTakeContents gives them to the collector).</summary>
     public static void CastPostfix(BlockEntity __instance, IPlayer byPlayer, bool __result)
     {
         if (!__result || __instance?.Api?.Side != EnumAppSide.Server) return;
         Grant(byPlayer, GlaDomain.TechCasting,
             HashCode.Combine("cast", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
                 (serverWorld?.ElapsedMilliseconds ?? 0) / 1000));
+        StampFreshInInventory(byPlayer);
     }
 
-    /// <summary>Workbench cold-working: credit each completed step.</summary>
-    public static void WorkbenchPostfix(BlockEntity __instance, IPlayer byPlayer, bool __result)
+    /// <summary>Stamps the maker's window + name on every unmarked raw-glass stack in the
+    /// player's inventory. Called from the creation seams (mold blow, cast collect), where the
+    /// just-produced pieces are certainly among them; any OTHER unmarked raw glass the maker
+    /// happens to carry gets the same holder-stamp the old annealer-load rule would have given
+    /// it eventually, so nothing is mislabeled that was ever labeled right.
+    ///
+    /// WHY AT CREATION (2026-08-21, verb-review blocker 2, the POT defect class). The stamp
+    /// used to be written at annealer LOAD by whoever held the piece: the mark could name the
+    /// wrong hand, a Grandmaster could proxy-stamp a novice's work by loading it, and the
+    /// ruled carry-phase thermal window did not exist during the carry, which is exactly when
+    /// cooling shatter is the live threat for a mold or cast piece travelling in inventory.
+    /// (A freehand piece rides the PIPE to the annealer and is never a raw-glass stack, so the
+    /// window never applied to it; freehand pieces annealed off the pipe carry no mark today,
+    /// unchanged by this fix and noted as the remaining gap.)
+    ///
+    /// The CLONE-SWAP is load-bearing: glassmakingfork's TakeGlass hands out the recipe's
+    /// ResolvedItemStack itself, un-cloned, in its give branch. Stamping that instance would
+    /// poison the shared template for every future take of the recipe. Cloning the slot's
+    /// stack before writing severs any shared reference. Inventory walk per the knit lesson:
+    /// creative skipped by class name, and an inventory that refuses enumeration is skipped,
+    /// never thrown out of.</summary>
+    private static void StampFreshInInventory(IPlayer? maker)
+    {
+        if (maker?.InventoryManager?.Inventories == null) return;
+        int tier = GlaDomain.LevelOf(maker);
+        foreach (var inv in maker.InventoryManager.Inventories.Values)
+        {
+            if (inv == null || inv.ClassName == GlobalConstants.creativeInvClassName) continue;
+            try
+            {
+                foreach (var slot in inv)
+                {
+                    var st = slot?.Itemstack;
+                    if (st == null || !IsRawGlass(st) || st.Attributes.HasAttribute(TolAttr)) continue;
+                    ItemStack clone = st.Clone();
+                    clone.Attributes.SetInt(TolAttr, tier);
+                    clone.Attributes.SetString(GlaByAttr, maker.PlayerUID);
+                    clone.Attributes.SetString(GlaByNameAttr, maker.PlayerName);
+                    slot!.Itemstack = clone;
+                    slot.MarkDirty();
+                }
+            }
+            catch (Exception e)
+            {
+                TcmLog.Warn(sapi, $"GLA stamp: inventory '{inv.ClassName}' could not be enumerated, skipped ({e.Message})");
+            }
+        }
+    }
+
+    /// <summary>Snapshot the workpiece's maker mark before the step. The final step swaps the
+    /// workpiece for a clone of the recipe's output template, discarding input attributes (the
+    /// clone-based pipeline, gla-glass-study claim 7), so the mark must be carried by hand.</summary>
+    public static void WorkbenchMarkPrefix(BlockEntity __instance, out string?[]? __state)
+    {
+        __state = null;
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        var slot = Traverse.Create(__instance).Property("workpieceSlot").GetValue<ItemSlot>();
+        var attrs = slot?.Itemstack?.Attributes;
+        if (attrs == null || !attrs.HasAttribute(TolAttr)) return;
+        __state = new[]
+        {
+            attrs.GetInt(TolAttr).ToString(),
+            attrs.GetString(GlaByAttr),
+            attrs.GetString(GlaByNameAttr),
+        };
+    }
+
+    /// <summary>Workbench cold-working: credit each completed step, and restore the maker mark
+    /// if this step's completion replaced the workpiece with a bare template clone.</summary>
+    public static void WorkbenchPostfix(BlockEntity __instance, IPlayer byPlayer, bool __result, string?[]? __state)
     {
         if (!__result || __instance?.Api?.Side != EnumAppSide.Server) return;
         Grant(byPlayer, GlaDomain.TechWorkbench,
             HashCode.Combine("wb", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
                 (serverWorld?.ElapsedMilliseconds ?? 0) / 1000));
+
+        if (__state == null) return;
+        var slot = Traverse.Create(__instance).Property("workpieceSlot").GetValue<ItemSlot>();
+        var st = slot?.Itemstack;
+        // Two swaps can strip the mark: the FIRST step replaces a non-workpiece input with the
+        // intermediate glassmaking:workpiece item, and the FINAL step swaps in the output
+        // template clone (:908). Keying the restore on mark-absence covers both, and skips the
+        // mid-recipe steps where the same stack persists with its mark intact.
+        if (st == null || st.Attributes.HasAttribute(TolAttr)) return;
+        if (int.TryParse(__state[0], out int tier)) st.Attributes.SetInt(TolAttr, tier);
+        if (__state[1] != null) st.Attributes.SetString(GlaByAttr, __state[1]);
+        if (__state[2] != null) st.Attributes.SetString(GlaByNameAttr, __state[2]);
+        slot!.MarkDirty();
     }
 
     // ------------------------------------------------------------ annealing + the window stamp
 
-    /// <summary>Load vs take: a held raw-glass piece means this interact LOADS the annealer, and
-    /// this is where the window + maker are stamped (upgrade-only, so a master's mark survives a
-    /// novice's handling). __state carries whether this was a load, so the postfix only credits a
-    /// TAKE of a converted piece.</summary>
+    /// <summary>Load vs take: a held raw-glass piece means this interact LOADS the annealer.
+    /// __state carries whether this was a load, so the postfix only credits a TAKE of a
+    /// converted piece.
+    ///
+    /// SINCE 0.5 the stamp here is a FALLBACK, absent-only (verb-review blocker 2). The mark is
+    /// written at the creation seams (StampFreshInInventory), so a stamped piece arriving here
+    /// is already labeled with its true maker and this method must not touch it. The old rule
+    /// was upgrade-only, which let a higher-ranked LOADER overwrite the actual maker's mark:
+    /// that is the proxy-stamp exploit, and it dies here. What still lands in the fallback:
+    /// pieces made before 0.5, and any path that never saw a creation stamp. Those get the
+    /// holder's stamp exactly as they always did, which is the honest available answer.</summary>
     public static void AnnealPrefix(BlockEntity __instance, IPlayer byPlayer, ItemSlot slot, out bool __state)
     {
         __state = false;
@@ -198,10 +295,9 @@ public static class GlaPatches
         if (!IsRawGlass(slot?.Itemstack)) return;
         __state = true; // a load
 
-        int tier = GlaDomain.LevelOf(byPlayer);
         var attrs = slot!.Itemstack.Attributes;
-        if (attrs.HasAttribute(TolAttr) && attrs.GetInt(TolAttr) >= tier) return; // upgrade-only
-        attrs.SetInt(TolAttr, tier);
+        if (attrs.HasAttribute(TolAttr)) return; // stamped at creation is final
+        attrs.SetInt(TolAttr, GlaDomain.LevelOf(byPlayer));
         attrs.SetString(GlaByAttr, byPlayer.PlayerUID);
         attrs.SetString(GlaByNameAttr, byPlayer.PlayerName);
         slot.MarkDirty();
