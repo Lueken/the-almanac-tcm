@@ -117,6 +117,7 @@ public class LevelingServer
     private void LoadData()
     {
         int result = LoadFromFile(SaveFileName);
+        LoadStoredCeremonies();
         if (result > 0) return;
         if (result < 0)
         {
@@ -127,11 +128,33 @@ public class LevelingServer
         OfflineDomainSets = new Dictionary<string, SavedPlayerDomainSet>();
     }
 
+    /// <summary>The durable ceremony queue rides the world save (the AlcPatches StoreData
+    /// pattern), not the leveling JSON file: no schema change to a save with a backup
+    /// rotation, and a corrupt entry costs a banner, never a rank.</summary>
+    private void LoadStoredCeremonies()
+    {
+        try
+        {
+            byte[]? data = sapi.WorldManager.SaveGame.GetData(CeremonyStoreKey);
+            if (data != null)
+                storedCeremonies = Vintagestory.API.Util.SerializerUtil
+                    .Deserialize<Dictionary<string, List<string>>>(data) ?? new();
+        }
+        catch (Exception e)
+        {
+            TcmLog.Error(sapi, $"pending-ceremony store unreadable ({e.Message}); starting empty");
+            storedCeremonies = new();
+        }
+    }
+
     /// <summary>Rotates the previous save into Backups before writing (xLib's crash guard —
     /// a write that dies mid-stream still leaves the previous day recoverable).</summary>
     public void SaveData()
     {
         if (OfflineDomainSets == null) return;
+
+        sapi.WorldManager.SaveGame.StoreData(CeremonyStoreKey,
+            Vintagestory.API.Util.SerializerUtil.Serialize(storedCeremonies));
 
         try
         {
@@ -178,6 +201,27 @@ public class LevelingServer
 
         DomainSetReady?.Invoke(byPlayer, domainSet);
         SyncAll(byPlayer, domainSet);
+
+        // A banner this player earned and never saw: reload it into the live queue, where
+        // the grace floor and login protection gate it exactly like a fresh one. REPLACE,
+        // never append: a fast relog can reach this handler before the flush's offline sweep
+        // clears the old live entry, and the durable copy always equals what was queued
+        // (both halves are written together and cleared together), so appending would show
+        // the banner twice and replacing can lose nothing.
+        if (storedCeremonies.TryGetValue(byPlayer.PlayerUID, out var held) && held.Count > 0)
+        {
+            var list = new List<RankUpPacket>();
+            foreach (string packed in held)
+            {
+                string[] parts = packed.Split('|', 2);
+                if (parts.Length == 2) list.Add(new RankUpPacket(parts[0], parts[1]));
+            }
+            if (list.Count > 0)
+            {
+                pendingCeremonies[byPlayer.PlayerUID] = list;
+                ceremonyQueuedMs[byPlayer.PlayerUID] = sapi.World.ElapsedMilliseconds;
+            }
+        }
     }
 
     private void SyncAll(IServerPlayer byPlayer, PlayerDomainSet domainSet)
@@ -299,6 +343,17 @@ public class LevelingServer
     /// already synced at grant; only the banner waits (RULED 2026-08-08).</summary>
     private readonly Dictionary<string, List<RankUpPacket>> pendingCeremonies = new();
 
+    /// <summary>The DURABLE mirror of the queue (0.5, verb-review blocker 5): uid -> packed
+    /// "rank|domainName" entries, kept in the world save under <see cref="CeremonyStoreKey"/>.
+    /// Before this, disconnecting inside the five-second grace discarded the banner
+    /// permanently, and the ceremony pipeline is exactly what a Grandmaster ascension
+    /// ceremony will one day extend: durable-first was the ruling. Entries are written at
+    /// queue time, dropped only on successful delivery, and reloaded into the live queue
+    /// when their player next joins. Ranks themselves were never at risk; only the moment.</summary>
+    private Dictionary<string, List<string>> storedCeremonies = new();
+
+    private const string CeremonyStoreKey = "almanacPendingCeremonies";
+
     /// <summary>Elapsed-ms each player's ceremonies were queued; enforces the grace floor.</summary>
     private readonly Dictionary<string, long> ceremonyQueuedMs = new();
 
@@ -326,6 +381,12 @@ public class LevelingServer
             ceremonyQueuedMs[player.PlayerUID] = sapi.World.ElapsedMilliseconds;
         }
         list.Add(packet);
+
+        // The durable half, written at queue time. Persisted to the save at the next world
+        // save; dropped only when the banner actually reaches the player.
+        if (!storedCeremonies.TryGetValue(player.PlayerUID, out var stored))
+            storedCeremonies[player.PlayerUID] = stored = new List<string>();
+        stored.Add($"{rank}|{domainName}");
     }
 
     private void FlushPendingCeremonies(float dt)
@@ -339,6 +400,9 @@ public class LevelingServer
             IServerPlayer? player = sapi.World.PlayerByUid(uid) as IServerPlayer;
             if (player == null || player.ConnectionState == EnumClientState.Offline)
             {
+                // Out of the LIVE queue only. The durable mirror keeps the entry, and the
+                // next join reloads it, which is the whole fix: this branch used to be
+                // where a disconnect inside the grace window lost the banner forever.
                 (done ??= new List<string>()).Add(uid);
                 continue;
             }
@@ -346,6 +410,7 @@ public class LevelingServer
             if (IsLoginProtected(player)) continue;
 
             foreach (RankUpPacket packet in packets) channel.SendPacket(packet, player);
+            storedCeremonies.Remove(uid); // delivered: the durable copy has done its job
             (done ??= new List<string>()).Add(uid);
         }
         if (done != null)

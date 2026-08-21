@@ -37,6 +37,14 @@ because Grandmaster work builds directly on this state.
   all, naming the holder, as it always did for pieces from before this change. A freehand
   piece annealed straight off the pipe still carries no mark; that gap is known and stays.
 
+- A rank-up banner survives a disconnect. The ceremony held for a player inside login
+  protection was queued in memory only, so logging out within a few seconds of an
+  overnight consolidation discarded the banner permanently. The rank itself was always
+  safe; the moment was not. Held ceremonies now ride the world save and greet the player
+  on their next login, gated by the same grace and protection rules as a fresh one. This
+  is groundwork as much as courtesy: the ceremony pipeline is what a Grandmaster
+  ascension will one day extend, and it had to be durable first.
+
 ## 0.4.40 (hotfix, released 2026-08-21)
 
 One fix, nothing else. The trough breakage was reported against the 0.4.39 build and
