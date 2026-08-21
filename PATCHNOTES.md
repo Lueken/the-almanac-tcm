@@ -57,6 +57,16 @@ The Almanac: Trades, Callings & Mastery.
   earlier start and a faster daily fill. No rank already attained is touched. A ceiling
   only discards incoming practice, so anyone standing at Grandmaster stays there.
 
+- A dormant calling keeps what it earned. Three callings exist only while another mod
+  does: Glassmaking, Arcana and Beekeeping. If that mod went missing, loading your save
+  put the rank and the banked practice through guards written for gameplay, which zeroed
+  both and wrote the zeroes back to disk. One login without Rustbound Magic and an
+  Arcana rank was gone for good, whether or not the mod ever came back. Restoring a save
+  is not the same act as earning, so it no longer takes the earning path. The guards
+  themselves are unchanged: a dormant calling still banks nothing and still cannot climb.
+  A rank already lost to this cannot be recovered, since the save on disk holds nothing
+  to restore.
+
 ## 0.4.38 (released 2026-08-16)
 
 **Living document.** Updated as work lands, not written at release. Everything below is
