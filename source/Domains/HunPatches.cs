@@ -229,9 +229,13 @@ public static class HunPatches
         if (sapi == null || entity == null || damageSource == null) return;
         if (!IsHuntableGame(entity)) return; // wild game only, never rust monsters
 
-        // Tamed/owned beasts are ANI's world, not the hunt's (petai/wolftaming/genelib guards).
-        var wa = entity.WatchedAttributes;
-        if (wa != null && (wa.GetBool("domesticated") || wa.HasAttribute("ownedby") || wa.HasAttribute("owner"))) return;
+        // Tamed/owned beasts are ANI's world, not the hunt's, and an established captive
+        // lineage (gen 2+) is husbandry even when nobody holds the deed. Same fence MEL/RAN
+        // apply to this same death event (MelRanKillPatches.IsCombatExcluded), adopted here
+        // 2026-08-21 (verb-review blocker 1): before this, HUN checked only the ownership
+        // attributes, so slaughtering bred stock banked wild-kill practice and inflated the
+        // per-species kill ledger, the exact state a HUN ascension proof will read.
+        if (MelRanKillPatches.IsCombatExcluded(entity)) return;
 
         Entity? cause = damageSource.GetCauseEntity() ?? damageSource.SourceEntity;
         IPlayer? player = (cause as EntityPlayer)?.Player;
@@ -245,9 +249,16 @@ public static class HunPatches
             player = sapi.World.PlayerByUid(lastUid);
         if (player == null) return; // wolves, falls, traps-by-AI: nobody's practice
 
+        // Species + 64-block region, the MEL/RAN shape for this same death event (adopted
+        // 2026-08-21, verb-review blocker 1). The old hash was species + a 1-second bucket:
+        // no position, so a pen of animals killed one per second each re-banked, farmable at
+        // exactly the cadence slaughter runs at. Region dedup collapses that to one credit
+        // per window; the cost, two wild kills of one species in the same region inside the
+        // dedup window merging, is the same trade MEL/RAN accepted deliberately.
         string species = entity.Code?.FirstCodePart() ?? "unknown";
         Core?.Ledger?.Log(player, HunDomain.Code, HunDomain.TechHunting,
-            HashCode.Combine(species, sapi.World.ElapsedMilliseconds / 1000));
+            HashCode.Combine(species,
+                (int)(entity.ServerPos.X / 64), (int)(entity.ServerPos.Z / 64)));
 
         var per = kills.TryGetValue(player.PlayerUID, out var p) ? p : kills[player.PlayerUID] = new();
         per[species] = per.TryGetValue(species, out int n) ? n + 1 : 1;

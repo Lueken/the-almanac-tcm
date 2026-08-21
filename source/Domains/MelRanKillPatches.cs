@@ -197,8 +197,12 @@ public static class MelRanKillPatches
 
     /// <summary>The livestock exclusion (MEL ruling 5 / combat-gates-verification B6): owned or
     /// tamed, a domesticated variant, or an established captive lineage (gen 2+ — wild herds
-    /// breed unaided to gen 1, so gen 1 proves nothing and stays fair game).</summary>
-    private static bool IsCombatExcluded(Entity entity)
+    /// breed unaided to gen 1, so gen 1 proves nothing and stays fair game).
+    /// INTERNAL since 0.5 (2026-08-21): HUN's kill credit reuses this exact fence, because the
+    /// two ledgers read the same death event and a beast that is not combat quarry is not hunt
+    /// quarry either. One definition, or the two fences drift (the pre-0.5 state: HUN checked
+    /// only domesticated/ownedby/owner, so penned gen-2 slaughter banked wild-kill practice).</summary>
+    internal static bool IsCombatExcluded(Entity entity)
     {
         var wa = entity.WatchedAttributes;
         if (wa == null) return false;

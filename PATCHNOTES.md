@@ -4,7 +4,23 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
-## 0.4.40 (hotfix, in development)
+## 0.5.0 (in development)
+
+The gap pass: every domain reviewed and the weak ones lifted toward the bar Metalworking
+sets. Groundwork first: the pre-ascension fix list from the 2026-08-17 domain verb review,
+because Grandmaster work builds directly on this state.
+
+- The kill ledger stops counting the barn. Hunting credit for a kill now applies the same
+  livestock fence as combat: owned, tamed, domesticated, or an established captive lineage
+  (generation 2 and up) is husbandry, not the hunt. Before this, only the ownership checks
+  applied, so slaughtering bred stock banked wild-kill practice. The kill's repeat guard
+  also moves from a once-per-second window to the same species-and-area shape combat uses,
+  so pen slaughter collapses to a single credit instead of paying at exactly the cadence
+  slaughter runs at. The per-species kill tally behind the Hunter's Map reads honestly now,
+  which matters more than the practice: that tally is the record a Hunting ascension will
+  one day be judged against.
+
+## 0.4.40 (hotfix, released 2026-08-21)
 
 One fix, nothing else. The trough breakage was reported against the 0.4.39 build and
 its fix landed hours after 0.4.39 deployed.
