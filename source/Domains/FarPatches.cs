@@ -112,6 +112,9 @@ public static class FarPatches
         HookDeclared(api, harmony, "Vintagestory.GameContent.BlockTrough", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (small)");
         HookDeclared(api, harmony, "Vintagestory.GameContent.BlockTroughDoubleBlock", "OnBlockInteractStart", nameof(TroughFillPostfix), "FAR trough fill (large)");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityTrough", "ConsumeOnePortion", nameof(TroughConsumePostfix), "FAR feeding");
+        // The mark-blind fill (LauCaRo's report, 2026-08-21): marked produce could not enter a
+        // trough at all. Prefix on the BE interact, both sides like the vanilla body it mirrors.
+        HookPrefixDeclared(api, harmony, "Vintagestory.GameContent.BlockEntityTrough", "OnInteract", nameof(TroughMarkBlindPrefix), "FAR trough mark-blind fill");
 
         // Shearing — shearlib's library verb, success-gated + the Untrained penalty (Phase 2,
         // FAR ruling 4; shearlib 1.3.0 decompiled). DoShear rolls EntityWouldBeDamaged with its
@@ -198,6 +201,15 @@ public static class FarPatches
         var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
         if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName} does not DECLARE {method}); that verb is inactive this build"); return; }
         harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), postfix)));
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
+    }
+
+    private static void HookPrefixDeclared(ICoreAPI api, Harmony harmony, string typeName, string method, string prefix, string label)
+    {
+        var t = AccessTools.TypeByName(typeName);
+        var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
+        if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName} does not DECLARE {method}); that verb is inactive this build"); return; }
+        harmony.Patch(m, prefix: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), prefix)));
         TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
     }
 
@@ -563,6 +575,86 @@ public static class FarPatches
         troughOwners[key] = byPlayer.PlayerUID;
         if (changed) // one line per ownership change, not one per click (the 8-lines-a-fill spam)
             TcmLog.Cat(world.Api, "far", $"trough feed-owner stamp: {pos} -> {byPlayer.PlayerName} (silent by design; credit lands when an animal eats)");
+    }
+
+    /// <summary>The mark-blind trough fill (LauCaRo's report, 2026-08-21; root cause read from
+    /// the 1.22.5 decompile of BlockEntityTrough.OnInteract and ItemSlotTrough).
+    ///
+    /// THE DEFECT. Vanilla's trough compares stacks with GlobalConstants.IgnoredStackAttributes
+    /// at three gates, and TCM's food marks are not in that list. Every vanilla trough
+    /// contentConfig is an EXACT item code (grain-rye, vegetable-cabbage, ...), so a marked
+    /// grain failed getContentConfig's Equals and could not enter an EMPTY trough at all, and
+    /// on a filled trough the merge Equals refused marked-vs-unmarked in either direction.
+    /// Which crops failed therefore depended on the player's rank when each was harvested and
+    /// on what the trough already held: "certain crops harvested before don't work now."
+    ///
+    /// THE RULE. Feed loses its mark at the trough. The refuses-to-mix law exists for
+    /// PROCESSING, where merging marked into plain would launder the mark; a trough is a
+    /// consumption sink, the animal reads no tooltip, and the feed economy keys on the
+    /// FILLER's rank, never the crop's mark. Only the PORTION that enters the trough is
+    /// stripped: the spoilage value on the player's remaining stack is real and stays.
+    ///
+    /// SHAPE. Fast path: no marks in hand or trough, vanilla untouched. Otherwise this prefix
+    /// mirrors the vanilla body (verified 1.22.5, ~25 lines, stable for years) with clean-clone
+    /// comparisons, heals already-marked trough contents (live-server troughs filled before
+    /// this fix), and skips the original. Runs BOTH sides, mutating exactly where vanilla does,
+    /// so the client-side interaction predicts the same result the server authorizes. The
+    /// fill-owner stamp is unaffected: it rides the BLOCK method's postfix, not this one.</summary>
+    public static bool TroughMarkBlindPrefix(Vintagestory.GameContent.BlockEntityTrough __instance, IPlayer byPlayer, ref bool __result)
+    {
+        ItemSlot? hand = byPlayer?.InventoryManager?.ActiveHotbarSlot;
+        var world = __instance?.Api?.World;
+        if (hand == null || hand.Empty || world == null) return true;
+
+        ItemSlot content = __instance!.Inventory[0];
+        bool handMarked = Engine.FoodProvenance.HasFoodMarks(hand.Itemstack);
+        bool contentsMarked = Engine.FoodProvenance.HasFoodMarks(content.Itemstack);
+        if (!handMarked && !contentsMarked) return true;
+
+        // Heal first: a trough filled with marked feed before this fix keeps refusing plain
+        // top-ups until its contents go clean, so clean them on the first touch.
+        if (contentsMarked)
+        {
+            Engine.FoodProvenance.StripFoodMarks(content.Itemstack);
+            content.MarkDirty();
+        }
+
+        ItemStack cleanHand = hand.Itemstack.Clone();
+        Engine.FoodProvenance.StripFoodMarks(cleanHand);
+        var cfg = Vintagestory.GameContent.ItemSlotTrough.getContentConfig(
+            world, __instance.contentConfigs, new DummySlot(cleanHand));
+        if (cfg == null) return true; // not feed; vanilla declines it the same way
+
+        ItemStack[] nonEmpty = __instance.GetNonEmptyContentStacks();
+        if (nonEmpty.Length == 0)
+        {
+            if (hand.StackSize >= cfg.QuantityPerFillLevel)
+            {
+                ItemStack taken = hand.TakeOut(cfg.QuantityPerFillLevel);
+                Engine.FoodProvenance.StripFoodMarks(taken);
+                content.Itemstack = taken;
+                content.MarkDirty();
+                if (world.Side == EnumAppSide.Server)
+                    TcmLog.Cat(world.Api, "far", $"trough fill accepted marked feed (mark stripped): {byPlayer!.PlayerName}, {taken.Collectible?.Code}");
+                __result = true;
+                return false;
+            }
+            __result = false;
+            return false;
+        }
+
+        if (cleanHand.Equals(world, nonEmpty[0], Vintagestory.API.Config.GlobalConstants.IgnoredStackAttributes)
+            && hand.StackSize >= cfg.QuantityPerFillLevel
+            && nonEmpty[0].StackSize < cfg.QuantityPerFillLevel * cfg.MaxFillLevels)
+        {
+            hand.TakeOut(cfg.QuantityPerFillLevel);
+            content.Itemstack!.StackSize += cfg.QuantityPerFillLevel;
+            content.MarkDirty();
+            __result = true;
+            return false;
+        }
+        __result = false;
+        return false;
     }
 
     // ------------------------------------------------------------ beekeeping (FGC re-point)

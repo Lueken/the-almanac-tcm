@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using AlmanacTcm.Leveling;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -367,5 +368,57 @@ public static class FoodProvenance
         int cookLevel = a.GetInt(Domains.CooBonusPatches.CookTierAttr);
         return grownTier >= Rank.Journeyman && grownTier < Rank.Grandmaster
             && cookLevel >= Rank.Journeyman && cookLevel < Rank.Grandmaster;
+    }
+
+    // ------------------------------------------------------------ the consumption-sink strip
+
+    /// <summary>Every attribute a food mark can occupy on a stack: the three carryable marks
+    /// plus FAR's heirloom generation, which is deliberately outside <see cref="Carryable"/>
+    /// (it is a seed property and must not ride through processing) but still sits on harvested
+    /// grain, and grain is seed. Consumption sinks strip ALL of it: eaten is eaten.</summary>
+    private static IEnumerable<string> AllMarkKeys()
+    {
+        foreach (Mark mark in Carryable)
+            foreach (string key in mark.Keys)
+                yield return key;
+        yield return Domains.FarBonusPatches.HeirloomGenAttr;
+    }
+
+    /// <summary>Whether any food-mark attribute sits on this stack. The cheap gate in front of
+    /// <see cref="StripFoodMarks"/> so unmarked vanilla stacks pay one attribute walk and no
+    /// clone. See the trough patch (FarPatches) for why a consumption sink needs to ask.</summary>
+    public static bool HasFoodMarks(ItemStack? stack)
+    {
+        var a = stack?.Attributes;
+        if (a == null) return false;
+        foreach (string key in AllMarkKeys())
+            if (a.HasAttribute(key)) return true;
+        return false;
+    }
+
+    /// <summary>Removes every food mark from the stack. Returns whether anything was removed.
+    ///
+    /// WHY THIS EXISTS (2026-08-21, LauCaRo's trough report). Vanilla's trough compares feed
+    /// stacks with <c>GlobalConstants.IgnoredStackAttributes</c>, and our mark keys are not in
+    /// that list, so a marked grain failed the exact-code content match on an EMPTY trough and
+    /// marked-vs-unmarked refused to merge in either direction on a filled one. The mark-refuses-
+    /// to-mix rule is correct where it was written for, PROCESSING, because milling one marked
+    /// grain into a plain stack would launder the mark. A trough launders nothing: the feed is
+    /// consumed, the animal reads no tooltip, and the feed economy keys on the FILLER's rank,
+    /// never the crop's mark. So feed loses its mark at the trough, the way a meal loses its
+    /// ingredients. The spoilage value of the mark is real, which is why callers strip the
+    /// PORTION that enters the trough and never the player's whole stack.</summary>
+    public static bool StripFoodMarks(ItemStack? stack)
+    {
+        var a = stack?.Attributes;
+        if (a == null) return false;
+        bool changed = false;
+        foreach (string key in AllMarkKeys())
+        {
+            if (!a.HasAttribute(key)) continue;
+            a.RemoveAttribute(key);
+            changed = true;
+        }
+        return changed;
     }
 }

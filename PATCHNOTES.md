@@ -67,6 +67,18 @@ The Almanac: Trades, Callings & Mastery.
   A rank already lost to this cannot be recovered, since the save on disk holds nothing
   to restore.
 
+- Marked produce feeds troughs again. The trough compares feed with the game's standard
+  ignore-list, which does not know our marks, and every vanilla trough recipe names an exact
+  item. So the moment your rank put a "Grown by" line on your harvest, that harvest stopped
+  fitting the trough: marked grain bounced off an empty trough, and marked and plain crops of
+  the same kind refused to share a filled one, in both directions. Which crops failed depended
+  on your rank when each was picked and on what the trough already held, which is why it looked
+  arbitrary (reported by LauCaRo, 2026-08-21). The trough is mark-blind now, and feed sheds its
+  mark as it goes in: a trough launders nothing, the animal reads no tooltip, and feeding has
+  always been paid by the FILLER's hand, never the crop's pedigree. Only the portion that enters
+  loses its mark; the stack in your hand keeps its keeping. Troughs filled with marked feed
+  before this fix clean themselves the first time anyone touches them.
+
 ## 0.4.38 (released 2026-08-16)
 
 **Living document.** Updated as work lands, not written at release. Everything below is
@@ -230,7 +242,8 @@ readout was removed.
   only the ceremony is missed.
 - **Install guidance is stale.** The mod description advertises Illuminated 0.0.14 or newer,
   but the code requires 0.1.4. Anything between satisfies the description and then trips a
-  version error in the log.
+  version error in the log. *FIXED in 0.4.39: modinfo now states 0.1.4 and twenty-two domains,
+  matching the runtime gate.*
 
 ### Open questions
 
