@@ -109,7 +109,7 @@ public class LedgerSystem
             }
             catch (Exception e)
             {
-                TcmLog.Error(sapi, $"{path} unreadable ({e.Message}) — using defaults, NOT overwriting");
+                TcmLog.Error(sapi, $"{path} unreadable ({e.Message}), using defaults, NOT overwriting");
             }
 
             if (domainConfig == null)
@@ -130,7 +130,7 @@ public class LedgerSystem
                 if (domainConfig.Techniques.Count == 0 && defaults.Techniques.Count > 0)
                 {
                     // A techniqueless file is the first-boot scaffold every roster domain
-                    // gets before its build ships — nothing in it was ever live to tune,
+                    // gets before its build ships, and nothing in it was ever live to tune,
                     // so the shipped defaults (M, adjacency, knobs) replace it wholesale.
                     TcmLog.Cat(sapi, TcmLog.Config, $"{domain.Code}: scaffold config replaced by shipped defaults");
                     domainConfig = defaults;
@@ -246,9 +246,9 @@ public class LedgerSystem
             }
             catch (ArgumentException e)
             {
-                // A bad config value must never kill the mod at boot — degrade to
+                // A bad config value must never kill the mod at boot: degrade to
                 // the built-in pacing table and say so loudly.
-                TcmLog.Error(sapi, $"{domain.Code} TierTotals invalid ({e.Message}) — using built-in defaults");
+                TcmLog.Error(sapi, $"{domain.Code} TierTotals invalid ({e.Message}), using built-in defaults");
             }
 
             var effectiveTechs = new Dictionary<string, (double raw, double k)>();
@@ -274,7 +274,7 @@ public class LedgerSystem
     /// <summary>The one entry point for listeners. Raw value and K come from server
     /// config, never the caller; identical contexts inside the dedup window log zero
     /// (place-and-rebreak guard); first contact reveals a hidden domain.
-    /// <paramref name="rawMultiplier"/> scales the config raw for THIS action only —
+    /// <paramref name="rawMultiplier"/> scales the config raw for THIS action only:
     /// the seam for ruled per-action quality scaling (MIN Q5: ore rarity/depth), never
     /// a way to inject a caller-chosen base (the base still lives in config).</summary>
     public void Log(IPlayer player, string domainCode, string technique, int contextHash, double rawMultiplier = 1.0, bool announceRepeat = true)
@@ -298,8 +298,13 @@ public class LedgerSystem
         if (!domainSet!.Knowledge.ContainsKey(firstKey)) leveling.SetKnowledge(player, firstKey, 1);
 
         // Maxed out: a domain at its terminal rank (Grandmaster) has nothing left to earn, so
-        // skip all practice accounting for it — no accumulator writes, no dedup ring, no
+        // skip all practice accounting for it: no accumulator writes, no dedup ring, no
         // consolidation work. This is the per-action hot path, so the guard pays for itself.
+        // It tests the LADDER top on purpose, not the class ceiling. Practice caps everyone at
+        // Master IV (ruled 2026-08-19), one rung below this, and a capped player keeps
+        // accumulating so ClampToCeiling can fill their bar to just short of the rank it will
+        // not let them cross. Exiting here on the class ceiling would freeze that bar, and cost
+        // a ClassCeilingProvider call per action to do it.
         if (playerDomain.Level >= playerDomain.Domain.MaxLevel) return;
         if (playerDomain.Hidden) leveling.RevealDomain(player, domain.Id);
 
@@ -310,7 +315,7 @@ public class LedgerSystem
         }
         else
         {
-            TcmLog.Warn(sapi, $"unconfigured technique {domainCode}/{technique} — using raw=1, K=50");
+            TcmLog.Warn(sapi, $"unconfigured technique {domainCode}/{technique}, using raw=1, K=50");
         }
 
         if (rawMultiplier != 1.0) raw = System.Math.Max(0, raw * rawMultiplier);
@@ -609,7 +614,7 @@ public class LedgerSystem
 
     private void Consolidate(IPlayer player, PlayerDomainSet domainSet, PracticeLedger ledger, long boundary, bool atLogin)
     {
-        // Pass 1 — each domain's own banked value (phase rules) + per-technique
+        // Pass 1. Each domain's own banked value (phase rules) + per-technique
         // banked for co-grant fan-out and dominant-technique history.
         Dictionary<string, double> primaryBanked = new();
         Dictionary<string, double> totals = new();
@@ -640,7 +645,7 @@ public class LedgerSystem
             totals[domain.Code] = t0 + banked;
 
             // Per-technique: history for the dominant election + co-grant fan-out
-            // (shares apply OUTSIDE the receiving domain's saturation — FAR Q2).
+            // (shares apply OUTSIDE the receiving domain's saturation, FAR Q2).
             foreach (var (technique, x) in accs)
             {
                 double techBanked = SaturationMath.TechniqueBanked(
@@ -659,7 +664,7 @@ public class LedgerSystem
             }
         }
 
-        // Pass 2 — adjacency spillover: σ·Σ(adjacent primary banked), capped at
+        // Pass 2. Adjacency spillover: σ·Σ(adjacent primary banked), capped at
         // 25% of the receiver's Smax, fading across Journeyman, never revealing
         // hidden domains.
         foreach (Domain domain in template.Domains)
@@ -687,7 +692,7 @@ public class LedgerSystem
             totals[domain.Code] = prev + spill;
         }
 
-        // Pass 3 — ceiling clamp + flush through THE grant point, tier detection.
+        // Pass 3. Ceiling clamp + flush through THE grant point, tier detection.
         foreach (var (domainCode, banked) in totals)
         {
             if (banked <= 0) continue;
@@ -737,7 +742,7 @@ public class LedgerSystem
 
     private readonly Dictionary<string, long> lastPendingSync = new();
 
-    /// <summary>Debounced push of the pending projection to one player's client —
+    /// <summary>Debounced push of the pending projection to one player's client:
     /// the pencil wash on the Callings bars. Forced sends (death scatter) bypass
     /// the interval so the wash never lies for long.</summary>
     private void MaybeSyncPending(IPlayer player, PlayerDomainSet domainSet, PracticeLedger ledger, bool force = false)
@@ -757,7 +762,7 @@ public class LedgerSystem
     }
 
     /// <summary>What today's accumulators WOULD bank if the rest settled right now:
-    /// Consolidate's pass 1 + 2 rerun as a pure read — no history writes, no grants —
+    /// Consolidate's pass 1 + 2 rerun as a pure read (no history writes, no grants),
     /// then ceiling-clamped per domain. Zeros are kept so a scattered or walled wash
     /// resets on the next sync instead of going stale.</summary>
     private Dictionary<string, double> ProjectPending(IPlayer player, PlayerDomainSet domainSet, PracticeLedger ledger)
@@ -844,7 +849,10 @@ public class LedgerSystem
     }
 
     /// <summary>XP that would cross the class-ceiling wall is discarded ("your hands
-    /// have learned all they can"). Simulates the level walk up to the ceiling.</summary>
+    /// have learned all they can"). Simulates the level walk up to the ceiling.
+    /// Discarding is the whole mechanism, and it is why an attained rank is never revoked:
+    /// a player already ABOVE the ceiling banks nothing (line below) but keeps the level
+    /// they hold. Lowering a ceiling, by ruling or by a class change, must stay safe.</summary>
     internal static double ClampToCeiling(PlayerDomain playerDomain, double banked, int ceiling)
     {
         if (playerDomain.Level < 0) return 0;
@@ -902,7 +910,7 @@ public class LedgerSystem
             PlayerDomainSet? killerSet = causeEntity!.GetBehavior<PlayerDomainSet>();
             if (domainSet.Sparring && (killerSet?.Sparring ?? false))
             {
-                TcmLog.Cat(sapi, TcmLog.Ledger, $"{byPlayer.PlayerName} died sparring — no scatter");
+                TcmLog.Cat(sapi, TcmLog.Ledger, $"{byPlayer.PlayerName} died sparring, no scatter");
                 return;
             }
         }
@@ -912,7 +920,7 @@ public class LedgerSystem
         double totalHours = sapi.World.Calendar.TotalHours;
         if (domainSet.LastDeath + config.ChainDeathCooldownHours > totalHours)
         {
-            TcmLog.Cat(sapi, TcmLog.Ledger, $"{byPlayer.PlayerName} chain death — no scatter");
+            TcmLog.Cat(sapi, TcmLog.Ledger, $"{byPlayer.PlayerName} chain death, no scatter");
             return;
         }
         domainSet.LastDeath = totalHours;
@@ -923,7 +931,7 @@ public class LedgerSystem
         PracticeLedger deathLedger = LedgerFor(byPlayer);
         deathLedger.Scatter(lambda);
         TcmLog.Cat(sapi, TcmLog.Ledger,
-            $"{byPlayer.PlayerName} death scatter λ={lambda} (pvp={pvp}) — pending practice reduced");
+            $"{byPlayer.PlayerName} death scatter λ={lambda} (pvp={pvp}), pending practice reduced");
 
         // Forced resync so the bars' pencil wash shrinks with the scatter immediately.
         MaybeSyncPending(byPlayer, domainSet, deathLedger, force: true);
@@ -945,7 +953,7 @@ public class LedgerSystem
         }
         catch (Exception e)
         {
-            TcmLog.Error(sapi, $"ledger file unreadable ({e.Message}) — starting with empty ledgers");
+            TcmLog.Error(sapi, $"ledger file unreadable ({e.Message}), starting with empty ledgers");
         }
     }
 

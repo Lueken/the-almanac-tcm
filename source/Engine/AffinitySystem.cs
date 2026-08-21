@@ -10,16 +10,20 @@ namespace AlmanacTcm.Engine;
 /// server config; the score→band translation is design law and lives in code:
 ///   +3 Apprentice-I start, +20% Smax
 ///   +2/+1 Novice-I start, +13%/+7%
-///    0 no start bonus, practice-ceiling Master IV
-///   −1 ceiling Master I, −10% · −2 ceiling Journeyman IV, −20%
-/// Grandmaster is NOT affinity-gated: neutral and positive both reach it through the
-/// universal Masterpiece deed (ruled 2026-07-08, brief-v0.1.md; "positive-affinity-
-/// only" was a superseded inference). Only NEGATIVE affinity is hard-walled below GM
-/// and never sees the gate. Positive affinity buys a head start and faster Smax, not
-/// the door itself. (The current neutral/positive practice ceilings are a pre-quest
-/// stand-in; the Masterpiece gate arrives with Track 2.)
+///    0 no start bonus, no Smax change
+///   −1 −10% Smax, ceiling Master I · −2 −20% Smax, ceiling Journeyman IV
+/// PRACTICE STOPS AT MASTER IV FOR EVERYONE (ruled 2026-08-19). Grandmaster is a
+/// DECLARED ascension: a trader commission, a surrendered masterwork, a goods turn-in.
+/// Nobody grinds into it, not even the class born to the trade. The three positive
+/// bands carried Rank.Grandmaster as their practice ceiling until that ruling, which
+/// let a favoured class level straight past the deed with no commission and no cap
+/// while neutral classes correctly stopped. Positive affinity buys a head start and a
+/// faster Smax, never the door itself; negative affinity is walled lower still and
+/// never reaches the gate at all.
+/// A ceiling only ever discards incoming XP (LedgerSystem.ClampToCeiling): an attained
+/// rank is never revoked, so anyone already at Grandmaster keeps it.
 /// Keys on the characterClass attribute, so vanilla and SC versions of the same
-/// class code (malefactor!) get identical treatment — SC needs no detection at all.
+/// class code (malefactor!) get identical treatment, and SC needs no detection at all.
 /// </summary>
 public class AffinitySystem
 {
@@ -45,9 +49,9 @@ public class AffinitySystem
 
     public static Band BandFor(int score) => score switch
     {
-        >= 3 => new Band(Rank.Apprentice, Rank.Grandmaster, 1.20),
-        2 => new Band(Rank.Novice, Rank.Grandmaster, 1.13),
-        1 => new Band(Rank.Novice, Rank.Grandmaster, 1.07),
+        >= 3 => new Band(Rank.Apprentice, Rank.MasterIV, 1.20),
+        2 => new Band(Rank.Novice, Rank.MasterIV, 1.13),
+        1 => new Band(Rank.Novice, Rank.MasterIV, 1.07),
         -1 => new Band(0, Rank.Master, 0.90),
         <= -2 => new Band(0, Rank.JourneymanIV, 0.80),
         _ => new Band(0, Rank.MasterIV, 1.00),
@@ -108,7 +112,7 @@ public class AffinitySystem
 
     public Band ResolveBand(IPlayer player, string domainCode) => BandFor(ScoreFor(player, domainCode));
 
-    /// <summary>Affinity start tiers: raise-only, applied whenever the set loads —
+    /// <summary>Affinity start tiers: raise-only, applied whenever the set loads,
     /// idempotent because a met start level raises nothing. A positive start also
     /// reveals the domain (the class grew up around this trade).</summary>
     private void ApplyStartLevels(IServerPlayer player, PlayerDomainSet domainSet)
@@ -130,7 +134,7 @@ public class AffinitySystem
 
     /// <summary>Guard #12 stub: lifetime GM count vs the configured cap. Real
     /// enforcement lives in the ascension flow (Track 2); lowering the cap never
-    /// revokes attained GMs — this only gates future ascensions.</summary>
+    /// revokes attained GMs: this only gates future ascensions.</summary>
     public static int GmCount(PlayerDomainSet domainSet)
     {
         // was: int Rank.Grandmaster = 4 * Domain.SubLevelsPerTier + 1;  (2026-08-12 -> Rank.Grandmaster)
@@ -154,7 +158,7 @@ public class AffinitySystem
         }
         catch (System.Exception e)
         {
-            TcmLog.Error(sapi, $"{path} unreadable ({e.Message}) — using Grid 2 defaults, NOT overwriting");
+            TcmLog.Error(sapi, $"{path} unreadable ({e.Message}), using Grid 2 defaults, NOT overwriting");
             config = DefaultGrid();
             return;
         }

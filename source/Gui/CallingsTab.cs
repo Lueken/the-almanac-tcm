@@ -13,7 +13,7 @@ namespace AlmanacTcm.Gui;
 /// of every trade (name, rank, bar, tier pips), and a per-domain detail page you
 /// reach by clicking a calling. The detail carries the trade's identity, the
 /// climb, and what its mastery gives. Reads synced client state and a client-safe
-/// flavor asset only — no tuned constant crosses.
+/// flavor asset only: no tuned constant crosses.
 /// </summary>
 public class CallingsTab : IAlmanacBookTab
 {
@@ -169,7 +169,7 @@ public class CallingsTab : IAlmanacBookTab
             (LegendComponent.Glyph.BarredPip, "a rank beyond reach"),
         };
         // LegendComponent.Build bundles the legend with its mandatory trailing clear
-        // (the float+clear pairing its height measurement depends on) — the layout
+        // (the float+clear pairing its height measurement depends on). The layout
         // detail lives in Illuminated now, not here.
         return new List<RichTextComponentBase>(
             LegendComponent.Build(capi, "The marks", rows, head, body));
@@ -252,7 +252,7 @@ public class CallingsTab : IAlmanacBookTab
             comps.Add(new RichTextComponent(capi, di.mastery + "\n", body));
         }
 
-        // ALC: the Grandmaster's Potent/Lasting emphasis toggle — the player's own choice, stamped
+        // ALC: the Grandmaster's Potent/Lasting emphasis toggle, the player's own choice, stamped
         // onto every remedy they make. Only a live lever at Grandmaster; below it, a note of what waits.
         if (code == "ALC")
         {
@@ -487,7 +487,7 @@ public class CallingsTab : IAlmanacBookTab
     }
 
     /// <summary>The line under a bar: banked distance to the next rank, plus today's
-    /// unsettled practice when there is any — a promise the rest will keep.</summary>
+    /// unsettled practice when there is any: a promise the rest will keep.</summary>
     private static string ProgressCaption(int level, float experience, float required, float pending)
     {
         string next = Domain.RankName(level + 1);
@@ -496,9 +496,11 @@ public class CallingsTab : IAlmanacBookTab
         return $"{Math.Ceiling(required - experience):0} to {next}  (+{Math.Ceiling(pending):0} at rest)\n";
     }
 
-    /// <summary>Top tiers walled off by NEGATIVE affinity, for the barred pips. Neutral
-    /// and positive reach Grandmaster (gated by the Masterpiece deed, not by class), so
-    /// only a resisted trade caps: −1 loses Grandmaster, −2 loses Master too.</summary>
+    /// <summary>Top tiers walled off by NEGATIVE affinity, for the barred pips. Practice
+    /// stops at Master IV for neutral and positive alike (ruled 2026-08-19), but the
+    /// Grandmaster pip is not BARRED for them: the declared ascension is still open, and
+    /// a barred pip means a rank the player can never hold. Only a resisted trade loses a
+    /// tier outright: −1 loses Grandmaster, −2 loses Master too.</summary>
     private int Barred(int domainId)
     {
         if (domainId < 0 || !client.Affinity.TryGetValue(domainId, out int score)) return 0;
@@ -512,7 +514,7 @@ public class CallingsTab : IAlmanacBookTab
 }
 
 /// <summary>Client-safe per-domain flavor, read from assets/almanactcm/almanac/domains.json.
-/// Never carries tuned numbers — identity, tagline, and what mastery gives, in words.</summary>
+/// Never carries tuned numbers: identity, tagline, and what mastery gives, in words.</summary>
 public class DomainInfo
 {
     public string? title;

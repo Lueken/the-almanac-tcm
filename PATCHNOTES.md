@@ -49,6 +49,14 @@ The Almanac: Trades, Callings & Mastery.
   default). The credit moved to the settle, which vanilla reaches only on a quench that
   held. Same amount, same repeat rules, paid on success.
 
+- Practice stops at Master IV, for everyone. A class born to a trade could climb that
+  trade all the way to Grandmaster on practice alone, silently, with no commission, no
+  masterwork, no teaching and no cap, while every other class stopped at Master IV. That
+  is the design inverted: Grandmaster is a declared ascension and nobody skips it, least
+  of all the class born to the trade. Positive affinity keeps what it was always for, an
+  earlier start and a faster daily fill. No rank already attained is touched. A ceiling
+  only discards incoming practice, so anyone standing at Grandmaster stays there.
+
 ## 0.4.38 (released 2026-08-16)
 
 **Living document.** Updated as work lands, not written at release. Everything below is
