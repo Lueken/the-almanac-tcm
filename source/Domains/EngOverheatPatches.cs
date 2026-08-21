@@ -163,6 +163,15 @@ public static class EngOverheatPatches
         if (Traverse.Create(mech).Field("data").GetValue() is not object data) return;
         if (Traverse.Create(data).Field("networksById").GetValue() is not System.Collections.IDictionary nets) return;
 
+        // Ignitions are COLLECTED during the walk and lit after it (2026-08-21, ultrareview
+        // finding 1 / verb-review blocker 4). TryIgnite ends in BreakBlock, which tears the
+        // burning part out of its network and mutates the very dictionaries this loop is
+        // enumerating: InvalidOperationException risk, and every successful ignition silently
+        // abandoned the rest of the sweep, so on a busy line multiple overheating parts
+        // skipped their check and their discharge until the next half second. The walk is now
+        // read-only in fact, not only in intent.
+        List<(BlockPos pos, IMechanicalPowerNode node)>? toIgnite = null;
+
         foreach (object netObj in nets.Values)
         {
             if (netObj is not MechanicalNetwork net) continue;
@@ -198,9 +207,15 @@ public static class EngOverheatPatches
                 if (chance <= 0) continue;                       // guard only; no rank returns 0 since 2026-08-05
                 if (sapi.World.Rand.NextDouble() >= chance) continue;
 
-                TryIgnite(pos);
-                node.OverheatValue = 0f;                         // the fire is the discharge
+                (toIgnite ??= new()).Add((pos, node));
             }
+        }
+
+        if (toIgnite == null) return;
+        foreach (var (pos, node) in toIgnite)
+        {
+            TryIgnite(pos);
+            node.OverheatValue = 0f;                             // the fire is the discharge
         }
     }
 

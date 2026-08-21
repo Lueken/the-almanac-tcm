@@ -20,6 +20,13 @@ because Grandmaster work builds directly on this state.
   which matters more than the practice: that tally is the record a Hunting ascension will
   one day be judged against.
 
+- One fire no longer shields the rest of the line. When an overdriven wooden part ignited,
+  the burning part was torn out of the running machinery mid-inspection, which quietly
+  abandoned the rest of that tick's sweep: every other overheating part skipped its check
+  and its discharge until the next half second, making ignitions self-throttling on a busy
+  line. The sweep now takes its notes first and lights its fires after, so every part over
+  the line gets its roll on every tick.
+
 ## 0.4.40 (hotfix, released 2026-08-21)
 
 One fix, nothing else. The trough breakage was reported against the 0.4.39 build and
