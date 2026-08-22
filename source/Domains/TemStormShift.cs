@@ -11,11 +11,12 @@ using Vintagestory.GameContent;
 namespace AlmanacTcm.Domains;
 
 /// <summary>
-/// The ambient storm-warning shift (2026-08-21 rulings; full teardown in
+/// The ambient storm-warning shift (2026-08-21 rulings, retuned the same day; full teardown in
 /// docs/design/2026-08-21_storm-warning-shift-investigation.md). The first warning moves per
-/// player by TEM rank: an Untrained player's warning lands with barely time for the bells to
-/// finish (UntrainedLeadRealSeconds), Novice IV gets the stock 0.35-day baseline, and above that
-/// the lead grows with the Storm-Sense curve to nearly two days at GM. Two environments:
+/// player by TEM rank, and the ladder IS the warning: Untrained gets NOTHING (the sky breaks
+/// unannounced, one "taken unawares" line after), Novice I gets the bells with seven seconds to
+/// spare, each level buys about a real minute more, and a GM keeps the stock 0.35-day quarter
+/// hour everyone else lost (the StormCueLeadGm knob). Two environments:
 ///
 /// WITH Temporal Symphony (The Quire): TS's own server tick still runs untouched, but its
 /// type-0 (approaching) and type-1 (imminent) broadcasts are suppressed at TriggerWarning; TCM
@@ -34,10 +35,11 @@ namespace AlmanacTcm.Domains;
 /// onTempStormTick's notify counter is pinned exactly the way TS pins it, and TCM sends the
 /// vanilla lang lines per player at their own lead and at the universal imminent floor.
 ///
-/// A player whose whole lead fits inside the imminent window (Untrained) gets ONE cue, the
+/// A player whose whole lead fits inside the imminent window (Novice I at 32s) gets ONE cue, the
 /// approaching warning, and then the sky; a separate imminent cue behind their own bells would
-/// arrive out of order and is skipped. Everything here degrades to stock behavior: seams are
-/// resolved by name, warn-and-skip, verified against TS 2.3.2 only.
+/// arrive out of order and is skipped. Untrained gets no cue at all, only the "taken unawares"
+/// line once the storm breaks. Everything here degrades to stock behavior: seams are resolved by
+/// name, warn-and-skip, verified against TS 2.3.2 only.
 /// </summary>
 public static class TemStormShift
 {
@@ -131,7 +133,7 @@ public static class TemStormShift
         if (daysLeft <= 0) return true;
         double lead = TemDomain.ApproachLeadDays(
             TemRepairGate.TemLevelOf(capi, player),
-            RealSecondsToDays(capi, TemDomain.UntrainedLeadRealSeconds));
+            RealSecondsToDays(capi, TemDomain.NoviceILeadRealSeconds));
         return daysLeft <= lead;
     }
 
@@ -153,11 +155,29 @@ public static class TemStormShift
     private static readonly Dictionary<string, long> lastQuakeHour = new();
     private static readonly Dictionary<string, int> lastQuakeBucket = new();
 
+    /// <summary>Whether the last shift tick saw an active storm, for the unawares edge.</summary>
+    private static bool sawStormActive;
+
     private static void Tick(ICoreServerAPI api)
     {
         if (!Enabled || temporal?.StormData == null) return;
         var data = temporal.StormData;
-        if (data.nowStormActive) return;
+        if (data.nowStormActive)
+        {
+            // The storm-blind get their one line AFTER the sky breaks: blindness must read as
+            // design, not breakage, and the line is the recruitment poster for the calling.
+            if (!sawStormActive)
+            {
+                sawStormActive = true;
+                foreach (var p in api.World.AllOnlinePlayers)
+                    if (p is IServerPlayer sp && sp.ConnectionState == EnumClientState.Playing
+                        && TemDomain.LevelOf(sp) <= 0)
+                        sp.SendMessage(GlobalConstants.GeneralChatGroup,
+                            Lang.Get("almanactcm:tem-unawares"), EnumChatType.Notification);
+            }
+            return;
+        }
+        sawStormActive = false;
 
         double daysLeft = data.nextStormTotalDays - api.World.Calendar.TotalDays;
         if (daysLeft <= 0) return;
@@ -170,7 +190,7 @@ public static class TemStormShift
         }
 
         byte strength = (byte)data.nextStormStrength;
-        double untrainedDays = RealSecondsToDays(api, TemDomain.UntrainedLeadRealSeconds);
+        double noviceIDays = RealSecondsToDays(api, TemDomain.NoviceILeadRealSeconds);
 
         // The world-scale imminent lightning volley TS fired from its suppressed broadcast.
         if (tsPresent && !lightningFired && daysLeft <= TemDomain.ImminentDays)
@@ -182,7 +202,7 @@ public static class TemStormShift
         foreach (var p in api.World.AllOnlinePlayers)
         {
             if (p is not IServerPlayer plr || plr.ConnectionState != EnumClientState.Playing) continue;
-            double lead = TemDomain.ApproachLeadDays(TemDomain.LevelOf(plr), untrainedDays);
+            double lead = TemDomain.ApproachLeadDays(TemDomain.LevelOf(plr), noviceIDays);
             sentPhase.TryGetValue(plr.PlayerUID, out byte sent);
 
             if (sent < 1 && daysLeft <= lead)
@@ -197,7 +217,8 @@ public static class TemStormShift
                 SendWarning(plr, 1, strength);
                 sentPhase[plr.PlayerUID] = 2;
             }
-            // Early quakes for leads beyond the stock window; TS's own broadcasts cover the rest.
+            // Early quakes for leads beyond the stock window. Dormant at the stock GM knob
+            // (0.35 = the window edge); wakes only when a server tunes StormCueLeadGm above it.
             if (tsPresent && daysLeft <= lead && daysLeft > TemDomain.BaselineLeadDays)
                 MaybeRollQuake(api, plr);
         }
@@ -268,7 +289,7 @@ public static class TemStormShift
         }
     }
 
-    private static double RealSecondsToDays(ICoreAPI api, double realSeconds)
+    public static double RealSecondsToDays(ICoreAPI api, double realSeconds)
     {
         var cal = api.World.Calendar;
         double gameSecPerRealSec = cal.SpeedOfTime * cal.CalendarSpeedMul;

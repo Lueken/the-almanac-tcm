@@ -159,6 +159,7 @@
   "almanactcm:eng-master-serviced-by": "Master-serviced by {0}",
   "almanactcm:eng-millwrights-mark": "The Millwright's Mark of {0} - runs true, and stays true.",
   "almanactcm:tem-gate-blocked": "The gearing defeats your hands. Mending temporal machinery takes {0} Temporal.",
+  "almanactcm:tem-unawares": "The storm takes you unawares. Those attuned to the weave felt it coming.",
   "almanactcm:tem-forecast": "You feel it before the others: a {0} temporal storm is gathering, {1}.",
   "almanactcm:tem-forecast-vague": "A disturbance gathers in the weave of time, though how strong you cannot yet tell.",
   "almanactcm:tem-storm-light": "light",

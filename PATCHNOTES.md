@@ -76,17 +76,21 @@ because Grandmaster work builds directly on this state.
   ledgers a Temporal ascension will one day be judged against, and until now the domain
   kept no book at all.
 
-- The storm's first warning now finds each player by their rank. The approaching cues,
-  Temporal Symphony's warning call, bells, fog and tremors, or the plain chat line on
-  servers without it, no longer land on everyone at the same fixed moment. An Untrained
-  player hears the bells with barely seven seconds to spare once the last toll fades; a
-  Novice IV gets the familiar quarter hour; a Storm-Warden feels it the better part of
-  two days out, tremors included. The bell still counts out the storm's strength for
-  every rank, by ruling: the toll is predictable, and reading "can I survive this
-  outside" from it is the player's own call. The final imminent warning stays at its
-  usual moment for everyone whose warning came earlier than it. Temporal Symphony
-  itself is untouched and renders every cue exactly as before; its own timings simply
-  arrive addressed to you now. One config switch returns the whole thing to stock.
+- The storm's first warning now finds each player by their rank, and the ladder is the
+  warning. The approaching cues, Temporal Symphony's warning call, bells, fog and
+  tremors, or the plain chat line on servers without it, no longer land on everyone at
+  the same fixed moment. An Untrained player gets nothing at all: too out of tune with
+  the rust and the unbound to feel the signs, the sky simply breaks, and one line
+  afterward says the attuned felt it coming. The first rank of Temporal buys the bells
+  with seven seconds to spare once the last toll fades, every level after buys about a
+  minute more, and a Grandmaster tops out at the familiar quarter hour the game used to
+  hand everyone for free. The bell still counts out the storm's strength for every
+  rank, by ruling: the toll is predictable, and reading "can I survive this outside"
+  from it is the player's own call. The written storm sense arrives in the same breath
+  as the bells now, naming the strength from Journeyman up, instead of running a day
+  ahead. Temporal Symphony itself is untouched and renders every cue exactly as before;
+  its own timings simply arrive addressed to you now. One config switch returns the
+  whole thing to stock.
 
 - Storm resilience works off The Quire. The Temporal rank curve that slows stability
   loss (and speeds it for the untrained) was applied through a stat only

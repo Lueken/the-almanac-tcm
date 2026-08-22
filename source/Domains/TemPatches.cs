@@ -143,16 +143,18 @@ public static class TemPatches
 
     // ------------------------------------------------------------ Axis 6 — Storm-Sense forecast
 
-    /// <summary>Deliver the rank-scaled early storm forecast, once per scheduled storm. Reads the real
-    /// nextStormTotalDays / nextStormStrength; a GM feels a Heavy storm a day-plus before vanilla's notify,
-    /// strength-distinct from Journeyman. Diegetic notification (no HUD, no command). Storm-blind below Novice.</summary>
+    /// <summary>Deliver the written storm sense, once per scheduled storm, in the SAME breath as the
+    /// ambient cues: one composed instant where the player feels the storm and, from Journeyman up,
+    /// can name its strength (retuned 2026-08-21; supersedes the separate 1.4-day chat lead). Fires at
+    /// the personal ApproachLeadDays moment. Storm-blind at Untrained: no line, no ambient, nothing.</summary>
     private static void Forecast(IServerPlayer player, int level)
     {
-        double lead = TemDomain.StormSenseLead(level);
-        if (lead <= 0 || temporal?.StormData == null) return;
+        if (level <= 0 || temporal?.StormData == null) return;
         var data = temporal.StormData;
         if (data.nowStormActive) return;
 
+        double lead = TemDomain.ApproachLeadDays(level,
+            TemStormShift.RealSecondsToDays(sapi!, TemDomain.NoviceILeadRealSeconds));
         double daysUntil = data.nextStormTotalDays - sapi!.World.Calendar.TotalDays;
         if (daysUntil <= 0 || daysUntil > lead) return;
 

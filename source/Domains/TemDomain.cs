@@ -15,10 +15,13 @@ namespace AlmanacTcm.Domains;
 /// a spent teleporter). betterjonasdevices deepens both without adding a verb. `m` = 2.
 ///
 /// The Storm-Warden (Axis 6) is a CAPABILITY signature, not a mark:
-///   • Storm-Sense (the spine) — a rank-sharpened forecast on the real scheduled storm data
-///     (nextStormTotalDays / nextStormStrength): a GM feels a Heavy storm coming a day-plus before the
-///     village hears it; strength-distinct from Journeyman; storm-blind below Novice. No radar (the live
-///     rift list is a hard REJECT).
+///   • Storm-Sense (the spine) — the personal warning ladder on the real scheduled storm data
+///     (nextStormTotalDays / nextStormStrength): Untrained feels NOTHING (the sky breaks unannounced),
+///     Novice I gets the bells with seven seconds to spare, each level buys about a real minute more,
+///     and a GM keeps the stock quarter-hour warning everyone else lost. The chat forecast lands in the
+///     same breath as the ambient cues, strength-distinct from Journeyman (retuned 2026-08-21;
+///     supersedes the "day-plus before the village" 1.4-day chat lead). No radar (the live rift list
+///     is a hard REJECT).
 ///   • Stability-loss resistance (Axis 3) — weathers storms upright, floored (never immune).
 ///   • Gear economy (Axis 2) — the fewest gears per translocator repair + ward fuel that lasts longer.
 ///
@@ -75,9 +78,12 @@ public static class TemDomain
     /// devastation drains call; 0 below Novice, climbing to this at GM.</summary>
     public const string ManifestResistGm = "manifestResistGm";
 
-    /// <summary>Grandmaster storm-forecast lead, in in-game days, beyond vanilla's ~0.35-day notify. 0
-    /// through Novice (storm-blind), climbing to this at GM (a day-plus). Strength-distinct from Journeyman.</summary>
-    public const string StormSenseLeadGm = "stormSenseLeadGm";
+    /// <summary>Grandmaster approaching lead in in-game days, the top of the personal warning
+    /// ladder. Defaults to the stock 0.35-day warning vanilla broadcast to everyone: the top of
+    /// the ladder is what used to be free. Tuned above <see cref="BaselineLeadDays"/>, the
+    /// personal early-quake roll past the stock window wakes up. (Supersedes stormSenseLeadGm,
+    /// the retired 1.4-day chat-forecast lead; retune ruled 2026-08-21.)</summary>
+    public const string StormCueLeadGm = "stormCueLeadGm";
 
     /// <summary>The forecast names the storm's STRENGTH from Journeyman up; below that it is a vague
     /// "something gathers." (TEM has NO provenance — wards/translocators are world machines, not signed
@@ -109,7 +115,7 @@ public static class TemDomain
             // Resistance kept modest (SC archivist +2 stacks additively; double-scale watch at tuning).
             [StabilityLossUntrained] = 1.20, [StabilityLossGm] = 0.70,
             [ManifestResistGm] = 0.35,
-            [StormSenseLeadGm] = 1.40,
+            [StormCueLeadGm] = 0.35,
         },
     };
 
@@ -147,42 +153,40 @@ public static class TemDomain
         return t * Knob(ManifestResistGm, 0.35);
     }
 
-    // ---- Ambient warning shift (storm-warning-shift investigation, ruled 2026-08-21). The
-    // approaching cue (TS bells/sound/visuals, or the vanilla chat line without TS) moves per
-    // player: barely ahead of the storm at Untrained, the stock 0.35-day baseline at Novice IV,
-    // growing with the Storm-Sense curve above. Imminent (0.02) is the universal floor.
+    // ---- Ambient warning shift (storm-warning-shift investigation; retuned same day, 2026-08-21:
+    // "way too long of a notice"). The first warning is personal, and the rank ladder IS the
+    // warning: NOTHING at Untrained (so out of tune with the rust and the unbound that the signs
+    // cannot be felt; the sky breaks unannounced), the longest-bell-warning-plus-7-seconds at
+    // Novice I, then a straight line to the GM lead. With stock values that is +61 real seconds
+    // of warning per level, topping out at vanilla's old universal 0.35-day quarter hour: the
+    // Storm-Warden's mastery is keeping what everyone else lost. The chat Storm-Sense forecast
+    // fires at the SAME personal moment (feel it; from Journeyman, name it), which supersedes
+    // the 2026-07-08 "day-plus before the village" 1.4-day chat lead.
 
-    /// <summary>The stock warning threshold vanilla and Temporal Symphony both use, in days.</summary>
+    /// <summary>The stock warning threshold vanilla and Temporal Symphony broadcast at, in days.
+    /// This is TS's own cue-window edge, NOT the curve top (the knob below defaults to the same
+    /// value but may be tuned away from it).</summary>
     public const double BaselineLeadDays = 0.35;
     /// <summary>The imminent threshold both systems use, in days. Never personalized.</summary>
     public const double ImminentDays = 0.02;
-    /// <summary>Untrained approaching lead in REAL seconds (Jeffrey's ruling: the longest bell
-    /// warning plus 7). TS 2.3.2 measured: warning sound 25.0s, outlasting the Heavy bell's last
-    /// toll at 20.0s + 3.97s ring; 25 + 7 = 32. Converted to days via the live calendar. Drifts
-    /// if TS ever reships longer warning audio; re-measure on TS updates.</summary>
-    public const double UntrainedLeadRealSeconds = 32.0;
+    /// <summary>Novice I approaching lead in REAL seconds (Jeffrey's ruling: the longest bell
+    /// warning plus 7; seated at Novice I when Untrained went fully storm-blind). TS 2.3.2
+    /// measured: warning sound 25.0s, outlasting the Heavy bell's last toll at 20.0s + 3.97s
+    /// ring; 25 + 7 = 32. Converted to days via the live calendar. Drifts if TS ever reships
+    /// longer warning audio; re-measure on TS updates.</summary>
+    public const double NoviceILeadRealSeconds = 32.0;
 
-    /// <summary>Per-rank approaching lead in days: <paramref name="untrainedDays"/> at 0, a linear
-    /// climb to the 0.35 baseline across the Novice tier, baseline plus Storm-Sense lead above.
-    /// Continuous at both joints (lead is 0 through Novice IV).</summary>
-    public static double ApproachLeadDays(int level, double untrainedDays)
+    /// <summary>Per-rank approaching lead in days: 0 at Untrained (storm-blind; the sky breaks
+    /// unannounced), <paramref name="noviceIDays"/> at Novice I, linear to the
+    /// <see cref="StormCueLeadGm"/> knob at Grandmaster (default: the stock 0.35 everyone used
+    /// to get free). Stock calendar: one more real minute of warning per level.</summary>
+    public static double ApproachLeadDays(int level, double noviceIDays)
     {
-        int novice = Leveling.Domain.SubLevelsPerTier;       // 4
-        if (level <= 0) return untrainedDays;
-        if (level <= novice)
-            return untrainedDays + (BaselineLeadDays - untrainedDays) * level / (double)novice;
-        return BaselineLeadDays + StormSenseLead(level);
-    }
-
-    /// <summary>Storm-forecast lead in in-game days for the given rank: 0 through Novice (storm-blind),
-    /// climbing to the GM value (a day-plus). Added on top of vanilla's own notify, never below it.</summary>
-    public static double StormSenseLead(int level)
-    {
-        if (level <= Leveling.Domain.SubLevelsPerTier) return 0.0;
-        int max = Leveling.Domain.MaxLevelDefault;
-        int novice = Leveling.Domain.SubLevelsPerTier;
-        double t = (level - novice) / (double)(max - novice);
-        return t * Knob(StormSenseLeadGm, 1.40);
+        if (level <= 0) return 0.0;
+        int max = Leveling.Domain.MaxLevelDefault;           // 17
+        double gm = Knob(StormCueLeadGm, 0.35);
+        if (level >= max) return gm;
+        return noviceIDays + (gm - noviceIDays) * (level - 1) / (double)(max - 1);
     }
 
     /// <summary>Server-side TEM level for a player (0 = Untrained when unknown).</summary>
