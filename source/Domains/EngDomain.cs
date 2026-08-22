@@ -37,6 +37,10 @@ public static class EngDomain
 
     public const string TechAssembly = "assembly";       // windmill-rotor sail rigging (consume-and-grow)
     public const string TechMaintenance = "maintenance";  // wearandtear part servicing
+    /// <summary>First construction of a machine TYPE, paid at first power/output (fifth-pass
+    /// ruling 2026-08-22, the A7 replacement). The halving-per-repeat is passed as the Log
+    /// weight by EngMilestones; Raw 20 is the full first-of-type credit.</summary>
+    public const string TechMilestone = "milestone";
 
     // ---- Axis 4 repair-effectiveness + Axis 1 penalty knob keys (rides props.Strength via DoMaintenanceFor).
     /// <summary>Repair effectiveness at the Untrained end — a beginner restores LESS durability per repair
@@ -97,6 +101,9 @@ public static class EngDomain
         {
             // Per rotor/sail-assembly action (the staple recurring build): medium.
             [TechAssembly] = new() { Raw = 2, K = 16 },
+            // Rare by construction (one per machine ever built); the diminishing lives in the
+            // explicit Log weight, so K only guards a same-day construction spree.
+            [TechMilestone] = new() { Raw = 20, K = 2 },
             // Per repair (durability-proportional upkeep): medium, deduped so babysitting one part dedups.
             [TechMaintenance] = new() { Raw = 2, K = 16 },
         },

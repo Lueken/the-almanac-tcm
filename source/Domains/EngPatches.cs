@@ -129,6 +129,9 @@ public static class EngPatches
         Core?.Ledger?.Log(byPlayer, EngDomain.Code, EngDomain.TechAssembly,
             HashCode.Combine("assembly", pos?.X ?? 0, pos?.Y ?? 0, pos?.Z ?? 0,
                 (int)(byPlayer.Entity.World.ElapsedMilliseconds / 60000)));
+        // The rotor family's milestone registers at the rig (a placed bare rotor is not a
+        // machine); vanilla + millwright pool are ONE type by ruling. Pays at first output.
+        EngMilestones.RegisterPending(pos, "windmill", byPlayer);
     }
 
     /// <summary>Vanilla windmill rotor rigging — the guaranteed ENG floor. Same verb as the millwright

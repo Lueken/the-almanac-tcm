@@ -61,6 +61,24 @@ because Grandmaster work builds directly on this state.
   Hunting's dressing and a new Farming butchery verb, same total as before. Wild game is
   untouched: no stamp, full Hunting credit, exactly as it was.
 
+- Building the machine teaches the builder; running it teaches no one. The mill was ruled
+  to grant nothing for use, and this is the other half of that ruling: the first time a
+  machine you built genuinely runs, power delivered to it or its first output turned, the
+  builder banks a large one-time Engineering credit. Every machine type pays its own
+  first: the first windmill, waterwheel, helve hammer, pulverizer, mechanized quern,
+  chopper and sawmill, and with IndustrialStory the first reverberatory furnace that
+  takes heat with its structure whole. Repeats of a type pay half of the one before,
+  never quite reaching nothing. A decorative or misassembled machine pays nothing at
+  all: the credit waits until the thing runs, however long that takes, and it waits for
+  its builder, not for whoever stands near. A hand-cranked quern never counts; the same
+  quern first turned by an axle does.
+
+- Rigging an automated station takes the trade. The Immersive Woodworking chopper and
+  sawmill now ask Apprentice I in Engineering to assemble: below it, an incomplete
+  station refuses the part and the part stays in your hand. A complete station is
+  another matter entirely: swapping a worn head is maintenance and passes at any rank,
+  and feeding logs or taking lumber was never gated and still is not.
+
 - Trapping pays for the first time, and the trap answers to its setter's hands. The catch
   in a snare or deadfall was never an item sitting in the trap: it is the animal dying
   beside it, and nothing ever credited that, so the trapping ledger has been empty since

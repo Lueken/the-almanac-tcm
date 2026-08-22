@@ -86,13 +86,26 @@ public static class EngGrossTorque
     // Mod interplay note: Ingenium flips a reversed-flow water wheel's propagationDir for the
     // duration of GetTorque and restores it in a Finalizer, which runs AFTER postfixes, so the
     // frame this postfix reads is the frame the original actually used. That is the correct one.
-    private static readonly AccessTools.FieldRef<BEBehaviorMPRotor, double> CapableSpeed =
-        AccessTools.FieldRefAccess<BEBehaviorMPRotor, double>("capableSpeed");
-    private static readonly System.Func<BEBehaviorMPRotor, float> TorqueFactorOf =
-        AccessTools.MethodDelegate<System.Func<BEBehaviorMPRotor, float>>(
-            AccessTools.PropertyGetter(typeof(BEBehaviorMPRotor), "TorqueFactor"));
-    private static readonly AccessTools.FieldRef<BEBehaviorMPBase, BlockFacing> PropagationDir =
-        AccessTools.FieldRefAccess<BEBehaviorMPBase, BlockFacing>("propagationDir");
+    private static readonly AccessTools.FieldRef<BEBehaviorMPRotor, double>? CapableSpeed;
+    private static readonly System.Func<BEBehaviorMPRotor, float>? TorqueFactorOf;
+    private static readonly AccessTools.FieldRef<BEBehaviorMPBase, BlockFacing>? PropagationDir;
+
+    /// <summary>Guarded construction (ultrareview finding 3, closed 2026-08-22): these three
+    /// accessors used to be inline static initializers, so a vanilla rename of any member threw
+    /// TypeInitializationException at the class's first touch and killed the whole mod's
+    /// startup. Now the failed accessor stays null, the capacity read degrades to zero at the
+    /// use site, and gross torque keeps working.</summary>
+    static EngGrossTorque()
+    {
+        try
+        {
+            CapableSpeed = AccessTools.FieldRefAccess<BEBehaviorMPRotor, double>("capableSpeed");
+            TorqueFactorOf = AccessTools.MethodDelegate<System.Func<BEBehaviorMPRotor, float>>(
+                AccessTools.PropertyGetter(typeof(BEBehaviorMPRotor), "TorqueFactor"));
+            PropagationDir = AccessTools.FieldRefAccess<BEBehaviorMPBase, BlockFacing>("propagationDir");
+        }
+        catch { /* a partial set is fine: the use site null-checks all three */ }
+    }
 
     /// <summary>The network whose real updateNetwork pass is open right now, and the magnitude
     /// sum built during it. ThreadStatic so an off-thread caller can never fold its rotors into
@@ -182,6 +195,7 @@ public static class EngGrossTorque
         // what makes them readable where instantaneous torque is not.
         try
         {
+            if (CapableSpeed == null || TorqueFactorOf == null || PropagationDir == null) return;
             float cap = (float)CapableSpeed(__instance) * TorqueFactorOf(__instance) * __instance.GearedRatio;
             BlockFacing pd = PropagationDir(__instance);
             float num = (pd != null && pd == __instance.OutFacingForNetworkDiscovery) ? 1f : -1f;

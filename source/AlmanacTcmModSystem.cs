@@ -150,6 +150,8 @@ public class AlmanacTcmModSystem : ModSystem
             Try("TAI-mark", () => Domains.TaiMarkPatches.PatchConditional(api, harmony));
             Try("MAS", () => Domains.MasPatches.PatchConditional(api, harmony));
             Try("ENG", () => Domains.EngPatches.PatchConditional(api, harmony));
+            // Assembly milestones + the IW rig gate (fifth-pass rulings, 2026-08-22).
+            Try("ENG-milestones", () => Domains.EngMilestones.PatchConditional(api, harmony));
             Try("TEM", () => Domains.TemPatches.PatchConditional(api, harmony));
             // Only patches when SpecializedClasses is absent (the public-release stability fallback).
             Try("TEM-stability", () => Domains.TemStabilityFallback.PatchConditional(api, harmony));
@@ -296,6 +298,9 @@ public class AlmanacTcmModSystem : ModSystem
         // The gross-torque sync: the capture patches run server-side only (updateNetwork is a
         // server tick), and the panel that reads them renders client-side, so the sums need a wire.
         Domains.EngGrossTorque.RegisterServer(sapi);
+        // Milestone state (pending machines, per-builder counts, paid positions) rides the world
+        // save; the payment scan and the m-clamp register here too.
+        Domains.EngMilestones.RegisterServer(sapi);
         Domains.AlcBrandPatches.RegisterServer(sapi);
         Domains.AlcEmphasis.RegisterServer(sapi);
 
