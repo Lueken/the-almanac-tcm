@@ -54,7 +54,8 @@ public static class TemPatches
         // Gear-cost + stability-loss stats (rank -> stat), and the Storm-Sense forecast, on one reconcile.
         api.Event.RegisterGameTickListener(_ => Reconcile(api), 2000);
         api.Event.PlayerDeath += OnPlayerDeath;
-        TcmLog.Info(api, "TEM hooks live (warding + repair grants, gear/stability stats, Storm-Sense forecast, storm ledger)");
+        TemStormShift.RegisterServer(api);
+        TcmLog.Info(api, "TEM hooks live (warding + repair grants, gear/stability stats, Storm-Sense forecast, storm ledger, warning shift)");
 
         // The Axis-3 resistance rides stabilityLossMul. With SpecializedClasses (The Quire) SC applies
         // the stat; without it TemStabilityFallback patches the vanilla integrator directly (0.5), so

@@ -66,6 +66,11 @@ public class TcmGlobalConfig
     /// gate unknowns conservatively.</summary>
     public int MaterialGateMETUnmappedLevel { get; set; } = 0;
 
+    /// <summary>Ambient storm-warning shift (ruled 2026-08-21): the first storm warning (Temporal
+    /// Symphony cues, or the vanilla chat line without TS) is delivered per player by TEM rank
+    /// instead of broadcast at 0.35 days. False restores stock broadcast behavior everywhere.</summary>
+    public bool StormShiftTEM { get; set; } = true;
+
     /// <summary>TEM repair gate (third-pass ruling 2026-08-21): below this TEM level a player cannot
     /// repair a translocator or recharge a discharged teleporter. Transit is never gated; anyone
     /// steps through a working machine. Default 4 = Novice IV; 0 disables the gate; season tuning

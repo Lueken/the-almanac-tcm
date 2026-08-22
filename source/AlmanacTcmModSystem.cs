@@ -153,6 +153,8 @@ public class AlmanacTcmModSystem : ModSystem
             Try("TEM", () => Domains.TemPatches.PatchConditional(api, harmony));
             // Only patches when SpecializedClasses is absent (the public-release stability fallback).
             Try("TEM-stability", () => Domains.TemStabilityFallback.PatchConditional(api, harmony));
+            // Per-player storm-warning shift: TS seams when present, vanilla chat path when not.
+            Try("TEM-stormshift", () => Domains.TemStormShift.PatchConditional(api, harmony));
             Try("ARC", () => Domains.ArcPatches.PatchConditional(api, harmony));
             Try("HUN-bloodtrail", () => Domains.HunBloodTrailPatches.PatchConditional(api, harmony));
             Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));

@@ -147,6 +147,33 @@ public static class TemDomain
         return t * Knob(ManifestResistGm, 0.35);
     }
 
+    // ---- Ambient warning shift (storm-warning-shift investigation, ruled 2026-08-21). The
+    // approaching cue (TS bells/sound/visuals, or the vanilla chat line without TS) moves per
+    // player: barely ahead of the storm at Untrained, the stock 0.35-day baseline at Novice IV,
+    // growing with the Storm-Sense curve above. Imminent (0.02) is the universal floor.
+
+    /// <summary>The stock warning threshold vanilla and Temporal Symphony both use, in days.</summary>
+    public const double BaselineLeadDays = 0.35;
+    /// <summary>The imminent threshold both systems use, in days. Never personalized.</summary>
+    public const double ImminentDays = 0.02;
+    /// <summary>Untrained approaching lead in REAL seconds (Jeffrey's ruling: the longest bell
+    /// warning plus 7). TS 2.3.2 measured: warning sound 25.0s, outlasting the Heavy bell's last
+    /// toll at 20.0s + 3.97s ring; 25 + 7 = 32. Converted to days via the live calendar. Drifts
+    /// if TS ever reships longer warning audio; re-measure on TS updates.</summary>
+    public const double UntrainedLeadRealSeconds = 32.0;
+
+    /// <summary>Per-rank approaching lead in days: <paramref name="untrainedDays"/> at 0, a linear
+    /// climb to the 0.35 baseline across the Novice tier, baseline plus Storm-Sense lead above.
+    /// Continuous at both joints (lead is 0 through Novice IV).</summary>
+    public static double ApproachLeadDays(int level, double untrainedDays)
+    {
+        int novice = Leveling.Domain.SubLevelsPerTier;       // 4
+        if (level <= 0) return untrainedDays;
+        if (level <= novice)
+            return untrainedDays + (BaselineLeadDays - untrainedDays) * level / (double)novice;
+        return BaselineLeadDays + StormSenseLead(level);
+    }
+
     /// <summary>Storm-forecast lead in in-game days for the given rank: 0 through Novice (storm-blind),
     /// climbing to the GM value (a day-plus). Added on top of vanilla's own notify, never below it.</summary>
     public static double StormSenseLead(int level)
