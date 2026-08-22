@@ -23,6 +23,10 @@ namespace AlmanacTcm.Domains;
 ///     "almanactcm" source key ADDS to SC's archivist trait — never re-scales it).
 ///   • Axis 6 Storm-Sense — a rank-scaled early storm forecast on the real scheduled data, delivered as a
 ///     diegetic notification (strength-distinct from Journeyman; storm-blind below Novice). No radar.
+///   • Repair gate (0.5) — below <see cref="Config.TcmGlobalConfig.RepairGateTEMLevel"/> a player cannot
+///     repair a translocator or recharge a teleporter (TemRepairGate; transit is never gated).
+///   • Storm ledger (0.5) — persisted deed counters for the non-producer ascension proof: storms
+///     weathered per strength and repairs completed, in the synced Knowledge store.
 ///
 /// The reserved cross-mod seam is <see cref="TemManifestResist"/> — a rank-weighted proc to shrug off an
 /// INVOLUNTARY manifestation drain, which Marginalia Conjunction's rust-mob / devastation drains will call
@@ -49,17 +53,18 @@ public static class TemPatches
         temporal = api.ModLoader.GetModSystem<SystemTemporalStability>(true);
         // Gear-cost + stability-loss stats (rank -> stat), and the Storm-Sense forecast, on one reconcile.
         api.Event.RegisterGameTickListener(_ => Reconcile(api), 2000);
-        TcmLog.Info(api, "TEM hooks live (warding + repair grants, gear/stability stats, Storm-Sense forecast)");
+        api.Event.PlayerDeath += OnPlayerDeath;
+        TcmLog.Info(api, "TEM hooks live (warding + repair grants, gear/stability stats, Storm-Sense forecast, storm ledger)");
 
-        // The Axis-3 resistance rides stabilityLossMul, which SpecializedClasses applies. Without SC the
-        // stat is inert (vanilla reads no stability stats); the public-release integrator fallback is a
-        // noted TODO (The Quire ships SC, so the live path is the stat write above).
-        if (!api.ModLoader.IsModEnabled("specializedclasses"))
-            TcmLog.Cat(api, TcmLog.Config, "TEM: SpecializedClasses absent -> stabilityLossMul is inert; stability resistance needs the public-release integrator fallback (not yet wired)");
+        // The Axis-3 resistance rides stabilityLossMul. With SpecializedClasses (The Quire) SC applies
+        // the stat; without it TemStabilityFallback patches the vanilla integrator directly (0.5), so
+        // the resilience spine is live in both environments. The fallback logs its own status.
     }
 
     private static void Reconcile(ICoreServerAPI api)
     {
+        TrackStorm(api);
+
         foreach (IServerPlayer player in api.World.AllOnlinePlayers)
         {
             var entity = player?.Entity;
@@ -80,6 +85,59 @@ public static class TemPatches
 
             Forecast(player, level);
         }
+    }
+
+    // ------------------------------------------------------------ storm ledger (0.5 third-pass ruling)
+
+    /// <summary>Whether the last reconcile saw an active storm, that storm's strength, and the players
+    /// present since it began without dying. Ruled definition: present at storm start, still online at
+    /// storm end, no death between (sheltering counts; hiding is legitimate storm-sense). A server
+    /// restart mid-storm re-snapshots the remainder — lenient by design, since the alternative loses
+    /// everyone's credit to a crash.</summary>
+    private static bool stormWasActive;
+    private static EnumTempStormStrength stormStrength;
+    private static readonly HashSet<string> stormSurvivors = new();
+
+    private static void OnPlayerDeath(IServerPlayer byPlayer, DamageSource damageSource)
+        => stormSurvivors.Remove(byPlayer.PlayerUID);
+
+    private static void TrackStorm(ICoreServerAPI api)
+    {
+        var data = temporal?.StormData;
+        if (data == null) return;
+
+        if (data.nowStormActive && !stormWasActive)
+        {
+            stormWasActive = true;
+            stormStrength = data.nextStormStrength;   // still names the ACTIVE storm while it runs
+            stormSurvivors.Clear();
+            foreach (var p in api.World.AllOnlinePlayers) stormSurvivors.Add(p.PlayerUID);
+        }
+        else if (!data.nowStormActive && stormWasActive)
+        {
+            stormWasActive = false;
+            string key = TemDomain.KnowStormsWeatheredPrefix + stormStrength.ToString().ToLowerInvariant();
+            int credited = 0;
+            foreach (var p in api.World.AllOnlinePlayers)
+            {
+                if (!stormSurvivors.Contains(p.PlayerUID)) continue;
+                BumpCounter(p, key);
+                credited++;
+            }
+            TcmLog.Cat(api, TcmLog.Hooks,
+                $"TEM storm ledger: {stormStrength} storm weathered by {credited} player(s)");
+            stormSurvivors.Clear();
+        }
+    }
+
+    /// <summary>Increment a synced Knowledge-store counter by one, silently (no toast, no banner).</summary>
+    private static void BumpCounter(IPlayer player, string key)
+    {
+        var server = Core?.Server;
+        var set = server?.GetDomainSet(player);
+        if (server == null || set == null) return;
+        int cur = set.Knowledge.TryGetValue(key, out int v) ? v : 0;
+        server.SetKnowledge(player, key, cur + 1);
     }
 
     // ------------------------------------------------------------ Axis 6 — Storm-Sense forecast
@@ -129,16 +187,30 @@ public static class TemPatches
         var m = t == null ? null : AccessTools.DeclaredMethod(t, "OnBlockInteractStart");
         if (m != null)
         {
-            harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(TemPatches), nameof(TeleporterRechargePostfix))));
-            TcmLog.Info(api, "TEM betterjonas teleporter recharge hooked (repair grant)");
+            harmony.Patch(m,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(TemPatches), nameof(TeleporterRechargeGatePrefix))),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(TemPatches), nameof(TeleporterRechargePostfix))));
+            TcmLog.Info(api, "TEM betterjonas teleporter recharge hooked (repair gate + grant)");
         }
         else TcmLog.Cat(api, TcmLog.Config, "TEM betterjonas teleporter seam absent; recharge grant inactive (translocator repair unaffected)");
+    }
+
+    /// <summary>The repair gate on the betterjonas recharge: gear-in-hand on a discharged teleporter IS
+    /// the recharge attempt, gated before the interact so the gear is kept. Non-gear interactions pass
+    /// untouched, so if a betterjonas version recharges with something else the gate fails open.</summary>
+    public static bool TeleporterRechargeGatePrefix(IWorldAccessor world, IPlayer byPlayer, ref bool __result)
+    {
+        if (byPlayer?.InventoryManager?.ActiveHotbarSlot?.Itemstack?.Collectible is not ItemTemporalGear) return true;
+        if (!TemRepairGate.Blocks(world?.Api, byPlayer)) return true;
+        __result = true;
+        return false;
     }
 
     public static void TeleporterRechargePostfix(IWorldAccessor world, IPlayer byPlayer, bool __result)
     {
         if (!__result || world?.Side != EnumAppSide.Server || byPlayer == null) return;
         GrantRepair(byPlayer, byPlayer.Entity.Pos.AsBlockPos.X, byPlayer.Entity.Pos.AsBlockPos.Z);
+        BumpCounter(byPlayer, TemDomain.KnowRepairsCompleted);   // a recharge restores a machine whole
     }
 
     private static void GrantRepair(IPlayer player, int x, int z)
@@ -186,13 +258,18 @@ public static class TemPatches
     [HarmonyPatch(typeof(BlockEntityStaticTranslocator), nameof(BlockEntityStaticTranslocator.DoRepair))]
     public static class TranslocatorRepairPatch
     {
-        public static void Postfix(BlockEntityStaticTranslocator __instance, IPlayer byPlayer)
+        public static void Prefix(BlockEntityStaticTranslocator __instance, out bool __state)
+            => __state = __instance.FullyRepaired;
+
+        public static void Postfix(BlockEntityStaticTranslocator __instance, IPlayer byPlayer, bool __state)
         {
             if (__instance?.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
             var pos = __instance.Pos;
             Core?.Ledger?.Log(byPlayer, TemDomain.Code, TemDomain.TechRepair,
                 HashCode.Combine("temrepair", pos.X, pos.Y, pos.Z,
                     (int)(byPlayer.Entity.World.ElapsedMilliseconds / 60000)));
+            // The finishing gear: the machine crossed into FullyRepaired under this hand.
+            if (!__state && __instance.FullyRepaired) BumpCounter(byPlayer, TemDomain.KnowRepairsCompleted);
         }
     }
 }

@@ -55,11 +55,34 @@ because Grandmaster work builds directly on this state.
 - A rust-mob kill wakes the temporal sense. Killing a drifter, shiver, bowtorn, bell or
   locust now banks Temporal practice at half the kill's worth, alongside the full credit
   to the weapon's own calling. The tier scaling rides along: a deep drifter teaches more
-  than a surface one. This is the practice loop the coming translocator gate stands on.
+  than a surface one. This is the practice loop the temporal repair gate stands on.
 - Butchering a raised animal pays the barn and the knife alike. Dressing a beast that a
   player raised (the trough's own attribution) now splits its practice evenly between
   Hunting's dressing and a new Farming butchery verb, same total as before. Wild game is
   untouched: no stamp, full Hunting credit, exactly as it was.
+
+- Mending temporal machinery takes the trade; riding it never did. Repairing a
+  translocator or recharging a spent teleporter now asks Novice IV in Temporal. Anyone
+  still steps through a working machine, exactly as before: standing on a teleporter
+  takes no skill, restoring one is the whole point of the calling. Below the gate the
+  interaction stops before a single gear or part is spent, with a word about why. The
+  rung is a server config value, and warding plus rust-mob kills are two ungated roads
+  up to it.
+
+- The Storm-Warden's deeds go on record. Surviving a temporal storm from its first gust
+  to its last without dying, sheltered or not, now writes a per-strength tally to the
+  player's own knowledge, and finishing a translocator repair or a teleporter recharge
+  writes another. Nothing pays practice here and nothing shows off; these are the
+  ledgers a Temporal ascension will one day be judged against, and until now the domain
+  kept no book at all.
+
+- Storm resilience works off The Quire. The Temporal rank curve that slows stability
+  loss (and speeds it for the untrained) was applied through a stat only
+  SpecializedClasses reads, so without that mod the whole resilience line silently did
+  nothing. Servers without SpecializedClasses now get the same curve applied directly
+  to the vanilla stability tick, losses only, never the recovery; deliberate stability
+  spends stay exempt exactly as before. With SpecializedClasses present nothing
+  changes, and the two paths can never stack.
 
 ## 0.4.40 (hotfix, released 2026-08-21)
 

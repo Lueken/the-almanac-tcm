@@ -44,6 +44,12 @@ public static class TemDomain
     public const string TechRepair = "repair";      // BlockEntityStaticTranslocator.DoRepair + teleporter recharge
     public const string TechTemporalKill = "temporalkill"; // rust-mob kills, 50% co-grant beside MEL/RAN (ruled 2026-08-21)
 
+    // ---- The Storm-Warden's persisted deeds (0.5 third-pass ruling): synced Knowledge-store
+    // counters anchoring the non-producer ascension proof. Storm keys append the lowercased
+    // EnumTempStormStrength word: tem-storms-light / tem-storms-medium / tem-storms-heavy.
+    public const string KnowRepairsCompleted = "tem-repairs-completed";
+    public const string KnowStormsWeatheredPrefix = "tem-storms-";
+
     // ---- Axis 2 gear economy knob keys.
     /// <summary>temporalGearTLRepairCost multiplier at Untrained — a beginner burns MORE gears repairing a
     /// translocator (&gt;1). Clears to 1.0 (vanilla 4 interactions) at Novice.</summary>

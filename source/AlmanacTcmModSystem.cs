@@ -151,6 +151,8 @@ public class AlmanacTcmModSystem : ModSystem
             Try("MAS", () => Domains.MasPatches.PatchConditional(api, harmony));
             Try("ENG", () => Domains.EngPatches.PatchConditional(api, harmony));
             Try("TEM", () => Domains.TemPatches.PatchConditional(api, harmony));
+            // Only patches when SpecializedClasses is absent (the public-release stability fallback).
+            Try("TEM-stability", () => Domains.TemStabilityFallback.PatchConditional(api, harmony));
             Try("ARC", () => Domains.ArcPatches.PatchConditional(api, harmony));
             Try("HUN-bloodtrail", () => Domains.HunBloodTrailPatches.PatchConditional(api, harmony));
             Try("WOO-collider", () => Domains.WooColliderPatches.PatchAll(api, harmony));

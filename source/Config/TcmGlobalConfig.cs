@@ -66,6 +66,12 @@ public class TcmGlobalConfig
     /// gate unknowns conservatively.</summary>
     public int MaterialGateMETUnmappedLevel { get; set; } = 0;
 
+    /// <summary>TEM repair gate (third-pass ruling 2026-08-21): below this TEM level a player cannot
+    /// repair a translocator or recharge a discharged teleporter. Transit is never gated; anyone
+    /// steps through a working machine. Default 4 = Novice IV; 0 disables the gate; season tuning
+    /// may raise it toward Apprentice I (5) if rust-mob practice trivializes the climb.</summary>
+    public int RepairGateTEMLevel { get; set; } = 4;
+
     /// <summary>Alloy Ledger (§162 Axis 4, Apprentice unlock) access. true = only an Apprentice+ of
     /// Metalworking can open it on a crucible (the ruled default); false = any player can, for
     /// servers that want the convenience for everyone. Server-owned and synced to clients on
