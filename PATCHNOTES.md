@@ -61,6 +61,13 @@ because Grandmaster work builds directly on this state.
   Hunting's dressing and a new Farming butchery verb, same total as before. Wild game is
   untouched: no stamp, full Hunting credit, exactly as it was.
 
+- The fighter's deeds go on record. A perfect parry, a ranged kill, and the long kill
+  from beyond even a Grandmaster Marksman's Eye read now each write a silent tally to
+  the fighter's own knowledge, the same book the Storm-Warden's deeds already keep.
+  Nothing pays practice and nothing shows off; these are the ledgers a Melee or
+  Marksmanship ascension will one day be judged against, and until now both callings
+  detected the feats and forgot them in the same breath.
+
 - The drying rack pays whichever trade the drying served. Dried herbs off the alchemy
   rack pay Alchemy exactly as before. Dried charcuterie off the same rack, meats and
   sausages hung there thanks to Expanded Foods, now pays Cooking's drying credit, the

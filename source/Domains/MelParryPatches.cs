@@ -191,6 +191,16 @@ public static class MelParryPatches
         pierceActive[player.PlayerUID] = (slot, stack, original, expiry);
 
         parryOpened.Remove(ep.EntityId);                      // one perfect per parry
+        // The Blade-Dancer's book (0.5, the TEM storm-ledger shape): perfect parries were
+        // detected here and forgotten at grant time, so the non-producer ascension proof had
+        // nothing durable to read. A synced Knowledge-store counter, silent, no XP.
+        var server = AlmanacTcmModSystem.ServerInstance?.Server;
+        var set = server?.GetDomainSet(player);
+        if (server != null && set != null)
+        {
+            int had = set.Knowledge.TryGetValue("mel-perfect-parries", out int v) ? v : 0;
+            server.SetKnowledge(player, "mel-perfect-parries", had + 1);
+        }
         player.SendMessage(GlobalConstants.InfoLogChatGroup,
             Lang.GetL(player.LanguageCode, "almanactcm:perfect-parry"), EnumChatType.Notification);
         TcmLog.Cat(sapi, "combat", $"{player.PlayerName}: PERFECT parry ({dt}ms) -> riposte pierces +{pierce} (MEL {level})");
