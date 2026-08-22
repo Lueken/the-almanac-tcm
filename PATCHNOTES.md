@@ -106,6 +106,18 @@ because Grandmaster work builds directly on this state.
   pottery wheel is untouched: it remains the accessibility option at low rank and the
   mass-production path when driven.
 
+- The tool remembers every hand that made it. A crafted handle now carries its
+  woodworker's quality, and a crafted binding its maker's, leather bindings by the
+  hunter's hand, fibre and cloth by the tailor's, the same banded figures the smith's
+  head has always carried: five percent more part durability from a Journeyman's
+  work, ten from a Master's, fifteen from a Grandmaster's. The quality is stamped on
+  the part when it is made and settles into the tool when it is assembled, through
+  the tinkering system's own part durability, so nothing double counts. A plain
+  stick was never made by anyone and stays plain, and work below Journeyman stays
+  unmarked, because a mark always means something. One tool can now carry four
+  names: the smith at the head, the woodworker at the haft, the tailor or hunter at
+  the binding, and the engineer who keeps it serviced.
+
 - The brewer learns to read the dark. A sealed barrel has always been a black box; now
   your Brewing rank lights it up when you look at one. An Apprentice reads roughly how
   many days the seal still needs. A Journeyman reads what the batch is turning toward
