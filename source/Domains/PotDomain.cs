@@ -46,6 +46,25 @@ public static class PotDomain
     /// <summary>Perish factor a keep-vessel carries at the Untrained end (a clumsy crock seals
     /// imperfectly): >1 = worse than vanilla. Clears to 1.0 at Novice. This is POT's penalty band.</summary>
     public const string PreserveUntrained = "preserveUntrained";
+    /// <summary>Duplicate-layer voxels per click at the Untrained end (0.5 ruling 2026-08-21:
+    /// gate the broad strokes, scale the copy stroke). Vanilla's own cap is 4.</summary>
+    public const string CopyVoxelsUntrained = "copyVoxelsUntrained";
+    /// <summary>Duplicate-layer voxels per click from Master I up (the ruled ceiling; the
+    /// powered wheel, config-tuned pack-side, is the mass-production path past it).</summary>
+    public const string CopyVoxelsMaster = "copyVoxelsMaster";
+
+    /// <summary>The copy-stroke ladder: Untrained works below vanilla's 4, Novice I restores
+    /// exactly 4, then a linear climb to the Master ceiling at Master I, flat after.</summary>
+    public static int CopyVoxelsFor(int level)
+    {
+        if (level <= 0) return (int)Knob(CopyVoxelsUntrained, 2);
+        double master = Knob(CopyVoxelsMaster, 6);
+        if (level >= Leveling.Rank.Master) return (int)master;
+        const double vanilla = 4.0;
+        double t = (level - 1) / (double)(Leveling.Rank.Master - 1);
+        return (int)System.Math.Floor(vanilla + (master - vanilla) * t);
+    }
+
     /// <summary>Perish factor at Grandmaster (a masterwork crock keeps food): a masterwork sealed
     /// meal goes from vanilla x0.10 to x0.10*this. Modest per NERF-FIRST.</summary>
     public const string PreserveGm = "preserveGm";
@@ -75,6 +94,10 @@ public static class PotDomain
         {
             // The Potter's Mark preservation ladder (MET/COO numeric posture, playtest-tuned).
             [PreserveUntrained] = 1.10, [PreserveGm] = 0.85,
+            // The copy-stroke ladder (0.5 ruling): duplicate-layer voxels per click.
+            // Vanilla is a flat 4; Untrained works below it, Novice I restores it, Master
+            // reaches the ruled ceiling and holds it (the powered wheel is the mass path).
+            [CopyVoxelsUntrained] = 2, [CopyVoxelsMaster] = 6,
         },
     };
 

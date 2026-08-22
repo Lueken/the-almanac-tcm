@@ -162,6 +162,7 @@
   "almanactcm:tem-gate-blocked": "The gearing defeats your hands. Mending temporal machinery takes {0} Temporal.",
   "almanactcm:fis-gate-blocked": "The refined tackle defeats you. Setting this gear takes {0} Fishing.",
   "almanactcm:coo-gate-blocked": "The bakehouse defeats you. Working the brick oven takes {0} Cooking.",
+  "almanactcm:pot-gate-blocked": "The clay defies the broader stroke. Working {0} at once takes {1} Pottery.",
   "almanactcm:bre-read-apprentice": "The dark is at work: {0} remains under the seal.",
   "almanactcm:bre-read-journeyman": "Turning toward {0}: {1} remains under the seal.",
   "almanactcm:bre-read-master": "It should give {0} when it opens.",

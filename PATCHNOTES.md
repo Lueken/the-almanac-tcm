@@ -96,6 +96,16 @@ because Grandmaster work builds directly on this state.
   the rank where work starts bearing your name, and the oven that feeds a village
   belongs to it.
 
+- The potter earns the broader stroke. Clayforming's 2x2 mode now opens at Apprentice I
+  Pottery and the 3x3 at Journeyman I, adding and removing alike; below the rung the
+  click lands, nothing moves, and a word says why. The single-voxel stroke is never
+  gated at any rank, because pottery's day-one reachability is the point of the
+  calling. The duplicate-layer stroke is not gated but learned: where the game always
+  copied a flat four voxels per click, an untrained hand now manages two, Novice I
+  restores the four, and the count climbs to six by Master and holds. The powered
+  pottery wheel is untouched: it remains the accessibility option at low rank and the
+  mass-production path when driven.
+
 - The brewer learns to read the dark. A sealed barrel has always been a black box; now
   your Brewing rank lights it up when you look at one. An Apprentice reads roughly how
   many days the seal still needs. A Journeyman reads what the batch is turning toward
