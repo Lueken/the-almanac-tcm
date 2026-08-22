@@ -62,8 +62,9 @@ because Grandmaster work builds directly on this state.
   untouched: no stamp, full Hunting credit, exactly as it was.
 
 - The fighter's deeds go on record. A perfect parry, a ranged kill, and the long kill
-  from beyond even a Grandmaster Marksman's Eye read now each write a silent tally to
-  the fighter's own knowledge, the same book the Storm-Warden's deeds already keep.
+  from past the Marksman's Eye's own reach, where no aiming aid can have helped the
+  shot, now each write a silent tally to the fighter's own knowledge, the same book
+  the Storm-Warden's deeds already keep.
   Nothing pays practice and nothing shows off; these are the ledgers a Melee or
   Marksmanship ascension will one day be judged against, and until now both callings
   detected the feats and forgot them in the same breath.

@@ -192,7 +192,7 @@ public static class MelRanKillPatches
             // The Marksman's book (0.5, the TEM storm-ledger shape): kill classification lived
             // only at this grant, so the ascension proof (a witnessed long kill) had nothing
             // durable to read. Two synced Knowledge counters, silent, no XP: every ranged kill,
-            // and the long kill, beyond even a GM Marksman's Eye read (42 blocks).
+            // and the long kill, past the Marksman's Eye's own reach (60 blocks).
             double dist = player.Entity.Pos.DistanceTo(entity.Pos.XYZ);
             BumpCounter(player, "ran-kills");
             if (dist >= LongKillBlocks) BumpCounter(player, "ran-long-kills");
@@ -225,9 +225,10 @@ public static class MelRanKillPatches
     /// two ledgers read the same death event and a beast that is not combat quarry is not hunt
     /// quarry either. One definition, or the two fences drift (the pre-0.5 state: HUN checked
     /// only domesticated/ownedby/owner, so penned gen-2 slaughter banked wild-kill practice).</summary>
-    /// <summary>Long-kill threshold in blocks: beyond even a Grandmaster Marksman's Eye read
-    /// (the 42-block ceiling), a kill is a feat of marksmanship worth the book.</summary>
-    private const double LongKillBlocks = 42.0;
+    /// <summary>Long-kill threshold in blocks: past the Marksman's Eye's own 60-block reach,
+    /// so no aiming aid can have helped the shot. (42 was wrong: that is HUNTING's GM scan
+    /// ceiling, not the Eye's; corrected 2026-08-22 before anything shipped.)</summary>
+    private const double LongKillBlocks = 60.0;
 
     /// <summary>Increment a synced Knowledge-store counter by one, silently (the TEM pattern).</summary>
     private static void BumpCounter(IPlayer player, string key)
