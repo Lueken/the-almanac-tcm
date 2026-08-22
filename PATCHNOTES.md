@@ -86,6 +86,15 @@ because Grandmaster work builds directly on this state.
   on this server, with the weir left as the one baitless exception, slow and patient
   by design.
 
+- The brick oven asks for a Journeyman. The Stone Bake Oven, the settlement-scale
+  bakehouse, now opens at Journeyman I Cooking: below that rank it refuses every
+  interaction. No firewood goes in, no pan or cook pot lands on the top, no loaf
+  enters the chamber, so no fuel is ever wasted on a bake its cook cannot finish.
+  Everything beneath it stays free at any rank: the firepit, the clay pot, the clay
+  oven, the quern, the mixing bowl, the whole stone and clay kitchen. Journeyman is
+  the rank where work starts bearing your name, and the oven that feeds a village
+  belongs to it.
+
 - No remedy without a maker outdoes the best maker's work. An unbranded healing item,
   loot, trader stock, anything that never knew an alchemist's hands, used to wake a
   downed player at FULL health, straight past the hard 80 percent ceiling a

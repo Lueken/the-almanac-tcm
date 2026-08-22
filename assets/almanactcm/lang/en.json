@@ -161,6 +161,7 @@
   "almanactcm:eng-gate-blocked": "The rigging defeats you. Assembling a powered station takes {0} Engineering.",
   "almanactcm:tem-gate-blocked": "The gearing defeats your hands. Mending temporal machinery takes {0} Temporal.",
   "almanactcm:fis-gate-blocked": "The refined tackle defeats you. Setting this gear takes {0} Fishing.",
+  "almanactcm:coo-gate-blocked": "The bakehouse defeats you. Working the brick oven takes {0} Cooking.",
   "almanactcm:tem-unawares": "The storm takes you unawares. Those attuned to the weave felt it coming.",
   "almanactcm:tem-forecast": "You feel it before the others: a {0} temporal storm is gathering, {1}.",
   "almanactcm:tem-forecast-vague": "A disturbance gathers in the weave of time, though how strong you cannot yet tell.",

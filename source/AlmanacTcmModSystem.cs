@@ -123,6 +123,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("FAR-bonus", () => Domains.FarBonusPatches.PatchConditional(api, harmony));
             Try("COO", () => Domains.CooPatches.PatchConditional(api, harmony));
             Try("COO-bonus", () => Domains.CooBonusPatches.PatchConditional(api, harmony));
+            Try("COO-ovengate", () => Domains.CooOvenGate.PatchConditional(api, harmony));
             // Annotates vanilla's freshness line with the COMPOSED TCM perish delta, replacing the
             // per-domain clauses that each stated one factor as if it were the whole effect.
             // Registration order is irrelevant: it probes GetTransitionRateMul at runtime, by which

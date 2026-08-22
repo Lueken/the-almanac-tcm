@@ -77,6 +77,12 @@ public class TcmGlobalConfig
     /// may raise it toward Apprentice I (5) if rust-mob practice trivializes the climb.</summary>
     public int RepairGateTEMLevel { get; set; } = 4;
 
+    /// <summary>COO oven gate (ruled in the LR chat; built 2026-08-22): below this COO level
+    /// the Stone Bake Oven is a full interaction block. No cooking, no adding a pan or cook
+    /// pot, no loading firewood; a partially usable oven wastes the fuel. The vanilla clay
+    /// oven is never gated. Default 9 = Journeyman I (the iron-age rung); 0 disables.</summary>
+    public int OvenGateCOOLevel { get; set; } = 9;
+
     /// <summary>FIS gear gate (ruled 2026-08-22): below this FIS level a player cannot SET
     /// Ithania's refined fishing gear (place the fish trap, swing the net). Servicing an
     /// already-placed trap is never gated, and the bait economy, fillet knife, and logbook stay
