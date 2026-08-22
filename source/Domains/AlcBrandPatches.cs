@@ -242,8 +242,12 @@ public static class AlcBrandPatches
             var entity = Traverse.Create(__instance).Field("entity").GetValue<Entity>();
             if (entity == null) return;
 
-            if (level >= 0)
-                damage = (float)(AlcDomain.ReviveFraction(level) * __instance.MaxHealth);
+            // Unbranded (-1) wakes on the Untrained floor (GLA-walk sibling fix, 2026-08-22:
+            // the review's HIGH inversion). The old guard skipped scaling for unbranded
+            // remedies entirely, so a loot vial revived at vanilla FULL health and beat the
+            // GM's hard 0.80 cap. The domain doc always said "unbranded ~22%"; now the code
+            // agrees: no remedy without a maker outdoes the best maker's work.
+            damage = (float)(AlcDomain.ReviveFraction(System.Math.Max(0, level)) * __instance.MaxHealth);
 
             // Exhausted-on-revive (soft, Vigor): zero the stamina tree; Vigor's own exhaustion + recovery
             // curve then takes over. No-op without Vigor (the tree is absent).

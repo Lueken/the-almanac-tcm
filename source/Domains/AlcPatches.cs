@@ -170,7 +170,9 @@ public static class AlcPatches
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbTakePrefix))),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbTakePostfix))));
             harmony.Patch(mru, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbPutPostfix))));
-            if (mrp != null) harmony.Patch(mrp, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbInteractPostfix))));
+            if (mrp != null) harmony.Patch(mrp,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbInteractPrefix))),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbInteractPostfix))));
             if (mrs != null) harmony.Patch(mrs, postfix: new HarmonyMethod(AccessTools.Method(typeof(AlcPatches), nameof(HerbTransitionPostfix))));
             TcmLog.Info(api, "ALC herb-rack drying hooked (honest-take grant + master perish-slow)");
         }
@@ -291,10 +293,26 @@ public static class AlcPatches
 
     // ------------------------------------------------------------ herb-rack drying
 
-    /// <summary>Placing a bundle marks the rack's alchemist (for the perish-slow rung).</summary>
-    public static void HerbInteractPostfix(BlockEntity __instance, IPlayer byPlayer)
+    /// <summary>Placing a bundle marks the rack's alchemist (for the perish-slow rung). FIXED
+    /// 2026-08-22 (verb-review defect): the old postfix marked on ANY interact, so whoever TOOK
+    /// dried herbs re-marked the rack at their own level and the perish-slow rung followed the
+    /// taker, not the alchemist who racked them. Now only an interact that fills a previously
+    /// empty slot (a placement, the only way empty turns occupied here) marks the owner.</summary>
+    public static void HerbInteractPrefix(BlockEntity __instance, BlockSelection blockSel, out bool __state)
     {
-        if (__instance?.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
+        __state = false;
+        if (__instance?.Api?.Side != EnumAppSide.Server || blockSel == null) return;
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        __state = inv != null && blockSel.SelectionBoxIndex < inv.Count
+            && inv[blockSel.SelectionBoxIndex]?.Empty == true;
+    }
+
+    public static void HerbInteractPostfix(BlockEntity __instance, IPlayer byPlayer, BlockSelection blockSel, bool __state)
+    {
+        if (!__state || __instance?.Api?.Side != EnumAppSide.Server || byPlayer == null || blockSel == null) return;
+        var inv = (__instance as BlockEntityContainer)?.Inventory;
+        if (inv == null || blockSel.SelectionBoxIndex >= inv.Count
+            || inv[blockSel.SelectionBoxIndex]?.Empty != false) return;   // nothing landed
         herbRackOwners[PosKey(__instance.Pos)] =
             $"{byPlayer.PlayerUID}|{byPlayer.PlayerName}|{AlcDomain.LevelOf(byPlayer)}";
     }

@@ -61,6 +61,18 @@ because Grandmaster work builds directly on this state.
   Hunting's dressing and a new Farming butchery verb, same total as before. Wild game is
   untouched: no stamp, full Hunting credit, exactly as it was.
 
+- No remedy without a maker outdoes the best maker's work. An unbranded healing item,
+  loot, trader stock, anything that never knew an alchemist's hands, used to wake a
+  downed player at FULL health, straight past the hard 80 percent ceiling a
+  Grandmaster's own work respects. It now wakes them at the unbranded floor, roughly a
+  fifth of their health, exactly as the remedy ladder always claimed. Whose remedy you
+  carry matters most at the moment it matters most.
+
+- The herb rack remembers its alchemist, not its last visitor. Taking dried herbs off a
+  rack used to re-mark the rack with the taker's own rank, so a Master's preserving
+  touch vanished the moment anyone else collected from it. Only placing herbs marks the
+  rack now; taking never does.
+
 - An annealer batch banks once, as its own book always said. Retrieving a finished batch
   across several seconds used to pay the annealing credit again for each second the
   unloading took; now loading the annealer arms a single credit and the first finished
