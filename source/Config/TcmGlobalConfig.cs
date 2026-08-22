@@ -77,6 +77,12 @@ public class TcmGlobalConfig
     /// may raise it toward Apprentice I (5) if rust-mob practice trivializes the climb.</summary>
     public int RepairGateTEMLevel { get; set; } = 4;
 
+    /// <summary>FIS gear gate (ruled 2026-08-22): below this FIS level a player cannot SET
+    /// Ithania's refined fishing gear (place the fish trap, swing the net). Servicing an
+    /// already-placed trap is never gated, and the bait economy, fillet knife, and logbook stay
+    /// open. Default 5 = Apprentice I (the ENG rig-gate rank); 0 disables the gate.</summary>
+    public int GearGateFISLevel { get; set; } = 5;
+
     /// <summary>Alloy Ledger (§162 Axis 4, Apprentice unlock) access. true = only an Apprentice+ of
     /// Metalworking can open it on a crucible (the ruled default); false = any player can, for
     /// servers that want the convenience for everyone. Server-owned and synced to clients on

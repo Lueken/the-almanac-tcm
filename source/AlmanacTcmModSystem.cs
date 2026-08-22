@@ -111,6 +111,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("FIS-ps", () => Domains.FisPsPatches.PatchConditional(api, harmony));
             Try("FIS-trap", () => Domains.FisTrapPatches.PatchConditional(api, harmony));
             Try("FIS-ecology", () => Domains.FisEcologyPatches.PatchConditional(api, harmony));
+            Try("FIS-gate", () => Domains.FisGearGate.PatchConditional(api, harmony));
             Try("PAN", () => Domains.PanPatches.PatchConditional(api, harmony));
             Try("PAN-surveyor", () => Domains.PanSurveyor.PatchConditional(api, harmony));
             Try("HUN", () => Domains.HunPatches.PatchConditional(api, harmony));

@@ -75,6 +75,17 @@ because Grandmaster work builds directly on this state.
   check and paid no one at all. Same anti-farm gates, same once-per-rack-per-minute
   pace; nothing changed for herbs.
 
+- The refined tackle asks for Apprentice hands. Ithania's fish trap and fish net now
+  open at Apprentice I Fishing: below that, the trap refuses to be set (it stays in
+  your hand) and the net refuses the swing. Everything around them stays free at any
+  rank: baiting and emptying a trap someone else set, the worm bin and compost bin,
+  the fillet knife, the logbook and tags. A Master sets the trap line and a Novice can
+  run the collection rounds, the same division the temporal repair gate draws. The
+  primitive gear, basket, trotline, weir and spear, remains the road that gets you
+  there, and all of it now wants bait: an unbaited basket or trotline catches nothing
+  on this server, with the weir left as the one baitless exception, slow and patient
+  by design.
+
 - No remedy without a maker outdoes the best maker's work. An unbranded healing item,
   loot, trader stock, anything that never knew an alchemist's hands, used to wake a
   downed player at FULL health, straight past the hard 80 percent ceiling a
