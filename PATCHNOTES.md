@@ -61,6 +61,13 @@ because Grandmaster work builds directly on this state.
   Hunting's dressing and a new Farming butchery verb, same total as before. Wild game is
   untouched: no stamp, full Hunting credit, exactly as it was.
 
+- The drying rack pays whichever trade the drying served. Dried herbs off the alchemy
+  rack pay Alchemy exactly as before. Dried charcuterie off the same rack, meats and
+  sausages hung there thanks to Expanded Foods, now pays Cooking's drying credit, the
+  same one the meat hooks and drying frames pay, where before it passed every honesty
+  check and paid no one at all. Same anti-farm gates, same once-per-rack-per-minute
+  pace; nothing changed for herbs.
+
 - No remedy without a maker outdoes the best maker's work. An unbranded healing item,
   loot, trader stock, anything that never knew an alchemist's hands, used to wake a
   downed player at FULL health, straight past the hard 80 percent ceiling a

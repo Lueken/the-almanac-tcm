@@ -38,11 +38,11 @@ namespace AlmanacTcm.Domains;
 ///     THE HONEST-TAKE RULE (0.4.21, the Lamp exploit): the grant fires only when the take removes
 ///     something that actually DRIED into an alchemical product on that rack. Expanded Foods patches
 ///     its meats and sausages herbrackable, which turned every charcuterie pull into remedy practice
-///     and let a place/remove loop farm the day's share dry. Four gates now stand: a placed record
+///     and let a place/remove loop farm the day's share dry. Three gates now stand: a placed record
 ///     must exist for the slot (tracked at TryPut, persisted), the taken code must differ from the
 ///     placed code (something transitioned here), the placed collectible must carry a Dry transition
-///     whose output is the taken item, and the taken item must have no nutrition (dried sausage also
-///     rides a Dry transition; edible output is cooking's world, not alchemy's).
+///     whose output is the taken item. The OUTCOME then routes the trade (RULED 2026-08-22): dried
+///     herbs pay ALC, dried charcuterie pays COO drying (it used to pay nobody).
 /// </summary>
 public static class AlcPatches
 {
@@ -337,12 +337,12 @@ public static class AlcPatches
         __state = inv?[blockSel.SelectionBoxIndex]?.Itemstack;
     }
 
-    /// <summary>The honest-take rule (0.4.21): taking from the alchemy herb rack grants ALC only when
-    /// the item actually DRIED into an alchemical product on that rack. Four gates: a placed record
-    /// exists for the slot, the taken code differs from what was placed, the placed collectible dries
-    /// into the taken item (a Dry transition, matched by output code), and the result is not food
-    /// (Expanded Foods meats and sausages are herbrackable and some also dry; charcuterie is cooking,
-    /// not alchemy). Deduped per rack per minute as before.</summary>
+    /// <summary>The honest-take rule (0.4.21) with outcome routing (RULED 2026-08-22): taking from
+    /// the alchemy herb rack pays only when the item actually DRIED on that rack. Three gates: a
+    /// placed record exists for the slot, the taken code differs from what was placed, and the
+    /// placed collectible dries into the taken item (a Dry transition, matched by output code).
+    /// Then the OUTCOME picks the trade: an alchemical product pays ALC, an edible one (Expanded
+    /// Foods charcuterie) pays COO drying. Deduped per rack per minute as before.</summary>
     public static void HerbTakePostfix(BlockEntity __instance, IPlayer byPlayer, BlockSelection blockSel,
         bool __result, ItemStack? __state)
     {
@@ -355,7 +355,6 @@ public static class AlcPatches
         herbRackPlaced.Remove(key);
 
         if (taken.Code.ToString() == placedCode) return;   // left the rack as it arrived: no work done
-        if (taken.NutritionProps != null) return;          // edible output: preservation, not alchemy
 
         CollectibleObject? placed = serverWorld?.GetItem(new AssetLocation(placedCode))
             ?? (CollectibleObject?)serverWorld?.GetBlock(new AssetLocation(placedCode));
@@ -372,9 +371,18 @@ public static class AlcPatches
         }
         if (!driedHere) return;
 
-        Core?.Ledger?.Log(byPlayer, AlcDomain.Code, AlcDomain.TechRemedy,
-            HashCode.Combine("herbrack", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
-                (int)((serverWorld?.ElapsedMilliseconds ?? 0) / 60000)));
+        // Route by outcome (RULED 2026-08-22): the rack pays whichever trade the drying served.
+        // An alchemical output pays ALC exactly as before; an edible output (Expanded Foods
+        // charcuterie, herbrackable by EF's own patch) pays COO drying, joining its siblings
+        // from the meat hooks and drying frames. Before this the food path passed every honesty
+        // gate and paid NOBODY (the old nutrition gate excluded it from ALC with no receiver).
+        // Same anti-farm gates, same dedup; the take is a manual act, so A7 does not apply.
+        int ctx = HashCode.Combine("herbrack", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
+            (int)((serverWorld?.ElapsedMilliseconds ?? 0) / 60000));
+        if (taken.NutritionProps != null)
+            Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechDrying, ctx);
+        else
+            Core?.Ledger?.Log(byPlayer, AlcDomain.Code, AlcDomain.TechRemedy, ctx);
     }
 
     /// <summary>The perish-slow rung (Axis 4): a master's rack over-dries less, slowing the Perish
