@@ -335,17 +335,46 @@ public static class HunPatches
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
-        // Butchering stations: one postfix on the abstract base covers hook AND table.
+        // Butchering stations (rewired 2026-08-21, HUN slot): the grant moved from the abstract
+        // base to the hook and table OVERRIDES, because the hook clone-swaps the stage item and
+        // the table empties the slot BEFORE calling base.processItem, so only a subclass prefix
+        // ever sees the carcass it is about to work. Three seams, each warn-and-skip:
+        // processItem x2 (grant + raised split), cloneStack (stamp survives the skinning stage),
+        // Butcherable.OnInteract (stamp carried from the dead beast onto the carcass item).
         if (api.ModLoader.IsModEnabled("butchering"))
         {
-            var ws = AccessTools.TypeByName("Butchering.src.common.blockentity.BlockEntityButcherWorkstation");
-            var m = ws == null ? null : AccessTools.Method(ws, "processItem");
-            if (m == null) TcmLog.Warn(api, "butchering present but processItem not found; HUN butchery inactive");
-            else
+            var hook = AccessTools.TypeByName("Butchering.src.common.blockentity.BlockEntityButcherHook");
+            var table = AccessTools.TypeByName("Butchering.src.common.blockentity.BlockEntityButcherTable");
+            int wired = 0;
+            foreach (var t in new[] { hook, table })
             {
-                harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(ButcheryPatch), "Postfix")));
-                TcmLog.Info(api, "HUN butchery hooked to Butchering (workstation base; by-target ruling)");
+                var m = t == null ? null : AccessTools.DeclaredMethod(t, "processItem");
+                if (m == null) continue;
+                harmony.Patch(m,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(ButcheryPatch), "Prefix")),
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(ButcheryPatch), "Postfix")));
+                wired++;
             }
+            if (wired == 0) TcmLog.Warn(api, "butchering present but no processItem override found; HUN butchery inactive");
+            else TcmLog.Info(api, $"HUN butchery hooked to Butchering ({wired} station type(s); raised split live)");
+
+            var cs = hook == null ? null : AccessTools.DeclaredMethod(hook, "cloneStack");
+            if (cs != null)
+                harmony.Patch(cs, postfix: new HarmonyMethod(AccessTools.Method(typeof(CarcassCloneCarryPatch), "Postfix")));
+            else TcmLog.Cat(api, TcmLog.Config,
+                "butchering cloneStack seam absent; raised stamp dies at the skinning stage (later steps pay as wild)");
+
+            var conv = AccessTools.TypeByName("Butchering.src.common.entitybehavior.EntityBehaviorButcherable");
+            var cv = conv == null ? null : AccessTools.DeclaredMethod(conv, "OnInteract");
+            if (cv != null)
+            {
+                harmony.Patch(cv,
+                    prefix: new HarmonyMethod(AccessTools.Method(typeof(CarcassStampPatch), "Prefix")),
+                    postfix: new HarmonyMethod(AccessTools.Method(typeof(CarcassStampPatch), "Postfix")));
+                TcmLog.Info(api, "HUN carcass pickup hooked (raisedBy carried onto the carcass item)");
+            }
+            else TcmLog.Cat(api, TcmLog.Config,
+                "butchering Butcherable.OnInteract seam absent; raised stamp not carried, workstation butchery pays as wild");
         }
 
         // BloodTrail vibrancy (Phase 2, ruled 2026-07-17): the blood particle colour is chosen
@@ -438,13 +467,95 @@ public static class HunPatches
         }
     }
 
+    /// <summary>Workstation butchery grant plus the raised split's workstation half (completes
+    /// the A7 arc, HUN slot 2026-08-21). Patched on the hook and table processItem OVERRIDES:
+    /// the prefix reads the carcass in slot 0 before the body clone-swaps or consumes it. A
+    /// raised carcass (the carried almanacRaisedBy ITEM stamp) splits 50/50 HUN/FAR butchery,
+    /// same total, mirroring the vanilla-path DressingPatch; wild pays full HUN as ever.</summary>
     public static class ButcheryPatch
     {
-        public static void Postfix(object __instance, IPlayer byPlayer, bool __result)
+        public static void Prefix(object __instance, out bool __state)
+        {
+            __state = false;
+            if (__instance is not BlockEntityContainer c || c.Api?.Side != EnumAppSide.Server) return;
+            __state = c.Inventory?[0]?.Itemstack?.Attributes?.HasAttribute(AniDomain.RaisedByAttr) == true;
+        }
+
+        public static void Postfix(object __instance, IPlayer byPlayer, bool __result, bool __state)
         {
             if (!__result || __instance is not BlockEntity be || be.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
-            Core?.Ledger?.Log(byPlayer, HunDomain.Code, HunDomain.TechButchery,
-                HashCode.Combine(be.Pos.X >> 3, be.Pos.Y >> 3, be.Pos.Z >> 3, be.Api.World.ElapsedMilliseconds / 1000));
+            int ctx = HashCode.Combine(be.Pos.X >> 3, be.Pos.Y >> 3, be.Pos.Z >> 3, be.Api.World.ElapsedMilliseconds / 1000);
+            if (__state)
+            {
+                Core?.Ledger?.Log(byPlayer, HunDomain.Code, HunDomain.TechButchery, ctx, 0.5);
+                Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechButchery, ctx, 0.5);
+            }
+            else
+            {
+                Core?.Ledger?.Log(byPlayer, HunDomain.Code, HunDomain.TechButchery, ctx);
+            }
+        }
+    }
+
+    /// <summary>The raised stamp survives the hook's skinning stage. Butchering's cloneStack
+    /// rebuilds the stage item copying only its own three attributes (the GLA clone-wipe
+    /// pattern), so without this carry the stamp died at the first knife stroke.</summary>
+    public static class CarcassCloneCarryPatch
+    {
+        public static void Postfix(ItemStack oldStack, ItemStack __result)
+        {
+            string? uid = oldStack?.Attributes?.GetString(AniDomain.RaisedByAttr);
+            if (uid != null && __result != null) __result.Attributes.SetString(AniDomain.RaisedByAttr, uid);
+        }
+    }
+
+    /// <summary>Carries the raisedBy stamp across Butchering's entity-to-item conversion (the
+    /// carcass pickup). The mod copies generation, animalWeight and the drop table onto the
+    /// item but not our attribution, so the stamp died at pickup and no workstation could ever
+    /// see it. The new stack is a local inside the mod's method, so the carry is a
+    /// snapshot-diff: the prefix records every stack in the player's inventories by identity,
+    /// the postfix stamps the ONE new stack bearing the conversion's own animalWeight or
+    /// AnimalDrops fingerprint. If the give merges into an identical unstamped stack no new
+    /// object appears and the carcass pays as wild, the safe direction.</summary>
+    public static class CarcassStampPatch
+    {
+        public static void Prefix(EntityBehavior __instance, EntityAgent byEntity,
+            out (string? uid, HashSet<ItemStack>? seen, IPlayer? player) __state)
+        {
+            __state = (null, null, null);
+            var ent = __instance?.entity;
+            if (ent == null || ent.World?.Side != EnumAppSide.Server || ent.Alive) return;
+            string? uid = ent.WatchedAttributes?.GetString(AniDomain.RaisedByAttr);
+            if (uid == null) return;
+            var player = (byEntity as EntityPlayer)?.Player;
+            if (player?.InventoryManager?.Inventories == null) return;
+
+            var seen = new HashSet<ItemStack>();
+            foreach (var inv in player.InventoryManager.Inventories.Values)
+            {
+                if (inv == null) continue;
+                foreach (var slot in inv) if (slot?.Itemstack != null) seen.Add(slot.Itemstack);
+            }
+            __state = (uid, seen, player);
+        }
+
+        public static void Postfix((string? uid, HashSet<ItemStack>? seen, IPlayer? player) __state)
+        {
+            if (__state.uid == null || __state.seen == null || __state.player == null) return;
+            foreach (var inv in __state.player.InventoryManager.Inventories.Values)
+            {
+                if (inv == null) continue;
+                foreach (var slot in inv)
+                {
+                    var stack = slot?.Itemstack;
+                    if (stack == null || __state.seen.Contains(stack)) continue;
+                    if (!stack.Attributes.HasAttribute("animalWeight")
+                        && !stack.Attributes.HasAttribute("AnimalDrops")) continue;
+                    stack.Attributes.SetString(AniDomain.RaisedByAttr, __state.uid);
+                    slot!.MarkDirty();
+                    return;
+                }
+            }
         }
     }
 

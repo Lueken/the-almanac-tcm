@@ -61,6 +61,15 @@ because Grandmaster work builds directly on this state.
   Hunting's dressing and a new Farming butchery verb, same total as before. Wild game is
   untouched: no stamp, full Hunting credit, exactly as it was.
 
+- The raised split follows the carcass to the workstation. Butchering a player-raised
+  beast at the hook or the table now pays the barn and the knife alike, half Hunting and
+  half Farming butchery, the same split the field knife has used since it landed.
+  Before this the attribution died twice on the way to the station: the carcass pickup
+  copied the animal's weight, generation and drop table onto the item but not who
+  raised it, and the skinning stage rebuilt the item keeping only the mod's own three
+  attributes. The stamp now survives the pickup and every stage of the work. Wild game
+  at the station pays full Hunting exactly as before.
+
 - Mending temporal machinery takes the trade; riding it never did. Repairing a
   translocator or recharging a spent teleporter now asks Novice IV in Temporal. Anyone
   still steps through a working machine, exactly as before: standing on a teleporter
