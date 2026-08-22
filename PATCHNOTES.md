@@ -61,6 +61,11 @@ because Grandmaster work builds directly on this state.
   Hunting's dressing and a new Farming butchery verb, same total as before. Wild game is
   untouched: no stamp, full Hunting credit, exactly as it was.
 
+- An annealer batch banks once, as its own book always said. Retrieving a finished batch
+  across several seconds used to pay the annealing credit again for each second the
+  unloading took; now loading the annealer arms a single credit and the first finished
+  piece taken collects it. Nothing else about annealing changed.
+
 - Building the machine teaches the builder; running it teaches no one. The mill was ruled
   to grant nothing for use, and this is the other half of that ruling: the first time a
   machine you built genuinely runs, power delivered to it or its first output turned, the

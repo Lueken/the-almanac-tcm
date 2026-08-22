@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -294,6 +295,12 @@ public static class GlaPatches
         if (__instance?.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
         if (!IsRawGlass(slot?.Itemstack)) return;
         __state = true; // a load
+        // Arm the per-batch credit (GLA slot fix, 2026-08-22): the technique doc always said
+        // one annealer LOAD banks once, but the take credited per pos per SECOND, so a batch
+        // retrieved across several seconds paid several times. Loading any piece arms the pos;
+        // the first credited take disarms it. Lost on restart, which under-credits one batch
+        // at worst, the safe direction.
+        annealArmed.Add(PosKeyOf(__instance!.Pos));
 
         var attrs = slot!.Itemstack.Attributes;
         if (attrs.HasAttribute(TolAttr)) return; // stamped at creation is final
@@ -305,11 +312,18 @@ public static class GlaPatches
 
     /// <summary>A TAKE that pulled a CONVERTED (annealed, no longer raw-glass) piece is a finished
     /// anneal: credit it. Retrieving an unfinished (still raw) piece grants nothing (anti-farm).</summary>
+    /// <summary>Per-batch, as the technique doc always claimed: only an ARMED position (a load
+    /// happened since the last credited take) pays, exactly once.</summary>
+    private static readonly HashSet<string> annealArmed = new();
+
+    private static string PosKeyOf(BlockPos p) => $"{p.X}/{p.Y}/{p.Z}";
+
     public static void AnnealPostfix(BlockEntity __instance, IPlayer byPlayer, ItemSlot slot, bool __state, bool __result)
     {
         if (!__result || __state || __instance?.Api?.Side != EnumAppSide.Server) return;
         var stack = slot?.Itemstack;
         if (stack?.Collectible == null || IsRawGlass(stack)) return;
+        if (!annealArmed.Remove(PosKeyOf(__instance.Pos))) return;   // batch already credited
         Grant(byPlayer, GlaDomain.TechAnnealing,
             HashCode.Combine("anneal", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
                 (serverWorld?.ElapsedMilliseconds ?? 0) / 1000));
