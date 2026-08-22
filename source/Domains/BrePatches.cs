@@ -231,6 +231,20 @@ public static class BrePatches
             outSlot!.MarkDirty();
             TcmLog.Cat(api, "bre", $"seal at {pos}: Brewer's Mark of {p[1]} on {stack.Collectible.Code?.Path}");
         }
+
+        // The Brewmaster's measure (0.5 ruling, 2026-08-22): a Grandmaster's seal can pay over
+        // the rating. Runs after the spoil roll (a GM never spoils; the taper is long spent)
+        // and never meets the Untrained dock, so the levers cannot stack. The capability lives
+        // in the COUNT so liquids stay attribute-clean; barrel and fermenter both route here.
+        if (tier >= Rank.Grandmaster
+            && api.World.Rand.NextDouble() < BreDomain.Knob(BreDomain.MeasureChanceGm, 0.25))
+        {
+            int bonus = Math.Max(1, (int)Math.Round(
+                stack.StackSize * BreDomain.Knob(BreDomain.MeasureBonusFraction, 0.10)));
+            stack.StackSize += bonus;
+            outSlot!.MarkDirty();
+            TcmLog.Cat(api, "bre", $"seal at {pos}: the Brewmaster's measure pays +{bonus} over the rating");
+        }
     }
 
     // ------------------------------------------------------------ barrel hooks (direct cast)

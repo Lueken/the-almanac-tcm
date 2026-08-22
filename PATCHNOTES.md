@@ -96,6 +96,21 @@ because Grandmaster work builds directly on this state.
   the rank where work starts bearing your name, and the oven that feeds a village
   belongs to it.
 
+- The brewer learns to read the dark. A sealed barrel has always been a black box; now
+  your Brewing rank lights it up when you look at one. An Apprentice reads roughly how
+  many days the seal still needs. A Journeyman reads what the batch is turning toward
+  and the time to the day. A Master reads the count it should give when it opens.
+  Below Apprentice the dark keeps its counsel, exactly as before; nothing vanilla
+  showed was taken away, because vanilla showed nothing at all.
+
+- The Brewmaster's measure: a Grandmaster's seal can pay over the rating. One sealed
+  ferment in four from a Grandmaster's hands comes out a tenth over its rated count,
+  never less than one portion extra, barrel and clay fermenter alike. It fires at the
+  top rather than climbing to it, the same shape as the Cook's Mark, and it lives
+  entirely in the count, so no liquid ever carries an attribute the barrel could
+  erase. Spirits, preserves and brews all qualify; the measure is the first thing the
+  calling gives its Grandmaster beyond the words on the label.
+
 - No remedy without a maker outdoes the best maker's work. An unbranded healing item,
   loot, trader stock, anything that never knew an alchemist's hands, used to wake a
   downed player at FULL health, straight past the hard 80 percent ceiling a

@@ -48,6 +48,14 @@ public static class BreDomain
     /// when it does not spoil). Clears normally at Novice I.</summary>
     public const string PortionUntrained = "portionUntrained";
 
+    /// <summary>The Brewmaster's measure (0.5 BRE ruling, 2026-08-22): the chance a GRANDMASTER'S
+    /// completed ferment pays over its rated count. Fires at the top only (the Cook's-Mark shape:
+    /// one lever that arrives at Grandmaster rather than climbing to it). The capability lives in
+    /// the COUNT, so liquids stay attribute-clean and the merge rule is never tested.</summary>
+    public const string MeasureChanceGm = "measureChanceGm";
+    /// <summary>Fraction of the rated count added when the measure fires, minimum one.</summary>
+    public const string MeasureBonusFraction = "measureBonusFraction";
+
     /// <summary>Provenance tiers (a mark means something from Journeyman up): the BRE curedBy tag on
     /// SOLID preserves. Cured by (J) -> Aged by (M) -> a masterwork-preserve line (GM).</summary>
     // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): this was one of ten identical
@@ -72,6 +80,8 @@ public static class BreDomain
         {
             [SpoilUntrained] = 0.50,   // full spoilage chance at tier 0, tapering to 0 at Journeyman
             [PortionUntrained] = 0.75, // 25% fewer portions while Untrained
+            [MeasureChanceGm] = 0.25,  // one GM seal in four pays over the rating
+            [MeasureBonusFraction] = 0.10, // by a tenth of the rated count, minimum one
         },
     };
 
