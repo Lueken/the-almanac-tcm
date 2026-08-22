@@ -61,6 +61,16 @@ because Grandmaster work builds directly on this state.
   Hunting's dressing and a new Farming butchery verb, same total as before. Wild game is
   untouched: no stamp, full Hunting credit, exactly as it was.
 
+- Trapping pays for the first time, and the trap answers to its setter's hands. The catch
+  in a snare or deadfall was never an item sitting in the trap: it is the animal dying
+  beside it, and nothing ever credited that, so the trapping ledger has been empty since
+  the day it opened. Now a trap kill banks trapping practice for the trap's owner. The
+  owner's rank works the trap itself: a green hand's set loses its bait and springs empty
+  more often than the stock numbers, a master's set fails not much more than half as
+  often, and no rank ever makes a trap certain. At the top, one kill in four leaves the
+  trap still set with its bait untouched, the line still working. Unowned traps, and
+  traps whose owner is offline, behave exactly as stock and bank nothing.
+
 - The raised split follows the carcass to the workstation. Butchering a player-raised
   beast at the hook or the table now pays the barn and the knife alike, half Hunting and
   half Farming butchery, the same split the field knife has used since it landed.

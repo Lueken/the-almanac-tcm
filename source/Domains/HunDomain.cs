@@ -41,6 +41,20 @@ public static class HunDomain
     public const string SeekRangeUntrained = "seekRangeUntrained";
     public const string SeekRangeGm = "seekRangeGm";
 
+    // ---- Trap axes (rank-bonus §HUN Axes 1/3/4; REDESIGNED 2026-08-21 at the real seam: PS
+    // land traps hold no catch item, the catch is the animal dying beside the trap, so the
+    // levers ride the collide rolls and the kill, not a collection hook that never existed).
+    /// <summary>Multiplier on BOTH failure rolls (bait stolen, tripped empty) at Untrained: a
+    /// green hand's set fails more often than vanilla (Axis 1's botched traps).</summary>
+    public const string TrapFailUntrained = "trapFailUntrained";
+    /// <summary>Failure-roll multiplier at Grandmaster: the floor, deliberately above zero.
+    /// No trap is ever a sure thing.</summary>
+    public const string TrapFailGm = "trapFailGm";
+    /// <summary>Grandmaster chance a trap STAYS SET after a successful kill, bait kept, the
+    /// line still working (Axis 4's trapline yield, reinterpreted 2026-08-21: no catch item
+    /// exists to bonus, so the bonus is the next catch coming sooner). 0 through Novice.</summary>
+    public const string TrapStaySetGm = "trapStaySetGm";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -73,6 +87,12 @@ public static class HunDomain
             [AnimalYieldGm] = 1.15,
             [SeekRangeUntrained] = 1.15,
             [SeekRangeGm] = 0.75,
+            // Trap axes: at PS defaults (10% stolen, 10% tripped-empty per impact) Untrained
+            // fails ~27% of impacts, GM ~11%, never zero. Stay-set: 1 in 4 GM kills keep the
+            // trap armed and baited.
+            [TrapFailUntrained] = 1.35,
+            [TrapFailGm] = 0.55,
+            [TrapStaySetGm] = 0.25,
         }
     };
 
@@ -84,6 +104,16 @@ public static class HunDomain
         int max = Leveling.Domain.MaxLevelDefault;
         double t = (level - 1) / (double)(max - 1);
         return 1.0 + t * (gm - 1.0);
+    }
+
+    /// <summary>Chance (0..1) a trap survives its kill still set and baited: 0 through Novice,
+    /// linear to the <see cref="TrapStaySetGm"/> knob at max level (the trapline proc).</summary>
+    public static double TrapStaySetChance(int level)
+    {
+        int novice = Leveling.Domain.SubLevelsPerTier;
+        if (level <= novice) return 0.0;
+        int max = Leveling.Domain.MaxLevelDefault;
+        return (level - novice) / (double)(max - novice) * Knob(TrapStaySetGm, 0.25);
     }
 
     /// <summary>Server-side HUN level for a player (0 = Untrained when unknown).</summary>

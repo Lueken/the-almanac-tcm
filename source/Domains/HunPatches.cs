@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using Newtonsoft.Json;
 using ProtoBuf;
@@ -17,7 +18,7 @@ namespace AlmanacTcm.Domains;
 
 /// <summary>
 /// HUN Phase 1 hooks (rank-bonus-design §HUN, ruled 2026-07-10; seams re-pinned against the
-/// LIVE binaries 2026-07-17 — Butchering 1.13.5, PS 5.0.6, the 0.3.77 namespace lesson).
+/// LIVE binaries re-verified 2026-08-21 — Butchering 1.13.6, PS 5.1.0, the 0.3.77 namespace lesson).
 ///
 /// Verbs:
 ///   • hunting — sapi.Event.OnEntityDeath, credited to the CAUSING player (projectile kills
@@ -27,8 +28,11 @@ namespace AlmanacTcm.Domains;
 ///   • dressing — EntityBehaviorHarvestable.GenerateDrops postfix (the field harvest; the
 ///     same method whose yield rides animalLootDropRate).
 ///   • trapping — PS snares + deadfalls, owner-at-placement (the FIS trap shape: no trap BE
-///     stores an owner). Credit at collection of a CATCH — retrieving your own bait does not
-///     count (checked against the BE's own bait-type list).
+///     stores an owner). REDESIGNED 2026-08-21: PS traps hold no catch item, so the old
+///     collection credit could never fire and trapping never paid. The catch is the KILL: the
+///     mirrored collide credits the owner when the trap kills game, scales the bait-stolen and
+///     tripped-empty rolls by the owner's rank (floored above zero, never a sure trap), and a
+///     GM-weighted proc leaves the trap set after a kill, bait kept (the trapline yield).
 ///   • butchery — Butchering's BlockEntityButcherWorkstation.processItem (the abstract base
 ///     both hook and table route through), by-target ruling: cutting game is a hunter's skill.
 ///
@@ -392,35 +396,64 @@ public static class HunPatches
             }
         }
 
-        // PS land traps: snare + deadfall, owner at placement, credit at catch collection.
+        // PS land traps (REDESIGNED 2026-08-21; HUN walk findings in the 0.5 plan doc): PS traps
+        // hold no catch item, so the old collection patch waited on a slot that only ever holds
+        // bait and trapping never paid; trap kills paid nobody (playerless damage source). The
+        // catch IS the animal dying beside the trap. Owner still stamps at placement; the
+        // collide is MIRRORED (trough-fix precedent, verified against PS 5.1.0) so the owner's
+        // rank scales the two real failure rolls, the kill credits the owner, and the GM proc
+        // leaves the trap set after a kill. The 5.1.0 deadfall quirk is mirrored, not fixed:
+        // its steal and trip-empty branches cast to BESnare, so a deadfall no-ops there at
+        // every rank, exactly vanilla. If a seam is missing the mirror stands down to a
+        // credit-only kill patch, so the verb pays even when the axes cannot. Offline owners
+        // get vanilla rolls and bank nothing, the collect-era posture kept.
         if (api.ModLoader.IsModEnabled("primitivesurvival"))
         {
-            int hooked = 0;
             foreach (string block in new[] { "BlockSnare", "BlockDeadfall" })
             {
                 var t = AccessTools.TypeByName("PrimitiveSurvival.ModSystem." + block);
                 if (t != null) trapBlockTypes.Add(t);
-            }
-            foreach (string be in new[] { "BESnare", "BEDeadfall" })
-            {
-                var t = AccessTools.TypeByName("PrimitiveSurvival.ModSystem." + be);
-                // BESnare/BEDeadfall both declare a one-arg OnInteract(IPlayer); the untyped
-                // AccessTools.Method resolves the name across the hierarchy and threw
-                // "Ambiguous match" (0.3.85 crash: aborted TCM's whole Start phase, half-loading
-                // the mod client+server). Pin the exact signature.
-                var m = t == null ? null : AccessTools.Method(t, "OnInteract", new[] { typeof(IPlayer) });
-                if (m == null) { TcmLog.Warn(api, $"primitivesurvival {be}.OnInteract(IPlayer) not found; that trap is uncredited"); continue; }
-                harmony.Patch(m,
-                    prefix: new HarmonyMethod(AccessTools.Method(typeof(LandTrapCollectPatch), "Prefix")),
-                    postfix: new HarmonyMethod(AccessTools.Method(typeof(LandTrapCollectPatch), "Postfix")));
-                hooked++;
             }
             if (trapBlockTypes.Count > 0)
             {
                 harmony.Patch(AccessTools.Method(typeof(Block), nameof(Block.DoPlaceBlock)),
                     postfix: new HarmonyMethod(AccessTools.Method(typeof(TrapPlacePatch), "Postfix")));
             }
-            if (hooked > 0) TcmLog.Info(api, $"HUN trapping hooked ({hooked} trap BE(s); owner at placement, catch at collection)");
+
+            var beSnare = AccessTools.TypeByName("PrimitiveSurvival.ModSystem.BESnare");
+            var beDeadfall = AccessTools.TypeByName("PrimitiveSurvival.ModSystem.BEDeadfall");
+            TrapCollideMirror.SnareBeType = beSnare;
+            TrapCollideMirror.DeadfallBeType = beDeadfall;
+            TrapCollideMirror.SnareStealBait = beSnare == null ? null : AccessTools.Method(beSnare, "StealBait", new[] { typeof(BlockPos) });
+            TrapCollideMirror.SnareTripTrap = beSnare == null ? null : AccessTools.Method(beSnare, "TripTrap", new[] { typeof(BlockPos) });
+            TrapCollideMirror.DeadfallTripTrap = beDeadfall == null ? null : AccessTools.Method(beDeadfall, "TripTrap", new[] { typeof(BlockPos) });
+            // Loaded is read lazily per collide: PS may not have populated it before TCM starts.
+            TrapCollideMirror.ConfigLoadedProp = AccessTools.TypeByName("PrimitiveSurvival.ModConfig.ModConfig")?.GetProperty("Loaded");
+
+            bool mirrorReady = TrapCollideMirror.SnareStealBait != null && TrapCollideMirror.SnareTripTrap != null
+                && TrapCollideMirror.DeadfallTripTrap != null && TrapCollideMirror.ConfigLoadedProp != null;
+
+            int hooked = 0;
+            foreach (Type t in trapBlockTypes)
+            {
+                var m = AccessTools.DeclaredMethod(t, "OnEntityCollide");
+                if (m == null) { TcmLog.Warn(api, $"primitivesurvival {t.Name}.OnEntityCollide not found; that trap is uncredited"); continue; }
+                if (mirrorReady)
+                {
+                    string pre = t.Name == "BlockSnare" ? nameof(TrapCollideMirror.SnarePrefix) : nameof(TrapCollideMirror.DeadfallPrefix);
+                    harmony.Patch(m, prefix: new HarmonyMethod(AccessTools.Method(typeof(TrapCollideMirror), pre)));
+                }
+                else
+                {
+                    harmony.Patch(m,
+                        prefix: new HarmonyMethod(AccessTools.Method(typeof(TrapKillCreditPatch), "Prefix")),
+                        postfix: new HarmonyMethod(AccessTools.Method(typeof(TrapKillCreditPatch), "Postfix")));
+                }
+                hooked++;
+            }
+            if (hooked > 0) TcmLog.Info(api, mirrorReady
+                ? $"HUN trapping live ({hooked} trap(s); rank-scaled rolls, kill credit, stay-set proc)"
+                : $"HUN trapping degraded ({hooked} trap(s); PS seams shifted, kill credit only)");
         }
     }
 
@@ -572,44 +605,130 @@ public static class HunPatches
         }
     }
 
-    /// <summary>Snare/deadfall collection: the display slot held something that is NOT on the
-    /// BE's own bait list (a catch) and the interact emptied it — that is a collected catch.
-    /// Taking your own bait back credits nothing.</summary>
-    public static class LandTrapCollectPatch
+    /// <summary>The mirrored snare/deadfall collide (PS 5.1.0 body, rank-scaled). Retired the
+    /// collection-based credit 2026-08-21: PS land traps never hold a catch item, so that
+    /// condition was unsatisfiable and trapping never paid. Server-side only; the client keeps
+    /// vanilla prediction exactly as PS itself does (both sides always rolled independently).
+    /// At Novice rank every number and branch matches vanilla, including the deadfall's
+    /// BESnare-cast quirk in the steal and trip-empty branches. Config values are read lazily
+    /// from PS's own Loaded config with the 5.1.0 shipped defaults as fallback.</summary>
+    public static class TrapCollideMirror
     {
-        private static (string? code, bool wasBait) Read(BlockEntity be)
+        internal static Type? SnareBeType, DeadfallBeType;
+        internal static MethodInfo? SnareStealBait, SnareTripTrap, DeadfallTripTrap;
+        internal static PropertyInfo? ConfigLoadedProp;
+        private static readonly AssetLocation TickSound = new("game", "tick");
+
+        private static double Cfg(string name, double fallback)
         {
-            if (be is not BlockEntityContainer c || c.Inventory == null || c.Inventory.Count == 0) return (null, false);
-            string? path = c.Inventory[0]?.Itemstack?.Collectible?.Code?.Path;
-            if (path == null) return (null, false);
-            bool bait = false;
             try
             {
-                if (Traverse.Create(be).Field("baitTypes").GetValue() is string[] baits)
-                    foreach (string b in baits)
-                        if (path.Contains(b)) { bait = true; break; }
+                object? cfg = ConfigLoadedProp?.GetValue(null);
+                if (cfg != null)
+                {
+                    var tr = Traverse.Create(cfg).Property(name);
+                    if (tr.PropertyExists()) return Convert.ToDouble(tr.GetValue());
+                }
             }
             catch { }
-            return (path, bait);
+            return fallback;
         }
 
-        public static void Prefix(object __instance, out (string? code, bool wasBait) __state)
+        public static bool SnarePrefix(Block __instance, IWorldAccessor world, Entity entity, BlockPos pos, bool isImpact)
+            => Collide(__instance, world, entity, pos, isImpact, snare: true);
+
+        public static bool DeadfallPrefix(Block __instance, IWorldAccessor world, Entity entity, BlockPos pos, bool isImpact)
+            => Collide(__instance, world, entity, pos, isImpact, snare: false);
+
+        private static void Invoke(MethodInfo? m, Type? beType, IWorldAccessor world, BlockPos pos)
         {
-            __state = __instance is BlockEntity be && be.Api?.Side == EnumAppSide.Server ? Read(be) : (null, false);
+            var be = world.BlockAccessor.GetBlockEntity(pos);
+            if (m != null && beType != null && be != null && beType.IsInstanceOfType(be))
+                m.Invoke(be, new object[] { pos });
         }
 
-        public static void Postfix(object __instance, (string? code, bool wasBait) __state)
+        private static bool Collide(Block block, IWorldAccessor world, Entity entity, BlockPos pos, bool isImpact, bool snare)
         {
-            if (__state.code == null || __state.wasBait) return;
-            if (__instance is not BlockEntity be || be.Api?.Side != EnumAppSide.Server) return;
-            var (now, _) = Read(be);
-            if (now != null) return; // nothing left the trap
+            if (world.Side != EnumAppSide.Server) return true;
+            if (entity.Code.Path.StartsWith("butterfly") || !isImpact) return false;
 
-            if (!trapOwners.TryGetValue(Key(be.Pos), out string? uid) || uid == null) return;
-            IPlayer? owner = be.Api.World.PlayerByUid(uid);
-            if (owner == null) return; // owner offline; their catch, but practice waits for them
+            string trapState = block.FirstCodePart(1);
 
-            Core?.Ledger?.Log(owner, HunDomain.Code, HunDomain.TechTrapping, be.Pos.GetHashCode());
+            // The owner's rank scales the failure rolls; unowned or offline = vanilla numbers.
+            IPlayer? owner = null;
+            int level = 0;
+            double failMul = 1.0;
+            if (trapOwners.TryGetValue(Key(pos), out string? uid) && uid != null)
+            {
+                owner = world.PlayerByUid(uid);
+                if (owner != null)
+                {
+                    level = HunDomain.LevelOf(owner);
+                    failMul = HunDomain.RankLinear(level,
+                        HunDomain.Knob(HunDomain.TrapFailUntrained, 1.35),
+                        HunDomain.Knob(HunDomain.TrapFailGm, 0.55));
+                }
+            }
+
+            string p = snare ? "Snare" : "Deadfall";
+            int stolenPct = (int)Math.Round(Cfg(p + "BaitStolenPercent", 10) * failMul);
+            int trippedPct = (int)Math.Round(Cfg(p + "TrippedPercent", 10) * failMul);
+            double maxHeight = Cfg(p + "MaxAnimalHeight", snare ? 0.8 : 0.7);
+            int maxDmg = (int)Cfg(p + (trapState == "set" ? "MaxDamageSet" : "MaxDamageBaited"),
+                snare ? (trapState == "set" ? 12 : 24) : (trapState == "set" ? 10 : 20));
+
+            var rnd = world.Rand;
+            if (rnd.Next(100) < stolenPct && entity.Code.Path != "player")
+            {
+                // 5.1.0 quirk mirrored: BOTH blocks route this branch through BESnare, so a
+                // deadfall changes nothing here. Fixing it would alter vanilla behavior.
+                Invoke(SnareStealBait, SnareBeType, world, pos);
+                return false;
+            }
+            if (rnd.Next(100) < trippedPct)
+            {
+                Invoke(SnareTripTrap, SnareBeType, world, pos);   // same quirk on the deadfall
+                world.PlaySoundAt(TickSound, entity.Pos.X, entity.Pos.Y, entity.Pos.Z, null, true, 32f, 1f);
+                return false;
+            }
+            if (trapState == "tripped") return false;
+
+            int dmg = 3;
+            if (entity.Properties.EyeHeight < maxHeight) dmg = rnd.Next(snare ? 6 : 5, maxDmg);
+            bool wasAlive = entity.Alive;
+            entity.ReceiveDamage(new DamageSource { SourceEntity = null, Type = (EnumDamageType)2 }, dmg);
+
+            // The catch: the trap killed game. Credit the owner's craft, and roll the trapline
+            // proc: a master's set survives its kill, bait kept, the line still working.
+            bool staysSet = false;
+            if (wasAlive && !entity.Alive && owner != null && IsHuntableGame(entity))
+            {
+                Core?.Ledger?.Log(owner, HunDomain.Code, HunDomain.TechTrapping,
+                    HashCode.Combine("trapkill", pos.X, pos.Y, pos.Z, entity.EntityId));
+                staysSet = rnd.NextDouble() < HunDomain.TrapStaySetChance(level);
+            }
+            if (!staysSet)
+                Invoke(snare ? SnareTripTrap : DeadfallTripTrap, snare ? SnareBeType : DeadfallBeType, world, pos);
+            world.PlaySoundAt(TickSound, entity.Pos.X, entity.Pos.Y, entity.Pos.Z, null, true, 32f, 1f);
+            return false;
+        }
+    }
+
+    /// <summary>The stand-down: if PS's seams shifted and the mirror cannot apply, the verb
+    /// still pays. Prefix remembers whether the beast lived; postfix credits the trap's owner
+    /// when the collide killed game. No scaling, no proc, vanilla behavior throughout.</summary>
+    public static class TrapKillCreditPatch
+    {
+        public static void Prefix(Entity entity, out bool __state) => __state = entity?.Alive == true;
+
+        public static void Postfix(IWorldAccessor world, Entity entity, BlockPos pos, bool __state)
+        {
+            if (world?.Side != EnumAppSide.Server || !__state || entity.Alive || !IsHuntableGame(entity)) return;
+            if (!trapOwners.TryGetValue(Key(pos), out string? uid) || uid == null) return;
+            IPlayer? owner = world.PlayerByUid(uid);
+            if (owner == null) return;
+            Core?.Ledger?.Log(owner, HunDomain.Code, HunDomain.TechTrapping,
+                HashCode.Combine("trapkill", pos.X, pos.Y, pos.Z, entity.EntityId));
         }
     }
 }
