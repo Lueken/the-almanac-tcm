@@ -10,6 +10,33 @@ The gap pass: every domain reviewed and the weak ones lifted toward the bar Meta
 sets. Groundwork first: the pre-ascension fix list from the 2026-08-17 domain verb review,
 because Grandmaster work builds directly on this state.
 
+- The farmer learns each crop by name. Knowledge of a crop is now earned by harvesting it,
+  not granted for existing: every real harvest teaches you that crop a little, and what you
+  know of one crop spreads partway through its family, never all the way. Vanilla used to
+  show farmland moisture, nutrient figures, and every crop's demands to anyone who looked.
+  Now an untrained eye reads nothing in the soil; a Novice reads it in rough words; an
+  Apprentice reads bare ground in full figures, but a planted crop stays a stranger until
+  you have grown it (or its kin) enough times to know it; and from Journeyman, once a
+  family is truly known, the ground itself remembers for you what it last bore. Rank
+  decides what your hands do; familiarity decides what you know. They never cross.
+
+- The legumes give back. Peas, fava beans, lentils, soybean, peanut, alfalfa, and licorice
+  now return nitrogen to the farmland they grow in, each to its own measure and never past
+  a cap: fava the strongest of the annuals, alfalfa the strongest of all, and soybean
+  barely at all, because its harvest carries away more than the plant banks. Crop rotation
+  stops being lore and starts being practice.
+
+- Some crops are picked, not pulled. Chives, leaf lettuce, eruca, estragon, cucumber,
+  tomato, and alfalfa can now be harvested by hand at their bearing stage: the plant gives
+  a small pick and falls back to regrow on the farmland's own clock. Breaking the plant
+  remains the full and final harvest. Keep picking small, or pull the plant; that is the
+  standing trade.
+
+- Yield answers to the crop, not to a single curve. The flat Untrained harvest dock is
+  replaced by a per-crop, per-rank yield table in server config, generated at the old
+  behaviour on first run so nothing changes until it is deliberately tuned, with a master
+  switch that removes TCM's hand from yield entirely.
+
 - The kill ledger stops counting the barn. Hunting credit for a kill now applies the same
   livestock fence as combat: owned, tamed, domesticated, or an established captive lineage
   (generation 2 and up) is husbandry, not the hunt. Before this, only the ownership checks
