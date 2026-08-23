@@ -1,0 +1,122 @@
+[
+	// FAR comb, secondary nutrient draw (walk 2026-08-22, ruled 2026-08-23). Data for the
+	// AlmanacSecondaryNutrients behaviour, which shipped registered and idle with the 0.5
+	// machinery. Lives here beside far-crop-behaviors.json because TCM owns every
+	// cropProps.behaviors attachment; the pack owns plant truth (thequire far-comb-*.json).
+	//
+	// Vanilla crops draw exactly ONE nutrient. Real crops draw all three, and vanilla itself
+	// already does the honest thing for fruiting bushes (BEBehaviorFruitingBush drains N, P
+	// and K together). These entries bring row crops up to the same standard.
+	//
+	// Values are TOTALS across the whole grow, divided internally per growth tick, and they
+	// name only the two NON-dominant letters: the dominant letter keeps its own vanilla
+	// nutrientConsumption and must stay absent here or it would draw twice. Sizing follows
+	// rule 5, at most about a third of the dominant draw.
+	//
+	// KNOWN LIMIT, recorded rather than worked around: the behaviour takes FLAT totals, so
+	// on the AoG-restaged crops whose dominant draw is a per-size ladder, these are sized
+	// against the WILD tier, where the one-third cap binds hardest. That leaves the bred
+	// tiers drawing proportionally less on their secondaries than on their dominant. Giving
+	// the behaviour ByType support is a small TCM change and the honest fix; until then this
+	// errs light, which is the safe direction.
+
+	// ---- Grains. Rice is the roster's heaviest feeder and the only one that wants real
+	// nitrogen beside its potassium.
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "n": 15, "p": 7 } } ],
+		"file": "game:blocktypes/plant/crop/rice.json"
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "p": 5, "k": 12 } } ],
+		"file": "game:blocktypes/plant/crop/sunflower.json"
+	},
+
+	// ---- Legume. Soybean is the bloc's net nitrogen SINK: its seed exports more than the
+	// plant fixes. The fixation behaviour still runs (weakest cap in the set), and this
+	// secondary N draw is what turns it net negative, which is the real behaviour.
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "n": 5 } } ],
+		"file": "game:blocktypes/plant/crop/new/soybean.json",
+		"dependsOn": [ { "modid": "aogbreedingaddonpatch" } ]
+	},
+
+	// ---- Brassica. Cabbage is a genuinely hungry crop on every letter.
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "p": 3, "k": 6 } } ],
+		"file": "game:blocktypes/plant/crop/new/cabbage.json",
+		"dependsOn": [ { "modid": "aogbreedingaddonpatch" } ]
+	},
+
+	// ---- Roots and fruits.
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "n": 7, "p": 3 } } ],
+		"file": "bdcrop:blocktypes/plant/crop/potato.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "n": 7, "k": 11 } } ],
+		"file": "bdcrop:blocktypes/plant/crop/tomato.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "k": 8, "p": 3 } } ],
+		"file": "game:blocktypes/plant/crop/pineapple.json"
+	},
+
+	// ---- Cucurbits. Heavy feeders across the board, which is why they reward manured ground.
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "n": 11, "k": 8 } } ],
+		"file": "deartibusrusticis:blocktypes/plant/crop/cucumber.json",
+		"dependsOn": [ { "modid": "deartibusrusticis" } ]
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "n": 3, "k": 3 } } ],
+		"file": "game:blocktypes/plant/crop/new/pumpkin/motherplant.json",
+		"dependsOn": [ { "modid": "aogbreedingaddonpatch" } ]
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "p": 10, "k": 8 } } ],
+		"file": "bdcrop:blocktypes/plant/cropvine/butternutsquash/motherplant.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "p": 10, "k": 8 } } ],
+		"file": "bdcrop:blocktypes/plant/cropvine/napleslongsquash/motherplant.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "p": 10, "k": 8 } } ],
+		"file": "bdcrop:blocktypes/plant/cropvine/cantaloupe/motherplant.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "n": 13, "k": 9 } } ],
+		"file": "bdcrop:blocktypes/plant/cropvine/honeydewmelon/motherplant.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "n": 13, "k": 9 } } ],
+		"file": "bdcrop:blocktypes/plant/cropvine/mirzamelon/motherplant.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	},
+	{
+		"op": "addmerge", "path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacSecondaryNutrients", "properties": { "p": 10, "k": 10 } } ],
+		"file": "bdcrop:blocktypes/plant/cropvine/watermelon/motherplant.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	}
+]
