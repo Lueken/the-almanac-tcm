@@ -75,6 +75,7 @@ public class LevelingServer
         channel.RegisterMessageType(typeof(ClientConfigPacket));
         channel.RegisterMessageType(typeof(PracticeGainPacket));
         channel.RegisterMessageType(typeof(RankUpPacket));
+        channel.RegisterMessageType(typeof(FiguresPacket));
 
         sapi.Event.PlayerNowPlaying += OnPlayerNowPlaying;
         sapi.Event.PlayerDisconnect += OnPlayerDisconnect;
@@ -245,6 +246,28 @@ public class LevelingServer
         if (domainSet.Knowledge.Count > 0)
         {
             channel.SendPacket(new KnowledgeBatchPacket(domainSet.Knowledge), byPlayer);
+        }
+
+        // The book's quoted figures + adjacency, resolved through the live DomainConfig
+        // so a tuned server shows tuned numbers. Every roster domain gets a packet (the
+        // identity page's trade-web block wants adjacency even where no figure provider
+        // exists yet); a provider that throws skips its figures loudly rather than
+        // sinking the whole join sync.
+        var configs = AlmanacTcmModSystem.ServerInstance?.Ledger?.DomainConfigs;
+        foreach (var entry in Domains.DomainRoster.All)
+        {
+            var figures = new Dictionary<string, string>();
+            if (Domains.DomainFigures.Providers.TryGetValue(entry.Code, out var provider))
+            {
+                try { figures = provider(); }
+                catch (System.Exception e)
+                {
+                    sapi.Logger.Warning("[almanactcm] figure provider {0} failed: {1}", entry.Code, e.Message);
+                }
+            }
+            List<string>? adjacency = null;
+            if (configs != null && configs.TryGetValue(entry.Code, out var dc)) adjacency = dc.Adjacency;
+            channel.SendPacket(new FiguresPacket(entry.Code, figures, adjacency), byPlayer);
         }
     }
 

@@ -169,11 +169,15 @@ public static class MetPatches
     /// Still bands, not per-level: the factor is a design ruling about what a Journeyman's
     /// work is worth, and four distinct multipliers inside one band would be noise a player
     /// cannot read. The STORAGE moved to level; the curve did not.</summary>
+    // The banded maker-quality steps, named so the Callings book quotes the same values
+    // the seam applies (DomainFigures.MetFigures — the 2026-08-22 figures ruling).
+    public const double QualityJourneyman = 1.05, QualityMaster = 1.10, QualityGrandmaster = 1.15;
+
     private static double QualityFactor(int makerLevel) => makerLevel switch
     {
-        >= Rank.Grandmaster => 1.15,
-        >= Rank.Master => 1.10,
-        >= Rank.Journeyman => 1.05,
+        >= Rank.Grandmaster => QualityGrandmaster,
+        >= Rank.Master => QualityMaster,
+        >= Rank.Journeyman => QualityJourneyman,
         _ => 1.0,
     };
 
@@ -214,7 +218,9 @@ public static class MetPatches
         }
     }
 
-    private static double Knob(string key, double fallback)
+    /// <summary>MET's Bonus-knob accessor (public since 2026-08-22: DomainFigures quotes
+    /// the same live values this file's seams run on).</summary>
+    public static double Knob(string key, double fallback)
     {
         var configs = Core?.Ledger?.DomainConfigs;
         if (configs != null && configs.TryGetValue(MetDomain.Code, out var dc)

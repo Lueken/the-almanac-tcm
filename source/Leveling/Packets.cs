@@ -197,6 +197,39 @@ public class KnowledgeBatchPacket
     }
 }
 
+/// <summary>Server→client display figures for one domain's book copy: the RESOLVED,
+/// pre-formatted strings the Callings rung prose quotes ("85", "21.6 degrees toward you"),
+/// computed server-side through the live DomainConfig by <c>DomainFigures</c>. Extends the
+/// AffinityPacket precedent — raw knobs and curves never cross, only the resolved display
+/// values the book actually prints, so a tuned server shows tuned numbers (ruled 2026-08-22).
+/// Sent once per provider-backed domain at join.</summary>
+[ProtoContract]
+public class FiguresPacket
+{
+    [ProtoMember(1)]
+    [DefaultValue(null)]
+    public string? domainCode;
+
+    [ProtoMember(2)]
+    public Dictionary<string, string>? figures;
+
+    /// <summary>The domain's live spillover adjacency (DomainConfig.Adjacency, roster
+    /// codes) — the identity page's "trade web" margin block names its partners from
+    /// this, so a server that rewires adjacency shows its own wiring. Resolved display
+    /// data like the figures, never the tuned K/raw values around it.</summary>
+    [ProtoMember(3)]
+    public List<string>? adjacency;
+
+    public FiguresPacket() { }
+
+    public FiguresPacket(string domainCode, Dictionary<string, string> figures, List<string>? adjacency = null)
+    {
+        this.domainCode = domainCode;
+        this.figures = figures;
+        this.adjacency = adjacency;
+    }
+}
+
 /// <summary>The rank-up ceremony: server→client, display sensation only (the STATE
 /// travelled in PlayerDomainPacket at grant time; delaying this packet delays nothing
 /// but the banner). Strings are pre-composed server-side exactly like the morning chat

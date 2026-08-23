@@ -414,10 +414,46 @@ public class AlmanacTcmModSystem : ModSystem
         // The focus vignette: edges darken as concentration builds, landing full with the read.
         new Domains.HunFocusVignette(capi);
 
+        // The rung copy + live-figure pipeline behind the Callings climb pages (ruled
+        // 2026-08-22): prose from almanac/rungs.json, figures from FiguresPacket. The
+        // dev command prints a domain's fully resolved copy, so token coverage is
+        // verifiable in-game before the climb pages render it (measure, don't theorize).
+        Rungs = new Gui.RungLibrary();
+
         // The Callings page lives in Illuminated's book (hard dependency, so the
         // assembly is always present; the tab API is 0.0.2+, enforced above).
         var illuminated = capi.ModLoader.GetModSystem<AlmanacIlluminated.AlmanacIlluminatedModSystem>();
-        illuminated?.RegisterBookTab(new Gui.CallingsTab(Client));
+        illuminated?.RegisterBookTab(new Gui.CallingsTab(Client, Rungs));
+        capi.ChatCommands.Create("tcmrungs")
+            .WithDescription("Print a calling's resolved rung copy (dev check of the figure pipeline). Usage: .tcmrungs WOO")
+            .WithArgs(capi.ChatCommands.Parsers.OptionalWord("code"))
+            .HandleWith(args =>
+            {
+                string code = ((args[0] as string) ?? "WOO").ToUpperInvariant();
+                var rungs = Rungs.RungsFor(capi, code);
+                if (rungs == null) return TextCommandResult.Error($"No rung copy authored for '{code}'.");
+                System.Collections.Generic.Dictionary<string, string>? synced = null;
+                Client?.Figures.TryGetValue(code, out synced);
+                var figures = Domains.DomainFigures.Merged(code, synced);
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"— {code} · {figures.Count} figures ({(synced == null ? "server sync MISSING" : $"{synced.Count} synced")} + client) —");
+                foreach (var rung in rungs)
+                {
+                    sb.AppendLine($"[{rung.rank}]");
+                    foreach (var b in rung.bullets ?? new())
+                    {
+                        sb.AppendLine("  — " + Gui.RungLibrary.Resolve(capi, code, b.text ?? "", figures)
+                            + (b.with != null ? $"  (with {b.with})" : ""));
+                    }
+                    foreach (var g in rung.grants ?? new())
+                    {
+                        sb.AppendLine($"  [{g.name}] " + Gui.RungLibrary.Resolve(capi, code, g.text ?? "", figures));
+                    }
+                }
+                string outText = sb.ToString();
+                capi.Logger.Notification("[almanactcm] .tcmrungs {0}:\n{1}", code, outText);
+                return TextCommandResult.Success(outText);
+            });
 
         // Guide reveal provider (Illuminated 0.0.16+): sections gated revealedBy
         // "almanactcm:..." render once the matching Knowledge key is earned. Keys are
@@ -446,6 +482,9 @@ public class AlmanacTcmModSystem : ModSystem
 
     /// <summary>Client-only practice toast renderer (null server-side).</summary>
     public Gui.PracticeToastRenderer? Toasts { get; private set; }
+
+    /// <summary>Client-side rung copy + token resolution for the Callings climb pages.</summary>
+    public Gui.RungLibrary Rungs { get; private set; } = null!;
 
     /// <summary>The discovery-banner renderer (rank-ups, named knowledge earns). Null on the server.</summary>
     public Gui.DiscoveryBannerRenderer? Banners { get; private set; }

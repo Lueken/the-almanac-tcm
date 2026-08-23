@@ -9,8 +9,9 @@ namespace AlmanacTcm.Domains;
 /// live packets do not — never reorder or remove within a release line.
 /// Display names follow the GM badge identity sheet (2026-07-12).
 ///
-/// The Callings page reads this list alphabetically for display. That sort is
-/// presentation only and must never be pushed back into this array.
+/// The Callings page groups this list by the strand table below for display.
+/// That grouping is presentation only and must never be pushed back into this
+/// array.
 /// </summary>
 public static class DomainRoster
 {
@@ -63,5 +64,23 @@ public static class DomainRoster
         // Appended, never inserted at B: ids are the wire protocol. The Callings
         // page sorts it into place for the reader.
         new("BEE", "Beekeeping", RequiredAnyMods: new[] { "orekiwoofsbeehives", "fromgoldencombs" }),
+    };
+
+    /// <summary>
+    /// The six calling strands in SITE order — the order thequirevs.com/callings.html
+    /// prints them (grouping adopted 2026-08-19), which the index page follows.
+    /// Membership is by Code and order within a strand is print order. Presentation
+    /// only: ids, saves and the wire never see this table. A roster entry missing
+    /// from every strand still prints (the index appends it, visibly unsorted) —
+    /// a new domain should be added here the day it is added above.
+    /// </summary>
+    public static readonly (string Name, string[] Codes)[] Strands =
+    {
+        ("Field & Fold",   new[] { "WOO", "FAR", "ANI", "BEE", "FOR", "HUN" }),
+        ("Forge & Kiln",   new[] { "MET", "MAS", "ENG", "POT", "GLA" }),
+        ("Hearth & Cask",  new[] { "COO", "BRE", "TAI", "ALC" }),
+        ("Stone & Stream", new[] { "MIN", "PAN", "FIS" }),
+        ("Arms",           new[] { "MEL", "RAN" }),
+        ("The Unquiet",    new[] { "ARC", "TEM" }),
     };
 }

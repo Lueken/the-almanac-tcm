@@ -30,6 +30,14 @@ public class HunTrackerEye : HudElement
     private readonly StringBuilder sb = new();
     private string lastText = "";
 
+    // The read's geometry per tier, named so the Callings book quotes the same constants
+    // the feature runs on (DomainFigures.HunClientFigures — the 2026-08-22 figures ruling).
+    public const float RangeApprentice = 12f, RangeJourneyman = 20f, RangeMaster = 30f, RangeGm = 42f;
+    /// <summary>The distant bearing-sense reaches this far past the aimed read.</summary>
+    public const float SenseBonus = 24f;
+    /// <summary>The aimed cone's half-angle in degrees (the 0.991 dot test below).</summary>
+    public const float ConeDegrees = 7.6f;
+
     // Focus delay: the hunter must hold the sneak-look for this long before the read resolves,
     // so it reads as concentration and never flashes on a quick crouch (ruled 2026-07-17;
     // tunable in-game via ConfigLib, TcmClientSettings.FocusDelay).
@@ -147,8 +155,8 @@ public class HunTrackerEye : HudElement
         int level = HunDomain.ClientLevel();
         if (level < 5) return ""; // pre-Apprentice: the read has not been learned
         int tier = (level - 1) / 4; // 1 App .. 4 GM
-        float range = tier switch { 1 => 12f, 2 => 20f, 3 => 30f, _ => 42f };
-        float senseRange = range + 24f;
+        float range = tier switch { 1 => RangeApprentice, 2 => RangeJourneyman, 3 => RangeMaster, _ => RangeGm };
+        float senseRange = range + SenseBonus;
 
         var eye = plr.Pos.XYZ.Add(0, plr.LocalEyePos.Y, 0);
         var look = plr.Pos.GetViewVector().Normalize();

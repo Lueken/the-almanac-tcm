@@ -1,0 +1,35 @@
+{
+  "_comment": "Two sections. 'edges' is per-edge ledger prose only, keyed GIVER>TAKER by roster code — the adjacency GRAPH is never read from here; it comes live from the synced DomainConfig.Adjacency, so a rewired server draws its own web. 'roads' DO contribute edges: cross-calling co-grants written in the domain code itself (TemDomain.TechTemporalKill, FarDomain.TechButchery — both ruled 2026-08-21), kept here against the-quire-site's working callings copy. A road with a 'requires' modid only draws when that mod is enabled.",
+  "roads": {
+    "MEL>TEM": { "note": "rust felled up close, half the kill's worth" },
+    "RAN>TEM": { "note": "rust felled at range, half the kill's worth" },
+    "FAR>HUN": { "note": "the dressed animal pays both hands", "requires": "butchering" },
+    "HUN>FAR": { "note": "the dressed animal pays both hands", "requires": "butchering" }
+  },
+  "edges": {
+    "WOO>MET": "charcoal for the forge",
+    "MIN>MET": "ore off the pick",
+    "PAN>MIN": "the map of the ground",
+    "MET>ENG": "parts and fittings",
+    "WOO>ENG": "timber for the frames",
+    "MET>MIN": "picks, returned sharper",
+    "FAR>COO": "the harvest",
+    "HUN>COO": "meat off the field dress",
+    "FIS>COO": "the catch",
+    "FOR>COO": "wild greens and mushrooms",
+    "POT>COO": "crocks that keep",
+    "POT>BRE": "vessels for the cellar",
+    "FAR>BRE": "grain and fruit",
+    "BEE>BRE": "honey for the mead",
+    "ANI>TAI": "wool off a healthy line",
+    "HUN>TAI": "hides",
+    "FOR>ALC": "herbs for the rack",
+    "GLA>ALC": "vials that hold the draught",
+    "MET>MEL": "blades",
+    "MET>RAN": "arrowheads and locks",
+    "TAI>MEL": "the padding under plate",
+    "TEM>ENG": "wards over the millworks",
+    "ALC>ARC": "reagents for the trance",
+    "MAS>ENG": "the quarried footings"
+  }
+}

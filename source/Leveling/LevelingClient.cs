@@ -50,6 +50,12 @@ public class LevelingClient
     /// each trade given their class. Drives the detail page's "why you started" line.</summary>
     public Dictionary<int, int> Affinity { get; } = new();
 
+    /// <summary>Per-domain display figures for the book's rung copy, keyed by roster code —
+    /// resolved strings from the server's live DomainConfig (FiguresPacket). A domain absent
+    /// here has no figure provider yet; its rung copy renders with visible token markers
+    /// rather than silently inventing numbers.</summary>
+    public Dictionary<string, Dictionary<string, string>> Figures { get; } = new();
+
     /// <summary>Raised per surviving practice gain (domainCode, technique, raw); the
     /// toast renderer subscribes. Display sensation only — no state lives here.</summary>
     public event System.Action<string, string, float>? PracticeGain;
@@ -81,13 +87,26 @@ public class LevelingClient
         channel.RegisterMessageType(typeof(ClientConfigPacket));
         channel.RegisterMessageType(typeof(PracticeGainPacket));
         channel.RegisterMessageType(typeof(RankUpPacket));
+        channel.RegisterMessageType(typeof(FiguresPacket));
         channel.SetMessageHandler<PlayerDomainPacket>(OnDomainPacket);
+        channel.SetMessageHandler<FiguresPacket>(OnFiguresPacket);
         channel.SetMessageHandler<KnowledgePacket>(OnKnowledgePacket);
         channel.SetMessageHandler<KnowledgeBatchPacket>(OnKnowledgeBatchPacket);
         channel.SetMessageHandler<AffinityPacket>(OnAffinityPacket);
         channel.SetMessageHandler<ClientConfigPacket>(OnClientConfigPacket);
         channel.SetMessageHandler<PracticeGainPacket>(OnPracticeGainPacket);
         channel.SetMessageHandler<RankUpPacket>(OnRankUpPacket);
+    }
+
+    /// <summary>Live spillover adjacency per domain code, from the same packet — the
+    /// identity page's trade-web block reads partners here.</summary>
+    public Dictionary<string, List<string>> Adjacency { get; } = new();
+
+    private void OnFiguresPacket(FiguresPacket packet)
+    {
+        if (packet.domainCode == null) return;
+        if (packet.figures != null) Figures[packet.domainCode] = packet.figures;
+        if (packet.adjacency != null) Adjacency[packet.domainCode] = packet.adjacency;
     }
 
     private void OnPracticeGainPacket(PracticeGainPacket packet)

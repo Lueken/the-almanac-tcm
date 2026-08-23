@@ -1,0 +1,1402 @@
+{
+	"_comment": "Rung copy for the Callings book's climb pages. PROSE ONLY — every quoted number is a {token} resolved client-side from the FiguresPacket the server computes through its live DomainConfig (DomainFigures.cs). Never write a literal figure here: it will lie the moment a knob is tuned. Prose is currently the third-person ModDB transcription; the 21-calling voice pass (Jeffrey's, Woodcutting-model tall-fires register) edits ONLY this file. A bullet's optional 'with' names the companion mod its aside credits. 'grants' are the named grants that take the lore frame.",
+	"characterLabels": [
+		"Below the baseline",
+		"Level with any other hand",
+		"The climb begins",
+		"Your name goes on the work",
+		"Where practice usually ends",
+		"Earned, not accumulated"
+	],
+	"domains": {
+		"WOO": {
+			"tradeWeb": "Charcoal feeds the smith's fires; the forest pairs with the forager's ground.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "The tree leans back toward you, the canopy is shredded, the pit half-chars.",
+					"bullets": [
+						{ "text": "Directional felling's penalty end: an untrained fell draws from a cone of plus or minus **{spreadU}** degrees whose centre leans **{biasU}**, so the tree tends to come down on the one who cut it.", "with": "Falling Tree" },
+						{ "text": "A connecting trunk lands a flat **{impactDmg}** points of crushing damage, at most one hit per victim per **{impactCooldownMs}** milliseconds, and rank never touches that number: a Grandmaster standing in the wrong place is as flat as an Untrained one.", "with": "Falling Tree" },
+						{ "text": "An untrained axe shreds the canopy: sticks, saplings and tree seeds come off leaf blocks at **{leafU}x**, a fifth under vanilla." },
+						{ "text": "Axe swings drain **{stamU}%** more stamina than vanilla.", "with": "Immersive Mining" },
+						{ "text": "The botched-burn band: Untrained is the only rank that lowers the ceiling of the charcoal pit's efficiency roll as well as its floor, rolling **{pitFloorU}** to **{pitCeilU}** where vanilla rolls **0.5** to **1.0**, so wood is wasted and pits come out half-charred." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Vanilla restored. The felling cone begins to tighten.",
+					"bullets": [
+						{ "text": "Novice I restores vanilla: leaf yield **1.00x**, axe stamina at the baseline, and the pit's stock **{pitFloorN}** to **1.0** efficiency band, average burn **{pitAvgN}**." },
+						{ "text": "From Novice II the leaf curve recomputes every level, **{leafPerLevelPts}** points a level: **+{leafN2}%** at Novice II to a new ceiling of **{leafN4}%** by Novice IV. Axe swings go from **{stamN2}%** cheaper to **{stamN4}%** cheaper.", "with": "Immersive Mining" },
+						{ "text": "The windfall chance of a bonus stick, sapling or tree seed climbs every level from Novice I, about **{windN1}%** there to a new ceiling of **{windN4}%** by Novice IV." },
+						{ "text": "The cone tightens and its lean decays every level, from plus or minus **{spreadN1}** degrees leaning **{biasN1}** at Novice I, to plus or minus **{spreadN4}** degrees leaning **{biasN4}** by Novice IV.", "with": "Falling Tree" }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The charcoal pit's worst burn rises above vanilla for the first time.",
+					"bullets": [
+						{ "text": "The pit's worst-case floor steps above vanilla for the first time, to **{pitFloorA}** from **0.5**, so the average burn runs **{pitAvgA}**. The ceiling stays vanilla's own **1.0**; a practiced collier removes bad burns rather than inventing good ones." },
+						{ "text": "Leaf yield enters at **+{leafA1}%** and reaches a new ceiling of **{leafA4}%** by Apprentice IV; axe swings enter **{stamA1}%** cheaper and reach **{stamA4}%** cheaper.", "with": "Immersive Mining" },
+						{ "text": "The windfall enters at **{windA1}%** and reaches **{windA4}%** by Apprentice IV. The cone runs from plus or minus **{spreadA1}** degrees leaning **{biasA1}**, to plus or minus **{spreadA4}** degrees leaning **{biasA4}**.", "with": "Falling Tree" }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "Better leaf yield, cheaper swings, a truer fall.",
+					"bullets": [
+						{ "text": "The pit floor steps again to **{pitFloorJ}**, average burn **{pitAvgJ}**." },
+						{ "text": "Leaf yield enters at **+{leafJ1}%** and reaches a new ceiling of **{leafJ4}%** by Journeyman IV; axe swings enter **{stamJ1}%** cheaper and reach **{stamJ4}%** cheaper.", "with": "Immersive Mining" },
+						{ "text": "The windfall enters at **{windJ1}%** and reaches **{windJ4}%** by Journeyman IV. The cone runs from plus or minus **{spreadJ1}** degrees leaning **{biasJ1}**, to plus or minus **{spreadJ4}** degrees leaning **{biasJ4}**.", "with": "Falling Tree" }
+					],
+					"voiceNote": "The ModDB copy put the lean's balance point at Master I, but the code's zero-crossing lands inside Journeyman (level 10-11 at shipped defaults) — the {biasJ*} phrases now carry their own direction, so reconcile the Master rung's 'balance point' sentence in the voice pass."
+				},
+				{
+					"rank": "Master",
+					"summary": "The lean crosses to the far side; the fall rotates away from you.",
+					"bullets": [
+						{ "text": "The fall no longer seeks the feller: by Master the lean has crossed to the far side, **{biasM2}** at Master II to **{biasM4}** by Master IV, while the cone tightens from plus or minus **{spreadM1}** to plus or minus **{spreadM4}** degrees.", "with": "Falling Tree" },
+						{ "text": "The pit floor steps to **{pitFloorM}**, average burn **{pitAvgM}**." },
+						{ "text": "Leaf yield enters at **+{leafM1}%** and reaches a new ceiling of **{leafM4}%** by Master IV; axe swings enter **{stamM1}%** cheaper and reach **{stamM4}%** cheaper, and the windfall enters at **{windM1}%** and reaches **{windM4}%**.", "with": "Immersive Mining" }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The tree lands where it was aimed, and charcoal carries your name.",
+					"bullets": [
+						{ "text": "The Grandmaster fell: a cone of plus or minus **{spreadGm}** degrees biased **{biasGm}**, so the tree lands where it was aimed.", "with": "Falling Tree" },
+						{ "text": "The curves peak: leaf yield **+{leafGm}%**, axe swings **{stamGm}%** cheaper, and a **{windGm}%** windfall chance on each stick, sapling or seed a leaf pays. The pit floor tops out at **{pitFloorGm}**, average burn **{pitAvgGm}**, and the ceiling never exceeds vanilla's own best burn of **1.0**." }
+					],
+					"grants": [
+						{
+							"name": "The Collier's Mark",
+							"text": "Grandmaster only: pits a Grandmaster ignites stamp their charcoal with the collier's name, and marked charcoal burns **{markTemp}** degrees hotter and **{markLonger}%** longer in a firepit for whoever feeds it, tradeable premium fuel. Every failure mode falls toward unmarked: merged, fallen or hand-placed piles lose the mark."
+						}
+					]
+				}
+			]
+		},
+		"FAR": {
+			"tradeWeb": "Feeds the kitchen and the herd; the trough is where a lineage's story starts.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Bruised harvests, wounding shears, feed half-wasted.",
+					"bullets": [
+						{ "text": "An untrained hand bruises the crop: every harvest you break returns **{harvestDockU}%** of its drops. This clears at Novice I." },
+						{ "text": "The beginner's shears wound: untrained shearing multiplies ShearLib's own scratch chance by **{shearScratchU}**, and a shear that wounds banks no practice at all.", "with": "ShearLib" },
+						{ "text": "Feed from an untrained hand partly goes to waste: animals draw **{feedULessPct}%** less satiety from every trough portion you filled." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "The docks clear; the trough begins to feed true.",
+					"bullets": [
+						{ "text": "Every untrained dock clears at Novice I: the harvest returns whole again, the shears stop wounding beyond vanilla, and the trough feeds true at **1.00x**." },
+						{ "text": "The feed curve starts here and climbs every level after, **{feedStepPct}%** more satiety per portion each step, to a new ceiling of **+{feedN4}%** by Novice IV." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "Thrift, tended grafts and the first exceptional harvests open.",
+					"bullets": [
+						{ "text": "Feed: **+{feedA1}%** satiety per portion at Apprentice I to a new ceiling of **+{feedA4}%** by Apprentice IV." },
+						{ "text": "Fertilizer thrift opens and climbs every level: nothing at Apprentice I, then a **{thriftA4}%** chance by Apprentice IV that an application costs you nothing and the spared handful comes back." },
+						{ "text": "Tended cuttings cling to life: nothing at Apprentice I to a **{graftA4}%** revert roll on a dying graft by Apprentice IV, which lets the tree roll its own unmodified odds again on a later tick. No single graft is ever easier than vanilla, and none is ever certain." },
+						{ "text": "The exceptional harvest opens the same way: nothing at Apprentice I to a **{procA4}%** chance by Apprentice IV that a harvest hands back one bonus unit. Below Journeyman it only fires on a crop that already carries a mark, because an unmarked crop in an unmarked hand never reaches the roll." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "Your produce carries your name, and every curve deepens.",
+					"bullets": [
+						{ "text": "Your produce starts carrying your name, \"Grown by\", from Journeyman I up. On a cooked dish both names render, grower above cook; when the same hand grew and cooked, the cook's line carries the fold and this one stands down." },
+						{ "text": "The exceptional harvest goes from **{procJ1}%** at Journeyman I to a new ceiling of **{procJ4}%** by Journeyman IV, and from here it fires on any crop you pull, marked or not, because your own hand is now the mark." },
+						{ "text": "Feed: **+{feedJ1}%** to a new ceiling of **+{feedJ4}%**. Fertilizer thrift: **{thriftJ1}%** to a new ceiling of **{thriftJ4}%**. Graft revert: **{graftJ1}%** to a new ceiling of **{graftJ4}%**." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Cultivated by — the mark deepens with the hand.",
+					"bullets": [
+						{ "text": "The mark deepens at Master I: \"Cultivated by\"." },
+						{ "text": "Feed: **+{feedM1}%** to a new ceiling of **+{feedM4}%** by Master IV. Fertilizer thrift: **{thriftM1}%** to **{thriftM4}%**. Graft revert: **{graftM1}%** to **{graftM4}%**. Exceptional harvest: **{procM1}%** to **{procM4}%**." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The Heirloom Seed: mastery bred into the strain itself.",
+					"bullets": [
+						{ "text": "The full mark: \"Heirloom of\", bred for the yield." },
+						{ "text": "A Grandmaster's produce keeps: anything bearing the full grown-by mark spoils at **{spoilGrownGm}x** the normal rate. The keeping stays on the raw crop, because a cooked dish is governed by the cook's hand, not the grower's." },
+						{ "text": "Every curve tops out at once: **{feedGmX}x** trough satiety, a **{thriftGm}%** fertilizer thrift, a **{graftGm}%** graft revert, and a **{procGm}%** exceptional harvest." }
+					],
+					"grants": [
+						{
+							"name": "The Heirloom Seed",
+							"text": "The Cultivator's signature: a Grandmaster's harvest mints seed that carries the strain. Crops grown from a live heirloom seed yield **{heirloomYield}%** more no matter who plants them, and their seeds inherit the mark **{heirloomGens}** sowings down the line before going ordinary, the tail that sends growers back to the Grandmaster for fresh stock."
+						}
+					]
+				}
+			]
+		},
+		"ANI": {
+			"tradeWeb": "Raises the beasts the hunter reads and the farmer feeds.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Treats land poorly from an unpracticed hand.",
+					"bullets": [
+						{ "text": "Treats from an unpracticed hand land poorly: each one advances a taming at **{treatU}x**, a tenth short. This clears at Novice I.", "with": "PetAI" }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Treats land true, and the curve begins to climb.",
+					"bullets": [
+						{ "text": "Treats land true at **1.00x** from Novice I, and the curve climbs every level after, **{treatStepPct}%** more progress per treat each step, to a new ceiling of **{treatN4}x** by Novice IV.", "with": "PetAI" }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The fox takes your treats; softer throws, cleaner bloodlines.",
+					"bullets": [
+						{ "text": "A wild fox refuses unpracticed hands: Animal Handling level **{gateFox}**, Apprentice I, is where you can begin the taming at all. Below it no treat is taken and nothing starts, and the threshold is a per-species server knob.", "with": "PetAI" },
+						{ "text": "Treats: **{treatA1}x** at Apprentice I to a new ceiling of **{treatA4}x** by Apprentice IV.", "with": "PetAI" },
+						{ "text": "Thrown softer opens and climbs every level: nothing at Apprentice I to **{throwA4}%** of a saddle-break throw's damage healed back by Apprentice IV, never all of it." },
+						{ "text": "Bloodline hygiene opens: a practiced breeder's newborns purge deleterious alleles harder, lifting Genelib's **{purgeBase}** stock inbreeding resistance to **{purgeA4}** by Apprentice IV.", "with": "Genelib" },
+						{ "text": "Litter depth opens: nothing at Apprentice I to a **{litterA4}%** chance by Apprentice IV of one extra offspring in a litter, never past the species' own maximum.", "with": "Genelib" }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The wolf waits for you; the Master's Line begins.",
+					"bullets": [
+						{ "text": "The wolf waits longer than the fox: taming a wild wolf refuses hands below Animal Handling level **{gateWolf}**, Journeyman I, and again a per-species server knob.", "with": "PetAI" },
+						{ "text": "Treats: **{treatJ1}x** to a new ceiling of **{treatJ4}x** by Journeyman IV. Thrown softer: **{throwJ1}%** healed back to a new ceiling of **{throwJ4}%**.", "with": "PetAI" },
+						{ "text": "Bloodline hygiene: **{purgeJ1}** resistance to a new ceiling of **{purgeJ4}**. Litter depth: **{litterJ1}%** to a new ceiling of **{litterJ4}%**.", "with": "Genelib" }
+					],
+					"grants": [
+						{
+							"name": "The Master's Line",
+							"text": "Begins at Journeyman: animals you raise or tame carry \"Raised by\" with your name on their hover text. It is upgrade only, so a lesser hand tending the beast later never erases it, and it survives sale and the taming's change of skin."
+						}
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Bred by — the pedigree deepens.",
+					"bullets": [
+						{ "text": "The mark deepens at Master I: \"Bred by\"." },
+						{ "text": "Treats: **{treatM1}x** to a new ceiling of **{treatM4}x** by Master IV. Thrown softer: **{throwM1}%** to a new ceiling of **{throwM4}%**.", "with": "PetAI" },
+						{ "text": "Bloodline hygiene: **{purgeM1}** resistance to a new ceiling of **{purgeM4}**. Litter depth: **{litterM1}%** to a new ceiling of **{litterM4}%**.", "with": "Genelib" }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The Master's Line: a bloodline advertised through any sale.",
+					"bullets": [
+						{ "text": "The full mark: \"Master's Line of\", a pedigree bloodline, advertised on the animal itself through any sale." },
+						{ "text": "The curves top out: treats at **{treatGmX}x**, so a Grandmaster domesticates on fewest, and **{throwGm}%** of a throw's damage healed back.", "with": "PetAI" },
+						{ "text": "Bloodline hygiene reaches **{purgeGmR}**, hard-capped at **0.95** so even a Grandmaster's line sheds its load imperfectly, and litter depth reaches a **{litterGm}%** roll for one extra offspring.", "with": "Genelib" }
+					]
+				}
+			]
+		},
+		"BEE": {
+			"tradeWeb": "A colony sited in cultivated ground; its practice feeds the neighbours.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "The sting and the crushed comb find the hurried hand.",
+					"bullets": [
+						{ "text": "The sting: an untrained keeper works the skep clumsily and provokes the swarm roll at **{stingU}x** the vanilla chance, ceilinged at certainty. This clears at Novice I and never rises again." },
+						{ "text": "Crushed comb: an untrained skep pull mishandles the frame on a **{crushU}%** roll, losing one honeycomb from the drop, never below the last. A crush buys a **{focusGrace}** second grace in which the band stands down, so one bad moment cannot cascade through a harvest." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Both penalties clear; the rest is practice.",
+					"bullets": [
+						{ "text": "Both beginner's penalties clear at Novice I, and that is the whole of this calling's numbers. Past Novice it pays only in practice, banked toward rank." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "Nothing new opens; the bonus band is unwritten in this build.",
+					"bullets": [
+						{ "text": "Nothing new opens at this tier. The bonus band above Novice is unwritten in this build." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "No mark either: honey carries no keeper's name.",
+					"bullets": [
+						{ "text": "Nothing new opens at this tier, and no mark either: honey and comb carry no keeper's name." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Nothing new opens at this tier.",
+					"bullets": [
+						{ "text": "Nothing new opens at this tier." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "No signature yet; the rank is the rank.",
+					"bullets": [
+						{ "text": "Nothing new opens here either. Beekeeping has no Grandmaster signature yet, so rank in it is worth the rank and the practice it feeds to its neighbours." }
+					]
+				}
+			]
+		},
+		"FOR": {
+			"tradeWeb": "Wild yield to the kitchen; the woods pair with the woodcutter's stands.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Short gathers, wounded patches, slow taplines.",
+					"bullets": [
+						{ "text": "Plucks and uproots yield **{yieldULessPct}%** below the common hand; clumsy fingers drop part of every gather." },
+						{ "text": "An Untrained pick wounds the patch: berry bushes and mushroom grounds regrow **{woundDays}** days later for it, and a wounded network is floored so nothing is ever destroyed and no patch can be buried forever." },
+						{ "text": "A tapline sited by Untrained hands runs at two-thirds pace, and it never dies of it. The spile, the trunk and resin nodes are never destroyed.", "with": "A Culinary Artillery" }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Vanilla restored; ranging wide is the practice.",
+					"bullets": [
+						{ "text": "The penalty clears at Novice I: gather yields stand at the vanilla baseline, then climb every level to a new ceiling of **{yieldN4}%** above it by Novice IV. The gain arrives as an occasional extra handful, never doubled hauls." },
+						{ "text": "Ranked hands stop wounding: a Novice's pick leaves the patch's regrow clock alone." },
+						{ "text": "The first find of a species pays **{novelFind}x** the practice of every later pick of it, whatever the rank; a forager levels by ranging wider, never by stripping one bush." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The Forager's Memory forms on the map.",
+					"bullets": [
+						{ "text": "Yields enter the tier at **{yieldA1}%** above vanilla and reach a new ceiling of **{yieldA4}%** by Apprentice IV." },
+						{ "text": "Patch Stewardship begins: your own pick takes **{tendA1}** days off the patch's regrow clock at Apprentice I and **{tendA4}** days by Apprentice IV, against a mushroom network's long cycle. Once per patch per in-game day, and working the same ground again sooner adds nothing, silently." }
+					],
+					"grants": [
+						{
+							"name": "The Forager's Memory",
+							"text": "Forms at Apprentice: berry patches and mushroom grounds you have worked appear on the world map as broad circles, centres fuzzed, each remembering what you picked there. Only ground you personally worked, never a radar."
+						}
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The memory sharpens and reads the patches.",
+					"bullets": [
+						{ "text": "The memory sharpens: the circles tighten, and each known patch now reads ready or regrowing." },
+						{ "text": "Yields enter at **{yieldJ1}%** above vanilla and reach a new ceiling of **{yieldJ4}%** by Journeyman IV." },
+						{ "text": "Stewardship enters at **{tendJ1}** days off the clock and reaches **{tendJ4}** days by Journeyman IV." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Per-patch reads; the circles tighten again.",
+					"bullets": [
+						{ "text": "Tighter again, and the map now speaks per patch: one line each on hover for the nearest patches, instead of one line for the whole stretch." },
+						{ "text": "Yields enter at **{yieldM1}%** above vanilla and reach a new ceiling of **{yieldM4}%** by Master IV." },
+						{ "text": "Stewardship enters at **{tendM1}** days off the clock and reaches **{tendM4}** days by Master IV." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The memory stops guessing; the map draws true outlines.",
+					"bullets": [
+						{ "text": "The memory stops guessing: the fuzz goes to zero, each patch draws its true outline, and a mushroom ground reports the caps standing this moment and the days until it fruits again." },
+						{ "text": "Both curves peak: **{yieldGmPct}%** above vanilla on every pluck and uproot, and **{tendGmDays}** days off the regrow clock per careful visit." }
+					]
+				}
+			]
+		},
+		"HUN": {
+			"tradeWeb": "Reads the beasts the handler raises; the dressing splits with the farm.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "The carcass wastes and the woods empty ahead of you.",
+					"bullets": [
+						{ "text": "Clumsy dressing wastes the carcass: hide and meat come off **{dressULessPct}%** short of the common hand." },
+						{ "text": "Game notices an Untrained hunter from **{seekUFartherPct}%** farther out; the woods empty ahead of them." },
+						{ "text": "An untrained trap fails its roll **{trapFailU}x** as often as a stock one, and a sprung miss stays sprung." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Baseline restored; both curves begin to climb.",
+					"bullets": [
+						{ "text": "Novice I is the vanilla baseline, and both stat curves then climb every level to Grandmaster. The field harvest reaches a new ceiling of **{dressN4}%** above vanilla by Novice IV, and animals let you get **{seekN4}%** closer." },
+						{ "text": "The wounded trail already answers to rank: half the drops lasting half as long at Novice I, opening to **{bloodN4}x** by Novice IV. The mod's own stock look sits at Journeyman I, so everything below it reads fainter and shorter.", "with": "Blood Trail" }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The Tracker's Eye opens to a crouched, held look.",
+					"bullets": [
+						{ "text": "When nothing sits in the cone, you get the nearest animal's bearing instead, out to **{senseA}** blocks." },
+						{ "text": "Concentration shows: the screen edges darken as the sneak-look holds, easing back out when the hunter stands or looks away." },
+						{ "text": "The field harvest enters at **{dressA1}%** above vanilla and reaches a new ceiling of **{dressA4}%** by Apprentice IV, while animals go from **{seekA1}%** closer to **{seekA4}%** closer." },
+						{ "text": "Blood reads brighter to a practiced eye: a wounded animal's drops grow richer and steadier with the tier, and the trail itself runs **{bloodA1}x** to **{bloodA4}x** of stock. Your view only; nobody else's trail changes.", "with": "Blood Trail" }
+					],
+					"grants": [
+						{
+							"name": "The Tracker's Eye",
+							"text": "Opens at Apprentice: crouch, hold your look for **{eyeHold}** seconds, and a hunter's read resolves on any animal within **{eyeRangeA}** blocks and inside a cone of roughly **{coneDeg}** degrees, giving species, sex, age, size and distance. Wild animals only, never the temporal things."
+						}
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The read deepens; the blood trail anchors at stock.",
+					"bullets": [
+						{ "text": "The read deepens and reaches **{eyeRangeJ}** blocks, **{senseJ}** for the distant sense: the quarry's condition shows as healthy, wounded or near death, and whether it is agitated." },
+						{ "text": "The trail anchors here: at Journeyman I a blood trail shows exactly as the Blood Trail mod ships it, then climbs on to **{bloodJ4}x** the drops lasting as much longer by Journeyman IV, richer in colour across the tier.", "with": "Blood Trail" },
+						{ "text": "The field harvest enters at **{dressJ1}%** above vanilla and reaches a new ceiling of **{dressJ4}%** by Journeyman IV, while animals go from **{seekJ1}%** closer to **{seekJ4}%** closer." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "The read turns predictive.",
+					"bullets": [
+						{ "text": "The read turns predictive and reaches **{eyeRangeM}** blocks, **{senseM}** for the sense: bleeding shows, the quarry's heading shows, and even the distant sense says which way the animal is moving." },
+						{ "text": "The field harvest enters at **{dressM1}%** above vanilla and reaches a new ceiling of **{dressM4}%** by Master IV, while animals go from **{seekM1}%** closer to **{seekM4}%** closer." },
+						{ "text": "The trail runs **{bloodM1}x** to **{bloodM4}x** of stock, deeper in colour again.", "with": "Blood Trail" }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The widest scan in the country, and the richest trail.",
+					"bullets": [
+						{ "text": "The scan reaches its widest, **{eyeRangeGm}** blocks aimed and **{senseGm}** for the sense; the Grandmaster reads country the rest cannot see from where they crouch." },
+						{ "text": "The curves peak: **{dressGmPct}%** above vanilla on the field harvest, animals letting you come **{seekGmCloserPct}%** closer and never to invisibility, and a trail of **{bloodGm}x** the drops lasting as much longer, at its richest colour.", "with": "Blood Trail" },
+						{ "text": "A Grandmaster's traps fail only **{trapFailGm}x** as often as stock, and on a **{trapStaySetGm}%** roll a sprung trap resets itself, still set where you left it." }
+					]
+				}
+			]
+		},
+		"MET": {
+			"tradeWeb": "Ore off the miner's pick, charcoal off the collier's pit; every blade leaves an anvil.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Ten soft metals answer; the anvil and the quench punish haste.",
+					"bullets": [
+						{ "text": "Only the ten tier-I metals answer: copper, and the soft, precious and ingredient metals, meaning lead, tin, zinc, bismuth, silver, gold, electrum, cupronickel and molybdochalkos. Smelting, forming and casting anything higher is refused at the bloomery, the forge, the anvil and the pour. Hafting a bought head is never gated." },
+						{ "text": "Anvil clumsiness: a split has a **{overStrike}%** chance to crumble its sheared bit to scale instead of returning it, and a moving blow a **{moveSlip}%** chance to nudge one extra voxel astray. Any mishap opens a **{focusGrace}** second focus grace during which nothing further can roll." },
+						{ "text": "Quenched work shatters in the water at **{shatterU}x** vanilla's own chance." },
+						{ "text": "The firepit burns **{fuelUMorePct}%** more fuel while an Untrained smith's workpiece sits in it." },
+						{ "text": "**{bitULessPct}%** fewer metal bits come back from splitting a workpiece.", "with": "Smithing Plus" },
+						{ "text": "Tool and ingot molds wear **{moldUFasterPct}%** faster under Untrained casting.", "with": "Wear and Tear" }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "The penalties clear; three curves begin their climb.",
+					"bullets": [
+						{ "text": "Novice I clears every Untrained penalty: the anvil mishaps stop, quench shatter returns to **1.0x**, bit recovery and mold wear sit neutral, and the firepit burns at the vanilla rate." },
+						{ "text": "Three curves start at Novice I and climb every level from there to Grandmaster. Quench shatter enters at **1.0x** and falls to a new floor of **{shatterN4}x** by Novice IV." },
+						{ "text": "Bit recovery enters at parity and reaches a new ceiling of **+{bitN4}%** by Novice IV, while mold wear enters at **1.0x** and drops to a new floor of **{moldN4}x** over the same four levels." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The bronzes open, and the Alloy Ledger with them.",
+					"bullets": [
+						{ "text": "The three bronzes open at Apprentice I, tin, bismuth and black, with brass alongside them." },
+						{ "text": "Fuel economy turns positive at Apprentice I, where the smith's coal lasts **{fuelA1}%** longer under their own workpiece, and it climbs to a new ceiling of **{fuelA4}%** by Apprentice IV." },
+						{ "text": "The three Novice curves keep climbing through the band: quench shatter **{shatterA1}x** to a new floor of **{shatterA4}x**, bit recovery **+{bitA1}%** to a new ceiling of **+{bitA4}%**, mold wear **{moldA1}x** to a new floor of **{moldA4}x** by Apprentice IV." }
+					],
+					"grants": [
+						{
+							"name": "The Alloy Ledger",
+							"text": "Unlocks at Apprentice I: a read-only ratio reckoner that welds itself to any crucible-bearing firepit or brick furnace, reading out metal amounts, the leanest valid mix and required catalysts. It automates nothing and multiplies no yield."
+						}
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The iron age opens; the Maker's Mark begins.",
+					"bullets": [
+						{ "text": "The iron age opens at Journeyman I: iron, meteoric iron and nickel, and Industrial Story's puddled and pig iron gate with them." },
+						{ "text": "Marked heads carry **+{qualJ}%** durability, applied through Smithing Plus's own quality math. This one is banded on purpose and holds the same figure across all four Journeyman levels." },
+						{ "text": "The fitting rule: with Toolsmith's workbench in the world, a field-hafted head keeps its provenance but the maker's quality lies dormant until the tool is fitted properly at the bench. The tooltip says so.", "with": "Toolsmith" },
+						{ "text": "Fuel economy enters at **{fuelJ1}%** and reaches a new ceiling of **{fuelJ4}%** by Journeyman IV; quench shatter **{shatterJ1}x** to **{shatterJ4}x**, bit recovery **+{bitJ1}%** to **+{bitJ4}%**, mold wear **{moldJ1}x** to **{moldJ4}x**." }
+					],
+					"grants": [
+						{
+							"name": "The Maker's Mark",
+							"text": "Begins at Journeyman: finished work carries a Smithed-by line with the maker's level frozen at creation, forged and cast alike. Lesser work stays unmarked, so a mark always means something."
+						}
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Steel and the exotics; Master-forged by.",
+					"bullets": [
+						{ "text": "Steel and the exotics open at Master I: steel, stainless steel, chromium, platinum, titanium, uranium." },
+						{ "text": "The provenance line rises to \"Master-forged by\", and the maker-quality bump takes its Master step to **+{qualM}%** durability, flat across the band." },
+						{ "text": "Fuel economy enters at **{fuelM1}%** and reaches a new ceiling of **{fuelM4}%** by Master IV; quench shatter **{shatterM1}x** to a new floor of **{shatterM4}x**, bit recovery **+{bitM1}%** to **+{bitM4}%**, mold wear **{moldM1}x** to **{moldM4}x**." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "A masterwork by — Honed edges and Durable heads.",
+					"bullets": [
+						{ "text": "\"A masterwork by\": the Grandmaster provenance line, with its own wording so it never reads like another calling's, and the maker-quality bump takes its last step to **+{qualGm}%** durability." },
+						{ "text": "Every curve tops out here: fuel economy **{fuelGmPct}%**, quench shatter **{shatterGm}x**, bit recovery **+{bitGmPct}%**, mold wear **{moldGm}x**." },
+						{ "text": "A Grandmaster tool is Durable: an **{durableWearSkip}%** chance for a hit to cost no wear at all. Every Grandmaster-marked piece gets an **{gmWearSkip}%** wear skip even without the Durable flag, and the tooltip carries the line." },
+						{ "text": "The repair-gate: a smith who reforges a Grandmaster head without matching its maker's level strips the signature; an equal or better hand preserves it. Provenance and the durability survive, only the edge is lost, and honing or sharpening never trips it.", "with": "Smithing Plus" }
+					],
+					"grants": [
+						{
+							"name": "The Grandmaster Signature",
+							"text": "Assigned by type at creation: a melee weapon leaves the anvil Honed, adding **+{honedAP}** effective armor piercing on attack. Two paths carry it, Combat Overhaul's native armor-piercing tier where CO is present and a vanilla tool-tier bump at the attack seam otherwise. Ranged and thrown weapons take no Metalworking signature; that edge belongs to Hunting."
+						}
+					]
+				}
+			]
+		},
+		"MAS": {
+			"tradeWeb": "Dresses the quarry's slabs into the stone every wall remembers.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Wasted stone at the bench; the first chisel still signs.",
+					"bullets": [
+						{ "text": "Dressed stone comes up short of the slab's rated drop: **{dressU}%** of the rated yield, **{dressUWaste}%** wasted at the bench.", "with": "Stone Quarry" },
+						{ "text": "From the very first cut, whatever the rank, a carved block records its first carver by name, and no later hand can ever take that over. Below Master the block reads \"Carved by\"." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "The full rated drop, held flat across the band.",
+					"bullets": [
+						{ "text": "The wasted-stone penalty clears at Novice I: a dressed slab returns its full rated drop, a flat **1.00x**, and that flat holds unchanged to Novice IV.", "with": "Stone Quarry" }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The yield climb begins.",
+					"bullets": [
+						{ "text": "The yield climb begins, and from here it rises every level: **{dressStepPct}%** more building stone from the same dressed slab entering at **{dressA1}%** over rated at Apprentice I, to a new ceiling of **{dressA4}%** by Apprentice IV, the odd extra unit landing as a chance.", "with": "Stone Quarry" }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The slab keeps paying more.",
+					"bullets": [
+						{ "text": "The slab keeps paying more: **{dressJ1}%** over its rated drop entering at Journeyman I, to a new ceiling of **{dressJ4}%** by Journeyman IV.", "with": "Stone Quarry" },
+						{ "text": "The stone still reads \"Carved by\". The yield curve keeps climbing; nothing new opens at this tier." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Dressed by Master.",
+					"bullets": [
+						{ "text": "The looking line rises: \"Dressed by Master\", on stone carved at that rank." },
+						{ "text": "The slab keeps paying: **{dressM1}%** over its rated drop entering at Master I, to a new ceiling of **{dressM4}%** by Master IV.", "with": "Stone Quarry" }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "A work of Master Mason.",
+					"bullets": [
+						{ "text": "The stone says it plainly: a work of Master Mason." },
+						{ "text": "The dress-yield curve tops out at **{dressGmX}x**, **{dressGmPct}%** more stone than the slab is rated for and the most it will give.", "with": "Stone Quarry" }
+					]
+				}
+			]
+		},
+		"ENG": {
+			"tradeWeb": "Keeps the mills that grind the grain and drive the forges turning.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Weak repairs, fast decay, the worst ignition on the curve.",
+					"bullets": [
+						{ "text": "An Untrained repair restores **{repairULessPct}%** less durability per repair item than a plain hand's would.", "with": "Wear and Tear" },
+						{ "text": "A part an Untrained hand services decays **{decayU}x** faster afterward: the penalty end of the Millwright's Mark, persisted on the part until the next service.", "with": "Wear and Tear" },
+						{ "text": "A machine kept by an Untrained hand rolls overheat ignition at **{igniteU}%** per half-second check, the worst rate on the curve. Nothing rolls until effective speed passes 5.5, and the roll then scales from **{igniteScaleFloor}x** barely over the line to **{igniteScaleCap}x** at gross overdrive." },
+						{ "text": "When a part does burn, it consumes itself and spreads to nothing; only vanilla-combustible parts can burn at all, and a fully enclosed shaft starves the fire." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Parity restored; the clearance is this band's whole story.",
+					"bullets": [
+						{ "text": "Novice I clears the penalties: repair strength returns to **1.0x**, post-service decay to **1.0x**, and ignition drops to **{igniteN}%** per check, vanilla parity and the same rate an unattributed machine gets." },
+						{ "text": "Both levers then sit flat at parity through Novice II, III and IV, and ignition holds at **{igniteN}%**. The clearance is the whole of this band; the climb starts at Apprentice." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "Repair and decay begin their climb.",
+					"bullets": [
+						{ "text": "Repair effectiveness and the post-service decay lever begin their climb at Apprentice I and move every level from there to Grandmaster. Repair enters at **+{repairA1}%** and reaches a new ceiling of **+{repairA4}%** by Apprentice IV.", "with": "Wear and Tear" },
+						{ "text": "Decay enters at **{decayA1}x** and falls to a new floor of **{decayA4}x** over the same four levels.", "with": "Wear and Tear" },
+						{ "text": "Ignition holds at the **{igniteN}%** parity rate through the whole Apprentice band, sharing Novice's number by design; the first step down waits for Journeyman." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The machine begins to speak; Serviced by.",
+					"bullets": [
+						{ "text": "A coarse word for shaft load comes with the reading: turning easily well under capacity, room for more, near its limit, plus a note when opposed power sources are eating into it." },
+						{ "text": "\"Serviced by\" appears on machines serviced from Journeyman up, last servicer wins. The mark lends its keeper's reading level to any viewer, the sold reading, and a lesser hand's later service resets the name, the reading and the decay contract together." },
+						{ "text": "Ignition steps down to **{igniteJ}%** per check for machines in a Journeyman's keeping and holds that rate across all four levels." },
+						{ "text": "Repair enters at **+{repairJ1}%** and reaches a new ceiling of **+{repairJ4}%** by Journeyman IV, while decay enters at **{decayJ1}x** and falls to a new floor of **{decayJ4}x**.", "with": "Wear and Tear" }
+					],
+					"grants": [
+						{
+							"name": "The Reading of the Machine",
+							"text": "Begins at Journeyman: mechanical blocks tell their keeper their heat in words, warming, running hot, or moments from fire, read from the real accumulation floor rather than the smoke edge."
+						}
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "The reading turns to numbers; Master-serviced by.",
+					"bullets": [
+						{ "text": "A Master reads the number behind the words: effective speed against the heat lines once a part is accumulating, how many percent past the burn line when over it, and capacity against load as rounded whole figures." },
+						{ "text": "\"Master-serviced by\" on the mechanism." },
+						{ "text": "Ignition steps down again to **{igniteM}%** per check and holds that rate through the Master band." },
+						{ "text": "Repair enters at **+{repairM1}%** and reaches a new ceiling of **+{repairM4}%** by Master IV, while decay enters at **{decayM1}x** and falls to a new floor of **{decayM4}x**.", "with": "Wear and Tear" }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The full instrument panel, and the Millwright's Mark.",
+					"bullets": [
+						{ "text": "The full instrument panel, unconditional, on any mechanical block: drive speed and gearing, effective speed against all three heat lines, network torque, resistance and available torque, capacity against load with headroom, capacity lost to opposed sources, and the surplus that sets equilibrium. The point of the rank is reading a machine that is behaving, not only one that is failing." },
+						{ "text": "\"The Millwright's Mark of X\" names the machine's keeper in its block info." },
+						{ "text": "Grandmaster-assembled baseline: a machine rigged by a Grandmaster starts its wearing parts at **{gmAssembledDecay}x** decay, held until the first service takes over the contract. The rigger stamp itself grants no practice.", "with": "Wear and Tear" },
+						{ "text": "A Grandmaster-kept machine rolls ignition at **{igniteGm}%** per check, half of Master's rate. Lowest, never zero: absolute immunity was deliberately removed so the signature stays a quality of work, not a physics exemption." }
+					],
+					"grants": [
+						{
+							"name": "The Millwright's Mark",
+							"text": "Repair effectiveness tops out at **+{repairGmPct}%**, and a Grandmaster-serviced part decays at **{decayGm}x**, the slowest of any hand's, the contract holding until the next service overwrites it. It is the inverse of Metalworking's repair-gate; here you go back to the master because their work lasts longer.", "with": "Wear and Tear"
+						}
+					]
+				}
+			]
+		},
+		"POT": {
+			"tradeWeb": "Shapes the vessels the kitchen and the cellar keep their stores in.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "The imperfect seal rides the vessel itself.",
+					"bullets": [
+						{ "text": "The imperfect seal: a keep-vessel you shaped makes its contents perish **{preUFasterPct}%** faster, and the penalty rides the vessel itself. A crock carries it placed or in hand; the storage vessel while placed." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "The seal comes true and begins to tighten.",
+					"bullets": [
+						{ "text": "The seal comes true: Novice I lands exactly on vanilla, clearing the **{preUFasterPct}%** penalty outright." },
+						{ "text": "Preservation climbs from there at about **{preStepPct}%** a level, and it climbs every level to Grandmaster: vanilla on Novice I to a new ceiling of **{preN4}%** longer keeping by Novice IV." },
+						{ "text": "The quality freezes into the piece at shaping, whoever fires it." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The seal keeps tightening; the mark waits.",
+					"bullets": [
+						{ "text": "The seal keeps tightening, entering the band at **{preA1}%** longer keeping and reaching a new ceiling of **{preA4}%** by Apprentice IV. Nothing else opens at this tier; the mark itself waits for Journeyman." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "Thrown by — the shaper's name on the vessel.",
+					"bullets": [
+						{ "text": "\"Thrown by\": keep-vessels carry their shaper's name from Journeyman I up." },
+						{ "text": "Keeping enters the band at **{preJ1}%** longer and reaches **{preJ4}%** by Journeyman IV." },
+						{ "text": "Only ware that fires into something that holds food is ever stamped, in vanilla exactly the crock and the storage vessel, so molds, tiles and smallware stay plain and stack freely." },
+						{ "text": "The keep clause: once fired, the mark line prints that percentage outright, rounded to a whole percent. Raw clay shows the name but withholds the promise until the kiln has been." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Master-potted by.",
+					"bullets": [
+						{ "text": "\"Master-potted by\": the mark steps up at Master I." },
+						{ "text": "Keeping enters the band at **{preM1}%** longer and reaches **{preM4}%** by Master IV." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "A masterwork vessel; it keeps what it holds.",
+					"bullets": [
+						{ "text": "\"A masterwork vessel by. It keeps what it holds.\" On unfired clay the line reads \"once it is fired\" instead." },
+						{ "text": "The masterwork keeps: the curve tops out at **{preGmPct}%** longer, so a Grandmaster-shaped crock or vessel preserves best of all, a one-time heirloom since vessels never wear out." }
+					]
+				}
+			]
+		},
+		"GLA": {
+			"tradeWeb": "Glass for the alchemist's stills and every window worth the name.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Twenty degrees of window given away.",
+					"bullets": [
+						{ "text": "Raw glass stamped by an unpracticed hand shatters at **{glaU}**°C against vanilla's **100**°C, twenty degrees of window given away between the fire and the crack. The tolerance is stamped onto the piece at the annealer load and travels with it, even through the ownerless annealer." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Back to vanilla, then wider every level.",
+					"bullets": [
+						{ "text": "The window snaps back to vanilla's **{glaN1}**°C at Novice I, then widens **{glaStep}**°C every level from there to Grandmaster, reaching a new deadline of **{glaN4}**°C by Novice IV." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The same steady widening.",
+					"bullets": [
+						{ "text": "The same **{glaStep}**°C step carries the window from **{glaA1}**°C entering Apprentice I to a new deadline of **{glaA4}**°C by Apprentice IV." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The Glassmaker's Mark opens.",
+					"bullets": [
+						{ "text": "The window stands at **{glaJ1}**°C entering Journeyman I and reaches **{glaJ4}**°C by Journeyman IV." }
+					],
+					"grants": [
+						{
+							"name": "The Glassmaker's Mark",
+							"text": "Opens at Journeyman I: \"Blown by\" on the finished piece. The mark survives the annealer's clone-out conversion and rides non-stacking vessels durably."
+						}
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Master-blown by; the stamp is upgrade only.",
+					"bullets": [
+						{ "text": "The window opens from **{glaM1}**°C at Master I to **{glaM4}**°C by Master IV." },
+						{ "text": "\"Master-blown by\" replaces the Journeyman line at Master I." },
+						{ "text": "The stamp is upgrade only: a finer hand's tolerance survives a lesser hand reloading the piece, so a master's glass stays forgiving in a novice's hands." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The widest window the ladder allows, never immunity.",
+					"bullets": [
+						{ "text": "**{glaGm}**°C, the widest window the ladder allows and a full twenty degrees under vanilla, and never immunity: annealing is never optional, even for a Grandmaster's glass." },
+						{ "text": "\"Flawless glass by. A master's work.\"" }
+					]
+				}
+			]
+		},
+		"COO": {
+			"tradeWeb": "Takes the grower's yield and the hunter's meat, and sends back meals worth carrying.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Careless cooking spoils sooner, wastes fuel, chars fast.",
+					"bullets": [
+						{ "text": "Careless cooking: a dish you complete carries your stamp, and stamped food perishes **{spoilUFasterPct}%** faster than vanilla." },
+						{ "text": "The penalty names itself: a red \"Carelessly cooked.\" line sits on the dish, shown only while the server actually keeps the penalty." },
+						{ "text": "Fuel wastes: a firepit whose cook of record is untrained gets **{fuelULessPct}%** less burn time out of every fuel load. Cooking speed itself is never touched." },
+						{ "text": "Quick to char: a finished bake left sitting in oven heat browns toward charred **{charUFasterPct}%** faster. Baking speed stays vanilla, and charred pickups earn nothing." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Clean slate; the tending curves begin.",
+					"bullets": [
+						{ "text": "Clean slate: Novice I clears every Untrained penalty exactly, so spoilage, fuel and char all sit at vanilla." },
+						{ "text": "The tending curves begin, and they climb every level from here to Grandmaster. A fuel load gains about **{fuelStepPct}%** burn time a level, standing at vanilla on Novice I and reaching a new ceiling of **{fuelN4}%** more by Novice IV." },
+						{ "text": "Charring slows about **{charStepPct}%** a level over the same span, from vanilla on Novice I to **{charN4}%** slower by Novice IV." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The dish edge and exceptional batches open.",
+					"bullets": [
+						{ "text": "Burn time enters the band at **{fuelA1}%** above vanilla and reaches a new ceiling of **{fuelA4}%** by Apprentice IV, while charring enters **{charA1}%** slower and reaches **{charA4}%** slower." },
+						{ "text": "The dish edge opens: your stamped dishes feed and heal more, from nothing at Apprentice I to **{satA4}%** satiety and **{healA4}%** healing on a class-3 mixing-bowl dish by Apprentice IV. A class-2 station bake takes two thirds of that, a plain meal pot a third, and bare flame nothing." },
+						{ "text": "Exceptional batches open with it: a finished meal pot can stretch to one extra serving, a chance opening at zero on Apprentice I and reaching **{servingA4}%** by Apprentice IV, \"A practiced hand at the pot.\"" }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "Cooked by — the name rides the food.",
+					"bullets": [
+						{ "text": "\"Cooked by\": dishes you complete carry your name in the tooltip from Journeyman I up. The mark is frozen at completion and travels with the food from pot to bowl and crock." },
+						{ "text": "The same-hand fold: when one player both grew and cooked the dish, the two lines fold to \"Grown & cooked by\", Journeyman through Master on both marks. Grandmaster forms never fold." },
+						{ "text": "Burn time enters at **{fuelJ1}%** and reaches **{fuelJ4}%** by Journeyman IV; charring enters **{charJ1}%** slower and reaches **{charJ4}%** slower." },
+						{ "text": "The dish edge enters at **{satJ1}%** satiety and **{healJ1}%** healing on class-3 work and reaches **{satJ4}%** and **{healJ4}%** by Journeyman IV, while the extra serving enters at **{servingJ1}%** and reaches **{servingJ4}%**." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Prepared by.",
+					"bullets": [
+						{ "text": "\"Prepared by\": the mark steps up at Master I." },
+						{ "text": "Burn time enters at **{fuelM1}%** and reaches **{fuelM4}%** by Master IV; charring enters **{charM1}%** slower and reaches **{charM4}%** slower." },
+						{ "text": "The dish edge enters at **{satM1}%** satiety and **{healM1}%** healing on class-3 work and reaches **{satM4}%** and **{healM4}%** by Master IV, while the extra serving enters at **{servingM1}%** and reaches **{servingM4}%**." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "Signature dishes, and the Cook's Mark that keeps.",
+					"bullets": [
+						{ "text": "\"Signature dish by.\" The signature names the cook and promises nothing; the freshness line above it carries the actual keeping figure." },
+						{ "text": "Every curve tops out here: **{fuelGmPct}%** more burn time per fuel load, a finished bake browning **{charGmPct}%** slower, and a **{servingGm}%** chance the pot stretches to an extra serving." },
+						{ "text": "The dish edge peaks at **{satGm}%** satiety and **{healGm}%** healing on class-3 chain-apparatus work, which in this build means the mixing bowl from A Culinary Artillery. Below that, **{satGmC2}%** and **{healGmC2}%** on a class-2 station bake, pies included, **{satGmC1}%** and **{healGmC1}%** from a plain meal pot, nothing at all on class-0 bare flame." }
+					],
+					"grants": [
+						{
+							"name": "The Cook's Mark",
+							"text": "A Grandmaster's stamped food perishes **{cookMarkPct}%** slower, except pies, which by ruling keep the full satiety edge and rot honestly at their natural rate. It is the one lever that fires at the top rather than climbing to it."
+						}
+					]
+				}
+			]
+		},
+		"BRE": {
+			"tradeWeb": "Closes the barrels the kitchen and the cellar wait on.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Half the seals spoil, and the survivors come up short.",
+					"bullets": [
+						{ "text": "Your rank is frozen at the seal. The batch matures under the hand that closed it, across days, restarts, and any levels earned meanwhile." },
+						{ "text": "An unpracticed seal spoils half the time: a **{spoilU}%** chance at completion that the batch voids to rot, and the rot comes back at half the count you were owed. Spirits from the still never spoil-fail." },
+						{ "text": "A batch that survives still comes up short: **{portionULessPct}%** fewer portions from the same vessel." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Full portions; spoilage tapers instead of clearing.",
+					"bullets": [
+						{ "text": "The portion dock clears outright at Novice I, and a barrel yields its full count from there on." },
+						{ "text": "Spoilage does not clear with it. It tapers every level instead, entering Novice I at **{spoilN1}%** and shedding about **{spoilStepPts}** points a level to a new floor of **{spoilN4}%** by Novice IV. This is the framework's one ruled exception, a penalty that fades rather than vanishes at Novice." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The taper keeps running.",
+					"bullets": [
+						{ "text": "The taper keeps running on the same step: **{spoilA1}%** entering Apprentice I, down to a new floor of **{spoilA4}%** by Apprentice IV." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "Ferments never fail again; the Brewer's Mark opens.",
+					"bullets": [
+						{ "text": "Spoilage reaches zero at Journeyman I and stays there. From here a brewer's ferments never fail." }
+					],
+					"grants": [
+						{
+							"name": "The Brewer's Mark",
+							"text": "Opens at Journeyman: \"Cured by\" on solid preserves. Liquids merge in barrels and carry no mark, on purpose."
+						}
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Aged by.",
+					"bullets": [
+						{ "text": "The taper is already spent, so the mark is what moves: \"Aged by\" replaces the Journeyman line from Master I." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "Cellar-worthy, and the good measure.",
+					"bullets": [
+						{ "text": "\"A masterwork preserve by. Cellar-worthy.\" on solid preserves." },
+						{ "text": "The good measure: one Grandmaster seal in four, a **{measureGm}%** roll, pays out **{measureBonusPct}%** over the vessel's rated count, minimum one extra portion." }
+					]
+				}
+			]
+		},
+		"TAI": {
+			"tradeWeb": "Clothes every back on the server; the spindle feeds on the farm's fibre.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Colder, quicker-worn garments; the spindle wastes fibre.",
+					"bullets": [
+						{ "text": "A beginner's garments sit below the pattern: they hold **{warmthULessPct}%** less warmth and wear through **{wearUFasterPct}%** faster." },
+						{ "text": "In the heat, the same garments cool **{coolULessPct}%** worse than plain work.", "with": "Hot or Dead" },
+						{ "text": "The spindle gives up **{fibreULessPct}%** less twine per fibre than the fibre is worth, floored at one length.", "with": "Spinning Wheel" }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Plain vanilla par, held flat across the band.",
+					"bullets": [
+						{ "text": "Novice I clears every penalty at once: warmth, wear, cooling and fibre yield all sit at a flat **1.00x**, plain vanilla par." },
+						{ "text": "That flat holds unchanged to Novice IV. Nothing climbs inside the band." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The maker's quality and fibre thrift begin.",
+					"bullets": [
+						{ "text": "The maker's quality starts climbing, and from here it rises every level: garments you make wear through **{wearA1}%** slower entering at Apprentice I, to a new ceiling of **{wearA4}%** slower by Apprentice IV." },
+						{ "text": "Fibre thrift begins on the same curve, **{fibreA1}%** more twine per fibre at Apprentice I to a new ceiling of **{fibreA4}%** by Apprentice IV, and the wheel and loom roll that same figure as the chance of an extra length or bolt.", "with": "Spinning Wheel" }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "Sewn by — and repair is ranked work.",
+					"bullets": [
+						{ "text": "Repair is ranked work: patching a garment whose maker outranks you strips the maker's mark, while an equal or better hand preserves it." },
+						{ "text": "The wear on a marked garment runs **{wearJ1}%** slower entering at Journeyman I and reaches a new ceiling of **{wearJ4}%** by Journeyman IV." },
+						{ "text": "Fibre thrift keeps pace, **{fibreJ1}%** more twine per fibre at Journeyman I to a new ceiling of **{fibreJ4}%** by Journeyman IV.", "with": "Spinning Wheel" }
+					],
+					"grants": [
+						{
+							"name": "The Tailor's Mark",
+							"text": "Takes a name at Journeyman: \"Sewn by\", on every garment from your hands."
+						}
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Tailored by.",
+					"bullets": [
+						{ "text": "The line rises to \"Tailored by\", on garments made at that rank." },
+						{ "text": "The wear runs from **{wearM1}%** slower entering at Master I to a new ceiling of **{wearM4}%** by Master IV." },
+						{ "text": "Fibre thrift reaches **{fibreM1}%** at Master I and a new ceiling of **{fibreM4}%** by Master IV.", "with": "Spinning Wheel" }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "A master tailor's work, and the three-way emphasis.",
+					"bullets": [
+						{ "text": "The line becomes a master tailor's work, from the hand of the maker." },
+						{ "text": "Both curves top out together: garments wear **{wearGmPct}%** slower and the spindle draws **{fibreGmPct}%** more twine per fibre, the most either will ever give." },
+						{ "text": "The chosen emphasis bites: Warm holds **{warmEmphPct}%** more warmth than vanilla ever gives, and Lasting deepens the slow-wear from **{wearGmPct}%** to **{lastingWearPct}%**." },
+						{ "text": "Cool breathes **{coolEmphPct}%** cooler in the heat than plain work.", "with": "Hot or Dead" },
+						{ "text": "On a Warm garment, the warmth line shows the maker's share of the number." }
+					],
+					"grants": [
+						{
+							"name": "The Three-Way Emphasis",
+							"text": "Opens on the Tailoring page in the Almanac: Warm, Lasting, or Cool, frozen onto each garment at the making."
+						}
+					]
+				}
+			]
+		},
+		"ALC": {
+			"tradeWeb": "Draughts from the forager's herbs; the still leans on the glassmaker's ware.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Remedies below the recipe; the shelf tells the truth.",
+					"bullets": [
+						{ "text": "Remedies leave an unpracticed hand **{potULessPct}%** below the recipe: they heal **{potULessPct}%** less and their effects end **{potULessPct}%** sooner. Every batch is stamped with its maker at the making, so the shortfall travels with the item; unbranded loot reads as vanilla." },
+						{ "text": "Potions carry the same maker's brand where the Alchemy mod runs: the same **{potU}** multiplier hits strength and duration at the drink, read from whoever brewed the batch.", "with": "Alchemy" },
+						{ "text": "A remedy revive sits at its floor: the downed player wakes on **{reviveU}%** of full health, and wakes exhausted where Vigor runs (Vigor supplies the exhaustion only; the revive fraction itself is a vanilla seam)." },
+						{ "text": "Reaction burns on the chemistry stove eat **{fuelUMorePct}%** more fuel under an untrained alchemist. The stove's cooking and smelting burns are untouched.", "with": "Industrial Story" },
+						{ "text": "The shelf tells the truth: a branded remedy's tooltip shows the delivered value with the maker's contribution beside it, penalty included. Deltas that round to nothing render exactly like vanilla." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Back to the recipe; the revive already climbs.",
+					"bullets": [
+						{ "text": "Potency and duration come back to the recipe exactly and hold there: **1.00** and **1.00** across all four Novice steps, with reaction fuel at par." },
+						{ "text": "The revive is the one thing already moving, and it climbs every level from here to Grandmaster: **{reviveN1}%** of full health at Novice I to a new ceiling of **{reviveN4}%** by Novice IV." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "Above the recipe; the stove starts refunding.",
+					"bullets": [
+						{ "text": "Potency and duration cross above the recipe at Apprentice I and climb every level after: **{potA1}%** better entering the tier, reaching a new ceiling of **{potA4}%** by Apprentice IV. A better remedy, never a different item." },
+						{ "text": "Reaction burns stop wasting fuel and start refunding it: **{refundA1}%** of the burn at Apprentice I to **{refundA4}%** by Apprentice IV.", "with": "Industrial Story" },
+						{ "text": "An herb rack tended by a hand above Novice over-dries less: its dried bundles perish **{herbA1}%** slower at Apprentice I and **{herbA4}%** slower by Apprentice IV.", "with": "Alchemy" },
+						{ "text": "The revive climbs on: **{reviveA1}%** at Apprentice I to **{reviveA4}%** by Apprentice IV." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "Prepared by — the climb takes a name.",
+					"bullets": [
+						{ "text": "\"Prepared by\" appears on remedies and potions from Journeyman I. Below that the climb rides the batch silently, unnamed." },
+						{ "text": "Potency and duration run **{potJ1}%** above the recipe entering the tier, reaching **{potJ4}%** by Journeyman IV." },
+						{ "text": "Reaction fuel refunds **{refundJ1}%** at Journeyman I and **{refundJ4}%** by Journeyman IV, and herb-rack bundles perish **{herbJ1}%** to **{herbJ4}%** slower over the same four steps." },
+						{ "text": "The revive reaches **{reviveJ1}%** at Journeyman I and **{reviveJ4}%** by Journeyman IV." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Compounded by.",
+					"bullets": [
+						{ "text": "\"Compounded by\" replaces the Journeyman line at Master I." },
+						{ "text": "Potency and duration run **{potM1}%** above the recipe entering the tier, reaching **{potM4}%** by Master IV." },
+						{ "text": "Reaction fuel refunds **{refundM1}%** at Master I and **{refundM4}%** by Master IV, and herb-rack bundles perish **{herbM1}%** to **{herbM4}%** slower over the same four steps." },
+						{ "text": "The revive reaches **{reviveM1}%** at Master I and **{reviveM4}%** by Master IV." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The Emphasis: Potent or Lasting, frozen at the making.",
+					"bullets": [
+						{ "text": "Every curve tops out on the same level: **{potGmPct}%** above the recipe on potency and duration, **{refundGmPct}%** of the reaction burn refunded, **{herbGmPct}%** slower perish on the herb rack." },
+						{ "text": "The chosen side takes a further **{emphBonusX}** on top of the Grandmaster's **{potGmPct}%**, landing about **{emphChosenPct}%** above the recipe while the other side holds at **{potGmPct}%**, and the extra bites only on Grandmaster work." },
+						{ "text": "The revive ceiling holds even here: a Grandmaster's remedy wakes a downed player on **{reviveGm}%** of full health and never more. A field revival never equals walking it off." },
+						{ "text": "\"A master remedy of. Potent and sure.\"" }
+					],
+					"grants": [
+						{
+							"name": "The Emphasis",
+							"text": "A Grandmaster picks Potent or Lasting on the Alchemy page of the Almanac book, and the choice freezes onto each batch at the making. Potent deepens strength, Lasting stretches duration."
+						}
+					]
+				}
+			]
+		},
+		"MIN": {
+			"tradeWeb": "Ore for the smith, stone for the mason; the roof answers to no one else.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Shattered ore, falling roofs, a coarse read.",
+					"bullets": [
+						{ "text": "An untrained pick shatters ore: every ore drop rolls at **{oreU}x** of vanilla, a flat tenth off the seam." },
+						{ "text": "Breaking unstable rock as Untrained carries a **{caveUExtraPct}%** chance of an extra collapse sweep across up to three neighbouring blocks; the roof comes down more often than vanilla." },
+						{ "text": "Every pickaxe swing drains **{stamUMorePct}%** more stamina than vanilla.", "with": "Immersive Mining" },
+						{ "text": "The look-at instability readout is a coarse word only, steady, uneasy, or ready to come down, with no number. This holds through Novice." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Vanilla restored; the Deep-Delver curves begin.",
+					"bullets": [
+						{ "text": "Novice I is exactly vanilla: ore yield **1.00x**, cave-in odds untouched, swing stamina at the baseline, and every Untrained penalty clears." },
+						{ "text": "From Novice II the three Deep-Delver curves recompute every level all the way to Grandmaster. Ore drops open at **+{oreN2}%** and climb to a new ceiling of **{oreN4}%** by Novice IV." },
+						{ "text": "Swing stamina opens **{stamN2}%** cheaper than vanilla and reaches **{stamN4}%** cheaper by Novice IV.", "with": "Immersive Mining" },
+						{ "text": "The \"the cut held\" save opens at **{saveN2}%** of your own collapses and reaches **{saveN4}%** by Novice IV. Connected rock only; cascades and explosions stay vanilla." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "A working read, and the curves keep climbing.",
+					"bullets": [
+						{ "text": "The instability readout sharpens to a rounded percent, a working read. This holds through Journeyman." },
+						{ "text": "Ore drops enter at **+{oreA1}%** and reach a new ceiling of **{oreA4}%** by Apprentice IV; swings enter **{stamA1}%** cheaper and reach **{stamA4}%** cheaper." },
+						{ "text": "The cut-held save enters at **{saveA1}%** and reaches **{saveA4}%** by Apprentice IV." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "A third of your collapses cancelled before they land.",
+					"bullets": [
+						{ "text": "Ore drops enter at **+{oreJ1}%** and reach a new ceiling of **{oreJ4}%** by Journeyman IV; swings enter **{stamJ1}%** cheaper and reach **{stamJ4}%** cheaper." },
+						{ "text": "The cut-held save enters at **{saveJ1}%** and reaches **{saveJ4}%** by Journeyman IV, so a third of the collapses you start are cancelled before they land." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "The exact instability figure, read plainly.",
+					"bullets": [
+						{ "text": "The readout shows vanilla's exact instability figure, at Master and Grandmaster." },
+						{ "text": "Ore drops enter at **+{oreM1}%** and reach a new ceiling of **{oreM4}%** by Master IV; swings enter **{stamM1}%** cheaper and reach **{stamM4}%** cheaper." },
+						{ "text": "The cut-held save enters at **{saveM1}%** and reaches **{saveM4}%** by Master IV." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The peak of the Deep-Delver, and half the roofs held.",
+					"bullets": [
+						{ "text": "The curves peak: **+{oreGmPct}%** ore drops, and **{stamGmPct}%** off the stamina of every swing with Immersive Mining, roughly **{stamRatioX}x** the time at the face an Untrained hand gets." },
+						{ "text": "The cave-in save tops out at **{saveGm}%** and never becomes certainty. Isolated, undercut rock still falls for everyone at any rank." }
+					]
+				}
+			]
+		},
+		"PAN": {
+			"tradeWeb": "Reads the rivers the miner follows down; the wash points at the lode.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Washes come up empty more often.",
+					"bullets": [
+						{ "text": "Washes come up empty more often: every pan drop chance the mod meters runs at **{yieldU}x** of vanilla, a **{yieldULessPct}%** cut, and only the rusty gears are left alone, since vanilla already meters those itself." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Vanilla odds, and the pan still blind.",
+					"bullets": [
+						{ "text": "Novice I is exactly vanilla and the pan is still blind, **1.00x** odds and no trace." },
+						{ "text": "From Novice II pan yield recomputes every level, about **{yieldStepPts}** points a level: **+{yieldN2}%** there to a new ceiling of **{yieldN4}%** by Novice IV. The lever is always drop chance, never multiplied stacks." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "Placer tracing: the wash feels the lode beneath.",
+					"bullets": [
+						{ "text": "Below Master the signal wavers: the trace rolls between **30%** and **100%** of its strength every wash, and rank-less machines always see the stock table." },
+						{ "text": "Pan yield enters at **+{yieldA1}%** and reaches a new ceiling of **{yieldA4}%** by Apprentice IV." }
+					],
+					"grants": [
+						{
+							"name": "Placer Tracing",
+							"text": "Unlocks at Apprentice I: the wash samples the real ore maps under the pan and lifts the chance of what actually lies below by up to **{traceA1}%** there, climbing every level to a new ceiling of **{traceA4}%** by Apprentice IV, so you can walk a valley and feel the copper strengthen as you near the lode."
+						}
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "A rich deposit more than doubles its own chance.",
+					"bullets": [
+						{ "text": "The trace enters at **{traceJ1}%** and reaches a new ceiling of **{traceJ4}%** by Journeyman IV, the first rank at which a rich deposit more than doubles its own drop chance. The signal still wavers." },
+						{ "text": "Pan yield enters at **+{yieldJ1}%** and reaches a new ceiling of **{yieldJ4}%** by Journeyman IV." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "The trace reads clean; the grave-sifter and the borehole.",
+					"bullets": [
+						{ "text": "Master I reads the placer trace clean, the wavering roll drops away, and a rich deposit lifts its own drop chance by a full **{traceM1}%**, climbing to a new ceiling of **{traceM4}%** by Master IV." },
+						{ "text": "The grave-sifter: from Master I the pan table's treasure tail, every entry at or below a **{treasThresholdPct}%** base chance such as lore books, temporal gears, jewelry and gems, takes an extra **{treasM1}x** on top of pan yield, climbing to **{treasM4}x** by Master IV for **{treasNetM4}x** net." },
+						{ "text": "From Master I the borehole speaks depth: after a bore the drilled column is rescanned and chat lists the ores struck, each reported at a coarse depth and never exactly.", "with": "Betterer Prospecting" },
+						{ "text": "Pan yield enters at **+{yieldM1}%** and reaches a new ceiling of **{yieldM4}%** by Master IV." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The exact bands, and the Surveyor's record.",
+					"bullets": [
+						{ "text": "A Grandmaster bore reads the exact band, first block to last, of every ore in the drilled column.", "with": "Betterer Prospecting" },
+						{ "text": "The curves peak: pan yield **+{yieldGmPct}%**, the placer trace at **{traceGm}%**, and the treasure tail at **{treasGm}x** on top of that for **{treasNetGm}x** net." }
+					],
+					"grants": [
+						{
+							"name": "The Surveyor's Record",
+							"text": "Grandmaster-measured depth bands persist to the chunk column's depth store under the surveyor's name, land on the surveyor's own map at once, and ride ProspectTogether shares onto teammates' map tooltips. A shared survey that says how deep the iron runs is something only a Grandmaster can leave behind. Without ProspectTogether the record stays chat plus the surveyor's own map."
+						}
+					]
+				}
+			]
+		},
+		"FIS": {
+			"tradeWeb": "Feeds the kitchen from the water, and keeps count of what it takes.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Escapes, juveniles, and overfished water.",
+					"bullets": [
+						{ "text": "The one that got away is at its worst: **{escU}%** of bites escape, and the bait goes with them." },
+						{ "text": "The size roll leans juvenile, **{skewULessPts}** points off the adult chance; green hands land the small fish." },
+						{ "text": "Untrained rod work overfishes at **{depU}x** the vanilla depletion step: each catch wears the water down half again as hard as a common hand would." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Baseline restored; every curve begins to move.",
+					"bullets": [
+						{ "text": "Novice I stands at the vanilla baseline: no skew at all on the size roll, and one fish off the water per catch. Every curve below then moves at each level to Grandmaster." },
+						{ "text": "The adult chance climbs from no skew to **{skewN4}** points by Novice IV, always clamped so neither size is ever guaranteed." },
+						{ "text": "The escape risk drops to **{escN1}%** at Novice I, easing to **{escN4}%** by Novice IV. It is a permanent risk curve by design, not a beginner's tax." },
+						{ "text": "The depletion step falls from **1.00x** at Novice I to **{depN4}x** by Novice IV." },
+						{ "text": "Roe gives back: ovulated fish eggs thrown into water restock the fish map at face value for anyone, and a steward's roe rises from **1.00x** at Novice I to **{roeN4}x** by Novice IV. The giving itself pays no practice.", "with": "Primitive Survival" }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The Angler's Read forms on the map.",
+					"bullets": [
+						{ "text": "The adult chance enters at **{skewA1}** points and reaches a new ceiling of **{skewA4}** points by Apprentice IV, while the escape risk runs from **{escA1}%** down to **{escA4}%**." },
+						{ "text": "The depletion step enters at **{depA1}x** and eases to **{depA4}x**, and a steward's roe runs **{roeA1}x** to **{roeA4}x**." }
+					],
+					"grants": [
+						{
+							"name": "The Angler's Read",
+							"text": "Forms at Apprentice: waters you have fished appear on the world map as broad circles, centres fuzzed, with a coarse verdict, healthy or fished low. Only water you personally worked, rod or your own trap alike."
+						}
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The read gains numbers.",
+					"bullets": [
+						{ "text": "The read gains numbers: the circles tighten, and each worked water shows its live stock as a percentage." },
+						{ "text": "The adult chance enters at **{skewJ1}** points and reaches a new ceiling of **{skewJ4}** points by Journeyman IV, while the escape risk runs from **{escJ1}%** down to **{escJ4}%**." },
+						{ "text": "The depletion step enters at **{depJ1}x** and eases to **{depJ4}x**, and a steward's roe runs **{roeJ1}x** to **{roeJ4}x**." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "Nearly the true spot.",
+					"bullets": [
+						{ "text": "The circles tighten again, nearly the true spot." },
+						{ "text": "The adult chance enters at **{skewM1}** points and reaches a new ceiling of **{skewM4}** points by Master IV, while the escape risk runs from **{escM1}%** down to **{escM4}%**." },
+						{ "text": "The depletion step enters at **{depM1}x** and eases to **{depM4}x**, and a steward's roe runs **{roeM1}x** to **{roeM4}x**." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The read completes; no rank fishes for free.",
+					"bullets": [
+						{ "text": "The read completes: the fuzz goes to zero, a fished-low water forecasts its recovery in days, and the circle becomes the exact cell the game tracks its stock in." },
+						{ "text": "The curves peak: **{skewGmPts}** points on the adult chance, an escape risk of **{escGm}%** that never reaches zero, and roe counting for **{roeGm}x**." },
+						{ "text": "Even the lightest touch still wears the water: **{depGm}x** is the floor on the depletion step, so no rank fishes for free." }
+					]
+				}
+			]
+		},
+		"MEL": {
+			"tradeWeb": "Every blade the smith strikes ends up in these hands.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Docked swings and clumsy armor.",
+					"bullets": [
+						{ "text": "Swings land docked to **{dmgU}%** damage. This is the calling's only damage lever and it is penalty only; no rank ever adds damage, swing speed, or an offensive tier." },
+						{ "text": "Armor is worn clumsily, an affectedness of **{armorU}** against vanilla's **1.00**, so **{armorUMorePct}%** more drag on walk speed, and with Combat Overhaul the same figure on handling and hunger too." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Full damage back; the parry grace opens.",
+					"bullets": [
+						{ "text": "Novice I clears both Untrained docks: full damage again, and armor back to vanilla's **1.00**. Vanilla is the anchor here, because vanilla parry timing is genuinely hard." },
+						{ "text": "The parry catch-window grace opens and widens every level after, **0** ms at Novice I to a new ceiling of **{graceN4}** ms by Novice IV, on a line that reaches **{graceGm}** ms at Grandmaster. The facing cone is never touched, so facing the blow stays the skill.", "with": "Combat Overhaul" },
+						{ "text": "Armor familiarity starts its own climb the same way, easing from **1.00** to **{armorN4}** by Novice IV." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The Duelist's Eye opens to a crouched look.",
+					"bullets": [
+						{ "text": "Parry grace runs **{graceA1}** ms at Apprentice I to a new ceiling of **{graceA4}** ms by Apprentice IV." },
+						{ "text": "Armor affectedness runs **{armorA1}** to a new floor of **{armorA4}**." }
+					],
+					"grants": [
+						{
+							"name": "The Duelist's Eye",
+							"text": "Opens at Apprentice I: crouch and look at a foe to read its condition, healthy, wounded, or near death.", "with": "Combat Overhaul"
+						}
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The perfect parry is learned.",
+					"bullets": [
+						{ "text": "Parry grace runs **{graceJ1}** ms to a new ceiling of **{graceJ4}** ms." },
+						{ "text": "Armor affectedness runs **{armorJ1}** to a new floor of **{armorJ4}**." }
+					],
+					"grants": [
+						{
+							"name": "The Perfect Parry",
+							"text": "Learned at Journeyman I: catching a blow within **{perfectWindow}** ms of the parry opening stamps armor-pierce onto the riposte for **{riposteWindow}** ms, cutting through the foe's resist. The window never widens with rank; only the cut deepens, **{pierceJ1}** tier at Journeyman I to **{pierceJ4}** by Journeyman IV, stepping rather than sliding.", "with": "Combat Overhaul"
+						}
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "A defensive tier, and the vital points revealed.",
+					"bullets": [
+						{ "text": "The guard gains a defensive tier at **{blockTierRank}**, **+{blockTierBonus}** to both block and parry: blocks and parries fully stop what a lesser hand only partly turns. Defensive only, never damage, tool tier, or armor tier.", "with": "Combat Overhaul" },
+						{ "text": "The Eye's vital-point overlay opens at Master I: fight a creature and its tells reveal, a bright mark on the vital spot and dim rings on what wastes your hits. The read sharpens with the band, learned per foe by seconds of real combat.", "with": "Combat Overhaul" },
+						{ "text": "The perfect riposte cuts **{pierceM1}** tiers at Master I and **{pierceM4}** by Master IV." },
+						{ "text": "Parry grace runs **{graceM1}** ms to a new ceiling of **{graceM4}** ms. Armor affectedness runs **{armorM1}** to a new floor of **{armorM4}**." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "Master-at-Arms: the drag of armor halves.",
+					"bullets": [
+						{ "text": "Nothing new opens at this tier; the curves reach their ends. Parry grace tops out at **{graceGm}** ms and the pierce holds at **{pierceGm}** tiers." },
+						{ "text": "Master-at-Arms fully expressed: armor's drag halves, an affectedness of **{armorGm}** against vanilla's **1.00**, easing toward the unarmored baseline and never past it, a familiarity, not a speed buff." }
+					]
+				}
+			]
+		},
+		"RAN": {
+			"tradeWeb": "The fletcher's arrows and the hunter's quarry meet in this eye.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "The aim shakes; the pan flashes.",
+					"bullets": [
+						{ "text": "The aim shakes at its worst, steadiness halved to **{steadyU}**. Under Combat Overhaul the wobble rides the engine's own sway floor; without it a **{vanAccULessPct}%** accuracy dock stands in, on a line that reaches **{vanAccGm}** at Grandmaster." },
+						{ "text": "Nock, draw, and reload all run **{handleULessPct}%** slow, a handling factor of **{handleU}**." },
+						{ "text": "Loosed arrows keep only **{recovU}x** of their material's usual recovery chance, so they shatter more often than the material alone would say.", "with": "Combat Overhaul" },
+						{ "text": "Firearms: **{misfireU}%** of pulls flash in the pan, the piece stays primed and the pull is lost, and a clumsy pour spills an extra powder unit on **{spillU}%** of reloads.", "with": "the Firearms fork" }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Every dock thins; parity is still ahead.",
+					"bullets": [
+						{ "text": "Every dock thins a step per level, and parity is still ahead. This calling anchors vanilla at Apprentice, because comfortable vanilla aim is itself an earned rank." },
+						{ "text": "Steadiness **{steadyN1}** at Novice I to a new ceiling of **{steadyN4}** by Novice IV. Handling **{handleN1}** to **{handleN4}**. Arrow recovery **{recovN1}** to **{recovN4}**." },
+						{ "text": "Firearms: the flash in the pan falls from **{misfireN1}%** to **{misfireN4}%**, and the clumsy pour from **{spillN1}%** to **{spillN4}%**.", "with": "the Firearms fork" }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "Vanilla parity, earned; the bonus band opens.",
+					"bullets": [
+						{ "text": "Apprentice I is vanilla parity across the board, steadiness **1.00**, handling **1.00**, recovery **1.00**, and the spill is gone. Above it the bonus band opens and climbs every level." },
+						{ "text": "Steadiness **1.00** to a new ceiling of **{steadyA4}** by Apprentice IV. Handling **1.00** to **{handleA4}**. Arrow recovery **1.00** to **{recovA4}**." },
+						{ "text": "Firearms: the misfire curve reaches its knee at **{misfireA1}%**, so the worst is over by parity, then eases to **{misfireA4}%** by Apprentice IV. Powder thrift starts from nothing and reaches a reload spending nothing on **{thriftA4}%** of loads.", "with": "the Firearms fork" }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The Marksman's Eye opens.",
+					"bullets": [
+						{ "text": "Steadiness **{steadyJ1}** to a new ceiling of **{steadyJ4}**. Handling **{handleJ1}** to **{handleJ4}**. Arrow recovery **{recovJ1}** to **{recovJ4}**." },
+						{ "text": "Firearms: misfire **{misfireJ1}%** down to **{misfireJ4}%**, thrift **{thriftJ1}%** up to **{thriftJ4}%**.", "with": "the Firearms fork" }
+					],
+					"grants": [
+						{
+							"name": "The Marksman's Eye",
+							"text": "Opens at Journeyman I: while aiming, a small ring marks the drop-corrected hold on the target where it stands. It never moves your aim; you still align a drifting reticle and time the loose.", "with": "Combat Overhaul"
+						}
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "The Eye learns lead.",
+					"bullets": [
+						{ "text": "The Eye learns lead at Master I: the ring extrapolates the target's motion over flight time, engine-exact ballistics, and a jinking deer still beats it.", "with": "Combat Overhaul" },
+						{ "text": "Steadiness **{steadyM1}** to a new ceiling of **{steadyM4}**. Handling **{handleM1}** to **{handleM4}**. Arrow recovery **{recovM1}** to **{recovM4}**." },
+						{ "text": "Firearms: misfire **{misfireM1}%** down to **{misfireM4}%**, thrift **{thriftM1}%** up to **{thriftM4}%**.", "with": "the Firearms fork" }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "Steady, and never still.",
+					"bullets": [
+						{ "text": "Nothing new opens at this tier; the curves reach their ceilings. Steadiness **{steadyGm}**, steady and never still. Handling **{handleGm}**. Arrow recovery **{recovGm}x** the material's own chance, capped at **{recovCapPct}%** unless the material already beats that by itself." },
+						{ "text": "Powder thrift tops out at a reload spending nothing on **{thriftGm}%** of loads, never past needing what it checks for.", "with": "the Firearms fork" },
+						{ "text": "Even a Grandmaster's firearm flashes in the pan on **{misfireGm}%** of pulls: the misfire is rank-reduced but never eliminated, because period pieces misfire on bad luck.", "with": "the Firearms fork" }
+					]
+				}
+			]
+		},
+		"ARC": {
+			"tradeWeb": "Draws on the temporal currents; the still-room and the rift both feed it.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "The pool pinned to the floor.",
+					"bullets": [
+						{ "text": "The re-root: your mana pool is pinned to your rank's floor from the first cantrip, **{poolU}** mana here, and Rustbound Magic's own casting-XP grind is frozen at zero. Robe gear and Meditation-Insight research stack on top, untouched." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Cantrips cast cleanly; reaching costs.",
+					"bullets": [
+						{ "text": "Cantrips and first-tier spells cast cleanly from the start, and the pool climbs every level from here to the top, **{poolN1}** mana at Novice I to a new ceiling of **{poolN4}** by Novice IV. Second-tier and up are reaching above your rank." },
+						{ "text": "Reaching above your tier never refuses the cast. It rolls a backfire, tearing **{backfireDrainPct}%** off your temporal stability for every tier you reached past. An apprentice can reach for the storm, and the storm reaches back." },
+						{ "text": "Each school keeps its own five-step familiarity ladder, Novice to Master, earned by mana actually channeled through it and paced by its own clock rather than your rank: **{famStep2}** cumulative for the second step and **{famMaster}** for Master. Familiarity discounts that school's costs **{famStepPct}%** a step to **{famMasterPct}%** at Master, and only ever prices spells; rank alone gates them." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "Second-tier spells, and the meditation ladder wakes.",
+					"bullets": [
+						{ "text": "Second-tier spells cast cleanly from Apprentice I, on a pool of **{poolA1}** mana climbing to a new ceiling of **{poolA4}** by Apprentice IV." },
+						{ "text": "The meditation ladder wakes above Novice and climbs every level after: mana return **+{regenA1}** a regen tick at Apprentice I to **+{regenA4}** by Apprentice IV, and magic's temporal-stability cost eases from **{drainA1}x** to a new floor of **{drainA4}x**. The pool reads regen in whole points, so the return arrives in steps rather than smoothly." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The pool deepens; the third tier waits for Master.",
+					"bullets": [
+						{ "text": "Nothing new opens at this tier; the third tier is Master's by amendment." },
+						{ "text": "The pool runs **{poolJ1}** mana at Journeyman I to a new ceiling of **{poolJ4}** by Journeyman IV. Mana return **+{regenJ1}** a tick to **+{regenJ4}**, and the stability cost **{drainJ1}x** to a new floor of **{drainJ4}x**." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "The third tier casts cleanly.",
+					"bullets": [
+						{ "text": "Regular third-tier spells cast cleanly from Master I, on a pool of **{poolM1}** mana climbing to a new ceiling of **{poolM4}** by Master IV." },
+						{ "text": "Mana return **+{regenM1}** a tick to **+{regenM4}**, and the stability cost **{drainM1}x** to a new floor of **{drainM4}x**." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The storm-class spells, and a floor below the ultimate.",
+					"bullets": [
+						{ "text": "The storm-class third-tier spells, the heaviest conjures, are Grandmaster's alone." },
+						{ "text": "The ultimates keep a **{backfireResidualPct}%** residual backfire even at Grandmaster; the Great Work is never routine." },
+						{ "text": "The pool's Grandmaster floor is **{poolGm}**, one hard terminal leap past Master's **{poolM4}**, mirroring the XP curve's own single Grandmaster step. Even so it sits deliberately below what an ultimate costs: the endgame conjure needs rank and earned extras both." },
+						{ "text": "Mana return tops out at **+{regenGm}** a tick and the stability cost floors at **{drainGm}x**, because the trance always costs something." }
+					]
+				}
+			]
+		},
+		"TEM": {
+			"tradeWeb": "Wards the rifts the arcanist draws on, and mends the roads between.",
+			"rungs": [
+				{
+					"rank": "Untrained",
+					"summary": "Thin-skinned to time, storm-blind, wasteful with gears.",
+					"bullets": [
+						{ "text": "Thin-skinned to time: ambient temporal stability drains **{stabUMorePct}%** faster, a **{stabU}x** multiplier. Deliberate spends, meditation and ritual costs, are exempt by construction; only the world's own pull bites harder.", "with": "SpecializedClasses" },
+						{ "text": "A beginner is wasteful mending a translocator: the gear cost of a repair runs **{gearCostU}x**." },
+						{ "text": "A temporal gear fed to a rift ward burns short, buying **{wardDaysU}** in-game days of warding where vanilla buys **21**." },
+						{ "text": "The storm finds you unannounced: below Novice there is no cue at all, and the sky simply breaks." }
+					]
+				},
+				{
+					"rank": "Novice",
+					"summary": "Vanilla restored, and the first thin warning.",
+					"bullets": [
+						{ "text": "Novice I clears the docks: **21** days a ward, ambient drain at **1.00x**, the repair at its stock cost." },
+						{ "text": "The ladder IS the warning: Storm-Sense wakes at Novice I with about **{cueN1RealSec}** real seconds of notice, and every level adds roughly **{cueStepRealSec}** more. Vanilla's own broadcast no longer comes free; the cue is earned rank by rank." },
+						{ "text": "Repairing a translocator asks a practiced hand: the gate stands at **{repairGateRank}**, a server knob. Riding one is never gated." }
+					]
+				},
+				{
+					"rank": "Apprentice",
+					"summary": "The ward economy turns; the storm speaks earlier.",
+					"bullets": [
+						{ "text": "The ward economy turns at Apprentice I and keeps turning every level: one gear buys **{wardA1}** in-game days, to a new ceiling of **{wardA4}** days by Apprentice IV, on a line that reaches **{wardDaysGm}** at Grandmaster." },
+						{ "text": "Storm-resistance begins the same way: ambient stability loss runs **{stabA1}x** vanilla at Apprentice I, down to a new floor of **{stabA4}x** by Apprentice IV. It bottoms at **{stabGm}x** at Grandmaster, so even a Grandmaster still bleeds in a heavy storm. Weathered upright, never immune.", "with": "SpecializedClasses" },
+						{ "text": "Gear-thrift climbs with the band: the repair cost runs **{gearCostA1}x** to **{gearCostA4}x** by Apprentice IV." }
+					]
+				},
+				{
+					"rank": "Journeyman",
+					"summary": "The forecast names the storm's strength.",
+					"bullets": [
+						{ "text": "From Journeyman I the forecast names the storm's strength, light, building, or heavy; below that rank it stays vague." },
+						{ "text": "Ward days **{wardJ1}** at Journeyman I to a new ceiling of **{wardJ4}** by Journeyman IV. Stability loss **{stabJ1}x** to a new floor of **{stabJ4}x**. The repair cost **{gearCostJ1}x** to **{gearCostJ4}x**." }
+					]
+				},
+				{
+					"rank": "Master",
+					"summary": "The curves keep climbing.",
+					"bullets": [
+						{ "text": "The curves keep climbing; nothing new opens at this tier." },
+						{ "text": "Ward days **{wardM1}** at Master I to a new ceiling of **{wardM4}** by Master IV. Stability loss **{stabM1}x** to a new floor of **{stabM4}x**. The repair cost **{gearCostM1}x** to **{gearCostM4}x**." }
+					]
+				},
+				{
+					"rank": "Grandmaster",
+					"summary": "The storm felt a quarter hour out, weathered upright.",
+					"bullets": [
+						{ "text": "The curves reach their ends: one gear buys **{wardDaysGm}** in-game days of warding, ambient stability loss floors at **{stabGm}x**, the repair cost at **{gearCostGm}x**, and a gathering storm is felt about **{cueGmRealMin}** real minutes out, the notice everyone once got free." },
+						{ "text": "The manifest resist: a Grandmaster shrugs off a manifestation's grip on a **{manifestResistGm}%** roll, the Unquiet's one concession to a practiced hand." }
+					]
+				}
+			]
+		}
+	}
+}
