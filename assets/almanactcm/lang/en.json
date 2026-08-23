@@ -269,5 +269,16 @@
   "almanactcm:far-seed-quick": "It comes on quickly.",
   "almanactcm:far-seed-season": "It wants most of a season.",
   "almanactcm:far-seed-slow": "It holds the ground a long while.",
-  "almanactcm:far-eye-lastbore": "This ground last bore a {0}-hungry crop."
+  "almanactcm:far-eye-lastbore": "This ground last bore a {0}-hungry crop.",
+  "far-family-grains": "Grains",
+  "far-family-legumes": "Legumes",
+  "far-family-brassicas": "Brassicas",
+  "far-family-roots": "Roots",
+  "far-family-alliums": "Alliums",
+  "far-family-cucurbits": "Cucurbits",
+  "far-family-nightshades": "Nightshades",
+  "far-family-herbs": "Herbs",
+  "far-family-note-roots": "potato sits here, not with the nightshades",
+  "far-family-note-alliums": "both leeks share one pool",
+  "far-family-note-nightshades": "one crop only, so no kin to warm it"
 }

@@ -23,8 +23,14 @@ public class AlmanacTcmModSystem : ModSystem
     /// <summary>Minimum sibling version enforced at runtime; modinfo declares the
     /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).
     ///
-    /// 0.1.4, which carries the quest-step API (GetQuestStepsFor, the fuel for TCM's step
-    /// toasts) and the `doneWhen` rendering that ticks those steps in the book.
+    /// 0.2.1, which carries RegisterCropFamiliarity: the seam the Crops tab reads to show
+    /// what THIS reader has grown. Unlike the reveal and quest-step seams, this one cannot
+    /// degrade quietly. TCM's FarCropFamiliarity implements an interface that does not exist
+    /// in 0.2.0, so an older Illuminated is a TypeLoadException at registration, not a
+    /// feature that silently stays off. The floor has to move with it.
+    ///
+    /// Before that, 0.1.4, which carries the quest-step API (GetQuestStepsFor, the fuel for
+    /// TCM's step toasts) and the `doneWhen` rendering that ticks those steps in the book.
     ///
     /// History, since the reasoning still applies: the floor before this was 0.1.2, for the
     /// PACK-LEVEL `revealedBy` the guides use (alloys, smithing), which Illuminated only
@@ -32,7 +38,7 @@ public class AlmanacTcmModSystem : ModSystem
     /// so nothing breaks loudly: the earned reveal simply never happens and the chapter sits
     /// visible from the first login, which is the whole thing it exists to prevent. Pinned
     /// to 0.1.2 rather than 0.0.18 so the pair stays in step, and that holds at 0.1.4.</summary>
-    private const string MinIlluminatedVersion = "0.2.0";
+    private const string MinIlluminatedVersion = "0.2.1";
 
     /// <summary>Static access for Harmony patches, split by side (set in Start, cleared in
     /// Dispose). Singleplayer loads BOTH a client-side and a server-side ModSystem in one
@@ -424,6 +430,9 @@ public class AlmanacTcmModSystem : ModSystem
         // assembly is always present; the tab API is 0.0.2+, enforced above).
         var illuminated = capi.ModLoader.GetModSystem<AlmanacIlluminated.AlmanacIlluminatedModSystem>();
         illuminated?.RegisterBookTab(new Gui.CallingsTab(Client, Rungs));
+        // The Crops tab is Illuminated's own, and stays a plain catalogue without us. This
+        // hands it the FAR familiarity behind it, so it can show what THIS reader has grown.
+        illuminated?.RegisterCropFamiliarity(new Gui.FarCropFamiliarity(capi));
         capi.ChatCommands.Create("tcmrungs")
             .WithDescription("Print a calling's resolved rung copy (dev check of the figure pipeline). Usage: .tcmrungs WOO")
             .WithArgs(capi.ChatCommands.Parsers.OptionalWord("code"))

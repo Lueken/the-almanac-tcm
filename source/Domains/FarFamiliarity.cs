@@ -35,6 +35,7 @@ public static class FarFamiliarity
     private static readonly List<KeyValuePair<string, string>> prefixMap = new(); // code prefix -> crop id
     private static readonly Dictionary<string, string> familyOfId = new();        // crop id -> family
     private static readonly Dictionary<string, List<string>> familyMembers = new();
+    private static readonly List<string> familyOrder = new();                     // the file's own order
     private static readonly Dictionary<string, string> ripeBlockToId = new();     // exact block code -> crop id
 
     private class FamiliesFile
@@ -69,6 +70,7 @@ public static class FarFamiliarity
                         prefixMap.Add(new(prefix, id));
                 }
                 familyMembers[family] = ids;
+                familyOrder.Add(family);
             }
             // Longest prefix first, so game:crop-seed-carrot beats game:crop-carrot cleanly
             // whichever order the file lists them in.
@@ -135,6 +137,25 @@ public static class FarFamiliarity
     public static string? FamilyOf(string cropId) =>
         familyOfId.TryGetValue(cropId, out string? fam) ? fam : null;
 
+    /// <summary>Families in the taxonomy file's own order, which is the order the Crops tab
+    /// prints them in. Call EnsureLoaded first.</summary>
+    public static IReadOnlyList<string> Families => familyOrder;
+
+    /// <summary>How many crops the taxonomy files under a family. One means nothing else can
+    /// warm it, which the page says out loud. Call EnsureLoaded first.</summary>
+    public static int FamilySize(string family) =>
+        familyMembers.TryGetValue(family, out var ids) ? ids.Count : 0;
+
+    /// <summary>The family's summed counters, own crop included: the figure the family-wide
+    /// threshold is measured against.</summary>
+    public static int FamilySum(IReadOnlyDictionary<string, int>? know, string family)
+    {
+        if (!familyMembers.TryGetValue(family, out var ids)) return 0;
+        int sum = 0;
+        foreach (string id in ids) sum += OwnCount(know, id);
+        return sum;
+    }
+
     /// <summary>All registered ripe-fruit block codes with their crop ids (the vine hook's
     /// build list). Call EnsureLoaded first.</summary>
     public static IEnumerable<KeyValuePair<string, string>> RipeBlockCodes() => ripeBlockToId;
@@ -189,6 +210,11 @@ public static class FarFamiliarity
             if (mate != cropId) mateSum += OwnCount(know, mate);
         return own + Thresholds(api).Spread * mateSum;
     }
+
+    /// <summary>The live thresholds, for a caller that needs to print them (the Crops tab
+    /// says how far a harvest carries, and where the ladder ends).</summary>
+    public static (int Acquainted, int Versed, int FamilyVersed, double Spread) Ladder(ICoreAPI api) =>
+        Thresholds(api);
 
     public static bool IsAcquainted(ICoreAPI api, IReadOnlyDictionary<string, int>? know, string cropId) =>
         EffectiveCount(api, know, cropId) >= Thresholds(api).Acq;
