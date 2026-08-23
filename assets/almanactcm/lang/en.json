@@ -260,5 +260,14 @@
   "almanactcm:far-eye-crop-young": "The crop is young.",
   "almanactcm:far-eye-crop-grown": "The crop is grown, not yet ready.",
   "almanactcm:far-eye-crop-ready": "The crop is ready.",
+  "almanactcm:far-seed-blind": "You cannot read this seed.",
+  "almanactcm:far-seed-stranger": "You have never grown this. The seed tells you nothing.",
+  "almanactcm:far-seed-hunger": "It hungers for {0}.",
+  "almanactcm:far-seed-hardy": "It stands hard frost.",
+  "almanactcm:far-seed-middling": "It takes a light frost, no more.",
+  "almanactcm:far-seed-tender": "The first cold will kill it.",
+  "almanactcm:far-seed-quick": "It comes on quickly.",
+  "almanactcm:far-seed-season": "It wants most of a season.",
+  "almanactcm:far-seed-slow": "It holds the ground a long while.",
   "almanactcm:far-eye-lastbore": "This ground last bore a {0}-hungry crop."
 }

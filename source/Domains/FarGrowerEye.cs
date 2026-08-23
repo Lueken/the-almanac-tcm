@@ -204,4 +204,99 @@ public static class FarGrowerEye
             TcmLog.Cat(sapi, "far", $"vine-fruit familiarity: {ripeIds.Count} ripe fruit block(s) registered");
         }
     }
+
+    /// <summary>
+    /// The seed in the hand (found in play 2026-08-23: the farmland hover was gated but this
+    /// was not, and it is the LEAKIER of the two). Vanilla's ItemPlantableSeed.GetHeldItemInfo
+    /// unconditionally appends the crop's required nutrient, its exact consumption, its growth
+    /// time in days, and both frost limits, to any hand holding any seed. That is precisely
+    /// the crop-property knowledge the Grower's Eye sells, handed over before the player has
+    /// ever planted the thing.
+    ///
+    /// Gated on FAMILIARITY rather than rank, and deliberately so: a seed tells you about the
+    /// SPECIES, and the ruling is that familiarity decides what you know while rank decides
+    /// what your hands do. Rank appears only as the Untrained floor, because a hand that
+    /// cannot read soil cannot read a seed either.
+    ///
+    /// Implementation note: the five lines are stripped by matching their rendered Lang
+    /// prefixes rather than by truncating the buffer, because the method calls base first and
+    /// a length-based truncation would also eat the item's ordinary tooltip. If the crop block
+    /// cannot be resolved (a modded seed whose code does not follow the vanilla pattern), the
+    /// tooltip is left exactly as vanilla wrote it: silence beats a wrong readout.
+    /// </summary>
+    [HarmonyPatch(typeof(ItemPlantableSeed), nameof(ItemPlantableSeed.GetHeldItemInfo))]
+    public static class SeedReadPatch
+    {
+        public static void Postfix(ItemSlot inSlot, StringBuilder dsc, IWorldAccessor world)
+        {
+            var api = world?.Api;
+            if (api == null || api.Side != EnumAppSide.Client || dsc == null) return;
+            if (!FarFamiliarity.EyeEnabled(api)) return;
+
+            var player = (api as Vintagestory.API.Client.ICoreClientAPI)?.World?.Player;
+            if (player == null) return;
+
+            var stack = inSlot?.Itemstack;
+            string? type = stack?.Collectible?.Variant?["type"];
+            if (type == null) return;
+
+            // Same resolution vanilla uses, so we gate exactly the block it described.
+            Block? cropBlock = world.GetBlock(stack!.Collectible.CodeWithPath("crop-" + type + "-1"));
+            if (cropBlock?.CropProps == null) return;
+
+            string? cropId = FarFamiliarity.CropIdOf(api, cropBlock);
+            if (cropId == null) return; // unknown crop: leave vanilla's text alone
+
+            var know = FarFamiliarity.KnowledgeOf(api, player);
+            bool versed = FarFamiliarity.IsVersed(api, know, cropId);
+            if (versed) return; // earned it: vanilla's full figures stand
+
+            int level = FarLevelOf(api, player);
+            bool acquainted = level >= Rank.Novice && FarFamiliarity.IsAcquainted(api, know, cropId);
+
+            // Strip the five crop-property lines vanilla appended, leaving the item's own
+            // ordinary tooltip (name, satiety, freshness) untouched.
+            string[] prefixes =
+            {
+                Lang.Get("soil-nutrition-requirement"),
+                Lang.Get("soil-nutrition-consumption"),
+                Lang.Get("soil-growth-time"),
+                Lang.Get("crop-coldresistance", 0).Split('{')[0].TrimEnd(),
+                Lang.Get("crop-heatresistance", 0).Split('{')[0].TrimEnd(),
+            };
+            var kept = new List<string>();
+            foreach (string line in dsc.ToString().Split('\n'))
+            {
+                bool drop = false;
+                foreach (string p in prefixes)
+                {
+                    if (p.Length > 0 && line.TrimStart().StartsWith(p, System.StringComparison.Ordinal)) { drop = true; break; }
+                }
+                if (!drop) kept.Add(line);
+            }
+            dsc.Clear();
+            dsc.Append(string.Join("\n", kept).TrimEnd('\n'));
+            dsc.AppendLine();
+
+            if (level < Rank.Novice)
+            {
+                dsc.AppendLine(Lang.Get("almanactcm:far-seed-blind"));
+                return;
+            }
+            if (!acquainted)
+            {
+                dsc.AppendLine(Lang.Get("almanactcm:far-seed-stranger"));
+                return;
+            }
+
+            // Acquainted: the shape of the crop's needs, in words, without the figures.
+            dsc.AppendLine(Lang.Get("almanactcm:far-seed-hunger", cropBlock.CropProps.RequiredNutrient.ToString()));
+            float cold = cropBlock.CropProps.ColdDamageBelow;
+            dsc.AppendLine(Lang.Get(cold <= -8 ? "almanactcm:far-seed-hardy"
+                : cold >= 2 ? "almanactcm:far-seed-tender" : "almanactcm:far-seed-middling"));
+            double months = cropBlock.CropProps.TotalGrowthMonths;
+            dsc.AppendLine(Lang.Get(months <= 0.75 ? "almanactcm:far-seed-quick"
+                : months >= 2.0 ? "almanactcm:far-seed-slow" : "almanactcm:far-seed-season"));
+        }
+    }
 }
