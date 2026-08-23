@@ -90,15 +90,36 @@ public static class FarFamiliarity
 
     // ------------------------------------------------------------ identity
 
+    // The AoG Breeding Addon's varietal sizes (verified 1.2.2: game:crop-(size)-(type)-(stage)).
+    // A varietal IS its species for familiarity: growing wild carrots teaches you carrots.
+    private static readonly string[] varietalSizes =
+        { "wild", "small", "medium", "decent", "large", "hefty", "gigantic" };
+
     /// <summary>Canonical crop id for a block, by longest code-prefix match; null when the
-    /// block is no known crop (unknown crops honestly stay strangers).</summary>
+    /// block is no known crop (unknown crops honestly stay strangers). Breeding-Addon
+    /// varietal codes normalize onto their species before matching.</summary>
     public static string? CropIdOf(ICoreAPI api, Block? block)
     {
         if (block?.Code == null) return null;
         EnsureLoaded(api);
         string code = block.Code.Domain + ":" + block.Code.Path;
+
         foreach (var (prefix, id) in prefixMap)
             if (code.StartsWith(prefix, System.StringComparison.Ordinal)) return id;
+
+        const string varietalHead = "game:crop-";
+        if (code.StartsWith(varietalHead, System.StringComparison.Ordinal))
+        {
+            string rest = code.Substring(varietalHead.Length);
+            foreach (string size in varietalSizes)
+            {
+                if (!rest.StartsWith(size + "-", System.StringComparison.Ordinal)) continue;
+                string normalized = varietalHead + rest.Substring(size.Length + 1);
+                foreach (var (prefix, id) in prefixMap)
+                    if (normalized.StartsWith(prefix, System.StringComparison.Ordinal)) return id;
+                break;
+            }
+        }
         return null;
     }
 
