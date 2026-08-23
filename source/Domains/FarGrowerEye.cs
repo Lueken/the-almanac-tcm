@@ -256,13 +256,20 @@ public static class FarGrowerEye
 
             // Strip the five crop-property lines vanilla appended, leaving the item's own
             // ordinary tooltip (name, satiety, freshness) untouched.
+            // The first three keys take no argument, so Lang.Get returns the bare label and
+            // matching is direct. The two resistance keys DO take one, and Lang.Get
+            // substitutes it, so asking for the template back and splitting on '{' returns
+            // the whole rendered string and matches nothing (found in play 2026-08-23: the
+            // frost lines survived the strip). Render them with a sentinel instead and cut
+            // at it, which yields the true literal prefix whatever the translation says.
+            const string mark = "￿";
             string[] prefixes =
             {
                 Lang.Get("soil-nutrition-requirement"),
                 Lang.Get("soil-nutrition-consumption"),
                 Lang.Get("soil-growth-time"),
-                Lang.Get("crop-coldresistance", 0).Split('{')[0].TrimEnd(),
-                Lang.Get("crop-heatresistance", 0).Split('{')[0].TrimEnd(),
+                Lang.Get("crop-coldresistance", mark).Split(mark)[0],
+                Lang.Get("crop-heatresistance", mark).Split(mark)[0],
             };
             var kept = new List<string>();
             foreach (string line in dsc.ToString().Split('\n'))
