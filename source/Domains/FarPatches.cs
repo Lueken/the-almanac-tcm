@@ -405,12 +405,24 @@ public static class FarPatches
     /// ripe = full, penultimate = partial, an immature break ~ nothing. Stage parses from the
     /// block's last code part; the total comes from CropProps.GrowthStages by reflection so this
     /// stays a Block-typed patch (BlockCrop need not be a compile-time reference).</summary>
-    /// <summary>Phase 2, the Untrained dock (penalty-only): a level-0 hand bruises the harvest.
-    /// Rides the by-ref drop multiplier the base drop roll consumes; Novice+ is untouched.</summary>
-    public static void HarvestDockPrefix(IPlayer byPlayer, ref float dropQuantityMultiplier)
+    /// <summary>The yield hand (RULED 2026-08-22, supersedes the plain Untrained dock): the
+    /// per-crop per-rank table from ModConfig/almanactcm/FAR-yields.json rides the by-ref
+    /// drop multiplier the base drop roll consumes, COMPOSING with Specialized Classes' own
+    /// crop-yield multipliers (both multiply, neither fights). A crop without a table row
+    /// falls back to the legacy dock (a level-0 hand bruises the harvest, Novice+ untouched);
+    /// the table's master switch off means TCM touches yield not at all.</summary>
+    public static void HarvestDockPrefix(Block __instance, IPlayer byPlayer, ref float dropQuantityMultiplier)
     {
         if (byPlayer?.Entity?.World?.Side != EnumAppSide.Server) return;
-        if (FarDomain.LevelOf(byPlayer) > 0) return;
+        int level = FarDomain.LevelOf(byPlayer);
+
+        double? tabled = FarYieldTable.MultiplierFor(byPlayer.Entity.World.Api, __instance, level);
+        if (tabled != null)
+        {
+            dropQuantityMultiplier *= (float)tabled.Value;
+            return;
+        }
+        if (level > 0) return;
         dropQuantityMultiplier *= (float)FarDomain.Knob(FarDomain.HarvestDockUntrained, 0.85);
     }
 
@@ -494,6 +506,26 @@ public static class FarPatches
         // pays. Two breaks of one position inside a second cannot happen — the first one took it.
         Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechHarvesting,
             HashCode.Combine("crop", pos.X, pos.Y, pos.Z, world.ElapsedMilliseconds / 1000), practice);
+
+        // Crop familiarity + rotation memory (the Grower's Eye data layer, RULED 2026-08-22).
+        // Rides AFTER the ripeness floor above, so only a real harvest teaches: one count per
+        // crop per break into the synced Knowledge store (far-crop-<id>), and the farmland
+        // below remembers what it last bore in its own CropAttributes tree (serialized and
+        // synced by vanilla — BEFarmland.cs:351/368 — so the Journeyman read needs no
+        // serialization patches). Unknown crops honestly stay strangers.
+        string? cropId = FarFamiliarity.CropIdOf(world.Api, crop);
+        if (cropId != null && world.Api is Vintagestory.API.Server.ICoreServerAPI sapi)
+        {
+            FarFamiliarity.BumpHarvest(sapi, byPlayer, cropId);
+
+            if (world.BlockAccessor.GetBlockEntity(pos.DownCopy()) is Vintagestory.GameContent.BlockEntityFarmland farmlandBe)
+            {
+                farmlandBe.CropAttributes.SetString(FarGrowerEye.LastBoreIdAttr, cropId);
+                farmlandBe.CropAttributes.SetString(FarGrowerEye.LastBoreNutrientAttr,
+                    crop.CropProps.RequiredNutrient.ToString());
+                farmlandBe.MarkDirty(true);
+            }
+        }
     }
 
     /// <summary>True when the player's active hand is a scythe. Checks the declared tool tag first

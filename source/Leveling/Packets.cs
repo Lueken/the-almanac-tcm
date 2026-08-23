@@ -84,11 +84,39 @@ public class ClientConfigPacket
     [DefaultValue(true)]
     public bool alloyLedgerGated = true;
 
+    // Grower's Eye (FAR, ruled 2026-08-22): the readout ladder renders client-side from the
+    // synced familiarity counters, so the toggle and thresholds ride the same join packet.
+    [ProtoMember(2)]
+    [DefaultValue(true)]
+    public bool growerEyeFar = true;
+
+    [ProtoMember(3)]
+    [DefaultValue(5)]
+    public int famAcquainted = 5;
+
+    [ProtoMember(4)]
+    [DefaultValue(25)]
+    public int famVersed = 25;
+
+    [ProtoMember(5)]
+    [DefaultValue(50)]
+    public int famFamilyVersed = 50;
+
+    [ProtoMember(6)]
+    [DefaultValue(0.5)]
+    public double famSpread = 0.5;
+
     public ClientConfigPacket() { }
 
-    public ClientConfigPacket(bool alloyLedgerGated)
+    public ClientConfigPacket(bool alloyLedgerGated, bool growerEyeFar,
+        int famAcquainted, int famVersed, int famFamilyVersed, double famSpread)
     {
         this.alloyLedgerGated = alloyLedgerGated;
+        this.growerEyeFar = growerEyeFar;
+        this.famAcquainted = famAcquainted;
+        this.famVersed = famVersed;
+        this.famFamilyVersed = famFamilyVersed;
+        this.famSpread = famSpread;
     }
 }
 

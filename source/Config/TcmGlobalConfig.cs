@@ -101,4 +101,30 @@ public class TcmGlobalConfig
     /// servers that want the convenience for everyone. Server-owned and synced to clients on
     /// join, since the ledger opens client-side.</summary>
     public bool AlloyLedgerGated { get; set; } = true;
+
+    /// <summary>The Grower's Eye master toggle (FAR ruled 2026-08-22). true = farmland and crop
+    /// hover info is gated by the viewer's FAR rank and per-crop familiarity (Untrained sees
+    /// nothing, rough words from Novice, full figures from Apprentice with the crop Versed);
+    /// false = vanilla shows everything to everyone. Synced to clients on join, since the
+    /// readout renders client-side. The rank rungs themselves are the Rank constants, not
+    /// knobs: Novice rough, Apprentice full, Journeyman family-wide.</summary>
+    public bool GrowerEyeFAR { get; set; } = true;
+
+    /// <summary>Crop familiarity thresholds (the Grower's Eye data layer, ruled 2026-08-22):
+    /// harvests of a crop before it is Acquainted (rough readout) and Versed (full readout).
+    /// Counters live in the synced Knowledge store as far-crop-(id), bumped once per harvest.</summary>
+    public int FamAcquaintedHarvests { get; set; } = 5;
+    public int FamVersedHarvests { get; set; } = 25;
+
+    /// <summary>Family knowledge: effective familiarity with a crop = its own harvest count plus
+    /// FamSpread times the summed counts of its family-mates (crop-families.json taxonomy).
+    /// Knowledge of one legume teaches you something about all legumes, never everything.
+    /// The family-wide Journeyman read opens when the family's summed counters (own included)
+    /// reach FamFamilyVersedSum.</summary>
+    public double FamSpread { get; set; } = 0.5;
+    public int FamFamilyVersedSum { get; set; } = 50;
+
+    /// <summary>Familiarity counter ceiling per crop, purely to bound the synced store; far past
+    /// every threshold at the default.</summary>
+    public int FamCountCap { get; set; } = 500;
 }

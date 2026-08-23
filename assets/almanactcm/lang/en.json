@@ -246,5 +246,19 @@
   "almanactcm:cfg-banner-hold": "Banner hold (seconds)",
   "almanactcm:cfg-banner-hold-c": "How long the banner sits at full ink between its fade-in and fade-out. Queued banners wait their turn.",
   "almanactcm:cfg-quest-toasts": "Show quest step ticks",
-  "almanactcm:cfg-quest-toasts-c": "The small parchment strip that ticks off a checklist line from the almanac's guides when your work closes it. Off silences the strip; the checklists in the book still fill in as normal."
+  "almanactcm:cfg-quest-toasts-c": "The small parchment strip that ticks off a checklist line from the almanac's guides when your work closes it. Off silences the strip; the checklists in the book still fill in as normal.",
+  "almanactcm:far-eye-blind": "You read nothing in this soil.",
+  "almanactcm:far-eye-rough": "The soil is {0}; {1} in {2}.",
+  "almanactcm:far-eye-w-parched": "parched",
+  "almanactcm:far-eye-w-damp": "damp",
+  "almanactcm:far-eye-w-soaked": "soaked",
+  "almanactcm:far-eye-w-poor": "poor",
+  "almanactcm:far-eye-w-fair": "fair",
+  "almanactcm:far-eye-w-rich": "rich",
+  "almanactcm:far-eye-soil-full": "Nutrients: N {0}, P {1}, K {2}. Moisture: {3}%",
+  "almanactcm:far-eye-stranger": "This plant is a stranger to you.",
+  "almanactcm:far-eye-crop-young": "The crop is young.",
+  "almanactcm:far-eye-crop-grown": "The crop is grown, not yet ready.",
+  "almanactcm:far-eye-crop-ready": "The crop is ready.",
+  "almanactcm:far-eye-lastbore": "This ground last bore a {0}-hungry crop."
 }

@@ -227,8 +227,14 @@ public class LevelingServer
     private void SyncAll(IServerPlayer byPlayer, PlayerDomainSet domainSet)
     {
         // Client-facing config flags first, so client-side gates honour the server's settings.
-        bool gated = AlmanacTcmModSystem.ServerInstance?.GlobalConfig.AlloyLedgerGated ?? true;
-        channel.SendPacket(new ClientConfigPacket(gated), byPlayer);
+        var g = AlmanacTcmModSystem.ServerInstance?.GlobalConfig;
+        channel.SendPacket(new ClientConfigPacket(
+            g?.AlloyLedgerGated ?? true,
+            g?.GrowerEyeFAR ?? true,
+            g?.FamAcquaintedHarvests ?? 5,
+            g?.FamVersedHarvests ?? 25,
+            g?.FamFamilyVersedSum ?? 50,
+            g?.FamSpread ?? 0.5), byPlayer);
 
         foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)
         {

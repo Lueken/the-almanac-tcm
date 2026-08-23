@@ -1,0 +1,126 @@
+[
+	// FAR lifecycle: cut-and-come-again as pure data (RULED 2026-08-22, engine-verified).
+	// Vanilla BlockBehaviorHarvestable with harvestedBlockCode reverts the crop to a mid
+	// growth stage on a right-click pick; regrowth rides the normal farmland timer, which
+	// keeps polling while a crop sits ripe (BEFarmland.cs:85-90). Breaking the plant remains
+	// the full, final harvest with vanilla's own bigger drops — the standing trade is keep
+	// picking small, or pull the plant. behaviorsByType REPLACES the plain behaviors list for
+	// the matched variant, so Unstable is restated in every entry. The picked stage sits one
+	// below each crop's seed-bolt stage, matching DAR's own herb-then-seed staging. All
+	// entries are dependsOn-gated (adoption lands with the 0.5 deploy). Horseradish is
+	// deliberately absent: a perennial ROOT is dug, not picked, and its lifecycle waits on a
+	// design that respects that. Baseline set: chives, lettuce (leaf), eruca, estragon,
+	// cucumber, tomato, alfalfa.
+	{
+		"op": "addmerge",
+		"path": "/behaviorsByType",
+		"value": {
+			"*-6": [
+				{ "name": "Unstable" },
+				{ "name": "Harvestable", "properties": {
+					"harvestTime": 0.6,
+					"harvestedStacks": [ { "type": "item", "code": "deartibusrusticis:herb-chives", "quantity": { "avg": 1.5, "var": 1 } } ],
+					"harvestedBlockCode": "deartibusrusticis:crop-chives-4"
+				} }
+			]
+		},
+		"file": "deartibusrusticis:blocktypes/plant/crop/chives.json",
+		"dependsOn": [ { "modid": "deartibusrusticis" } ]
+	},
+	{
+		"op": "addmerge",
+		"path": "/behaviorsByType",
+		"value": {
+			"*-6": [
+				{ "name": "Unstable" },
+				{ "name": "Harvestable", "properties": {
+					"harvestTime": 0.6,
+					"harvestedStacks": [ { "type": "item", "code": "deartibusrusticis:vegetable-lettuce", "quantity": { "avg": 1.5, "var": 1 } } ],
+					"harvestedBlockCode": "deartibusrusticis:crop-lettuce-4"
+				} }
+			]
+		},
+		"file": "deartibusrusticis:blocktypes/plant/crop/lettuce.json",
+		"dependsOn": [ { "modid": "deartibusrusticis" } ]
+	},
+	{
+		"op": "addmerge",
+		"path": "/behaviorsByType",
+		"value": {
+			"*-5": [
+				{ "name": "Unstable" },
+				{ "name": "Harvestable", "properties": {
+					"harvestTime": 0.6,
+					"harvestedStacks": [ { "type": "item", "code": "deartibusrusticis:herb-eruca", "quantity": { "avg": 2, "var": 1 } } ],
+					"harvestedBlockCode": "deartibusrusticis:crop-eruca-3"
+				} }
+			]
+		},
+		"file": "deartibusrusticis:blocktypes/plant/crop/eruca.json",
+		"dependsOn": [ { "modid": "deartibusrusticis" } ]
+	},
+	{
+		"op": "addmerge",
+		"path": "/behaviorsByType",
+		"value": {
+			"*-6": [
+				{ "name": "Unstable" },
+				{ "name": "Harvestable", "properties": {
+					"harvestTime": 0.6,
+					"harvestedStacks": [ { "type": "item", "code": "deartibusrusticis:herb-estragon", "quantity": { "avg": 2, "var": 1 } } ],
+					"harvestedBlockCode": "deartibusrusticis:crop-estragon-4"
+				} }
+			]
+		},
+		"file": "deartibusrusticis:blocktypes/plant/crop/estragon.json",
+		"dependsOn": [ { "modid": "deartibusrusticis" } ]
+	},
+	{
+		"op": "addmerge",
+		"path": "/behaviorsByType",
+		"value": {
+			"*-12": [
+				{ "name": "Unstable" },
+				{ "name": "Harvestable", "properties": {
+					"harvestTime": 0.6,
+					"harvestedStacks": [ { "type": "item", "code": "deartibusrusticis:vegetable-cucumber", "quantity": { "avg": 2, "var": 1 } } ],
+					"harvestedBlockCode": "deartibusrusticis:crop-cucumber-9"
+				} }
+			]
+		},
+		"file": "deartibusrusticis:blocktypes/plant/crop/cucumber.json",
+		"dependsOn": [ { "modid": "deartibusrusticis" } ]
+	},
+	{
+		"op": "addmerge",
+		"path": "/behaviorsByType",
+		"value": {
+			"*-7": [
+				{ "name": "Unstable" },
+				{ "name": "Harvestable", "properties": {
+					"harvestTime": 0.6,
+					"harvestedStacks": [ { "type": "item", "code": "bdcrop:vegetable-tomato", "quantity": { "avg": 3, "var": 1 } } ],
+					"harvestedBlockCode": "bdcrop:crop-tomato-5"
+				} }
+			]
+		},
+		"file": "bdcrop:blocktypes/plant/crop/tomato.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	},
+	{
+		"op": "addmerge",
+		"path": "/behaviorsByType",
+		"value": {
+			"*-8": [
+				{ "name": "Unstable" },
+				{ "name": "Harvestable", "properties": {
+					"harvestTime": 0.6,
+					"harvestedStacks": [ { "type": "item", "code": "bdcrop:vegetable-alfalfa", "quantity": { "avg": 1.5, "var": 1 } } ],
+					"harvestedBlockCode": "bdcrop:crop-alfalfa-5"
+				} }
+			]
+		},
+		"file": "bdcrop:blocktypes/plant/crop/alfalfa.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	}
+]

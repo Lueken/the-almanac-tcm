@@ -99,7 +99,13 @@ public class LevelingClient
     private void OnClientConfigPacket(ClientConfigPacket packet)
     {
         var core = AlmanacTcmModSystem.ClientInstance;
-        if (core != null) core.AlloyLedgerGated = packet.alloyLedgerGated;
+        if (core == null) return;
+        core.AlloyLedgerGated = packet.alloyLedgerGated;
+        core.GrowerEyeFar = packet.growerEyeFar;
+        core.FamAcquainted = packet.famAcquainted;
+        core.FamVersed = packet.famVersed;
+        core.FamFamilyVersed = packet.famFamilyVersed;
+        core.FamSpread = packet.famSpread;
     }
 
     private void OnAffinityPacket(AffinityPacket packet)

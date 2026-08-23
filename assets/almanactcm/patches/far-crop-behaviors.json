@@ -1,0 +1,55 @@
+[
+	// FAR N-fixation (RULED 2026-08-22, reality baseline): the seven Fabaceae get the capped
+	// AlmanacNitrogenFixing crop behavior. Relative magnitudes follow the baseline: fava tops
+	// the annual pulses, alfalfa the perennials, soybean fixes least because its seed removes
+	// more N than the plant banks (the net-sink flag). The cap is the behavior's own — the
+	// engine's ConsumeNutrients floors at zero with no ceiling, so fixation without a cap
+	// would be a soil pump. DAR and bdcrop entries are dependsOn-gated: inert until that mod
+	// is in the pack (adoption lands with the 0.5 deploy).
+	{
+		"op": "addmerge",
+		"path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacNitrogenFixing", "properties": { "fixPerStage": 0.4, "nCap": 55 } } ],
+		"file": "game:blocktypes/plant/crop/soybean.json"
+	},
+	{
+		"op": "addmerge",
+		"path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacNitrogenFixing", "properties": { "fixPerStage": 1.0, "nCap": 65 } } ],
+		"file": "game:blocktypes/plant/crop/peanut.json"
+	},
+	{
+		"op": "addmerge",
+		"path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacNitrogenFixing", "properties": { "fixPerStage": 1.0, "nCap": 70 } } ],
+		"file": "game:blocktypes/plant/crop/licorice.json"
+	},
+	{
+		"op": "addmerge",
+		"path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacNitrogenFixing", "properties": { "fixPerStage": 2.0, "nCap": 85 } } ],
+		"file": "deartibusrusticis:blocktypes/plant/crop/favabeans.json",
+		"dependsOn": [ { "modid": "deartibusrusticis" } ]
+	},
+	{
+		"op": "addmerge",
+		"path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacNitrogenFixing", "properties": { "fixPerStage": 1.2, "nCap": 70 } } ],
+		"file": "deartibusrusticis:blocktypes/plant/crop/lentils.json",
+		"dependsOn": [ { "modid": "deartibusrusticis" } ]
+	},
+	{
+		"op": "addmerge",
+		"path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacNitrogenFixing", "properties": { "fixPerStage": 1.0, "nCap": 70 } } ],
+		"file": "deartibusrusticis:blocktypes/plant/crop/peas.json",
+		"dependsOn": [ { "modid": "deartibusrusticis" } ]
+	},
+	{
+		"op": "addmerge",
+		"path": "/cropProps/behaviors",
+		"value": [ { "name": "AlmanacNitrogenFixing", "properties": { "fixPerStage": 2.5, "nCap": 90 } } ],
+		"file": "bdcrop:blocktypes/plant/crop/alfalfa.json",
+		"dependsOn": [ { "modid": "bdcrop" } ]
+	}
+]

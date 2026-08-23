@@ -70,6 +70,12 @@ public class AlmanacTcmModSystem : ModSystem
         EnforceSiblingVersions(api);
         RegisterDomains(api);
 
+        // FAR crop behaviors (RULED 2026-08-22): registered on BOTH sides so the blocktype
+        // attachment patches (assets/almanactcm/patches/far-crop-behaviors.json) parse
+        // identically everywhere; the behaviors themselves act server-side only.
+        api.RegisterCropBehavior("AlmanacNitrogenFixing", typeof(Farming.CropBehaviorNitrogenFixing));
+        api.RegisterCropBehavior("AlmanacSecondaryNutrients", typeof(Farming.CropBehaviorSecondaryNutrients));
+
         // The worked-ground overlay (FOR Memory + FIS Read) rides the vanilla map system's own
         // per-player data channel; registered both sides like every MapLayer.
         api.ModLoader.GetModSystem<Vintagestory.GameContent.WorldMapManager>()
@@ -277,6 +283,9 @@ public class AlmanacTcmModSystem : ModSystem
         // Registered after the ledger is live like every other domain.
         Domains.FarPatches.RegisterServer(sapi);
         Domains.FarBonusPatches.RegisterServer(sapi);
+        // The per-crop yield table loads (or first-run generates, which needs the families
+        // asset) once assets are certainly ready.
+        sapi.Event.SaveGameLoaded += () => Domains.FarYieldTable.LoadServer(sapi);
         Domains.CooPatches.RegisterServer(sapi);
         Domains.CooBonusPatches.RegisterServer(sapi);
         Domains.AniPatches.RegisterServer(sapi);
@@ -448,6 +457,15 @@ public class AlmanacTcmModSystem : ModSystem
     /// <summary>Client mirror of the server's <see cref="Config.TcmGlobalConfig.AlloyLedgerGated"/>,
     /// synced on join. Defaults to the ruled gated state until the server says otherwise.</summary>
     public bool AlloyLedgerGated { get; set; } = true;
+
+    /// <summary>Client mirrors of the Grower's Eye settings (FAR, ruled 2026-08-22), synced on
+    /// join in the same ClientConfigPacket: the readout ladder is evaluated client-side from
+    /// the synced familiarity counters, so the thresholds must match the server's knobs.</summary>
+    public bool GrowerEyeFar { get; set; } = true;
+    public int FamAcquainted { get; set; } = 5;
+    public int FamVersed { get; set; } = 25;
+    public int FamFamilyVersed { get; set; } = 50;
+    public double FamSpread { get; set; } = 0.5;
 
     private void RegisterDomains(ICoreAPI api)
     {
