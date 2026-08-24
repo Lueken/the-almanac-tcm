@@ -17,24 +17,34 @@ namespace AlmanacTcm.Domains;
 /// verified 1.22), and the farmland hover IS BlockEntityFarmland.GetBlockInfo — so one postfix
 /// there rewrites everything the player is told about soil and crop.
 ///
-/// The ladder (rank is the CEILING, per-crop familiarity decides what you see of THIS crop):
-///  - Untrained: nothing. The soil keeps its counsel.
-///  - Novice+: rough soil words (parched/damp/soaked, dominant nutrient poor/fair/rich);
-///    the crop in rough words (young/grown/ready) only if Acquainted, else a stranger line.
-///  - Apprentice+: bare farmland reads in full vanilla figures (reading the GROUND is a skill
-///    of the eyes — the one sanctioned rank-only information touch point, division-of-labor
-///    ruling). A planted crop still reads rough until the crop is Versed; Versed restores the
-///    full vanilla readout, demand letter included.
-///  - Journeyman+ with the family Versed: the farmland remembers for you — the rotation
-///    memory line ("last bore a K-hungry crop"), earned rather than free. Stored in the
-///    farmland's own CropAttributes tree (BEFarmland.cs:351/368: serialized AND synced, the
-///    sanctioned bag; no serialization patches).
+/// TWO CHANNELS, INDEPENDENT (RULED by Jeffrey 2026-08-23, superseding the single rank-ceiling
+/// ladder this shipped with). The readout is two separate things stacked in one tooltip, and
+/// neither gates the other:
 ///
-/// v1 approximation, recorded: in the Apprentice-and-up not-yet-Versed band the soil figures
-/// are rebuilt from the farmland's synced state (nutrient values, moisture), which drops
-/// vanilla's colored growth-speed line — deliberately, since how THIS crop responds to this
-/// soil is exactly crop-property knowledge — and any fertilizer-overlay detail from the base
-/// info, which returns in full once the crop is Versed.
+///  - THE GROUND is read by FAR RANK. Health, fertility and hydration are a farmer's skill of
+///    the eyes, and no amount of familiarity with a plant teaches them.
+///      Untrained: nothing. Novice+: rough words (parched/damp/soaked, dominant nutrient
+///      poor/fair/rich). Apprentice+: the figures.
+///
+///  - THE PLANT is read by FAMILIARITY, with NO rank in it at all. Which nutrient it wants,
+///    what cold and heat it stands, how long it holds the ground, and how far along it is.
+///      Stranger: a stranger line. Acquainted: the same words the seed in the hand gives, so
+///      the two surfaces cannot contradict each other. Versed: the figures.
+///
+/// The rule this keeps: familiarity decides what you KNOW, rank decides what your HANDS do.
+/// Reading soil is a trained hand. Recognising a plant you have grown a hundred times is not.
+/// The earlier version let rank cap the crop lines, which is how an Untrained hand that had
+/// grown garlic five times could read it in the book and not in the world.
+///
+///  - Journeyman+ with the family Versed: the rotation memory line ("last bore a K-hungry
+///    crop"). This one IS a ground reading, which is why it is the single rank gate left on
+///    anything crop-shaped. Stored in the farmland's own CropAttributes tree (BEFarmland.cs:
+///    351/368: serialized AND synced, the sanctioned bag; no serialization patches).
+///
+/// Vanilla's untouched text is left alone only when BOTH channels are at full, because that is
+/// exactly what vanilla already says. Anywhere else the tooltip is rebuilt from the farmland's
+/// synced state, which drops vanilla's coloured growth-speed line (deliberately: how THIS crop
+/// responds to THIS soil is crop-property knowledge) and any fertilizer-overlay detail.
 /// </summary>
 public static class FarGrowerEye
 {
@@ -75,37 +85,27 @@ public static class FarGrowerEye
             IFarmlandBlockEntity farmland = __instance!;
             int level = FarLevelOf(api, forPlayer);
 
-            // The soil keeps its counsel from an Untrained hand.
-            if (level < Rank.Novice)
-            {
-                dsc.Clear();
-                dsc.AppendLine(Lang.Get("almanactcm:far-eye-blind"));
-                return;
-            }
-
             Block? cropBlock = api.World.BlockAccessor.GetBlock(farmland.UpPos);
             bool hasCrop = cropBlock?.CropProps != null;
             string? cropId = hasCrop ? FarFamiliarity.CropIdOf(api, cropBlock) : null;
             var know = FarFamiliarity.KnowledgeOf(api, forPlayer);
 
-            if (level < Rank.Apprentice)
-            {
-                dsc.Clear();
-                AppendRoughSoil(dsc, farmland);
-                if (hasCrop) AppendCropLine(api, dsc, cropBlock!, cropId, know, roughOnly: true);
-                return;
-            }
+            // Two channels, neither gating the other: the ground by rank, the plant by
+            // familiarity. Bare ground counts as a full plant reading, since there is no plant.
+            bool groundFull = level >= Rank.Apprentice;
+            bool plantFull = !hasCrop || (cropId != null && FarFamiliarity.IsVersed(api, know, cropId));
 
-            // Apprentice and up. Bare ground reads in full; a planted crop the viewer is not
-            // Versed with pulls the readout back to figures-plus-rough-crop.
-            bool versed = cropId != null && FarFamiliarity.IsVersed(api, know, cropId);
-            if (hasCrop && !versed)
+            if (!(groundFull && plantFull))
             {
                 dsc.Clear();
-                AppendFullSoil(dsc, farmland);
-                AppendCropLine(api, dsc, cropBlock!, cropId, know, roughOnly: true);
+
+                if (groundFull) AppendFullSoil(dsc, farmland);
+                else if (level >= Rank.Novice) AppendRoughSoil(dsc, farmland);
+                else dsc.AppendLine(Lang.Get("almanactcm:far-eye-blind"));
+
+                if (hasCrop) AppendCrop(api, dsc, cropBlock!, cropId, know);
             }
-            // else: the vanilla readout stands untouched (bare ground, or a Versed crop).
+            // else: vanilla's own readout already says both channels in full; leave it.
 
             // The rotation memory (Journeyman+, the last-borne crop's family Versed).
             if (level >= Rank.Journeyman)
@@ -144,19 +144,50 @@ public static class FarGrowerEye
                 (int)n[0], (int)n[1], (int)n[2], (int)(farmland.MoistureLevel * 100)));
         }
 
-        private static void AppendCropLine(ICoreAPI api, StringBuilder dsc, Block cropBlock,
-            string? cropId, IReadOnlyDictionary<string, int>? know, bool roughOnly)
+        /// <summary>
+        /// The plant channel. No rank anywhere in here by ruling: what a grower knows about a
+        /// crop comes from having grown it. The Acquainted lines are deliberately the SAME
+        /// strings the seed in the hand prints, because a player who can read a garlic seed
+        /// must not then find the growing garlic illegible.
+        /// </summary>
+        private static void AppendCrop(ICoreAPI api, StringBuilder dsc, Block cropBlock,
+            string? cropId, IReadOnlyDictionary<string, int>? know)
         {
             if (cropId == null || !FarFamiliarity.IsAcquainted(api, know, cropId))
             {
                 dsc.AppendLine(Lang.Get("almanactcm:far-eye-stranger"));
                 return;
             }
+
+            var cp = cropBlock.CropProps!;
+
+            // How far along it is: a fact about the plant in front of you, so familiarity.
             double frac = 1.0;
-            if (int.TryParse(cropBlock.LastCodePart(), out int stage) && cropBlock.CropProps!.GrowthStages > 0)
-                frac = stage / (double)cropBlock.CropProps.GrowthStages;
+            if (int.TryParse(cropBlock.LastCodePart(), out int stage) && cp.GrowthStages > 0)
+                frac = stage / (double)cp.GrowthStages;
             dsc.AppendLine(Lang.Get(frac < 0.5 ? "almanactcm:far-eye-crop-young"
                 : frac < 1.0 ? "almanactcm:far-eye-crop-grown" : "almanactcm:far-eye-crop-ready"));
+
+            if (FarFamiliarity.IsVersed(api, know, cropId))
+            {
+                double days = cp.TotalGrowthMonths > 0
+                    ? cp.TotalGrowthMonths * api.World.Calendar.DaysPerMonth
+                    : cp.TotalGrowthDays;
+                dsc.AppendLine(Lang.Get("almanactcm:far-eye-crop-figures",
+                    cp.RequiredNutrient.ToString(),
+                    (int)cp.NutrientConsumption,
+                    (int)cp.ColdDamageBelow,
+                    (int)cp.HeatDamageAbove,
+                    (int)System.Math.Round(days)));
+                return;
+            }
+
+            dsc.AppendLine(Lang.Get("almanactcm:far-seed-hunger", cp.RequiredNutrient.ToString()));
+            dsc.AppendLine(Lang.Get(cp.ColdDamageBelow <= -8 ? "almanactcm:far-seed-hardy"
+                : cp.ColdDamageBelow >= 2 ? "almanactcm:far-seed-tender" : "almanactcm:far-seed-middling"));
+            double months = cp.TotalGrowthMonths;
+            dsc.AppendLine(Lang.Get(months <= 0.75 ? "almanactcm:far-seed-quick"
+                : months >= 2.0 ? "almanactcm:far-seed-slow" : "almanactcm:far-seed-season"));
         }
     }
 
@@ -215,8 +246,10 @@ public static class FarGrowerEye
     ///
     /// Gated on FAMILIARITY rather than rank, and deliberately so: a seed tells you about the
     /// SPECIES, and the ruling is that familiarity decides what you know while rank decides
-    /// what your hands do. Rank appears only as the Untrained floor, because a hand that
-    /// cannot read soil cannot read a seed either.
+    /// what your hands do. There is NO rank in this surface at all (RULED 2026-08-23, replacing
+    /// the Untrained floor this shipped with): a seed you have grown is a seed you recognise,
+    /// whatever your hands can do with soil. far-seed-blind is retired by that ruling and kept
+    /// only so an older translation does not break.
     ///
     /// Implementation note: the five lines are stripped by matching their rendered Lang
     /// prefixes rather than by truncating the buffer, because the method calls base first and
@@ -251,8 +284,7 @@ public static class FarGrowerEye
             bool versed = FarFamiliarity.IsVersed(api, know, cropId);
             if (versed) return; // earned it: vanilla's full figures stand
 
-            int level = FarLevelOf(api, player);
-            bool acquainted = level >= Rank.Novice && FarFamiliarity.IsAcquainted(api, know, cropId);
+            bool acquainted = FarFamiliarity.IsAcquainted(api, know, cropId);
 
             // Strip the five crop-property lines vanilla appended, leaving the item's own
             // ordinary tooltip (name, satiety, freshness) untouched.
@@ -285,11 +317,6 @@ public static class FarGrowerEye
             dsc.Append(string.Join("\n", kept).TrimEnd('\n'));
             dsc.AppendLine();
 
-            if (level < Rank.Novice)
-            {
-                dsc.AppendLine(Lang.Get("almanactcm:far-seed-blind"));
-                return;
-            }
             if (!acquainted)
             {
                 dsc.AppendLine(Lang.Get("almanactcm:far-seed-stranger"));

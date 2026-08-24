@@ -260,6 +260,7 @@
   "almanactcm:far-eye-crop-young": "The crop is young.",
   "almanactcm:far-eye-crop-grown": "The crop is grown, not yet ready.",
   "almanactcm:far-eye-crop-ready": "The crop is ready.",
+  "almanactcm:far-eye-crop-figures": "It needs {0}, drawing {1}; it stands {2}° to {3}°; {4} days.",
   "almanactcm:far-seed-blind": "You cannot read this seed.",
   "almanactcm:far-seed-stranger": "You have never grown this. The seed tells you nothing.",
   "almanactcm:far-seed-hunger": "It hungers for {0}.",
