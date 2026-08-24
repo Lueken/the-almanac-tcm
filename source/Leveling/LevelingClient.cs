@@ -125,6 +125,7 @@ public class LevelingClient
         core.FamVersed = packet.famVersed;
         core.FamFamilyVersed = packet.famFamilyVersed;
         core.FamSpread = packet.famSpread;
+        core.FamKinCeiling = packet.famKinCeiling;
     }
 
     private void OnAffinityPacket(AffinityPacket packet)

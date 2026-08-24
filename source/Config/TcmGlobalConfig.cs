@@ -110,11 +110,31 @@ public class TcmGlobalConfig
     /// knobs: Novice rough, Apprentice full, Journeyman family-wide.</summary>
     public bool GrowerEyeFAR { get; set; } = true;
 
-    /// <summary>Crop familiarity thresholds (the Grower's Eye data layer, ruled 2026-08-22):
-    /// harvests of a crop before it is Acquainted (rough readout) and Versed (full readout).
-    /// Counters live in the synced Knowledge store as far-crop-(id), bumped once per harvest.</summary>
-    public int FamAcquaintedHarvests { get; set; } = 5;
-    public int FamVersedHarvests { get; set; } = 25;
+    /// <summary>Crop familiarity thresholds (the Grower's Eye data layer, ruled 2026-08-22;
+    /// RECALIBRATED 2026-08-24): credited harvest DAYS with a crop before it is Acquainted
+    /// (rough readout) and Versed (full readout). Counters live in the synced Knowledge store
+    /// as far-crop-(id).
+    ///
+    /// The unit changed from tiles to days, and that is the whole point. Counting tiles meant a
+    /// wild find that dropped five seeds taught you a crop in one growing cycle while a find
+    /// that dropped three took two, for identical effort: the pace was set by seed luck rather
+    /// than by anything a player could reason about. Harvesting ten tiles in one afternoon is
+    /// one observation of one lifecycle, not ten. See FamMaxCreditsPerDay.
+    ///
+    /// Calibration on The Quire's 30-day months: garlic runs 1.8 months (54 days) with an
+    /// Apr-Sep window, so about three cycles an in-game year. A grower who staggers plantings
+    /// harvests across several days and earns three or four credits a cycle where one sown all
+    /// at once earns one, so Versed lands around a year of focused growing for the former and
+    /// two or three for the latter. That gap is deliberate: staggering is better practice, and
+    /// this is the one thing that rewards it. Acreage rewards nothing.</summary>
+    public int FamAcquaintedHarvests { get; set; } = 2;
+    public int FamVersedHarvests { get; set; } = 8;
+
+    /// <summary>Credits a single crop can earn in one in-game day, however much of it is brought
+    /// in. One mark on the page is one day you brought that crop in, which is why a hundred
+    /// tiles and one tile teach the same amount. Raise it to soften the calendar; it can never
+    /// make bed size matter beyond this many tiles.</summary>
+    public int FamMaxCreditsPerDay { get; set; } = 1;
 
     /// <summary>Family knowledge: effective familiarity with a crop = its own harvest count plus
     /// FamSpread times the summed counts of its family-mates (crop-families.json taxonomy).
@@ -122,7 +142,16 @@ public class TcmGlobalConfig
     /// The family-wide Journeyman read opens when the family's summed counters (own included)
     /// reach FamFamilyVersedSum.</summary>
     public double FamSpread { get; set; } = 0.5;
-    public int FamFamilyVersedSum { get; set; } = 50;
+    public int FamFamilyVersedSum { get; set; } = 16;
+
+    /// <summary>Ceiling on what kin alone can carry, in effective count. "Never everything" was
+    /// in the ruling and was not in the arithmetic: at the shipped thresholds a family summing
+    /// to fifty made every crop in it Versed for a player who had never planted one. Capping
+    /// the kin term one short of Versed keeps the good half (kin can make a crop Acquainted, so
+    /// the family spread is still the mechanic worth finding) and closes the bad half (the
+    /// exact figures stay something you earn on that plant). Any experience of your own adds on
+    /// top of the cap and pushes straight through it.</summary>
+    public int FamKinCeiling { get; set; } = 7;
 
     /// <summary>Familiarity counter ceiling per crop, purely to bound the synced store; far past
     /// every threshold at the default.</summary>

@@ -31,6 +31,11 @@ public static class FarFamiliarity
 {
     public const string KeyPrefix = "far-crop-";
 
+    /// <summary>Companion key holding the in-game day a crop was last credited, so a day's
+    /// worth of credit cannot be earned twice. One extra synced int per crop the player has
+    /// actually grown, bounded by the taxonomy at 46.</summary>
+    public const string DayKeyPrefix = "far-cropday-";
+
     private static bool loaded;
     private static readonly List<KeyValuePair<string, string>> prefixMap = new(); // code prefix -> crop id
     private static readonly Dictionary<string, string> familyOfId = new();        // crop id -> family
@@ -174,16 +179,17 @@ public static class FarFamiliarity
         ? AlmanacTcmModSystem.ServerInstance?.GlobalConfig.GrowerEyeFAR ?? true
         : AlmanacTcmModSystem.ClientInstance?.GrowerEyeFar ?? true;
 
-    private static (int Acq, int Versed, int FamilySum, double Spread) Thresholds(ICoreAPI api)
+    private static (int Acq, int Versed, int FamilySum, double Spread, int KinCeiling) Thresholds(ICoreAPI api)
     {
         if (api.Side == EnumAppSide.Server)
         {
             var g = AlmanacTcmModSystem.ServerInstance?.GlobalConfig;
-            return (g?.FamAcquaintedHarvests ?? 5, g?.FamVersedHarvests ?? 25,
-                    g?.FamFamilyVersedSum ?? 50, g?.FamSpread ?? 0.5);
+            return (g?.FamAcquaintedHarvests ?? 2, g?.FamVersedHarvests ?? 8,
+                    g?.FamFamilyVersedSum ?? 16, g?.FamSpread ?? 0.5, g?.FamKinCeiling ?? 7);
         }
         var c = AlmanacTcmModSystem.ClientInstance;
-        return (c?.FamAcquainted ?? 5, c?.FamVersed ?? 25, c?.FamFamilyVersed ?? 50, c?.FamSpread ?? 0.5);
+        return (c?.FamAcquainted ?? 2, c?.FamVersed ?? 8, c?.FamFamilyVersed ?? 16,
+                c?.FamSpread ?? 0.5, c?.FamKinCeiling ?? 7);
     }
 
     // ------------------------------------------------------------ counts and tiers
@@ -199,7 +205,17 @@ public static class FarFamiliarity
     public static int OwnCount(IReadOnlyDictionary<string, int>? know, string cropId) =>
         know != null && know.TryGetValue(KeyPrefix + cropId, out int n) ? n : 0;
 
-    /// <summary>Own counter + spread x summed family-mate counters (the some-but-not-all rule).</summary>
+    /// <summary>
+    /// Own counter + spread x summed family-mate counters, with the kin term capped
+    /// (the some-but-not-all rule, made true in 2026-08-24).
+    ///
+    /// The cap is what makes "never everything" hold. Without it a well-worked family carried
+    /// its members all the way to Versed for a player who had never planted one of them, which
+    /// is the opposite of what familiarity is for. Capped one short of Versed, kin can still
+    /// hand you Acquainted, which is the part worth discovering, and the exact figures stay
+    /// something you earn on that plant. Own experience is added on top of the cap, so it
+    /// always pushes through.
+    /// </summary>
     public static double EffectiveCount(ICoreAPI api, IReadOnlyDictionary<string, int>? know, string cropId)
     {
         int own = OwnCount(know, cropId);
@@ -208,12 +224,16 @@ public static class FarFamiliarity
         int mateSum = 0;
         foreach (string mate in mates)
             if (mate != cropId) mateSum += OwnCount(know, mate);
-        return own + Thresholds(api).Spread * mateSum;
+
+        var t = Thresholds(api);
+        double kin = t.Spread * mateSum;
+        if (t.KinCeiling >= 0 && kin > t.KinCeiling) kin = t.KinCeiling;
+        return own + kin;
     }
 
     /// <summary>The live thresholds, for a caller that needs to print them (the Crops tab
     /// says how far a harvest carries, and where the ladder ends).</summary>
-    public static (int Acquainted, int Versed, int FamilyVersed, double Spread) Ladder(ICoreAPI api) =>
+    public static (int Acquainted, int Versed, int FamilyVersed, double Spread, int KinCeiling) Ladder(ICoreAPI api) =>
         Thresholds(api);
 
     public static bool IsAcquainted(ICoreAPI api, IReadOnlyDictionary<string, int>? know, string cropId) =>
@@ -233,18 +253,55 @@ public static class FarFamiliarity
 
     // ------------------------------------------------------------ the harvest bump (server)
 
-    /// <summary>One harvest of one crop = one count, silent, capped only to bound the synced
-    /// store. SetKnowledge persists and syncs in the same call (the ARC school pattern).</summary>
+    /// <summary>
+    /// One DAY of bringing a crop in = one count, silent (RULED 2026-08-24, replacing one count
+    /// per tile). SetKnowledge persists and syncs in the same call (the ARC school pattern).
+    ///
+    /// Counting tiles measured how much ground a player worked; counting days measures how many
+    /// times they have watched the plant through. Those are different things, and only the
+    /// second is knowledge. It also removes two pieces of nonsense: a wild find that dropped
+    /// five seeds taught a crop in one cycle where a three-seed find took two, and a large farm
+    /// could reach the exact figures in a single season by area alone.
+    ///
+    /// FamMaxCreditsPerDay is a knob rather than a hard one because a server may want to soften
+    /// the calendar; whatever it is set to, bed size stops mattering past that many tiles.
+    /// </summary>
     public static void BumpHarvest(ICoreServerAPI sapi, IPlayer player, string cropId)
     {
         var server = AlmanacTcmModSystem.ServerInstance?.Server;
         var set = server?.GetDomainSet(player);
         if (server == null || set == null) return;
 
+        var cfg = AlmanacTcmModSystem.ServerInstance?.GlobalConfig;
         string key = KeyPrefix + cropId;
         int cur = set.Knowledge.TryGetValue(key, out int n) ? n : 0;
-        int cap = AlmanacTcmModSystem.ServerInstance?.GlobalConfig.FamCountCap ?? 500;
+        int cap = cfg?.FamCountCap ?? 500;
         if (cur >= cap) return;
+
+        // The day's allowance. The stored day is packed with the count already taken on it, so
+        // this costs one synced int per crop rather than two.
+        int perDay = System.Math.Max(1, cfg?.FamMaxCreditsPerDay ?? 1);
+        int today = (int)sapi.World.Calendar.TotalDays;
+        string dayKey = DayKeyPrefix + cropId;
+        int packed = set.Knowledge.TryGetValue(dayKey, out int p) ? p : -1;
+        int lastDay = packed >= 0 ? packed / DayPack : -1;
+        int takenToday = packed >= 0 ? packed % DayPack : 0;
+
+        if (lastDay == today)
+        {
+            if (takenToday >= perDay) return;   // already learned what this day had to teach
+            takenToday++;
+        }
+        else
+        {
+            takenToday = 1;
+        }
+
+        server.SetKnowledge(player, dayKey, today * DayPack + System.Math.Min(takenToday, DayPack - 1));
         server.SetKnowledge(player, key, cur + 1);
     }
+
+    /// <summary>Radix for packing (day, credits-taken-that-day) into one synced int. Also the
+    /// hard ceiling on FamMaxCreditsPerDay, which no sane value approaches.</summary>
+    private const int DayPack = 16;
 }

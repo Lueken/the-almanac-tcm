@@ -232,10 +232,11 @@ public class LevelingServer
         channel.SendPacket(new ClientConfigPacket(
             g?.AlloyLedgerGated ?? true,
             g?.GrowerEyeFAR ?? true,
-            g?.FamAcquaintedHarvests ?? 5,
-            g?.FamVersedHarvests ?? 25,
-            g?.FamFamilyVersedSum ?? 50,
-            g?.FamSpread ?? 0.5), byPlayer);
+            g?.FamAcquaintedHarvests ?? 2,
+            g?.FamVersedHarvests ?? 8,
+            g?.FamFamilyVersedSum ?? 16,
+            g?.FamSpread ?? 0.5,
+            g?.FamKinCeiling ?? 7), byPlayer);
 
         foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)
         {

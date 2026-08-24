@@ -514,10 +514,11 @@ public class AlmanacTcmModSystem : ModSystem
     /// join in the same ClientConfigPacket: the readout ladder is evaluated client-side from
     /// the synced familiarity counters, so the thresholds must match the server's knobs.</summary>
     public bool GrowerEyeFar { get; set; } = true;
-    public int FamAcquainted { get; set; } = 5;
-    public int FamVersed { get; set; } = 25;
-    public int FamFamilyVersed { get; set; } = 50;
+    public int FamAcquainted { get; set; } = 2;
+    public int FamVersed { get; set; } = 8;
+    public int FamFamilyVersed { get; set; } = 16;
     public double FamSpread { get; set; } = 0.5;
+    public int FamKinCeiling { get; set; } = 7;
 
     private void RegisterDomains(ICoreAPI api)
     {

@@ -92,24 +92,28 @@ public class ClientConfigPacket
 
     [ProtoMember(3)]
     [DefaultValue(5)]
-    public int famAcquainted = 5;
+    public int famAcquainted = 2;
 
     [ProtoMember(4)]
     [DefaultValue(25)]
-    public int famVersed = 25;
+    public int famVersed = 8;
 
     [ProtoMember(5)]
     [DefaultValue(50)]
-    public int famFamilyVersed = 50;
+    public int famFamilyVersed = 16;
 
     [ProtoMember(6)]
     [DefaultValue(0.5)]
     public double famSpread = 0.5;
 
+    /// <summary>Ceiling on what kin alone can carry, so the tab and the tooltips agree with the
+    /// server about where "never everything" sits.</summary>
+    public int famKinCeiling = 7;
+
     public ClientConfigPacket() { }
 
     public ClientConfigPacket(bool alloyLedgerGated, bool growerEyeFar,
-        int famAcquainted, int famVersed, int famFamilyVersed, double famSpread)
+        int famAcquainted, int famVersed, int famFamilyVersed, double famSpread, int famKinCeiling)
     {
         this.alloyLedgerGated = alloyLedgerGated;
         this.growerEyeFar = growerEyeFar;
@@ -117,6 +121,7 @@ public class ClientConfigPacket
         this.famVersed = famVersed;
         this.famFamilyVersed = famFamilyVersed;
         this.famSpread = famSpread;
+        this.famKinCeiling = famKinCeiling;
     }
 }
 
