@@ -77,6 +77,21 @@ namespace AlmanacTcm.Domains
             /// <summary>True when no stage of this plant gives both food and seed, so a harvest
             /// for the table returns nothing to sow. The silent failure the readout must name.</summary>
             public bool FoodOrSeedNeverBoth;
+
+            /// <summary>Item families the peak stage yields, and those the last stage yields.</summary>
+            public HashSet<string> PeakHeads = new();
+            public HashSet<string> FinalHeads = new();
+
+            /// <summary>The third archetype, and the reason this is not a simple bolts-or-not flag.
+            /// DAR's herbs do not die at the end, they CHANGE crop: anise gives leaf mid-life, then
+            /// runs to seed and the last stage gives a seed-head spice instead. Food never reaches
+            /// zero, so <see cref="Bolts"/> is false, but waiting still costs you the leaf. A
+            /// farmer needs to be told that as plainly as a carrot going over.</summary>
+            public bool Transforms => !BoltsToSeed && PeakStage > 0 && PeakStage < FinalStage
+                                      && FinalHeads.Count > 0 && !FinalHeads.Overlaps(PeakHeads);
+
+            /// <summary>True for anything whose late life is worth warning about, either shape.</summary>
+            public bool TurnsOver => Bolts || Transforms;
         }
 
         private static readonly Dictionary<string, Curve?> cache = new();
@@ -121,6 +136,7 @@ namespace AlmanacTcm.Domains
 
                 double food = 0;
                 bool seed = false;
+                var heads = new HashSet<string>();
                 foreach (var d in b.Drops)
                 {
                     string? path = d?.ResolvedItemstack?.Collectible?.Code?.Path;
@@ -128,7 +144,11 @@ namespace AlmanacTcm.Domains
                     if (IsSeed(path)) { seed = true; continue; }
                     if (IsChaff(path)) continue;
                     food += d!.Quantity?.avg ?? 0;
+                    heads.Add(Head(path));
                 }
+
+                if (n == stages) c.FinalHeads = heads;
+                if (food > c.PeakFood) c.PeakHeads = heads;
 
                 c.Food[n] = food;
                 if (food > 0 && seed) anyStageHadBoth = true;

@@ -215,14 +215,25 @@ public static class FarGrowerEye
             // Growing's roots and leaves peak mid-life and then decline into a stage that drops no
             // food at all, so reporting ripeness against the last stage would aim the farmer at
             // the one moment that feeds nobody. Grains are unaffected and keep the vanilla reading.
-            if (curve != null && curve.Bolts && stage > 0)
+            if (curve != null && curve.TurnsOver && stage > 0)
             {
                 dsc.AppendLine(Lang.Get(
-                      stage >= curve.FinalStage ? "almanactcm:far-eye-crop-bolted"
+                      stage >= curve.FinalStage
+                          ? (curve.Bolts ? "almanactcm:far-eye-crop-bolted"
+                                         : "almanactcm:far-eye-crop-turned")
                     : stage >= curve.GoingOverStage ? "almanactcm:far-eye-crop-goingover"
                     : stage >= curve.PeakStage ? "almanactcm:far-eye-crop-ready"
                     : stage / (double)curve.PeakStage < 0.5 ? "almanactcm:far-eye-crop-young"
                     : "almanactcm:far-eye-crop-grown"));
+
+                // The SHAPE of its life, not only where it stands in it. Ruled 2026-08-24: a
+                // grower who knows the crop should be able to see the three phases coming
+                // (growing, then the harvest window, then the seed head) rather than discovering
+                // the third one by losing a harvest to it. Plain words at this tier; Versed gets
+                // the same fact as stage figures below and does not need it said twice.
+                if (!versed)
+                    dsc.AppendLine(Lang.Get(curve.Bolts ? "almanactcm:far-eye-life-bolt"
+                                                        : "almanactcm:far-eye-life-turn"));
             }
             else
             {
@@ -248,6 +259,13 @@ public static class FarGrowerEye
                         (int)System.Math.Round(curve.PeakFood)));
                 else if (stage >= curve.PeakStage)
                     dsc.AppendLine(Lang.Get("almanactcm:far-eye-crop-seedcost"));
+            }
+            else if (curve != null && curve.Transforms && versed)
+            {
+                // The leaf-then-head crops keep giving food at the end, so there is no seed cost
+                // to warn about. What a Versed grower needs is where the leaf window closes.
+                dsc.AppendLine(Lang.Get("almanactcm:far-eye-crop-turnfork",
+                    curve.PeakStage, curve.FinalStage));
             }
 
             if (versed)
