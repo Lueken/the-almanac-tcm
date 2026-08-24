@@ -52,8 +52,8 @@ public static class FarSoilSickness
     private static double DecayDay  => Cfg?.SickFallowDecayPerDay ?? 0.35;
     private static double Occupied  => Cfg?.SickOccupiedDecayFactor ?? 0.75;
     private static double CleanBelow=> Cfg?.SickCleanBelow ?? 40;
-    private static double SpeedBite => Cfg?.SickMaxSpeedPenalty ?? 0.40;
-    private static double YieldBite => Cfg?.SickMaxYieldPenalty ?? 0.25;
+    private static double SpeedBite => Cfg?.SickMaxSpeedPenalty ?? 0.60;
+    private static double YieldBite => Cfg?.SickMaxYieldPenalty ?? 0.40;
 
     private static Config.TcmGlobalConfig? Cfg => AlmanacTcmModSystem.ServerInstance?.GlobalConfig;
 

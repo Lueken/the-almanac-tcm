@@ -196,12 +196,25 @@ public class TcmGlobalConfig
     /// </summary>
     public double SickCleanBelow { get; set; } = 40;
 
-    /// <summary>Worst-case growth-speed penalty, multiplying with vanilla's nutrient speed bands.
-    /// Capped well above zero on purpose: a tile that can never grow anything again is a dead
-    /// square on someone's farm forever, and they will simply re-till and move on.</summary>
-    public double SickMaxSpeedPenalty { get; set; } = 0.40;
+    /// <summary>
+    /// Worst-case growth-speed penalty, multiplying with vanilla's nutrient speed bands.
+    ///
+    /// RAISED from 0.40 on 2026-08-24 after watching a full run. At 0.40 a two-course rotation
+    /// sat at x0.80 after twenty cycles, which is three in-game years, and only on the cycles of
+    /// the sick family: averaged across the rotation that is about a tenth slower, and nobody
+    /// restructures a farm over a tenth. The ramp shape was left linear on purpose, because the
+    /// gentle FIRST bite is the part that works. It arrives as a hint rather than a wall and
+    /// sends a farmer looking for the cause; steepening it would trade that away to fix the far
+    /// end, which the cap fixes better.
+    ///
+    /// Still capped well above zero: a tile that can never grow anything again is a dead square
+    /// on someone's farm forever, and they will re-till and move on rather than learn anything.
+    /// At 0.60 a 54-day garlic on ruined ground takes 135 days, which is a season lost rather
+    /// than a plot lost.
+    /// </summary>
+    public double SickMaxSpeedPenalty { get; set; } = 0.60;
 
-    /// <summary>Worst-case yield penalty. Deliberately gentler than the speed penalty, so a sick
-    /// tile is a slow disappointment rather than two punishments for one mistake.</summary>
-    public double SickMaxYieldPenalty { get; set; } = 0.25;
+    /// <summary>Worst-case yield penalty. Kept below the speed penalty, so a sick tile stays a
+    /// slow disappointment rather than two punishments for one mistake.</summary>
+    public double SickMaxYieldPenalty { get; set; } = 0.40;
 }
