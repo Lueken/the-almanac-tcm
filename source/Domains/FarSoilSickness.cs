@@ -350,7 +350,7 @@ public static class FarSoilSickness
     {
         sapi.ChatCommands.Create("tcmsoil")
             .WithDescription("Soil sickness: inspect the tile you are looking at, or simulate a rotation. "
-                           + "Usage: .tcmsoil | .tcmsoil sim <pattern> [cycles] [cycleDays]")
+                           + "Usage: /tcmsoil | /tcmsoil sim <pattern> [cycles] [cycleDays]")
             .RequiresPrivilege(Privilege.controlserver)
             .WithArgs(sapi.ChatCommands.Parsers.OptionalWord("mode"),
                       sapi.ChatCommands.Parsers.OptionalWord("pattern"),
@@ -395,6 +395,6 @@ public static class FarSoilSickness
                   + $"  felt        {(Bites(t.Level) ? "yes" : "no")}");
             });
 
-        TcmLog.Info(sapi, "soil sickness: .tcmsoil registered (inspect + sim)");
+        TcmLog.Info(sapi, "soil sickness: /tcmsoil registered (inspect + sim)");
     }
 }
