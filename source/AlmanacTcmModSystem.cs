@@ -23,11 +23,15 @@ public class AlmanacTcmModSystem : ModSystem
     /// <summary>Minimum sibling version enforced at runtime; modinfo declares the
     /// dependency bare ("") so X.Y.Z-dev builds satisfy it (Almanac convention).
     ///
-    /// 0.2.1, which carries RegisterCropFamiliarity: the seam the Crops tab reads to show
-    /// what THIS reader has grown. Unlike the reveal and quest-step seams, this one cannot
-    /// degrade quietly. TCM's FarCropFamiliarity implements an interface that does not exist
-    /// in 0.2.0, so an older Illuminated is a TypeLoadException at registration, not a
-    /// feature that silently stays off. The floor has to move with it.
+    /// 0.2.0, which carries RegisterCropFamiliarity: the seam the Crops tab reads to show
+    /// what THIS reader has grown. The seam landed IN 0.2.0 rather than after it, because
+    /// the pair ships together for the season and the version was not re-cut for it.
+    ///
+    /// Worth knowing when it is next moved: unlike the reveal and quest-step seams, this one
+    /// cannot degrade quietly. FarCropFamiliarity implements an interface, so an Illuminated
+    /// without it is a TypeLoadException at registration rather than a feature that stays
+    /// off. There is no earlier 0.2.0 in the wild to strand, but if that ever changes, the
+    /// floor has to move in the same commit as the seam.
     ///
     /// Before that, 0.1.4, which carries the quest-step API (GetQuestStepsFor, the fuel for
     /// TCM's step toasts) and the `doneWhen` rendering that ticks those steps in the book.
@@ -38,7 +42,7 @@ public class AlmanacTcmModSystem : ModSystem
     /// so nothing breaks loudly: the earned reveal simply never happens and the chapter sits
     /// visible from the first login, which is the whole thing it exists to prevent. Pinned
     /// to 0.1.2 rather than 0.0.18 so the pair stays in step, and that holds at 0.1.4.</summary>
-    private const string MinIlluminatedVersion = "0.2.1";
+    private const string MinIlluminatedVersion = "0.2.0";
 
     /// <summary>Static access for Harmony patches, split by side (set in Start, cleared in
     /// Dispose). Singleplayer loads BOTH a client-side and a server-side ModSystem in one
