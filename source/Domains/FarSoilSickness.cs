@@ -337,13 +337,25 @@ public static class FarSoilSickness
             char c = pattern.Length == 0 ? '.' : pattern[i % pattern.Length];
             bool fallow = c == '.';
             level = Math.Max(0, level - cycleDays * DecayDay * (fallow ? 1.0 : Occupied));
-            if (!fallow && c.ToString() == sickFamily) level = Math.Min(Max, level + Accrual);
-            rows.Add($"{i + 1,5}  {c,4}  {level,6:0.#}  x{SpeedMul(level):0.00}  x{YieldMul(level):0.00}"
+
+            // Only the family the ground is sick WITH pays, exactly as LevelFor decides it in
+            // play. Printing the ground's multipliers on every row regardless of what was
+            // planted overstated a two-course rotation by half, because the off-family cycles
+            // read as penalised when in game they are free. Caught in play 2026-08-24: it hides
+            // itself while the level dips under the clean line on every off cycle, and only
+            // shows once the ground stays sick through them.
+            bool pays = !fallow && c.ToString() == sickFamily;
+            if (pays) level = Math.Min(Max, level + Accrual);
+
+            double sp = pays ? SpeedMul(level) : 1.0;
+            double yl = pays ? YieldMul(level) : 1.0;
+            rows.Add($"{i + 1,5}  {c,4}  {level,6:0.#}  x{sp:0.00}  x{yl:0.00}"
                      // No angle brackets: the game's chat renders VTML, so a bare '<' opens a
                      // tag and the parser swallows the rest of the line. The marker went missing
                      // in play before anyone noticed the rows it belonged on.
-                     + (Bites(level) ? "   (felt)" : ""));
+                     + (pays && Bites(level) ? "   (felt)" : ""));
         }
+        rows.Add($"level is the ground; only {sickFamily} pays for it. Other crops grow clean on sick ground.");
         return rows;
     }
 
