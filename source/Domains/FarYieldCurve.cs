@@ -26,12 +26,31 @@ namespace AlmanacTcm.Domains
         /// <summary>A drop that is not the point of growing the plant. Straw and rot come off
         /// nearly every stage and would flatten the curve; seed is tracked separately because
         /// whether a stage yields it is the whole question.</summary>
-        private static bool IsChaff(string path) =>
-            path.Contains("drygrass") || path.Contains("dryhay") || path.Contains("thatch")
-            || path.Contains("firewood") || path.Contains("straw") || path.Contains("rot");
+        private static readonly HashSet<string> ChaffCodes = new()
+        {
+            "rot", "drygrass", "dryhay", "agedgrass", "grass",
+            "thatch", "straw", "strawlayer", "firewood",
+        };
 
-        private static bool IsSeed(string path) =>
-            path.Contains("seeds-") || path.StartsWith("seed", StringComparison.Ordinal);
+        // MATCH WHOLE CODE SEGMENTS, NEVER SUBSTRINGS. The first version of this used
+        // path.Contains(), and "carrot" contains "rot": every carrot harvest was classified as
+        // chaff, so the peak never resolved, the curve came back null, and the whole readout
+        // silently fell back to vanilla. Caught in play 2026-08-24. "strawberry" contains "straw"
+        // and would have been the next one. VS codes are hyphen-separated segments, so compare
+        // segments.
+        private static string Head(string path)
+        {
+            int i = path.IndexOf('-');
+            return i < 0 ? path : path.Substring(0, i);
+        }
+
+        private static bool IsChaff(string path) => ChaffCodes.Contains(Head(path));
+
+        private static bool IsSeed(string path)
+        {
+            string h = Head(path);
+            return h == "seeds" || h == "seed" || h.StartsWith("seedling", StringComparison.Ordinal);
+        }
 
         public sealed class Curve
         {
