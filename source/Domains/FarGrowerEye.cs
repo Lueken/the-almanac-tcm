@@ -107,6 +107,30 @@ public static class FarGrowerEye
             }
             // else: vanilla's own readout already says both channels in full; leave it.
 
+            // Soil sickness (RULED 2026-08-24). A GROUND reading, so it rides the rank channel,
+            // and it is appended outside the compose block above so a fully-read tile still shows
+            // it rather than falling through to vanilla's silence.
+            //
+            // The words tier matters more than the figures here. Sickness is the one thing in the
+            // domain that punishes without being asked about, so the effect has to be legible
+            // before the number is: a Novice sees that the ground is tired of this crop, and only
+            // an Apprentice gets to measure how tired.
+            if (level >= Rank.Novice && api is Vintagestory.API.Server.ICoreServerAPI ssapi)
+            {
+                var sick = FarSoilSickness.Read(ssapi, __instance!.Pos);
+                if (sick != null && FarSoilSickness.Bites(sick.Level))
+                {
+                    string famName = Lang.HasTranslation("almanactcm:far-family-" + sick.Family)
+                        ? Lang.Get("almanactcm:far-family-" + sick.Family).ToLowerInvariant()
+                        : sick.Family;
+                    dsc.AppendLine(level >= Rank.Apprentice
+                        ? Lang.Get("almanactcm:far-eye-sick-full", famName, (int)sick.Level,
+                                   FarSoilSickness.SpeedMul(sick.Level).ToString("0.00"),
+                                   FarSoilSickness.YieldMul(sick.Level).ToString("0.00"))
+                        : Lang.Get("almanactcm:far-eye-sick-rough", famName));
+                }
+            }
+
             // The rotation memory (Journeyman+, the last-borne crop's family Versed).
             if (level >= Rank.Journeyman)
             {

@@ -411,10 +411,24 @@ public static class FarPatches
     /// crop-yield multipliers (both multiply, neither fights). A crop without a table row
     /// falls back to the legacy dock (a level-0 hand bruises the harvest, Novice+ untouched);
     /// the table's master switch off means TCM touches yield not at all.</summary>
-    public static void HarvestDockPrefix(Block __instance, IPlayer byPlayer, ref float dropQuantityMultiplier)
+    public static void HarvestDockPrefix(Block __instance, BlockPos pos, IPlayer byPlayer, ref float dropQuantityMultiplier)
     {
         if (byPlayer?.Entity?.World?.Side != EnumAppSide.Server) return;
         int level = FarDomain.LevelOf(byPlayer);
+
+        // The soil's haircut rides ahead of the hand's, because they answer different
+        // questions: the table asks how well this farmer harvests, sickness asks what this
+        // ground had left to give. Both multiply; neither fights.
+        if (pos != null && byPlayer.Entity.World.Api is ICoreServerAPI sickApi)
+        {
+            string? sickId = FarFamiliarity.CropIdOf(sickApi, __instance);
+            string? sickFam = sickId == null ? null : FarFamiliarity.FamilyOf(sickId);
+            if (sickFam != null)
+            {
+                double sick = FarSoilSickness.LevelFor(sickApi, pos.DownCopy(), sickFam);
+                if (sick > 0) dropQuantityMultiplier *= (float)FarSoilSickness.YieldMul(sick);
+            }
+        }
 
         double? tabled = FarYieldTable.MultiplierFor(byPlayer.Entity.World.Api, __instance, level);
         if (tabled != null)
@@ -524,6 +538,11 @@ public static class FarPatches
                 farmlandBe.CropAttributes.SetString(FarGrowerEye.LastBoreNutrientAttr,
                     crop.CropProps.RequiredNutrient.ToString());
                 farmlandBe.MarkDirty(true);
+
+                // Soil sickness accrues on the GROUND, not on this block entity, so breaking and
+                // replacing the tilled block cannot wipe it (RULED 2026-08-24). See FarSoilSickness.
+                string? family = FarFamiliarity.FamilyOf(cropId);
+                if (family != null) FarSoilSickness.NoteHarvest(sapi, farmlandBe.Pos, family);
             }
         }
     }

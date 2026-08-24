@@ -271,6 +271,8 @@
   "almanactcm:far-seed-season": "It wants most of a season.",
   "almanactcm:far-seed-slow": "It holds the ground a long while.",
   "almanactcm:far-eye-lastbore": "This ground last bore a {0}-hungry crop.",
+  "almanactcm:far-eye-sick-rough": "This ground is tired of {0}.",
+  "almanactcm:far-eye-sick-full": "Tired of {0}: {1} of 100. Growth x{2}, yield x{3}.",
   "far-family-grains": "Grains",
   "far-family-legumes": "Legumes",
   "far-family-brassicas": "Brassicas",

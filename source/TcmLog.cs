@@ -16,6 +16,9 @@ public static class TcmLog
     public const string Hooks = "hooks";
     public const string Affinity = "affinity";
     public const string Config = "config";
+    /// <summary>Soil sickness accrual and decay. Off in normal play, exhaustive when
+    /// chasing a curve that only shows over seasons.</summary>
+    public const string Soil = "soil";
 
     public static bool Verbose = true;
 

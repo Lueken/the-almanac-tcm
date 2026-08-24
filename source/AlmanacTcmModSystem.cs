@@ -136,6 +136,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("MEL-block", () => Domains.MelPatches.PatchConditional(api, harmony));
             Try("MEL-parry", () => Domains.MelParryPatches.PatchConditional(api, harmony));
             Try("FAR", () => Domains.FarPatches.PatchConditional(api, harmony));
+            Try("FAR-soilsickness", () => Domains.FarSoilSickness.PatchGrowth(api, harmony));
             Try("FAR-bonus", () => Domains.FarBonusPatches.PatchConditional(api, harmony));
             Try("COO", () => Domains.CooPatches.PatchConditional(api, harmony));
             Try("COO-bonus", () => Domains.CooBonusPatches.PatchConditional(api, harmony));
@@ -240,6 +241,7 @@ public class AlmanacTcmModSystem : ModSystem
         Ledger = new Engine.LedgerSystem(sapi, GlobalConfig, Template, Server);
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
         Commands = new Engine.TcmCommands(sapi, this);
+        Domains.FarSoilSickness.RegisterCommands(sapi);
 
         // The declarative knowledge mint (almanac/triggers/*.json, any domain): block
         // placed/used/broken → per-player knowledge key + optional banner. Registers after

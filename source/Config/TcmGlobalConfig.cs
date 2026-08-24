@@ -156,4 +156,52 @@ public class TcmGlobalConfig
     /// <summary>Familiarity counter ceiling per crop, purely to bound the synced store; far past
     /// every threshold at the default.</summary>
     public int FamCountCap { get; set; } = 500;
+
+    // ---------------------------------------------------------------- soil sickness (RULED 2026-08-24)
+
+    /// <summary>The reason to rotate. False leaves soil exactly as vanilla and the mods left it,
+    /// which on 30-day months means no rotation pressure of any kind.</summary>
+    public bool SoilSicknessFAR { get; set; } = true;
+
+    /// <summary>Level added to a tile by one harvest DAY of the family already sick in it.
+    ///
+    /// The three constants below are a set, and the ruling lives in their ratio rather than in
+    /// any one of them. Accrual must sit between one and a half and three cycles' worth of
+    /// occupied decay: below that a two-course rotation cleans up and there is no reason to run
+    /// three or four, above it a four-course rotation cannot keep up and rotation stops working
+    /// at all. At the shipped values, on 54-day garlic cycles: monoculture is felt inside two
+    /// cycles and maxed within a year; A-B-A-B creeps about six points a pair and starts biting
+    /// after roughly eight cycles; A-B-C and A-B-C-D decline and stay clean forever.</summary>
+    public double SickAccrualPerHarvest { get; set; } = 34;
+
+    /// <summary>Level shed per in-game day by bare ground.</summary>
+    public double SickFallowDecayPerDay { get; set; } = 0.35;
+
+    /// <summary>Share of the bare-ground decay rate that ground under a crop gets. Below 1 so
+    /// fallow is always the faster cure, near 1 so rotation is nearly as good AND pays a
+    /// harvest, which is what makes rotation the right answer and fallow the last resort.</summary>
+    public double SickOccupiedDecayFactor { get; set; } = 0.75;
+
+    /// <summary>
+    /// Nothing is felt below this, and it MUST sit above SickAccrualPerHarvest. That is not a
+    /// style preference, it is the constraint that makes rotation work at all: at 20 against an
+    /// accrual of 34, a single harvest cleared the line, so even a flawless four-course rotation
+    /// was bitten on every one of its A cycles. Above the accrual, one harvest is always free and
+    /// only repetition costs anything.
+    ///
+    /// Verified on 54-day cycles at the shipped constants: monoculture first bites on cycle two
+    /// and maxes by five; A-B-A-B first bites on cycle five and reaches the ceiling over roughly
+    /// three in-game years; A-B-C and A-B-C-D peak at 34 and never bite at all; crop-then-fallow
+    /// creeps slowest of the repeating patterns and first bites around cycle fifteen.
+    /// </summary>
+    public double SickCleanBelow { get; set; } = 40;
+
+    /// <summary>Worst-case growth-speed penalty, multiplying with vanilla's nutrient speed bands.
+    /// Capped well above zero on purpose: a tile that can never grow anything again is a dead
+    /// square on someone's farm forever, and they will simply re-till and move on.</summary>
+    public double SickMaxSpeedPenalty { get; set; } = 0.40;
+
+    /// <summary>Worst-case yield penalty. Deliberately gentler than the speed penalty, so a sick
+    /// tile is a slow disappointment rather than two punishments for one mistake.</summary>
+    public double SickMaxYieldPenalty { get; set; } = 0.25;
 }
