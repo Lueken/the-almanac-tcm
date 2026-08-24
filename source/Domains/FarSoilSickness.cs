@@ -20,13 +20,18 @@ namespace AlmanacTcm.Domains;
 /// real pressure lives. Farmers rotate because of soil-borne disease far more than because of
 /// NPK; allium white rot closes ground to alliums for decades, and no amount of feeding helps.
 ///
-/// THE MODEL. One (family, level) pair per tile. Harvesting a crop of the stored family raises
-/// the level; time lowers it, faster when the ground is bare than when something is growing in
-/// it. That single pair does more work than it looks: with accrual set between one and a half
-/// and three cycles' worth of decay, a two-course A-B-A-B rotation still creeps upward slowly
-/// while a three- or four-course rotation stays clean. That is exactly why four-course rotations
-/// beat two-course ones historically, and here it falls out of the arithmetic rather than being
-/// special-cased.
+/// THE MODEL. A level per FAMILY per tile. Harvesting a crop raises its own family's level;
+/// time lowers every family's, faster when the ground is bare than when something is growing in
+/// it. With accrual set between one and a half and three cycles' worth of decay, a two-course
+/// A-B-A-B rotation creeps upward on BOTH crops while a three- or four-course rotation stays
+/// clean. That is exactly why four-course rotations beat two-course ones historically, and here
+/// it falls out of the arithmetic rather than being special-cased.
+///
+/// It shipped on 2026-08-24 holding a single (family, level) pair, and that was wrong in a way
+/// only a long run showed: once one family had claimed the tile's one slot and its level never
+/// decayed to nothing, its rotation partner could never begin accruing there at all. In a tight
+/// A-B-A-B, B was permanently immune. Real ground gets sick from everything repeated on it, and
+/// a two-course rotation should bleed from both ends.
 ///
 /// WHY IT IS NOT ON THE BLOCK ENTITY. Sickness lives in CHUNK MODDATA keyed by position, not in
 /// the farmland's CropAttributes, because a player who can break and replace the tilled block to
@@ -61,15 +66,49 @@ public static class FarSoilSickness
 
     // ------------------------------------------------------------------ the record
 
-    public sealed class Tile
+    /// <summary>One family's standing in one tile.</summary>
+    public sealed class Fam
     {
-        public string Family = "";
         public double Level;
         /// <summary>In-game day the level was last brought up to date. Decay is owed from here.</summary>
         public double Day;
-        /// <summary>In-game day this tile last took an accrual, so a cut-and-come-again crop
-        /// picked four times in an afternoon counts as the one crop it is.</summary>
+        /// <summary>In-game day this family last took an accrual here, so a cut-and-come-again
+        /// crop picked four times in an afternoon counts as the one crop it is.</summary>
         public double LastCreditDay = -1;
+    }
+
+    public sealed class Tile
+    {
+        /// <summary>Family id to its standing. Entries are pruned at zero, so a clean tile holds
+        /// nothing and the whole record disappears with it. Bounded by the taxonomy at eight.</summary>
+        public Dictionary<string, Fam> Fams = new();
+
+        // --- Legacy single-pair fields. Read on load, migrated into Fams, then written as null
+        // and dropped by the serializer. Kept so a world tilled under the 2026-08-24 build does
+        // not silently forget ground it had already poisoned.
+        public string? Family { get; set; }
+        public double? Level { get; set; }
+        public double? Day { get; set; }
+        public double? LastCreditDay { get; set; }
+
+        /// <summary>Folds a one-pair record into the per-family map. No-op once migrated.</summary>
+        public bool Migrate()
+        {
+            if (string.IsNullOrEmpty(Family) || Level == null) return false;
+            if (!Fams.ContainsKey(Family!))
+                Fams[Family!] = new Fam { Level = Level.Value, Day = Day ?? 0, LastCreditDay = LastCreditDay ?? -1 };
+            Family = null; Level = null; Day = null; LastCreditDay = null;
+            return true;
+        }
+
+        /// <summary>The family this ground is worst with, or null when it is clean.</summary>
+        public KeyValuePair<string, Fam>? Worst()
+        {
+            KeyValuePair<string, Fam>? worst = null;
+            foreach (var kv in Fams)
+                if (worst == null || kv.Value.Level > worst.Value.Value.Level) worst = kv;
+            return worst != null && worst.Value.Value.Level > 0.01 ? worst : null;
+        }
     }
 
     /// <summary>Parsed chunk stores, written through on every mutation so cache and disk never
@@ -106,7 +145,11 @@ public static class FarSoilSickness
             {
                 var read = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<int, Tile>>(
                     Encoding.UTF8.GetString(raw));
-                if (read != null) map = read;
+                if (read != null)
+                {
+                    map = read;
+                    foreach (var t in map.Values) t.Migrate();
+                }
             }
         }
         catch (Exception e)
@@ -120,6 +163,11 @@ public static class FarSoilSickness
         return map;
     }
 
+    /// <summary>Migrated legacy fields serialize as null; dropping them keeps the store small
+    /// and stops a converted record from being converted again.</summary>
+    private static readonly Newtonsoft.Json.JsonSerializerSettings NoNulls = new()
+    { NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore };
+
     private static void Flush(ICoreServerAPI sapi, BlockPos pos, Dictionary<int, Tile> map)
     {
         var chunk = sapi.World.BlockAccessor.GetChunkAtBlockPos(pos);
@@ -127,7 +175,7 @@ public static class FarSoilSickness
         try
         {
             chunk.SetModdata(ModdataKey, Encoding.UTF8.GetBytes(
-                Newtonsoft.Json.JsonConvert.SerializeObject(map)));
+                Newtonsoft.Json.JsonConvert.SerializeObject(map, NoNulls)));
             chunk.MarkModified();
         }
         catch (Exception e)
@@ -147,12 +195,26 @@ public static class FarSoilSickness
     /// elapsed span, because nothing records what stood here in between. It errs by at most the
     /// difference between the two rates, and only on tiles nobody has looked at in a while.
     /// </summary>
-    private static void Settle(Tile t, double today, bool occupied)
+    private static void Settle(Fam f, double today, bool occupied)
     {
-        double days = today - t.Day;
-        if (days <= 0) { t.Day = today; return; }
-        t.Level = Math.Max(0, t.Level - days * DecayDay * (occupied ? Occupied : 1.0));
-        t.Day = today;
+        double days = today - f.Day;
+        if (days <= 0) { f.Day = today; return; }
+        f.Level = Math.Max(0, f.Level - days * DecayDay * (occupied ? Occupied : 1.0));
+        f.Day = today;
+    }
+
+    /// <summary>Brings every family on a tile up to the present and drops the ones that have
+    /// burned out. A standing crop occupies the ground for all of them alike, whichever family
+    /// it belongs to, so occupancy is a property of the tile and not of the record.</summary>
+    private static void SettleAll(Tile t, double today, bool occupied)
+    {
+        List<string>? dead = null;
+        foreach (var kv in t.Fams)
+        {
+            Settle(kv.Value, today, occupied);
+            if (kv.Value.Level <= 0.01) (dead ??= new List<string>()).Add(kv.Key);
+        }
+        if (dead != null) foreach (string k in dead) t.Fams.Remove(k);
     }
 
     /// <summary>The tile's current state, decayed to now. Null when the ground is clean.</summary>
@@ -161,13 +223,11 @@ public static class FarSoilSickness
         if (!Enabled) return null;
         var map = Store(sapi, pos, false);
         if (map == null) return null;
-        int csize = GlobalConstants.ChunkSize;
-        if (!map.TryGetValue(LocalIndex(pos, csize), out var t)) return null;
+        if (!map.TryGetValue(LocalIndex(pos, GlobalConstants.ChunkSize), out var t)) return null;
 
         bool occupied = sapi.World.BlockAccessor.GetBlock(pos.UpCopy())?.CropProps != null;
-        Settle(t, sapi.World.Calendar.TotalDays, occupied);
-        if (t.Level <= 0.01) return null;
-        return t;
+        SettleAll(t, sapi.World.Calendar.TotalDays, occupied);
+        return t.Fams.Count > 0 ? t : null;
     }
 
     /// <summary>Level for one family specifically: a tile sick with brassicas tells a legume
@@ -175,7 +235,7 @@ public static class FarSoilSickness
     public static double LevelFor(ICoreServerAPI sapi, BlockPos pos, string family)
     {
         var t = Read(sapi, pos);
-        return t != null && t.Family == family ? t.Level : 0;
+        return t != null && t.Fams.TryGetValue(family, out var f) ? f.Level : 0;
     }
 
     /// <summary>Growth-speed multiplier for a level: 1.0 clean, falling to 1 - SickMaxSpeedPenalty
@@ -199,13 +259,10 @@ public static class FarSoilSickness
     // ------------------------------------------------------------------ the harvest hook
 
     /// <summary>
-    /// One harvest day of a family on a tile raises that tile's level. Capped to once per tile
-    /// per in-game day for the same reason familiarity is: a cut-and-come-again crop picked four
-    /// times in an afternoon is one crop standing in that ground, not four.
-    ///
-    /// A tile carrying a DIFFERENT family's sickness is left to decay on its own rather than
-    /// being re-keyed on the spot, so the record of what actually made this ground sick survives
-    /// a season of something else.
+    /// One harvest day of a family raises THAT FAMILY'S level in this tile, and leaves every
+    /// other family here to go on decaying. Capped to once per family per tile per in-game day
+    /// for the same reason familiarity is: a cut-and-come-again crop picked four times in an
+    /// afternoon is one crop standing in that ground, not four.
     /// </summary>
     public static void NoteHarvest(ICoreServerAPI sapi, BlockPos farmlandPos, string family)
     {
@@ -213,46 +270,43 @@ public static class FarSoilSickness
         var map = Store(sapi, farmlandPos, true);
         if (map == null) return;
 
-        int csize = GlobalConstants.ChunkSize;
-        int idx = LocalIndex(farmlandPos, csize);
+        int idx = LocalIndex(farmlandPos, GlobalConstants.ChunkSize);
         double today = sapi.World.Calendar.TotalDays;
 
-        if (!map.TryGetValue(idx, out var t))
-        {
-            t = new Tile { Family = family, Level = 0, Day = today };
-            map[idx] = t;
-        }
+        if (!map.TryGetValue(idx, out var t)) map[idx] = t = new Tile();
 
         bool occupied = sapi.World.BlockAccessor.GetBlock(farmlandPos.UpCopy())?.CropProps != null;
-        double before = t.Level;
-        Settle(t, today, occupied);
+        SettleAll(t, today, occupied);
 
-        if (t.Family != family)
+        if (!t.Fams.TryGetValue(family, out var f))
         {
-            // Somebody else's sickness still standing here. If it has burned out, this family
-            // takes the slot; if not, leave it be and let this harvest pass unrecorded.
-            if (t.Level > 0.01) { PruneAndFlush(sapi, farmlandPos, map, idx, t); return; }
-            t.Family = family;
-            t.Level = 0;
+            // A taxonomy-bounded guard, not a design limit: eight families exist, so this can
+            // only trip if a pack adds more. Drop the least sick rather than grow without bound.
+            if (t.Fams.Count >= 8)
+            {
+                string? weakest = null;
+                foreach (var kv in t.Fams)
+                    if (weakest == null || kv.Value.Level < t.Fams[weakest].Level) weakest = kv.Key;
+                if (weakest != null) t.Fams.Remove(weakest);
+            }
+            t.Fams[family] = f = new Fam { Level = 0, Day = today };
         }
-        else if (Math.Abs(t.Day - today) < 1e-9 && before > 0 && t.LastCreditDay == today)
+        else if (f.LastCreditDay == today)
         {
-            PruneAndFlush(sapi, farmlandPos, map, idx, t);
+            Flush(sapi, farmlandPos, map);
             return;   // already learned what this day had to teach
         }
 
-        t.Level = Math.Min(Max, t.Level + Accrual);
-        t.LastCreditDay = today;
-        PruneAndFlush(sapi, farmlandPos, map, idx, t);
+        double before = f.Level;
+        f.Level = Math.Min(Max, f.Level + Accrual);
+        f.LastCreditDay = today;
+        f.Day = today;
+        Flush(sapi, farmlandPos, map);
 
         TcmLog.Cat(sapi, TcmLog.Soil,
-            $"{farmlandPos} {family}: {before:0.#} -> {t.Level:0.#} (speed x{SpeedMul(t.Level):0.00}, yield x{YieldMul(t.Level):0.00})");
-    }
-
-    private static void PruneAndFlush(ICoreServerAPI sapi, BlockPos pos, Dictionary<int, Tile> map, int idx, Tile t)
-    {
-        if (t.Level <= 0.01) map.Remove(idx);   // clean ground carries no record
-        Flush(sapi, pos, map);
+            $"{farmlandPos} {family}: {before:0.#} -> {f.Level:0.#} "
+          + $"(speed x{SpeedMul(f.Level):0.00}, yield x{YieldMul(f.Level):0.00}; "
+          + $"{t.Fams.Count} family/families tracked here)");
     }
 
     // ------------------------------------------------------------------ the growth penalty
@@ -327,35 +381,42 @@ public static class FarSoilSickness
     {
         var rows = new List<string> {
             $"pattern {pattern} | {cycleDays:0.#}-day cycles | accrual {Accrual:0.#}, decay {DecayDay:0.##}/day, occupied x{Occupied:0.##}, clean below {CleanBelow:0.#}",
-            "cycle  crop  level   speed   yield",
+            "cycle  crop  its level   speed   yield",
         };
-        double level = 0;
-        string sickFamily = "A";   // the family we are tracking, which is the one repeated
+
+        // Every crop letter keeps its own level, because every family repeated on a tile makes
+        // that tile sick with THAT family. The row shows the level of the crop planted that
+        // cycle and the penalty it actually pays, which is exactly what LevelFor decides in play.
+        var levels = new Dictionary<char, double>();
 
         for (int i = 0; i < cycles; i++)
         {
             char c = pattern.Length == 0 ? '.' : pattern[i % pattern.Length];
             bool fallow = c == '.';
-            level = Math.Max(0, level - cycleDays * DecayDay * (fallow ? 1.0 : Occupied));
 
-            // Only the family the ground is sick WITH pays, exactly as LevelFor decides it in
-            // play. Printing the ground's multipliers on every row regardless of what was
-            // planted overstated a two-course rotation by half, because the off-family cycles
-            // read as penalised when in game they are free. Caught in play 2026-08-24: it hides
-            // itself while the level dips under the clean line on every off cycle, and only
-            // shows once the ground stays sick through them.
-            bool pays = !fallow && c.ToString() == sickFamily;
-            if (pays) level = Math.Min(Max, level + Accrual);
+            // A standing crop occupies the ground for every family alike, so they all decay at
+            // the same rate whichever one is planted.
+            foreach (char k in new List<char>(levels.Keys))
+                levels[k] = Math.Max(0, levels[k] - cycleDays * DecayDay * (fallow ? 1.0 : Occupied));
 
-            double sp = pays ? SpeedMul(level) : 1.0;
-            double yl = pays ? YieldMul(level) : 1.0;
-            rows.Add($"{i + 1,5}  {c,4}  {level,6:0.#}  x{sp:0.00}  x{yl:0.00}"
+            if (fallow) { rows.Add($"{i + 1,5}  {c,4}  {"",9}  x1.00  x1.00"); continue; }
+
+            levels.TryGetValue(c, out double lvl);
+            lvl = Math.Min(Max, lvl + Accrual);
+            levels[c] = lvl;
+
+            rows.Add($"{i + 1,5}  {c,4}  {lvl,9:0.#}  x{SpeedMul(lvl):0.00}  x{YieldMul(lvl):0.00}"
                      // No angle brackets: the game's chat renders VTML, so a bare '<' opens a
                      // tag and the parser swallows the rest of the line. The marker went missing
                      // in play before anyone noticed the rows it belonged on.
-                     + (pays && Bites(level) ? "   (felt)" : ""));
+                     + (Bites(lvl) ? "   (felt)" : ""));
         }
-        rows.Add($"level is the ground; only {sickFamily} pays for it. Other crops grow clean on sick ground.");
+
+        var final = new List<string>();
+        foreach (var kv in levels) if (kv.Value > 0.01) final.Add($"{kv.Key} {kv.Value:0.#}");
+        rows.Add(final.Count > 0
+            ? "ground left sick with: " + string.Join(", ", final) + " (each crop pays only its own)"
+            : "ground left clean.");
         return rows;
     }
 
@@ -399,15 +460,17 @@ public static class FarSoilSickness
                     return TextCommandResult.Success($"{pos}: clean ground, nothing recorded.");
 
                 bool occupied = sapi.World.BlockAccessor.GetBlock(pos.UpCopy())?.CropProps != null;
-                return TextCommandResult.Success(
-                    $"{pos}\n"
-                  + $"  family      {t.Family}\n"
-                  + $"  level       {t.Level:0.##} of {Max:0} (clean below {CleanBelow:0})\n"
-                  + $"  settled to  day {t.Day:0.##} (now {sapi.World.Calendar.TotalDays:0.##})\n"
-                  + $"  decaying    {DecayDay * (occupied ? Occupied : 1.0):0.###}/day ({(occupied ? "occupied" : "bare")})\n"
-                  + $"  growth      x{SpeedMul(t.Level):0.000}\n"
-                  + $"  yield       x{YieldMul(t.Level):0.000}\n"
-                  + $"  felt        {(Bites(t.Level) ? "yes" : "no")}");
+                var sb = new StringBuilder();
+                sb.Append($"{pos}\n");
+                sb.Append($"  decaying    {DecayDay * (occupied ? Occupied : 1.0):0.###}/day ({(occupied ? "occupied" : "bare")})\n");
+                sb.Append($"  now         day {sapi.World.Calendar.TotalDays:0.##}, clean below {CleanBelow:0} of {Max:0}\n");
+                foreach (var kv in t.Fams)
+                {
+                    sb.Append($"  {kv.Key,-12} {kv.Value.Level,6:0.##}  growth x{SpeedMul(kv.Value.Level):0.000}"
+                            + $"  yield x{YieldMul(kv.Value.Level):0.000}"
+                            + (Bites(kv.Value.Level) ? "  (felt)" : "  (not felt)") + "\n");
+                }
+                return TextCommandResult.Success(sb.ToString().TrimEnd());
             });
 
         TcmLog.Info(sapi, "soil sickness: /tcmsoil registered (inspect + sim)");

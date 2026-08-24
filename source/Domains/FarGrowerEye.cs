@@ -118,15 +118,32 @@ public static class FarGrowerEye
             if (level >= Rank.Novice && api is Vintagestory.API.Server.ICoreServerAPI ssapi)
             {
                 var sick = FarSoilSickness.Read(ssapi, __instance!.Pos);
-                if (sick != null && FarSoilSickness.Bites(sick.Level))
+                // Ground can be sick with several families at once. Name the one standing in it
+                // if that is the sick one, because it explains the crop in front of the reader;
+                // otherwise name the worst, because that is what the ground most needs said.
+                string? sickFam = null;
+                if (sick != null)
                 {
-                    string famName = Lang.HasTranslation("almanactcm:far-family-" + sick.Family)
-                        ? Lang.Get("almanactcm:far-family-" + sick.Family).ToLowerInvariant()
-                        : sick.Family;
+                    string? plantedFam = cropId == null ? null : FarFamiliarity.FamilyOf(cropId);
+                    if (plantedFam != null && sick.Fams.TryGetValue(plantedFam, out var pf)
+                        && FarSoilSickness.Bites(pf.Level)) sickFam = plantedFam;
+                    else
+                    {
+                        var worst = sick.Worst();
+                        if (worst != null && FarSoilSickness.Bites(worst.Value.Value.Level))
+                            sickFam = worst.Value.Key;
+                    }
+                }
+                if (sickFam != null)
+                {
+                    double lvl = sick!.Fams[sickFam].Level;
+                    string famName = Lang.HasTranslation("almanactcm:far-family-" + sickFam)
+                        ? Lang.Get("almanactcm:far-family-" + sickFam).ToLowerInvariant()
+                        : sickFam;
                     dsc.AppendLine(level >= Rank.Apprentice
-                        ? Lang.Get("almanactcm:far-eye-sick-full", famName, (int)sick.Level,
-                                   FarSoilSickness.SpeedMul(sick.Level).ToString("0.00"),
-                                   FarSoilSickness.YieldMul(sick.Level).ToString("0.00"))
+                        ? Lang.Get("almanactcm:far-eye-sick-full", famName, (int)lvl,
+                                   FarSoilSickness.SpeedMul(lvl).ToString("0.00"),
+                                   FarSoilSickness.YieldMul(lvl).ToString("0.00"))
                         : Lang.Get("almanactcm:far-eye-sick-rough", famName));
                 }
             }
