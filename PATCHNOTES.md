@@ -20,6 +20,25 @@ because Grandmaster work builds directly on this state.
   family is truly known, the ground itself remembers for you what it last bore. Rank
   decides what your hands do; familiarity decides what you know. They never cross.
 
+- The crop tells you when it is worth taking, and what taking it costs. Under Art of Growing
+  the roots and leaves do not ripen and hold the way vanilla crops do: a carrot bears most at
+  its seventh stage of eleven, then falls away for four more into a stage that gives no food
+  at all, only seed and rot. Vanilla's readout calls that last stage ripe, which aims a farmer
+  at the one moment that feeds nobody. A grower who knows the crop now reads it properly.
+  "Ready" means ready for the table, never for the seed head. Two stages past its best the
+  plant is going over, and every day it holds after that costs you. At the end it has gone to
+  seed and says so plainly. Grains and pulses are untouched, because for them the grain IS the
+  seed and their best stage is their last, so the old reading was always right for them. The
+  ladder is read from the drop tables as the game has them, not from a list kept in the mod, so
+  it stays true when the pack retunes a crop.
+
+- Some harvests leave you nothing to sow. On those same roots and leaves, a harvest taken for
+  the table returns no seed whatever, and only the bolted plant gives any. Lift every carrot at
+  its best forever and the seed bin empties with nothing on screen ever having explained why. A
+  grower who knows the crop is now told the price before paying it, once the plant is worth
+  taking. One who knows it well is told the whole fork: which stage bears best, roughly how
+  much, and what running it on instead would trade that harvest for.
+
 - The legumes give back. Peas, fava beans, lentils, soybean, peanut, alfalfa, and licorice
   now return nitrogen to the farmland they grow in, each to its own measure and never past
   a cap: fava the strongest of the annuals, alfalfa the strongest of all, and soybean
@@ -252,6 +271,60 @@ because Grandmaster work builds directly on this state.
   to the vanilla stability tick, losses only, never the recovery; deliberate stability
   spends stay exempt exactly as before. With SpecializedClasses present nothing
   changes, and the two paths can never stack.
+
+### Release staging: what goes on the server, and in what order
+
+Nothing in this section is deployed. The Quire runs `thequire_0.1.33` and
+`almanactcm_0.4.40` and stays there until 0.5 ships. Recorded here on 2026-08-24 after an
+Arts deploy went to the live server ahead of the release and was reverted the same hour.
+
+**Upload set.** All of it lands together or none of it does; the pack patches and the mods
+they patch are one unit.
+
+| # | File | From | Replaces | Why it cannot go alone |
+|---|---|---|---|---|
+| 1 | `CoreOfArts_1.2.2.zip` | `~/Downloads` | new | hard dep of both Arts mods (`coreofartspatch`) |
+| 2 | `ArtOfGrowing_1.2.2.zip` | `~/Downloads` | new | needs 1 |
+| 3 | `AOGBreedingAddon_1.2.2.zip` | `~/Downloads` | new | needs 1 and 2 |
+| 4 | `thequire_0.1.35.zip` | pack `Releases/` | `thequire_0.1.33.zip` | carries the five `far-comb-*.json` files. Without it the Arts crops land UNTUNED and the whole comb stays inert |
+| 5 | `almanactcm_0.5.0.zip` | TCM `Releases/` | `almanactcm_0.4.40.zip` | built 2026-08-24 08:34 at commit `8489924`, the current HEAD |
+| 6 | `almanacilluminated_0.2.0.zip` | Illuminated `Releases/` | `almanacilluminated_0.1.4.zip` | TCM 0.5.0 gates on `MinIlluminatedVersion` 0.2.0 |
+
+**The whole set is already assembled and running at
+`%APPDATA%/Translocator/Installations/Ingenium-test/Mods/`.** That installation holds all six
+files together and is the reference for what the server should look like after deploy. Anything
+superseded there is renamed `.superseded` or `.disabled` rather than deleted, which is the same
+discipline the server deploy needs.
+
+The 0.5.0 build was verified current on 2026-08-24 rather than assumed. Its `AlmanacTcm.dll`
+carries the multi-family soil sickness (`Fams`, `Worst`, `Migrate`, `LastCreditDay`), the retuned
+knobs (`SickAccrualPerHarvest`, `SickCleanBelow`, `SickMaxSpeedPenalty`), day-credit familiarity
+(`far-cropday-`, `FamMaxCreditsPerDay`, `FamKinCeiling`), the two-channel Grower's Eye
+(`far-eye-crop-figures`, `far-eye-sick-full`/`-rough`), `/tcmsoil`, and the
+`soil sickness: growth penalty hooked` bind line. It was built into the test world directly and
+copied back into `Releases/` afterwards, so the archived artifact and the tested one are the same
+bytes.
+
+**Order at deploy time.** Upload every new zip FIRST, then remove the superseded ones, then
+restart. Never remove a running server's own zip before the restart: the live server
+advertises the mod set it LOADED, so a client that lacks `thequire_0.1.33` downloads that
+file from disk on connect, and deleting it early can strand a first-time or
+cache-cleared join. That is the mistake this section exists to prevent.
+
+**Verify before restarting:** exactly one zip per modid in `data/Mods`. Two versions of the
+same modid is the "Assembly already loaded" hazard, and it bites at startup, not at upload.
+
+**World-state warning, decide before the restart.** Art of Growing rewrites vanilla crop
+blocks to the 11-stage peak-then-bolt curve and the breeding addon adds the sized block set
+beside them. Anything already planted becomes the unsized vestigial variety: it still grows
+and harvests, but sits outside the breeding ladder. Pulling the zips back out does not undo
+that. Given the pack's season-wipe balance policy, this wants to land AT a wipe rather than
+mid-season.
+
+**Known and tolerated.** ArtOfGrowing 1.2.2 gates 23 of its own patches on the un-suffixed
+`aogbreedingaddon` with `invert: true`; the name never resolves so all 23 apply even with
+the addon installed. That is what leaves the vestigial unsized blocks visible in the
+Illuminated Crops tab. Upstream, not ours, already tolerated, do not try to fix it in AoG.
 
 ## 0.4.40 (hotfix, released 2026-08-21)
 

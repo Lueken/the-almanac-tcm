@@ -201,15 +201,56 @@ public static class FarGrowerEye
             }
 
             var cp = cropBlock.CropProps!;
+            bool versed = FarFamiliarity.IsVersed(api, know, cropId);
+            int.TryParse(cropBlock.LastCodePart(), out int stage);
+
+            // What this plant gives at this stage, read live from the drop tables. Null means the
+            // ladder could not be walked, and then we fall back to vanilla's meaning of ripe
+            // rather than guess: a wrong ripeness claim is worse than a vague one.
+            var curve = FarYieldCurve.Of(api, cropBlock);
 
             // How far along it is: a fact about the plant in front of you, so familiarity.
-            double frac = 1.0;
-            if (int.TryParse(cropBlock.LastCodePart(), out int stage) && cp.GrowthStages > 0)
-                frac = stage / (double)cp.GrowthStages;
-            dsc.AppendLine(Lang.Get(frac < 0.5 ? "almanactcm:far-eye-crop-young"
-                : frac < 1.0 ? "almanactcm:far-eye-crop-grown" : "almanactcm:far-eye-crop-ready"));
+            //
+            // For a BOLTING crop this is measured against the PEAK, not the last stage. Art of
+            // Growing's roots and leaves peak mid-life and then decline into a stage that drops no
+            // food at all, so reporting ripeness against the last stage would aim the farmer at
+            // the one moment that feeds nobody. Grains are unaffected and keep the vanilla reading.
+            if (curve != null && curve.Bolts && stage > 0)
+            {
+                dsc.AppendLine(Lang.Get(
+                      stage >= curve.FinalStage ? "almanactcm:far-eye-crop-bolted"
+                    : stage >= curve.GoingOverStage ? "almanactcm:far-eye-crop-goingover"
+                    : stage >= curve.PeakStage ? "almanactcm:far-eye-crop-ready"
+                    : stage / (double)curve.PeakStage < 0.5 ? "almanactcm:far-eye-crop-young"
+                    : "almanactcm:far-eye-crop-grown"));
+            }
+            else
+            {
+                double frac = 1.0;
+                if (stage > 0 && cp.GrowthStages > 0)
+                    frac = stage / (double)cp.GrowthStages;
+                dsc.AppendLine(Lang.Get(frac < 0.5 ? "almanactcm:far-eye-crop-young"
+                    : frac < 1.0 ? "almanactcm:far-eye-crop-grown" : "almanactcm:far-eye-crop-ready"));
+            }
 
-            if (FarFamiliarity.IsVersed(api, know, cropId))
+            // The seed economy. On these crops a harvest for the table returns NO seed, so a
+            // farmer who always lifts at the peak empties the seed bin with nothing explaining
+            // why. Naming it is the single most valuable line here.
+            //
+            // Acquainted hears it only once the plant is worth taking, because before that the
+            // decision is not live and the line is noise on every seedling. Versed gets the
+            // figures at any stage, because that tier is planning rather than deciding.
+            if (curve != null && curve.Bolts && curve.FoodOrSeedNeverBoth)
+            {
+                if (versed)
+                    dsc.AppendLine(Lang.Get("almanactcm:far-eye-crop-seedfork",
+                        curve.PeakStage, curve.FinalStage,
+                        (int)System.Math.Round(curve.PeakFood)));
+                else if (stage >= curve.PeakStage)
+                    dsc.AppendLine(Lang.Get("almanactcm:far-eye-crop-seedcost"));
+            }
+
+            if (versed)
             {
                 double days = cp.TotalGrowthMonths > 0
                     ? cp.TotalGrowthMonths * api.World.Calendar.DaysPerMonth
