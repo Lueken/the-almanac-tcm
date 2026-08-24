@@ -339,7 +339,10 @@ public static class FarSoilSickness
             level = Math.Max(0, level - cycleDays * DecayDay * (fallow ? 1.0 : Occupied));
             if (!fallow && c.ToString() == sickFamily) level = Math.Min(Max, level + Accrual);
             rows.Add($"{i + 1,5}  {c,4}  {level,6:0.#}  x{SpeedMul(level):0.00}  x{YieldMul(level):0.00}"
-                     + (Bites(level) ? "   <-- felt" : ""));
+                     // No angle brackets: the game's chat renders VTML, so a bare '<' opens a
+                     // tag and the parser swallows the rest of the line. The marker went missing
+                     // in play before anyone noticed the rows it belonged on.
+                     + (Bites(level) ? "   (felt)" : ""));
         }
         return rows;
     }
