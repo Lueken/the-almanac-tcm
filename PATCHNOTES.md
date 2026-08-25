@@ -286,24 +286,34 @@ they patch are one unit.
 | 1 | `CoreOfArts_1.2.2.zip` | `~/Downloads` | new | hard dep of both Arts mods (`coreofartspatch`) |
 | 2 | `ArtOfGrowing_1.2.2.zip` | `~/Downloads` | new | needs 1 |
 | 3 | `AOGBreedingAddon_1.2.2.zip` | `~/Downloads` | new | needs 1 and 2 |
-| 4 | `thequire_0.1.35.zip` | pack `Releases/` | `thequire_0.1.33.zip` | carries the five `far-comb-*.json` files. Without it the Arts crops land UNTUNED and the whole comb stays inert |
-| 5 | `almanactcm_0.5.0.zip` | TCM `Releases/` | `almanactcm_0.4.40.zip` | built 2026-08-24 08:34 at commit `8489924`, the current HEAD |
-| 6 | `almanacilluminated_0.2.0.zip` | Illuminated `Releases/` | `almanacilluminated_0.1.4.zip` | TCM 0.5.0 gates on `MinIlluminatedVersion` 0.2.0 |
+| 4 | `IFFallow_1.0.4.zip` | `~/Downloads` | new | modid `invfarming`, display name "Involved Farming", ModDB page "Involved Farming: Fallow". Four names, one mod; the modid is the only one patching resolves against. Adds a fallow step after every harvest. Must land at or before 5, because thequire 0.1.36 patches `FallowPlacer` onto the ten Biodiversity: Crops plants upstream does not cover and gates those ops on this modid: without it they hold back and the pack's own crops silently skip fallow |
+| 5 | `thequire_0.1.36.zip` | pack `Releases/` | `thequire_0.1.33.zip` | carries the five `far-comb-*.json` files. Without it the Arts crops land UNTUNED and the whole comb stays inert. 0.1.36 adds the bdcrop fallow patch for 4 |
+| 6 | `almanactcm_0.5.0.zip` | TCM `Releases/` | `almanactcm_0.4.40.zip` | rebuilt 2026-08-25 at commit `4a436a5` |
+| 7 | `almanacilluminated_0.2.0.zip` | Illuminated `Releases/` | `almanacilluminated_0.1.4.zip` | TCM 0.5.0 gates on `MinIlluminatedVersion` 0.2.0 |
 
 **The whole set is already assembled and running at
-`%APPDATA%/Translocator/Installations/Ingenium-test/Mods/`.** That installation holds all six
+`%APPDATA%/Translocator/Installations/Ingenium-test/Mods/`.** That installation holds all seven
 files together and is the reference for what the server should look like after deploy. Anything
 superseded there is renamed `.superseded` or `.disabled` rather than deleted, which is the same
 discipline the server deploy needs.
 
-The 0.5.0 build was verified current on 2026-08-24 rather than assumed. Its `AlmanacTcm.dll`
-carries the multi-family soil sickness (`Fams`, `Worst`, `Migrate`, `LastCreditDay`), the retuned
-knobs (`SickAccrualPerHarvest`, `SickCleanBelow`, `SickMaxSpeedPenalty`), day-credit familiarity
-(`far-cropday-`, `FamMaxCreditsPerDay`, `FamKinCeiling`), the two-channel Grower's Eye
-(`far-eye-crop-figures`, `far-eye-sick-full`/`-rough`), `/tcmsoil`, and the
-`soil sickness: growth penalty hooked` bind line. It was built into the test world directly and
-copied back into `Releases/` afterwards, so the archived artifact and the tested one are the same
-bytes.
+The 0.5.0 build is verified current rather than assumed, re-verified 2026-08-25. Its
+`AlmanacTcm.dll` carries the multi-family soil sickness (`Fams`, `Worst`, `Migrate`,
+`LastCreditDay`), the retuned knobs (`SickAccrualPerHarvest`, `SickCleanBelow`,
+`SickMaxSpeedPenalty`), day-credit familiarity (`far-cropday-`, `FamMaxCreditsPerDay`,
+`FamKinCeiling`), the two-channel Grower's Eye (`far-eye-crop-figures`,
+`far-eye-sick-full`/`-rough`), `/tcmsoil`, and the `soil sickness: growth penalty hooked` bind
+line. Added 2026-08-24 and 25: the client sickness mirror, the fallow-rate fix, storage
+compaction, both soil stabilisers (suppressive soil on the bare rate, biofumigation by hoe), and
+the rest-time readout. Each zip is built into the test world directly and copied back into
+`Releases/` afterwards, so the archived artifact and the tested one are the same bytes.
+
+**One config caveat, and it only bites a world that has already run a 0.5 dev build.** A saved
+`ModConfig/almanactcm/global.json` always beats a changed C# default, so a knob retuned after its
+first boot does not reach that world. The live Quire has never run any of these builds, so every
+`Sick*` key is absent there and it picks the shipped defaults up cleanly on first start. A tester
+who booted an earlier 0.5 build needs the key deleted or edited by hand;
+`SickFertilityDecayBonus` is the one that moved, 0.15 to 0.50.
 
 **Order at deploy time.** Upload every new zip FIRST, then remove the superseded ones, then
 restart. Never remove a running server's own zip before the restart: the live server
