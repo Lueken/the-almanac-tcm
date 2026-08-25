@@ -33,9 +33,14 @@ namespace AlmanacTcm.Domains;
 /// exactly as it does for a Master, because the soil does not care who swung the hoe and because
 /// a cure that silently does nothing is the same silent-punishment failure the sickness readout
 /// already shipped once. What FAR rank buys is being TOLD: the Grower's Eye hint that says this
-/// ground would take a turn-in, and the confirmation naming what eased and by how much. And a
-/// turn-in teaches nothing: it banks no practice, which also closes the plant-and-turn-in loop
-/// that would otherwise pay farming XP for a crop nobody ever harvested.
+/// ground would take a turn-in, and the confirmation naming what eased and by how much.
+///
+/// A TURN-IN DOES BANK PRACTICE (RULED 2026-08-25, reversing the first build). It pays the tilling
+/// verb, because working a green crop into the ground is real soil labour and the hand doing it
+/// learns what a hoe teaches anywhere else. The first build read "teaches nothing" as "no XP" and
+/// withheld it to close a plant-and-turn-in farming loop, but that loop costs a full grow, a
+/// rotation slot and the whole harvest, which is a far worse rate than tilling new ground. All
+/// withholding it achieved was making the cure feel like a penalty for using it.
 ///
 /// STRICTLY ONE TILE, NO RADIUS. An earlier draft gave it a small area effect to save clicks;
 /// that was wrong, and is recorded so it is not re-proposed. Turning in nine plants costs exactly
@@ -151,6 +156,21 @@ public static class FarBiofumigation
         hand?.Itemstack?.Collectible?.DamageItem(sapi.World, byPlayer.Entity, hand);
 
         var cleared = FarSoilSickness.Biofumigate(sapi, farmland.Pos, ClearShare);
+
+        // A turn-in banks the tilling verb (RULED 2026-08-25, reversing the first build's reading
+        // of "teaches nothing"). Working a green crop into the ground is real soil labour and the
+        // hand that does it is learning the same thing a hoe teaches anywhere else, so refusing
+        // the credit made the cure feel like a punishment for using it. The exploit the old
+        // reading was guarding against does not survive contact: the plant-and-turn-in loop costs
+        // a full grow, a rotation slot and the harvest, which is a far worse XP rate than simply
+        // tilling new ground, and every other farming verb already pays for work with a cost.
+        //
+        // Exact position plus a 30-second bucket, matching the fertilizing seam's shape: a bed
+        // turned in plant by plant pays per tile, and a mis-swing on the same tile cannot.
+        AlmanacTcmModSystem.ServerInstance?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechTilling,
+            System.HashCode.Combine("biofum", farmland.Pos.X, farmland.Pos.Y, farmland.Pos.Z,
+                sapi.World.ElapsedMilliseconds / 30000));
+
         Report(sapi, byPlayer, cropName, cleared);
         return true;
     }

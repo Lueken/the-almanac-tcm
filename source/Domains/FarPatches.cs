@@ -115,8 +115,11 @@ public static class FarPatches
         // was therefore falling through to FOR's own postfix on this same method: a sown bed paid
         // Foraging, taught no crop familiarity, and left the ground untired. Pair the seam here so
         // a pick is farming; ForPatches stands down on any block FAR claims as a crop.
-        HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockBehaviorHarvestable", "OnBlockInteractStop",
-            nameof(PickPrefix), nameof(PickPostfix), "FAR cut-and-come-again pick");
+        // Trio, not a pair: the restore rides a FINALIZER so borrowed drop quantities go back even
+        // when the original throws. The behaviour instance is shared by every plant of the crop in
+        // the world, so a stranded haircut would tax the whole species for the session.
+        HookTrioDeclared(api, harmony, "Vintagestory.GameContent.BlockBehaviorHarvestable", "OnBlockInteractStop",
+            nameof(PickPrefix), nameof(PickPostfix), nameof(PickRestoreFinalizer), "FAR cut-and-come-again pick");
         // Fertilizing (the 1a-missing verb, arriving with its Phase 2 thrift): the consume
         // branch takes one item at :51929; the pair credits the application and rolls the
         // rank thrift refund.
@@ -265,6 +268,22 @@ public static class FarPatches
         TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
     }
 
+    /// <summary>HookPairDeclared plus a finalizer, for a seam that BORROWS shared state and must
+    /// give it back even when the original throws. A postfix is skipped on a throw; a finalizer
+    /// is not.</summary>
+    private static void HookTrioDeclared(ICoreAPI api, Harmony harmony, string typeName, string method,
+        string prefix, string postfix, string finalizer, string label)
+    {
+        var t = AccessTools.TypeByName(typeName);
+        var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
+        if (m == null) { TcmLog.Warn(api, $"{label} seam not found ({typeName} does not DECLARE {method}); that verb is inactive this build"); return; }
+        harmony.Patch(m,
+            prefix: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), prefix)),
+            postfix: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), postfix)),
+            finalizer: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), finalizer)));
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared, with restore finalizer)");
+    }
+
     private static void HookPairDeclared(ICoreAPI api, Harmony harmony, string typeName, string method, string prefix, string postfix, string label)
     {
         var t = AccessTools.TypeByName(typeName);
@@ -313,9 +332,11 @@ public static class FarPatches
     ///    it, and it sits in the CROP slot, so the farmland is one below and the struck position
     ///    is left empty. That is real tilling labour and, under that mod, a mandatory step before
     ///    every sowing, so it credits. Without the mod this branch simply never fires.
-    ///  - A BIOFUMIGATION TURN-IN, which also leaves the struck position empty over farmland and
-    ///    must NOT credit: a turn-in teaches nothing, by ruling. It is excluded by the flag
-    ///    rather than by geometry, because geometry cannot tell it from clearing fallow.
+    ///  - A BIOFUMIGATION TURN-IN, which also leaves the struck position empty over farmland. It
+    ///    DOES pay the tilling verb (RULED 2026-08-25), but it banks that credit itself inside
+    ///    FarBiofumigation.TurnIn, with its own context key, so this seam must stand down or the
+    ///    same swing would pay twice. Excluded by the flag rather than by geometry, because
+    ///    geometry cannot tell a turn-in from clearing fallow.
     ///
     /// Nothing else reaches the method. A hoe on a standing crop that is not a turn-in candidate,
     /// or on farmland already tilled, never gets past OnHeldInteractStart at all.
@@ -744,12 +765,44 @@ public static class FarPatches
     /// drop's NatFloat is the same arithmetic by another door: nextFloat returns
     /// offset + multiplier * (avg + rnd * 2 * var) (NatFloat.cs:247-262), and these drop entries
     /// declare no offset. The quantities are BORROWED for the length of one call and handed back
-    /// in the postfix, the shear-prefix shape, because a BlockBehavior instance is shared by every
-    /// placement of that block: a haircut left behind would tax the whole field forever.
+    /// by the FINALIZER, because a BlockBehavior instance is shared by every placement of that
+    /// block: a haircut left behind would tax the whole field forever. A postfix was not enough,
+    /// and that is the whole reason the finalizer exists. See PickRestoreFinalizer.
     ///
-    /// Only the sickness haircut rides here. The per-rank yield table stays on the break seam,
-    /// where it was ruled; a pick is a different act and its rank hand is not settled.
+    /// BOTH HANDS RIDE HERE (RULED 2026-08-25). The per-rank yield table now applies to a pick as
+    /// well as to a break. It was left off while the question was open, which meant a Master
+    /// picking cabbage took a rank-blind harvest while breaking the same plant paid the full
+    /// table: the same crop, the same farmer, two different answers depending on which button
+    /// they pressed. The two multipliers compose exactly as they do on the break seam, sickness
+    /// first because it asks what the ground had left to give and the table asks how well this
+    /// farmer takes it.
     /// </summary>
+    /// <summary>
+    /// Hands the borrowed drop quantities back, whatever happened inside.
+    ///
+    /// WHY A FINALIZER AND NOT THE POSTFIX. A Harmony postfix does not run when the original
+    /// throws; a finalizer does. The object being mutated here is the BlockBehavior INSTANCE,
+    /// which is shared by every plant of that crop in the entire world and outlives the call by
+    /// the length of the session. So a single exception anywhere inside
+    /// BehaviorHarvestable.OnBlockInteractStop, in vanilla or in any other mod patching the same
+    /// method, would strand a sickness-and-rank haircut on the whole species permanently, and it
+    /// would look like a balance decision rather than a bug. Precedent in this codebase:
+    /// AlcBrandPatches.RestoreFinalizer, added for the same class of failure.
+    ///
+    /// Deliberately total: no side test, no null-instance shortcut beyond what it takes not to
+    /// throw, and it swallows nothing (returning void from a finalizer leaves any exception to
+    /// propagate exactly as it would have).
+    /// </summary>
+    public static void PickRestoreFinalizer(Vintagestory.GameContent.BlockBehaviorHarvestable __instance,
+        PickState __state)
+    {
+        if (__state.Borrowed == null || __instance?.harvestedStacks == null) return;
+        var stacks = __instance.harvestedStacks;
+        int n = Math.Min(stacks.Length, __state.Borrowed.Length);
+        for (int i = 0; i < n; i++)
+            if (__state.Borrowed[i] != null && stacks[i] != null) stacks[i]!.Quantity = __state.Borrowed[i]!;
+    }
+
     public static void PickPrefix(Vintagestory.GameContent.BlockBehaviorHarvestable __instance,
         IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, out PickState __state)
     {
@@ -764,11 +817,25 @@ public static class FarPatches
         string? family = FarFamiliarity.FamilyOf(cropId);
         __state = new PickState(cropId, family, null);
 
-        if (family == null || __instance.harvestedStacks == null) return;
-        double sick = FarSoilSickness.LevelFor(sapi, blockSel.Position.DownCopy(), family);
-        if (sick <= 0) return;
+        if (__instance.harvestedStacks == null) return;
 
-        float haircut = (float)FarSoilSickness.YieldMul(sick);
+        // The ground's answer. A crop with no family (nothing in the taxonomy) simply skips it.
+        float haircut = 1f;
+        if (family != null)
+        {
+            double sick = FarSoilSickness.LevelFor(sapi, blockSel.Position.DownCopy(), family);
+            if (sick > 0) haircut *= (float)FarSoilSickness.YieldMul(sick);
+        }
+
+        // The hand's answer, the same ladder the break seam reads: the per-crop per-rank table
+        // when the crop has a row, the legacy Untrained dock when it does not.
+        int level = FarDomain.LevelOf(byPlayer);
+        double? tabled = FarYieldTable.MultiplierFor(sapi, __instance.block, level);
+        if (tabled != null) haircut *= (float)tabled.Value;
+        else if (level <= 0) haircut *= (float)FarDomain.Knob(FarDomain.HarvestDockUntrained, 0.85);
+
+        if (haircut >= 0.9999f) return;   // nothing to borrow, so nothing to restore
+
         var stacks = __instance.harvestedStacks;
         var borrowed = new NatFloat?[stacks.Length];
         for (int i = 0; i < stacks.Length; i++)
@@ -796,16 +863,8 @@ public static class FarPatches
     public static void PickPostfix(Vintagestory.GameContent.BlockBehaviorHarvestable __instance,
         IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, PickState __state)
     {
-        // Hand the drop quantities back FIRST, ahead of every early return below. The behaviour
-        // instance outlives this call and is shared by every plant of this crop in the world.
-        if (__state.Borrowed != null && __instance?.harvestedStacks != null)
-        {
-            var stacks = __instance.harvestedStacks;
-            int n = Math.Min(stacks.Length, __state.Borrowed.Length);
-            for (int i = 0; i < n; i++)
-                if (__state.Borrowed[i] != null && stacks[i] != null) stacks[i]!.Quantity = __state.Borrowed[i]!;
-        }
-
+        // The restore is NOT here. It is in PickRestoreFinalizer, which runs even when the
+        // original throws; a postfix does not.
         if (__state.CropId == null || byPlayer == null || blockSel == null) return;
         if (world?.Side != EnumAppSide.Server || world.Api is not ICoreServerAPI sapi) return;
         if (world.BlockAccessor.GetBlock(blockSel.Position)?.BlockId == __instance?.block?.BlockId) return;
