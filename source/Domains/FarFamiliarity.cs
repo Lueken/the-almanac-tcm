@@ -152,6 +152,17 @@ public static class FarFamiliarity
         return ripeBlockToId.TryGetValue(block.Code.Domain + ":" + block.Code.Path, out string? id) ? id : null;
     }
 
+    /// <summary>True when this crop's harvest hangs on a SEPARATE fruit block rather than on the
+    /// plant, which is every cucurbit. A positive test against the taxonomy's own ripeBlocks
+    /// rather than an inference from an unreadable drop ladder, so a crop nobody has classified
+    /// yet stays visibly unclassified instead of being quietly filed with the melons.</summary>
+    public static bool BearsFruitBlocks(ICoreAPI api, string cropId)
+    {
+        EnsureLoaded(api);
+        foreach (var kv in ripeBlockToId) if (kv.Value == cropId) return true;
+        return false;
+    }
+
     public static string? FamilyOf(string cropId) =>
         familyOfId.TryGetValue(cropId, out string? fam) ? fam : null;
 

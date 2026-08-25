@@ -95,14 +95,26 @@ public static class FarCropCensus
             var curve = FarYieldCurve.Of(sapi, b);
 
             // A NULL CURVE IS A FINDING, NOT A REASON TO GO QUIET. The first build skipped these,
-            // and the skip hid all seven cucurbits: a melon or squash motherplant carries
-            // CropProps and drops nothing at all, because the FRUIT is the harvest and it grows on
-            // a separate block. The plant still occupies farmland, still sickens it and still has
-            // a life the reader can see, so a census that omits it is answering a different
-            // question than the one asked. Seed nurseries land here too: their ladders drop only
-            // chaff, so no peak resolves.
+            // and the skip hid all seven cucurbits plus every seed nursery: thirty-eight ladders
+            // absent from a document whose whole job is completeness.
+            //
+            // But "no food on the plant" is one symptom of TWO different plants, and one label for
+            // both was too coarse to be useful. A melon is a plant whose harvest hangs on a
+            // separate fruit block; a seed carrot is a plant with no harvest at all, whose entire
+            // purpose is the seed. They want opposite words in the readout, so they get separate
+            // shapes here.
+            //
+            // BEARS is a POSITIVE test against the taxonomy's own ripeBlocks, not a guess from an
+            // unreadable ladder. That matters: it keeps UNREADABLE meaning "nobody has classified
+            // this", which is the tripwire that would have caught both of today's bugs years
+            // sooner. A future crop with a ladder we cannot walk stays visibly unclassified
+            // instead of being quietly filed with the melons.
             if (curve == null)
             {
+                string shape = id == null ? "UNREADABLE"
+                             : key.Contains(":crop-seed-") ? "SEEDCROP"
+                             : FarFamiliarity.BearsFruitBlocks(sapi, id) ? "BEARS"
+                             : "UNREADABLE";
                 byLadder[key] = new Row
                 {
                     Ladder = key,
@@ -111,7 +123,7 @@ public static class FarCropCensus
                     Stages = b.CropProps.GrowthStages,
                     Peak = b.CropProps.GrowthStages,
                     PeakHeads = "", FinalHeads = "",
-                    Shape = id == null ? "UNREADABLE" : "FRUITS",
+                    Shape = shape,
                 };
                 continue;
             }
@@ -143,8 +155,9 @@ public static class FarCropCensus
         }
 
         var rows = new List<Row>(byLadder.Values);
-        int Rank(string s) => s == "UNREADABLE" ? 0 : s == "FRUITS" ? 1 : s == "BOLTS" ? 2
-                            : s == "TRANSFORMS" ? 3 : s == "DECLINES" ? 4 : 5;
+        // Unclassified first, because a gap is the only row that needs acting on.
+        int Rank(string s) => s == "UNREADABLE" ? 0 : s == "BEARS" ? 1 : s == "SEEDCROP" ? 2
+                            : s == "BOLTS" ? 3 : s == "TRANSFORMS" ? 4 : s == "DECLINES" ? 5 : 6;
         rows.Sort((x, y) => Rank(x.Shape) != Rank(y.Shape)
             ? Rank(x.Shape).CompareTo(Rank(y.Shape))
             : string.CompareOrdinal(x.Ladder, y.Ladder));
@@ -158,9 +171,10 @@ public static class FarCropCensus
         sb.AppendLine("Peak is the stage carrying the most food, first maximum winning ties. Shape:");
         sb.AppendLine("BOLTS = the last stage gives no food. TRANSFORMS = the last stage gives a different");
         sb.AppendLine("food than the peak. DECLINES = same food, less of it. RIPENS = the peak IS the last stage.");
-        sb.AppendLine("FRUITS = the plant itself drops nothing; the harvest hangs on a separate fruit block");
-        sb.AppendLine("(every cucurbit, and seed nurseries whose ladder drops only chaff). UNREADABLE = the same,");
-        sb.AppendLine("but the taxonomy does not know this crop either, which is a gap worth closing.");
+        sb.AppendLine("BEARS = the plant drops nothing itself; the harvest hangs on a separate fruit block");
+        sb.AppendLine("(every cucurbit). SEEDCROP = no food at any stage, because seed IS the crop.");
+        sb.AppendLine("UNREADABLE = a ladder that resolves to nothing and matches neither of those, which");
+        sb.AppendLine("means nobody has classified it. Any row reading UNREADABLE is a gap, not a shape.");
         sb.AppendLine();
         sb.AppendLine("| Ladder | Crop | Family | Stages | Peak | Peak gives | Last gives | Shape | Pick |");
         sb.AppendLine("|---|---|---|---:|---:|---|---|---|---|");
