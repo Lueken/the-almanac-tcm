@@ -162,20 +162,27 @@ public static class FarGrowerEye
                         : Lang.Get(felt ? "almanactcm:far-eye-sick-rough"
                                         : "almanactcm:far-eye-sick-tiring-rough", famName));
 
-                    // Suppressive soil (Tier 1, 2026-08-24). Rich ground sheds sickness faster,
-                    // and a multiplier that silently changes recovery time is exactly the kind of
-                    // thing that reads as a bug, so it is said out loud wherever it is doing
-                    // work. Ground reading, so it rides the rank channel at the figures tier.
-                    // Read straight off the farmland's own synced tree rather than the sickness
-                    // mirror: OriginalFertility is serialised by vanilla and reaches the client
-                    // already, so this needs no sync of its own.
-                    if (level >= Rank.Apprentice)
+                    // How long the rest would take (Apprentice+, and only where a penalty is
+                    // actually being paid). This is also where suppressive soil becomes visible:
+                    // rich ground shortens the number without the multiplier ever having to be
+                    // named.
+                    //
+                    // It replaced a line that printed the multiplier itself, "Ground this rich
+                    // sheds it 12% faster than poor soil", which Jeffrey called out on sight and
+                    // was right to. Faster at WHAT, than WHAT, measured in what: the sentence
+                    // asked the reader to compare against ground they cannot see, at a rate they
+                    // were never shown, for a quantity with no name. It answered "what is the
+                    // modifier" when the question a farmer has is "when can I plant here again".
+                    //
+                    // Fertility comes straight off the farmland's own synced tree rather than the
+                    // sickness mirror: OriginalFertility is serialised by vanilla and reaches the
+                    // client already, so this needs no sync of its own.
+                    if (felt && level >= Rank.Apprentice)
                     {
-                        double shed = FarSoilSickness.FertMul(
-                            FarSoilSickness.AvgFertility(farmland.OriginalFertility));
-                        if (shed > 1.005)
-                            dsc.AppendLine(Lang.Get("almanactcm:far-eye-sick-suppressive",
-                                (int)System.Math.Round((shed - 1) * 100)));
+                        double rest = FarSoilSickness.DaysToClean(
+                            lvl, FarSoilSickness.AvgFertility(farmland.OriginalFertility));
+                        if (rest >= 1)
+                            dsc.AppendLine(Lang.Get("almanactcm:far-eye-sick-rest", RestSpan(api, rest)));
                     }
 
                     // The cure, offered only where there is something to cure and only to a hand
@@ -200,6 +207,20 @@ public static class FarGrowerEye
                         dsc.AppendLine(Lang.Get("almanactcm:far-eye-lastbore", lastNutrient));
                 }
             }
+        }
+
+        /// <summary>A span of rest in the units a farmer plans in. Months once it is long enough
+        /// for months to mean anything, days below that, and the month LENGTH comes from the
+        /// world rather than a constant, because it is a world setting and this pack runs long
+        /// ones.</summary>
+        private static string RestSpan(ICoreAPI api, double days)
+        {
+            double perMonth = api.World?.Calendar?.DaysPerMonth ?? 30;
+            if (perMonth <= 0) perMonth = 30;
+            double months = days / perMonth;
+            return months < 1.5
+                ? Lang.Get("almanactcm:far-eye-rest-days", System.Math.Max(1, (int)System.Math.Round(days)))
+                : Lang.Get("almanactcm:far-eye-rest-months", (int)System.Math.Round(months));
         }
 
         private static void AppendRoughSoil(StringBuilder dsc, IFarmlandBlockEntity farmland)

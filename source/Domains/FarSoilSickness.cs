@@ -333,6 +333,25 @@ public static class FarSoilSickness
     public static double DecayPerDay(bool occupied, double fert) =>
         DecayDay * (occupied ? Occupied : 1.0) * FertMul(fert);
 
+    /// <summary>
+    /// In-game days of BARE rest before this level stops being felt. Zero when it already is not.
+    ///
+    /// This is what the hover quotes, and quoting it is the whole of how suppressive soil is made
+    /// visible. The first build printed the multiplier instead ("sheds it 12% faster than poor
+    /// soil"), which was precision about a baseline the player can never see: faster at what,
+    /// than what, measured in what. A rest time is the question a farmer actually has, it is
+    /// actionable, and rich ground shortens it without the mechanic ever having to be explained.
+    ///
+    /// Always quoted BARE, whatever is standing there now. It is the stable reference, and it
+    /// says the useful thing on its own: clearing the tile is the faster cure.
+    /// </summary>
+    public static double DaysToClean(double level, double fert)
+    {
+        if (level <= CleanBelow) return 0;
+        double rate = DecayPerDay(false, fert);
+        return rate <= 0 ? 0 : (level - CleanBelow) / rate;
+    }
+
     /// <summary>Brings every family on a tile up to the present and drops the ones that have
     /// burned out. A standing crop occupies the ground for all of them alike, whichever family
     /// it belongs to, so occupancy is a property of the tile and not of the record.</summary>
