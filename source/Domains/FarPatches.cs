@@ -292,17 +292,48 @@ public static class FarPatches
         IPlayer? player = PlayerOf(byEntity);
         if (player == null || blockSel == null || !ServerSide(byEntity?.World)) return;
 
-        // OUTCOME, NOT ATTEMPT. Vanilla's DoTill returns without doing anything on a block that
-        // is not soil, and a postfix runs regardless, so this seam used to bank tilling for any
-        // hoe swing that reached the method. That was harmless only because vanilla declines the
-        // swing outright on anything but soil (ItemHoe.cs:70) — a guarantee biofumigation now
-        // deliberately breaks, because a turn-in has to reach DoTill to be intercepted. Reading
-        // the result closes both: a turn-in leaves air where the crop stood and banks nothing.
-        if (byEntity!.World.BlockAccessor.GetBlockEntity(blockSel.Position) is not Vintagestory.GameContent.BlockEntityFarmland) return;
+        if (!TillWorthCrediting(byEntity!.World, blockSel.Position)) return;
 
         Core?.Ledger?.Log(player, FarDomain.Code, FarDomain.TechTilling,
             HashCode.Combine(blockSel.Position.X, blockSel.Position.Y, blockSel.Position.Z));
     }
+
+    /// <summary>
+    /// OUTCOME, NOT ATTEMPT. Vanilla's DoTill returns without doing anything on a block that is
+    /// not soil, and a postfix runs regardless, so this seam used to bank tilling for any hoe
+    /// swing that reached the method. That was harmless only because vanilla declines the swing
+    /// outright on anything but soil (ItemHoe.cs:70) — a guarantee biofumigation deliberately
+    /// breaks, since a turn-in has to reach DoTill to be intercepted.
+    ///
+    /// Three ways a swing can reach DoTill, and each is answered here:
+    ///
+    ///  - SOIL becomes farmland. The block entity lands at the struck position. Credit.
+    ///  - A FALLOW block is cleared, if Involved Farming is loaded. Its block is deliberately
+    ///    coded `soilfallow` so vanilla's own PathStartsWith("soil") test lets the hoe swing on
+    ///    it, and it sits in the CROP slot, so the farmland is one below and the struck position
+    ///    is left empty. That is real tilling labour and, under that mod, a mandatory step before
+    ///    every sowing, so it credits. Without the mod this branch simply never fires.
+    ///  - A BIOFUMIGATION TURN-IN, which also leaves the struck position empty over farmland and
+    ///    must NOT credit: a turn-in teaches nothing, by ruling. It is excluded by the flag
+    ///    rather than by geometry, because geometry cannot tell it from clearing fallow.
+    ///
+    /// Nothing else reaches the method. A hoe on a standing crop that is not a turn-in candidate,
+    /// or on farmland already tilled, never gets past OnHeldInteractStart at all.
+    /// </summary>
+    private static bool TillWorthCrediting(IWorldAccessor world, BlockPos pos)
+    {
+        if (turnedInThisSwing) { turnedInThisSwing = false; return false; }
+        if (world.BlockAccessor.GetBlockEntity(pos) is Vintagestory.GameContent.BlockEntityFarmland) return true;
+        return world.BlockAccessor.GetBlockEntity(pos.DownCopy()) is Vintagestory.GameContent.BlockEntityFarmland
+            && world.BlockAccessor.GetBlock(pos)?.BlockId == 0;
+    }
+
+    /// <summary>Set by the turn-in prefix and consumed by whichever till postfix runs next. A
+    /// single static is safe here for the same reason the shear pair is: DoTill is dispatched
+    /// from the held-interaction step on the server main thread, synchronously, one swing at a
+    /// time. The postfix always runs even when the prefix skipped the original, so it is always
+    /// cleared.</summary>
+    private static bool turnedInThisSwing;
 
     // ------------------------------------------------------------ biofumigation (the hoe turn-in)
 
@@ -364,7 +395,13 @@ public static class FarPatches
         if (byEntity.World.Api is not ICoreServerAPI sapi) return true;
         IPlayer? player = PlayerOf(byEntity);
         if (player == null) return true;
-        return !FarBiofumigation.TurnIn(sapi, player, blockSel.Position);
+
+        // Flagged for the till postfix, which runs whether or not this skips the original and
+        // otherwise cannot tell a turn-in from clearing a fallow block: both leave the struck
+        // position empty over farmland.
+        bool turnedIn = FarBiofumigation.TurnIn(sapi, player, blockSel.Position);
+        if (turnedIn) turnedInThisSwing = true;
+        return !turnedIn;
     }
 
     /// <summary>The PS hoe override, both branches: after the till, the block on the ground says
@@ -375,9 +412,10 @@ public static class FarPatches
         if (player == null || blockSel == null || !ServerSide(byEntity?.World)) return;
         Block? now = byEntity!.World.BlockAccessor.GetBlock(blockSel.Position);
         bool furrow = now?.Code?.Path?.StartsWith("furrowedland") == true;
-        // Outcome, not attempt — see TillPostfix. Neither a furrow nor farmland means the swing
-        // did something else entirely (a biofumigation turn-in) or nothing at all.
-        if (!furrow && byEntity.World.BlockAccessor.GetBlockEntity(blockSel.Position) is not Vintagestory.GameContent.BlockEntityFarmland) return;
+        // Outcome, not attempt — see TillWorthCrediting. A furrow is its own verb and settles
+        // here; anything else has to have actually tilled something.
+        if (furrow) turnedInThisSwing = false;
+        else if (!TillWorthCrediting(byEntity.World, blockSel.Position)) return;
         string tech = furrow ? FarDomain.TechFurrow : FarDomain.TechTilling;
         Core?.Ledger?.Log(player, FarDomain.Code, tech,
             HashCode.Combine(blockSel.Position.X, blockSel.Position.Y, blockSel.Position.Z));
