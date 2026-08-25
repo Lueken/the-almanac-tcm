@@ -91,10 +91,31 @@ public static class FarCropCensus
             string key = LadderKey(b);
             if (byLadder.TryGetValue(key, out var seen)) { seen.Variants++; continue; }
 
-            var curve = FarYieldCurve.Of(sapi, b);
-            if (curve == null) continue;   // ladder unreadable; say nothing rather than guess
-
             string? id = FarFamiliarity.CropIdOf(sapi, b);
+            var curve = FarYieldCurve.Of(sapi, b);
+
+            // A NULL CURVE IS A FINDING, NOT A REASON TO GO QUIET. The first build skipped these,
+            // and the skip hid all seven cucurbits: a melon or squash motherplant carries
+            // CropProps and drops nothing at all, because the FRUIT is the harvest and it grows on
+            // a separate block. The plant still occupies farmland, still sickens it and still has
+            // a life the reader can see, so a census that omits it is answering a different
+            // question than the one asked. Seed nurseries land here too: their ladders drop only
+            // chaff, so no peak resolves.
+            if (curve == null)
+            {
+                byLadder[key] = new Row
+                {
+                    Ladder = key,
+                    CropId = id ?? "(not in taxonomy)",
+                    Family = id == null ? "-" : (FarFamiliarity.FamilyOf(id) ?? "-"),
+                    Stages = b.CropProps.GrowthStages,
+                    Peak = b.CropProps.GrowthStages,
+                    PeakHeads = "", FinalHeads = "",
+                    Shape = id == null ? "UNREADABLE" : "FRUITS",
+                };
+                continue;
+            }
+
             var row = new Row
             {
                 Ladder = key,
@@ -122,7 +143,8 @@ public static class FarCropCensus
         }
 
         var rows = new List<Row>(byLadder.Values);
-        int Rank(string s) => s == "BOLTS" ? 0 : s == "TRANSFORMS" ? 1 : s == "DECLINES" ? 2 : 3;
+        int Rank(string s) => s == "UNREADABLE" ? 0 : s == "FRUITS" ? 1 : s == "BOLTS" ? 2
+                            : s == "TRANSFORMS" ? 3 : s == "DECLINES" ? 4 : 5;
         rows.Sort((x, y) => Rank(x.Shape) != Rank(y.Shape)
             ? Rank(x.Shape).CompareTo(Rank(y.Shape))
             : string.CompareOrdinal(x.Ladder, y.Ladder));
@@ -136,6 +158,9 @@ public static class FarCropCensus
         sb.AppendLine("Peak is the stage carrying the most food, first maximum winning ties. Shape:");
         sb.AppendLine("BOLTS = the last stage gives no food. TRANSFORMS = the last stage gives a different");
         sb.AppendLine("food than the peak. DECLINES = same food, less of it. RIPENS = the peak IS the last stage.");
+        sb.AppendLine("FRUITS = the plant itself drops nothing; the harvest hangs on a separate fruit block");
+        sb.AppendLine("(every cucurbit, and seed nurseries whose ladder drops only chaff). UNREADABLE = the same,");
+        sb.AppendLine("but the taxonomy does not know this crop either, which is a gap worth closing.");
         sb.AppendLine();
         sb.AppendLine("| Ladder | Crop | Family | Stages | Peak | Peak gives | Last gives | Shape | Pick |");
         sb.AppendLine("|---|---|---|---:|---:|---|---|---|---|");

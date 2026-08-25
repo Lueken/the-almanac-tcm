@@ -114,14 +114,23 @@ public static class FarFamiliarity
         foreach (var (prefix, id) in prefixMap)
             if (code.StartsWith(prefix, System.StringComparison.Ordinal)) return id;
 
-        const string varietalHead = "game:crop-";
-        if (code.StartsWith(varietalHead, System.StringComparison.Ordinal))
+        // The size segment sits after "crop-" on a food crop and after "crop-seed-" on a seed
+        // nursery, so BOTH heads have to be tried (found by the live census, 2026-08-25).
+        // game:crop-seed-onion resolved through the taxonomy, but every one of
+        // game:crop-seed-{size}-onion fell straight through and came back a stranger: no
+        // familiarity, and no family, which means NO SOIL SICKNESS AT ALL. A seed nursery on bred
+        // stock was tiring the ground not one bit, which is the opposite of the ruling that a
+        // nursery is the same plant drawing on the same ground. Seed carrot, parsnip and turnip
+        // shared the hole and hid it better, since their ladders drop only chaff and never
+        // surfaced in a yield-curve census at all.
+        foreach (string head in varietalHeads)
         {
-            string rest = code.Substring(varietalHead.Length);
+            if (!code.StartsWith(head, System.StringComparison.Ordinal)) continue;
+            string rest = code.Substring(head.Length);
             foreach (string size in varietalSizes)
             {
                 if (!rest.StartsWith(size + "-", System.StringComparison.Ordinal)) continue;
-                string normalized = varietalHead + rest.Substring(size.Length + 1);
+                string normalized = head + rest.Substring(size.Length + 1);
                 foreach (var (prefix, id) in prefixMap)
                     if (normalized.StartsWith(prefix, System.StringComparison.Ordinal)) return id;
                 break;
@@ -129,6 +138,10 @@ public static class FarFamiliarity
         }
         return null;
     }
+
+    /// <summary>Code heads a varietal size can follow. Longest first, so `crop-seed-` is tested
+    /// before `crop-` and a sized seed crop is not mistaken for a sized food crop.</summary>
+    private static readonly string[] varietalHeads = { "game:crop-seed-", "game:crop-" };
 
     /// <summary>Crop id when this exact block is a registered RIPE vine fruit (pumpkin and the
     /// bdcrop melons/squash, whose harvest never reaches the BlockCrop seam); null otherwise.</summary>
