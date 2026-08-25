@@ -405,12 +405,16 @@ public static class FarSoilSickness
     }
 
     /// <summary>Client side: keep the last synced snapshot for the tooltip to read.</summary>
+    // PARAMETER NAMES ARE THE CONTRACT. Harmony injects by NAME, not by position, and a name that
+    // does not exist on the target throws at patch time rather than being ignored. This shipped
+    // once as "worldAccessForResolve" and took the whole sync seam down with it; the real
+    // signature is FromTreeAttributes(ITreeAttribute tree, IWorldAccessor worldForResolving).
     public static void SyncIn(Vintagestory.API.Common.BlockEntity __instance,
                               Vintagestory.API.Datastructures.ITreeAttribute tree,
-                              IWorldAccessor worldAccessForResolve)
+                              IWorldAccessor worldForResolving)
     {
         // Api is still null while a BE is being deserialised, so side comes from the world.
-        if (tree == null || __instance == null || worldAccessForResolve?.Side != EnumAppSide.Client) return;
+        if (tree == null || __instance == null || worldForResolving?.Side != EnumAppSide.Client) return;
         var pos = __instance.Pos;
         if (pos == null) return;
 
@@ -449,10 +453,26 @@ public static class FarSoilSickness
             TcmLog.Warn(api, "soil sickness: farmland tree attributes not found; the readout stays server-only this build (penalties still apply)");
             return;
         }
-        harmony.Patch(to, postfix: new HarmonyLib.HarmonyMethod(
-            HarmonyLib.AccessTools.Method(typeof(FarSoilSickness), nameof(SyncOut))));
+
+        // Harmony injects by parameter NAME and throws when one does not exist, so check the
+        // names ourselves and degrade instead. Guessing "worldAccessForResolve" for what is
+        // really "worldForResolving" took the whole seam down once already, and a thrown patch
+        // is indistinguishable in the log from the domain being off.
+        string wanted = "";
+        foreach (var p in from.GetParameters())
+            if (p.ParameterType == typeof(IWorldAccessor)) wanted = p.Name ?? "";
+        if (wanted != "worldForResolving")
+        {
+            TcmLog.Warn(api, $"soil sickness: FromTreeAttributes names its world parameter '{wanted}', not 'worldForResolving'; the readout stays server-only this build (penalties still apply)");
+            return;
+        }
+
+        // Read side first: if it throws we have applied nothing, rather than leaving the server
+        // stamping trees no client ever reads.
         harmony.Patch(from, postfix: new HarmonyLib.HarmonyMethod(
             HarmonyLib.AccessTools.Method(typeof(FarSoilSickness), nameof(SyncIn))));
+        harmony.Patch(to, postfix: new HarmonyLib.HarmonyMethod(
+            HarmonyLib.AccessTools.Method(typeof(FarSoilSickness), nameof(SyncOut))));
         TcmLog.Info(api, "soil sickness: readout synced to clients (farmland tree attributes)");
     }
 
