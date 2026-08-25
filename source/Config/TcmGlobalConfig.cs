@@ -275,6 +275,14 @@ public class TcmGlobalConfig
     /// creeps on poor (33.1 against 34). It costs half the land, which is the right price. It is
     /// also the remedy available to a player who has not yet found brassica seed, so
     /// biofumigation is an upgrade rather than the only door.
+    ///
+    /// RETUNING A DEFAULT DOES NOT REACH A WORLD THAT ALREADY RAN. Found in play 2026-08-25, and
+    /// it cost a whole test cycle. This knob shipped once at 0.15, was written to
+    /// ModConfig/almanactcm/global.json on that boot, and the change to 0.50 then did nothing at
+    /// all, because a saved config always beats a C# default. The hover read x1.12 where it
+    /// should have read x1.40 and the code was innocent the entire time. A new default only
+    /// reaches a world where the KEY IS ABSENT, so any retune of a knob that has already booted
+    /// once has to edit the saved file too, or say so where the tester will read it.
     /// </summary>
     public double SickFertilityDecayBonus { get; set; } = 0.50;
 
