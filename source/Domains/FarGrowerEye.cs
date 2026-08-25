@@ -162,6 +162,22 @@ public static class FarGrowerEye
                         : Lang.Get(felt ? "almanactcm:far-eye-sick-rough"
                                         : "almanactcm:far-eye-sick-tiring-rough", famName));
 
+                    // Suppressive soil (Tier 1, 2026-08-24). Rich ground sheds sickness faster,
+                    // and a multiplier that silently changes recovery time is exactly the kind of
+                    // thing that reads as a bug, so it is said out loud wherever it is doing
+                    // work. Ground reading, so it rides the rank channel at the figures tier.
+                    // Read straight off the farmland's own synced tree rather than the sickness
+                    // mirror: OriginalFertility is serialised by vanilla and reaches the client
+                    // already, so this needs no sync of its own.
+                    if (level >= Rank.Apprentice)
+                    {
+                        double shed = FarSoilSickness.FertMul(
+                            FarSoilSickness.AvgFertility(farmland.OriginalFertility));
+                        if (shed > 1.005)
+                            dsc.AppendLine(Lang.Get("almanactcm:far-eye-sick-suppressive",
+                                (int)System.Math.Round((shed - 1) * 100)));
+                    }
+
                     // The cure, offered only where there is something to cure and only to a hand
                     // that has earned the knowing. The labour itself is open to everyone (the
                     // stabiliser scope's "gate the knowledge, never the labour"), so this line is

@@ -233,6 +233,64 @@ public class TcmGlobalConfig
     /// slow disappointment rather than two punishments for one mistake.</summary>
     public double SickMaxYieldPenalty { get; set; } = 0.40;
 
+    // ------------------------------------------------------------------ suppressive soil
+
+    /// <summary>
+    /// How much faster the richest ground sheds sickness than the poorest. Tier 1 of the soil
+    /// stabilisers: zero new interactions, zero clicks, and it rewards soil investment players
+    /// already make for growth speed.
+    ///
+    /// Take-all decline is exactly this. Organic matter feeds the microbes that antagonise the
+    /// pathogen, so continuously cropped ground eventually part-suppresses its own disease.
+    ///
+    /// 0.15, NOT THE 0.5 THE SCOPE SUGGESTED. The scope proposed "start near 0.5, so terra preta
+    /// sheds half again as fast as poor ground" without deriving a ceiling, and 0.5 breaks the
+    /// domain's headline lesson outright. Derivation, at the shipped defaults on 54-day cycles:
+    ///
+    /// In a two-course A-B-A-B each family accrues every SECOND cycle but decays every cycle, so
+    /// it faces 108 occupied days between its own harvests. That is `108 x 0.35 x 0.75 = 28.35`
+    /// of decay against 34 of accrual: a margin of only 5.65, which is why two-course creeps at
+    /// all. Scaling decay by `m` breaks even at `34 / 28.35 = 1.199`. **At or above that, a
+    /// two-course rotation is clean forever**, and "two-course creeps on both crops while three
+    /// or four courses stay clean" stops being true. A 0.5 bonus reaches 1.5 and clears the cliff
+    /// by a wide margin.
+    ///
+    /// The cliff is sharp rather than gradual, exactly like the accrual lever in the regional
+    /// pressure scope: 0.10 delays the first bite from cycle 3 to 4, 0.15 to cycle 6, 0.19 to
+    /// cycle 24, and 0.25 to never. 0.15 sits with real margin under 1.199 and reads well across
+    /// the soil ladder: very poor, low and medium bite on the third course, compost on the
+    /// fourth, high-fertility on the sixth. Rich ground roughly doubles the grace a two-field
+    /// rotation gets and never grants immunity.
+    ///
+    /// Untouched at any setting: a true four-family rotation already clears to zero (216 occupied
+    /// days give 56.7 of decay against 34), and monoculture still bites on the second cycle
+    /// everywhere. This lever only ever moves the middle case.
+    ///
+    /// RE-DERIVE THIS if accrual, decay, the occupied factor, or the assumed cycle length move.
+    /// </summary>
+    public double SickFertilityDecayBonus { get; set; } = 0.15;
+
+    /// <summary>
+    /// The fertility values the bonus ramps between. These are farmland's OWN scale, not the soil
+    /// block's.
+    ///
+    /// READ THIS BEFORE RETUNING. `soil.json` carries `fertilityByType` of 100/150/200/250/300,
+    /// and those numbers are `Block.Fertility`, which governs what grows on UNTILLED ground. The
+    /// number farmland actually stores is set from a different table entirely
+    /// (`BlockEntitySoilNutrition.Fertilities`, verified 1.22): verylow 5, low 25, medium 50,
+    /// compost 65, high 80, with 25 as the fallback for an unrecognised soil variant. Setting
+    /// this pair to the 100-300 scale would put every farmland in the game below the floor and
+    /// the whole tier would be a silent no-op.
+    ///
+    /// Above the ceiling the bonus clamps. Permanent fertilizer boosts add to the stored value
+    /// and each one applies only once per tile, so the ceiling is a real ceiling rather than a
+    /// race.
+    /// </summary>
+    public double SickFertilityFloor { get; set; } = 5;
+
+    /// <summary>See <see cref="SickFertilityFloor"/>. 80 is vanilla high-fertility soil.</summary>
+    public double SickFertilityCeiling { get; set; } = 80;
+
     // ------------------------------------------------------------------ biofumigation
 
     /// <summary>The stabiliser switch. Off leaves the hoe doing exactly what vanilla does, so a

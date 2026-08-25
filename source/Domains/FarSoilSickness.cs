@@ -57,6 +57,9 @@ public static class FarSoilSickness
     private static double DecayDay  => Cfg?.SickFallowDecayPerDay ?? 0.35;
     private static double Occupied  => Cfg?.SickOccupiedDecayFactor ?? 0.75;
     private static double CleanBelow=> Cfg?.SickCleanBelow ?? 40;
+    private static double FertBonus => Cfg?.SickFertilityDecayBonus ?? 0.15;
+    private static double FertFloor => Cfg?.SickFertilityFloor ?? 5;
+    private static double FertCeil  => Cfg?.SickFertilityCeiling ?? 80;
     private static double SpeedBite => Cfg?.SickMaxSpeedPenalty ?? 0.60;
     private static double YieldBite => Cfg?.SickMaxYieldPenalty ?? 0.40;
 
@@ -96,6 +99,16 @@ public static class FarSoilSickness
         /// Defaults false, which is the safe way round for records written before this field
         /// existed: a first settle after upgrade over-heals slightly rather than over-sickening.</summary>
         public bool Occ { get; set; }
+
+        /// <summary>The tile's remembered farmland fertility, on farmland's own 5-to-80 scale.
+        /// Zero means UNKNOWN, which resolves to no bonus at all rather than to poor ground, and
+        /// is refreshed by the first touch that has a loaded block entity to read.
+        ///
+        /// Remembered rather than sampled for the same reason <see cref="Occ"/> is: the sweep
+        /// settles tiles nobody asked about and cannot reach the world for each one. It is also
+        /// the truthful model, since fertility can be raised permanently under a standing crop and
+        /// the span already elapsed was earned at the old rate.</summary>
+        public double Fert { get; set; }
 
         // --- Legacy single-pair fields. Read on load, migrated into Fams, then written as null
         // and dropped by the serializer. Kept so a world tilled under the 2026-08-24 build does
@@ -207,7 +220,7 @@ public static class FarSoilSickness
         List<int>? husks = null;
         foreach (var kv in map)
         {
-            SettleAll(kv.Value, today, kv.Value.Occ);
+            SettleAll(kv.Value, today, kv.Value.Occ, kv.Value.Fert);
             if (kv.Value.Fams.Count == 0) (husks ??= new List<int>()).Add(kv.Key);
         }
         if (husks != null) foreach (int k in husks) map.Remove(k);
@@ -259,30 +272,89 @@ public static class FarSoilSickness
     /// play. Spans are closed at each transition instead: NotePlanted when a crop goes in, the
     /// harvest prefix while it still stands.
     /// </summary>
-    private static void Settle(Fam f, double today, bool occupied)
+    private static void Settle(Fam f, double today, bool occupied, double fertMul)
     {
         double days = today - f.Day;
         if (days <= 0) { f.Day = today; return; }
-        f.Level = Math.Max(0, f.Level - days * DecayDay * (occupied ? Occupied : 1.0));
+        f.Level = Math.Max(0, f.Level - days * DecayDay * (occupied ? Occupied : 1.0) * fertMul);
         f.Day = today;
     }
+
+    // ------------------------------------------------------------------ suppressive soil
+
+    /// <summary>
+    /// Tier 1 of the soil stabilisers (scope 2026-08-24, built 2026-08-24): rich ground sheds
+    /// sickness faster, permanently, with no interaction to learn and no click to spend.
+    ///
+    /// Take-all decline is exactly this, and it is why the tier was ruled first: organic matter
+    /// feeds the microbes that antagonise the pathogen, so continuously cropped ground eventually
+    /// part-suppresses its own disease. It also costs a player nothing to discover, because the
+    /// soil investment it rewards is one they were already making for growth speed.
+    ///
+    /// IT MUST NEVER RESCUE A BAD ROTATION, and the band that holds that line is narrow. A
+    /// two-course A-B-A-B faces 108 occupied days between one family's harvests, which is 28.35
+    /// of decay against 34 of accrual: a margin of 5.65. Scaling decay past `34/28.35 = 1.199`
+    /// makes two-course clean forever and deletes the lesson the whole domain exists to teach.
+    /// The shipped 0.15 tops out at 1.15, which delays the first bite from the third course to
+    /// the sixth on the best ground. See TcmGlobalConfig.SickFertilityDecayBonus for the full
+    /// derivation, and re-derive it if any of the four constants move.
+    ///
+    /// UNKNOWN GROUND (zero) TAKES NO BONUS rather than being treated as poor. Records written
+    /// before this field existed, and tiles whose farmland is not loaded, then heal at exactly
+    /// the rate they always did until the first touch that can read the block entity.
+    /// </summary>
+    public static double FertMul(double fert)
+    {
+        if (fert <= 0) return 1.0;
+        double lo = FertFloor, hi = FertCeil;
+        if (hi <= lo) return 1.0;
+        return 1.0 + FertBonus * GameMath.Clamp((fert - lo) / (hi - lo), 0, 1);
+    }
+
+    /// <summary>Farmland stores fertility per nutrient; the block variant it wears is chosen from
+    /// the average of the three (BEFarmland.cs:464), so that is the honest single number.</summary>
+    public static double AvgFertility(int[]? original) =>
+        original == null || original.Length < 3 ? 0 : (original[0] + original[1] + original[2]) / 3.0;
+
+    /// <summary>
+    /// The tile's fertility, live. Zero when there is no farmland block entity to ask, which is
+    /// the unknown case rather than the poor one.
+    ///
+    /// NOT `Block.Fertility`. The soil block's own fertility runs 100 to 300 and governs what
+    /// grows on UNTILLED ground; the number farmland keeps comes from a separate table (verylow
+    /// 5, low 25, medium 50, compost 65, high 80). Reading the wrong one puts every tile in the
+    /// game below the floor, and the whole tier becomes a silent no-op that tests clean.
+    /// </summary>
+    private static double FertOf(ICoreServerAPI sapi, BlockPos farmlandPos) =>
+        sapi.World.BlockAccessor.GetBlockEntity(farmlandPos) is IFarmlandBlockEntity be
+            ? AvgFertility(be.OriginalFertility) : 0;
+
+    /// <summary>The rate a tile is actually shedding at, for the readouts that quote it.</summary>
+    public static double DecayPerDay(bool occupied, double fert) =>
+        DecayDay * (occupied ? Occupied : 1.0) * FertMul(fert);
 
     /// <summary>Brings every family on a tile up to the present and drops the ones that have
     /// burned out. A standing crop occupies the ground for all of them alike, whichever family
     /// it belongs to, so occupancy is a property of the tile and not of the record.</summary>
-    private static void SettleAll(Tile t, double today, bool occupiedNow)
+    private static void SettleAll(Tile t, double today, bool occupiedNow, double fertNow)
     {
         // Charge the span at the rate that was true ACROSS it, then remember the state going
         // forward. Passing occupiedNow straight down was the bug: it billed a fallow year at the
-        // occupied rate as soon as the next crop grew tall enough for anything to ask.
+        // occupied rate as soon as the next crop grew tall enough for anything to ask. Fertility
+        // rides the same rule, so composting a plot speeds its healing from that moment on rather
+        // than retroactively.
+        double fertMul = FertMul(t.Fert);
         List<string>? dead = null;
         foreach (var kv in t.Fams)
         {
-            Settle(kv.Value, today, t.Occ);
+            Settle(kv.Value, today, t.Occ, fertMul);
             if (kv.Value.Level <= 0.01) (dead ??= new List<string>()).Add(kv.Key);
         }
         if (dead != null) foreach (string k in dead) t.Fams.Remove(k);
         t.Occ = occupiedNow;
+        // Zero is "could not read it", never "poor ground", so it must not overwrite a value the
+        // tile already knows. The sweep passes t.Fert straight back through for the same reason.
+        if (fertNow > 0) t.Fert = fertNow;
     }
 
     /// <summary>Closes the bare span at the moment a crop goes in, so the ground is credited the
@@ -297,7 +369,7 @@ public static class FarSoilSickness
         if (!map.TryGetValue(LocalIndex(farmlandPos, GlobalConstants.ChunkSize), out var t)) return;
         if (t.Fams.Count == 0) return;
 
-        SettleAll(t, sapi.World.Calendar.TotalDays, true);   // bare span ends here, occupied begins
+        SettleAll(t, sapi.World.Calendar.TotalDays, true, FertOf(sapi, farmlandPos));   // bare span ends here, occupied begins
         Flush(sapi, farmlandPos, map);
     }
 
@@ -310,7 +382,7 @@ public static class FarSoilSickness
         if (!map.TryGetValue(LocalIndex(pos, GlobalConstants.ChunkSize), out var t)) return null;
 
         bool occupied = sapi.World.BlockAccessor.GetBlock(pos.UpCopy())?.CropProps != null;
-        SettleAll(t, sapi.World.Calendar.TotalDays, occupied);
+        SettleAll(t, sapi.World.Calendar.TotalDays, occupied, FertOf(sapi, pos));
         return t.Fams.Count > 0 ? t : null;
     }
 
@@ -368,7 +440,7 @@ public static class FarSoilSickness
         if (!map.TryGetValue(idx, out var t)) map[idx] = t = new Tile();
 
         bool occupied = sapi.World.BlockAccessor.GetBlock(farmlandPos.UpCopy())?.CropProps != null;
-        SettleAll(t, today, occupied);
+        SettleAll(t, today, occupied, FertOf(sapi, farmlandPos));
 
         if (!t.Fams.TryGetValue(family, out var f))
         {
@@ -433,7 +505,7 @@ public static class FarSoilSickness
         if (!map.TryGetValue(LocalIndex(farmlandPos, GlobalConstants.ChunkSize), out var t)) return new List<Cleared>();
 
         double today = sapi.World.Calendar.TotalDays;
-        SettleAll(t, today, false);
+        SettleAll(t, today, false, FertOf(sapi, farmlandPos));
 
         double keep = 1.0 - GameMath.Clamp(clearShare, 0, 1);
         var cleared = new List<Cleared>();
@@ -636,10 +708,16 @@ public static class FarSoilSickness
     /// </summary>
     /// <param name="pattern">Family letters per cycle, e.g. "AAAA" monoculture, "AB" two-course,
     /// "ABCD" four-course. "." is a fallow cycle.</param>
-    public static List<string> Simulate(string pattern, int cycles, double cycleDays)
+    /// <param name="fertility">Farmland's own fertility scale (verylow 5, low 25, medium 50,
+    /// compost 65, high 80). Zero models unknown ground, which takes no suppressive bonus. This
+    /// parameter exists because without it the simulator would silently model only poor soil, and
+    /// the person most likely to run it is the one tuning the suppressive tier.</param>
+    public static List<string> Simulate(string pattern, int cycles, double cycleDays, double fertility = 0)
     {
+        double fertMul = FertMul(fertility);
         var rows = new List<string> {
             $"pattern {pattern} | {cycleDays:0.#}-day cycles | accrual {Accrual:0.#}, decay {DecayDay:0.##}/day, occupied x{Occupied:0.##}, clean below {CleanBelow:0.#}",
+            $"fertility {(fertility > 0 ? $"{fertility:0}" : "unknown")} | shedding x{fertMul:0.00}",
             "cycle  crop  its level   speed   yield",
         };
 
@@ -656,7 +734,7 @@ public static class FarSoilSickness
             // A standing crop occupies the ground for every family alike, so they all decay at
             // the same rate whichever one is planted.
             foreach (char k in new List<char>(levels.Keys))
-                levels[k] = Math.Max(0, levels[k] - cycleDays * DecayDay * (fallow ? 1.0 : Occupied));
+                levels[k] = Math.Max(0, levels[k] - cycleDays * DecayDay * (fallow ? 1.0 : Occupied) * fertMul);
 
             if (fallow) { rows.Add($"{i + 1,5}  {c,4}  {"",9}  x1.00  x1.00"); continue; }
 
@@ -685,12 +763,13 @@ public static class FarSoilSickness
     {
         sapi.ChatCommands.Create("tcmsoil")
             .WithDescription("Soil sickness: inspect the tile you are looking at, or simulate a rotation. "
-                           + "Usage: /tcmsoil | /tcmsoil sim <pattern> [cycles] [cycleDays]")
+                           + "Usage: /tcmsoil | /tcmsoil sim <pattern> [cycles] [cycleDays] [fertility]")
             .RequiresPrivilege(Privilege.controlserver)
             .WithArgs(sapi.ChatCommands.Parsers.OptionalWord("mode"),
                       sapi.ChatCommands.Parsers.OptionalWord("pattern"),
                       sapi.ChatCommands.Parsers.OptionalInt("cycles"),
-                      sapi.ChatCommands.Parsers.OptionalInt("cycleDays"))
+                      sapi.ChatCommands.Parsers.OptionalInt("cycleDays"),
+                      sapi.ChatCommands.Parsers.OptionalInt("fertility"))
             .HandleWith(args =>
             {
                 string mode = (args[0] as string ?? "").ToLowerInvariant();
@@ -700,8 +779,9 @@ public static class FarSoilSickness
                     string pattern = (args[1] as string ?? "AAAA").ToUpperInvariant();
                     int cycles = args[2] as int? ?? 16;
                     int days = args[3] as int? ?? 54;
+                    int simFert = args[4] as int? ?? 0;
                     return TextCommandResult.Success(string.Join("\n",
-                        Simulate(pattern, GameMath.Clamp(cycles, 1, 60), Math.Max(1, days))));
+                        Simulate(pattern, GameMath.Clamp(cycles, 1, 60), Math.Max(1, days), Math.Max(0, simFert))));
                 }
 
                 if (!Enabled) return TextCommandResult.Success("Soil sickness is switched off (SoilSicknessFAR).");
@@ -719,9 +799,11 @@ public static class FarSoilSickness
                     return TextCommandResult.Success($"{pos}: clean ground, nothing recorded.");
 
                 bool occupied = sapi.World.BlockAccessor.GetBlock(pos.UpCopy())?.CropProps != null;
+                double fert = FertOf(sapi, pos);
                 var sb = new StringBuilder();
                 sb.Append($"{pos}\n");
-                sb.Append($"  decaying    {DecayDay * (occupied ? Occupied : 1.0):0.###}/day ({(occupied ? "occupied" : "bare")})\n");
+                sb.Append($"  decaying    {DecayPerDay(occupied, fert):0.###}/day ({(occupied ? "occupied" : "bare")})\n");
+                sb.Append($"  fertility   {(fert > 0 ? $"{fert:0} of {FertCeil:0}, shedding x{FertMul(fert):0.00}" : "unknown, no bonus")}\n");
                 sb.Append($"  now         day {sapi.World.Calendar.TotalDays:0.##}, clean below {CleanBelow:0} of {Max:0}\n");
                 foreach (var kv in t.Fams)
                 {

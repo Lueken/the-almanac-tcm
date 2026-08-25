@@ -283,6 +283,7 @@
   "almanactcm:far-eye-sick-full": "Tired of {0}: {1} of 100. Growth x{2}, yield x{3}.",
   "almanactcm:far-eye-sick-tiring-rough": "This ground is tiring of {0}, though it still gives freely.",
   "almanactcm:far-eye-sick-tiring-full": "Tiring of {0}: {1} of 100. Nothing is felt below {2}.",
+  "almanactcm:far-eye-sick-suppressive": "Ground this rich sheds it {0}% faster than poor soil.",
   "almanactcm:far-eye-biofum": "Turned in with a hoe rather than picked, this would sweeten the ground instead of the table.",
   "almanactcm:far-biofum-plain": "You turn the {0} back into the soil.",
   "almanactcm:far-biofum-clean": "You turn the {0} back into the soil. This ground had nothing that needed it.",
