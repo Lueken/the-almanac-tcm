@@ -1,5 +1,5 @@
 {
-	"_note": "The FAR crop taxonomy (RULED 2026-08-22): eight families on the botanical cut, taxonomy per docs/design/2026-08-22_far-crop-reality-baseline.md. Keys under families are canonical crop ids (the familiarity key is far-crop-<id>); values are block-code PREFIXES that identify the crop (longest prefix wins). Ruled calls baked in: potato sits in roots, the bdcrop and DAR leeks share ONE id, the Apiaceae split (carrot/parsnip in roots, fennel/anise/chervil/meum in herbs) is accepted. ripeBlocks lists the exact ripe FRUIT block codes of the vine crops, whose harvest never passes the BlockCrop seam. Breeding-Addon varietal codes join at the 1.2.2 Arts adoption review.",
+	"_note": "The FAR crop taxonomy (RULED 2026-08-22): eight families on the botanical cut, taxonomy per docs/design/2026-08-22_far-crop-reality-baseline.md. Keys under families are canonical crop ids (the familiarity key is far-crop-<id>); values are block-code PREFIXES that identify the crop (longest prefix wins). Ruled calls baked in: potato sits in roots, the bdcrop and DAR leeks share ONE id, the Apiaceae split (carrot/parsnip in roots, fennel/anise/chervil/meum in herbs) is accepted. ripeBlocks lists the exact ripe FRUIT block codes of the vine crops, whose harvest never passes the BlockCrop seam. CUCURBITS CARRY TWO PREFIXES ON PURPOSE (fixed 2026-08-24): the fruit and vine are bdcrop:<name>- or game:pumpkin-, but the block that actually STANDS ON THE FARMLAND is the motherplant, coded <domain>:crop-<name>-<stage>. Only the fruit prefix was registered, so every cucurbit read as a permanent stranger on the hover and never sickened the ground it grew in, while its familiarity counter climbed invisibly through the vine-fruit seam. NAMING TRAP: naples long squash codes itself naplessquash in bdcrop, not napleslongsquash, so BOTH its prefix and its ripeBlocks entry matched nothing at all. Our crop id stays napleslongsquash because far-crop-<id> counters are already written under it. Read the block codes, never the folder names. Breeding-Addon varietal codes join at the 1.2.2 Arts adoption review.",
 
 	"families": {
 		"grains": {
@@ -42,13 +42,13 @@
 			"bearleek": ["deartibusrusticis:crop-bearleek"]
 		},
 		"cucurbits": {
-			"pumpkin": ["game:pumpkin-"],
-			"butternutsquash": ["bdcrop:butternutsquash-"],
-			"napleslongsquash": ["bdcrop:napleslongsquash-"],
-			"cantaloupe": ["bdcrop:cantaloupe-"],
-			"honeydewmelon": ["bdcrop:honeydewmelon-"],
-			"mirzamelon": ["bdcrop:mirzamelon-"],
-			"watermelon": ["bdcrop:watermelon-"],
+			"pumpkin": ["game:crop-pumpkin-", "game:pumpkin-"],
+			"butternutsquash": ["bdcrop:crop-butternutsquash-", "bdcrop:butternutsquash-"],
+			"napleslongsquash": ["bdcrop:crop-naplessquash-", "bdcrop:naplessquash-"],
+			"cantaloupe": ["bdcrop:crop-cantaloupe-", "bdcrop:cantaloupe-"],
+			"honeydewmelon": ["bdcrop:crop-honeydewmelon-", "bdcrop:honeydewmelon-"],
+			"mirzamelon": ["bdcrop:crop-mirzamelon-", "bdcrop:mirzamelon-"],
+			"watermelon": ["bdcrop:crop-watermelon-", "bdcrop:watermelon-"],
 			"cucumber": ["deartibusrusticis:crop-cucumber"]
 		},
 		"nightshades": {
@@ -69,7 +69,7 @@
 	"ripeBlocks": {
 		"pumpkin": ["game:pumpkin-fruit-4"],
 		"butternutsquash": ["bdcrop:butternutsquash-fruit-4"],
-		"napleslongsquash": ["bdcrop:napleslongsquash-fruit-4"],
+		"napleslongsquash": ["bdcrop:naplessquash-fruit-4"],
 		"cantaloupe": ["bdcrop:cantaloupe-fruit-4"],
 		"honeydewmelon": ["bdcrop:honeydewmelon-fruit-4"],
 		"mirzamelon": ["bdcrop:mirzamelon-fruit-4"],
