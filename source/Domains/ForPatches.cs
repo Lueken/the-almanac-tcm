@@ -240,6 +240,17 @@ public static class ForPatches
             if (__instance.Tool != null && byPlayer.InventoryManager.ActiveTool != __instance.Tool) return;
             if (__instance.harvestedStacks == null || secondsUsed <= harvestTimeRef(__instance) - 0.05f) return;
 
+            // Cultivated crops stand down to FAR (found 2026-08-24). TCM's own
+            // far-lifecycle-harvestable.json hangs this very behaviour on seven cut-and-come-again
+            // crops so a ripe plant can be picked and grow back, which quietly routed a sown,
+            // tilled, watered bed into foraging. Picking your own field is farming:
+            // FarPatches.PickPostfix banks it there, with the crop-familiarity and soil-sickness
+            // marks a harvest owes. One presence test decides the owner, the same way the
+            // beekeeping seam picks between FAR and BEE, so nothing double-grants. The test reads
+            // the PRE-pick block off the behaviour, not the position, because vanilla has already
+            // swapped in the regrown stage by the time this postfix runs.
+            if (FarFamiliarity.CropIdOf(world.Api, __instance.block) != null) return;
+
             CreditHarvest(byPlayer, world.BlockAccessor.GetBlock(blockSel.Position));
         }
     }

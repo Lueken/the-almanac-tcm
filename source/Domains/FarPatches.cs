@@ -88,6 +88,16 @@ public static class FarPatches
         // (dropQuantityMultiplier is passed by ref into the drop roll).
         HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockCrop", "OnBlockBroken",
             nameof(HarvestDockPrefix), nameof(HarvestPostfix), "FAR harvesting");
+        // The cut-and-come-again pick (found 2026-08-24). far-lifecycle-harvestable.json hangs
+        // vanilla's Harvestable behaviour on seven cultivated crops so a ripe plant can be picked
+        // by hand and grow back. That behaviour hands the drops over ITSELF and then SetBlocks the
+        // regrown stage (BehaviorHarvestable.cs:188-225). The block is never broken, so
+        // BlockCrop.OnBlockBroken and every FAR seam docked to it are skipped end to end. The pick
+        // was therefore falling through to FOR's own postfix on this same method: a sown bed paid
+        // Foraging, taught no crop familiarity, and left the ground untired. Pair the seam here so
+        // a pick is farming; ForPatches stands down on any block FAR claims as a crop.
+        HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockBehaviorHarvestable", "OnBlockInteractStop",
+            nameof(PickPrefix), nameof(PickPostfix), "FAR cut-and-come-again pick");
         // Fertilizing (the 1a-missing verb, arriving with its Phase 2 thrift): the consume
         // branch takes one item at :51929; the pair credits the application and rolls the
         // rank thrift refund.
@@ -562,6 +572,108 @@ public static class FarPatches
         var held = byPlayer.InventoryManager?.ActiveHotbarSlot?.Itemstack?.Collectible;
         if (held == null) return false;
         return held.Tool == EnumTool.Scythe || held is Vintagestory.GameContent.ItemScythe;
+    }
+
+    // ------------------------------------------------------------ cut-and-come-again pick
+
+    /// <summary>What a pick prefix hands its postfix: the crop this behaviour belongs to, its
+    /// family, and the drop quantities the haircut borrowed so they can be put back exactly as
+    /// found. A null CropId means this is not a FAR crop and the postfix has nothing to do.</summary>
+    public readonly record struct PickState(string? CropId, string? Family, NatFloat?[]? Borrowed);
+
+    /// <summary>
+    /// The soil's haircut on a pick. Vanilla computes its drop rate as a LOCAL and passes it
+    /// straight to GetNextItemStack (BehaviorHarvestable.cs:190-199), so there is no by-ref
+    /// multiplier to ride the way BlockCrop.OnBlockBroken offers one. Scaling avg and var on each
+    /// drop's NatFloat is the same arithmetic by another door: nextFloat returns
+    /// offset + multiplier * (avg + rnd * 2 * var) (NatFloat.cs:247-262), and these drop entries
+    /// declare no offset. The quantities are BORROWED for the length of one call and handed back
+    /// in the postfix, the shear-prefix shape, because a BlockBehavior instance is shared by every
+    /// placement of that block: a haircut left behind would tax the whole field forever.
+    ///
+    /// Only the sickness haircut rides here. The per-rank yield table stays on the break seam,
+    /// where it was ruled; a pick is a different act and its rank hand is not settled.
+    /// </summary>
+    public static void PickPrefix(Vintagestory.GameContent.BlockBehaviorHarvestable __instance,
+        IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, out PickState __state)
+    {
+        __state = default;
+        if (world?.Side != EnumAppSide.Server || byPlayer == null || blockSel == null) return;
+        if (world.Api is not ICoreServerAPI sapi) return;
+
+        // The owner test. A wild harvestable (resin, reeds, herbarium) carries no crop id and is
+        // left entirely to FOR; only something crop-families.json names is farming.
+        string? cropId = FarFamiliarity.CropIdOf(sapi, __instance.block);
+        if (cropId == null) return;
+        string? family = FarFamiliarity.FamilyOf(cropId);
+        __state = new PickState(cropId, family, null);
+
+        if (family == null || __instance.harvestedStacks == null) return;
+        double sick = FarSoilSickness.LevelFor(sapi, blockSel.Position.DownCopy(), family);
+        if (sick <= 0) return;
+
+        float haircut = (float)FarSoilSickness.YieldMul(sick);
+        var stacks = __instance.harvestedStacks;
+        var borrowed = new NatFloat?[stacks.Length];
+        for (int i = 0; i < stacks.Length; i++)
+        {
+            NatFloat? original = stacks[i]?.Quantity;
+            if (original == null) continue;
+            borrowed[i] = original;
+            NatFloat cut = original.Clone();
+            cut.avg *= haircut;
+            cut.var *= haircut;
+            stacks[i]!.Quantity = cut;
+        }
+        __state = new PickState(cropId, family, borrowed);
+    }
+
+    /// <summary>
+    /// The pick, credited as the harvest verb it is. Success is read as the block TRANSITION the
+    /// pick itself performs, the ripe stage being replaced by the regrown one at this position,
+    /// for the same reason the fruiting-bush seam does it: it sidesteps the behaviour's private
+    /// harvest-time arithmetic entirely, so a released-too-early pick banks nothing without this
+    /// method having to re-derive vanilla's guard. A Harvestable with no harvestedBlockCode never
+    /// changes the block and so never credits, which is correct: with nothing to grow back, it is
+    /// not a cut-and-come-again crop.
+    /// </summary>
+    public static void PickPostfix(Vintagestory.GameContent.BlockBehaviorHarvestable __instance,
+        IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, PickState __state)
+    {
+        // Hand the drop quantities back FIRST, ahead of every early return below. The behaviour
+        // instance outlives this call and is shared by every plant of this crop in the world.
+        if (__state.Borrowed != null && __instance?.harvestedStacks != null)
+        {
+            var stacks = __instance.harvestedStacks;
+            int n = Math.Min(stacks.Length, __state.Borrowed.Length);
+            for (int i = 0; i < n; i++)
+                if (__state.Borrowed[i] != null && stacks[i] != null) stacks[i]!.Quantity = __state.Borrowed[i]!;
+        }
+
+        if (__state.CropId == null || byPlayer == null || blockSel == null) return;
+        if (world?.Side != EnumAppSide.Server || world.Api is not ICoreServerAPI sapi) return;
+        if (world.BlockAccessor.GetBlock(blockSel.Position)?.BlockId == __instance?.block?.BlockId) return;
+
+        // A pick is always taken at the ripe stage (the behaviour is only attached to that stage)
+        // and always by hand, so it banks what a ripe hand-pulled break banks: no ripeness scaling
+        // to apply, no scythe premium to earn. Context is exact position plus the 1s bucket the
+        // break seam uses. Two picks of one plant inside a second cannot happen because the first
+        // one takes the ripe stage away, and the same plant picked again after regrowth pays again.
+        Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechHarvesting,
+            HashCode.Combine("pick", blockSel.Position.X, blockSel.Position.Y, blockSel.Position.Z,
+                world.ElapsedMilliseconds / 1000));
+
+        // Familiarity and soil sickness both carry their OWN once-per-in-game-day cap inside
+        // BumpHarvest and NoteHarvest, so a bed picked four times in an afternoon is still the one
+        // crop standing in that ground. Nothing extra is needed at this seam to hold that line.
+        FarFamiliarity.BumpHarvest(sapi, byPlayer, __state.CropId);
+
+        // The farmland's rotation memory (LastBore) is deliberately NOT stamped here. It records
+        // what the ground last bore once the crop is GONE, and after a pick the plant is still
+        // standing; the eventual break writes it through HarvestPostfix.
+        if (__state.Family != null
+            && world.BlockAccessor.GetBlockEntity(blockSel.Position.DownCopy()) is Vintagestory.GameContent.BlockEntityFarmland farmland)
+            FarSoilSickness.NoteHarvest(sapi, farmland.Pos, __state.Family);
     }
 
     // ------------------------------------------------------------ milking
