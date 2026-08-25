@@ -161,6 +161,14 @@ public static class FarGrowerEye
                                        FarSoilSickness.CleanLine))
                         : Lang.Get(felt ? "almanactcm:far-eye-sick-rough"
                                         : "almanactcm:far-eye-sick-tiring-rough", famName));
+
+                    // The cure, offered only where there is something to cure and only to a hand
+                    // that has earned the knowing. The labour itself is open to everyone (the
+                    // stabiliser scope's "gate the knowledge, never the labour"), so this line is
+                    // the whole of what rank buys: a farmer below it who has been told the trick
+                    // by another player can still do it, and it still works.
+                    if (level >= FarBiofumigation.ReadRank && FarBiofumigation.IsCandidate(api, cropBlock))
+                        dsc.AppendLine(Lang.Get("almanactcm:far-eye-biofum"));
                 }
             }
 

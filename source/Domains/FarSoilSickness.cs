@@ -182,14 +182,58 @@ public static class FarSoilSickness
     private static readonly Newtonsoft.Json.JsonSerializerSettings NoNulls = new()
     { NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore };
 
+    /// <summary>
+    /// Brings EVERY tile in a chunk store up to the present and drops the ones with nothing left
+    /// to say. The two structural halves of the storage compaction (scope 2026-08-24), and they
+    /// are structural rather than an encoding change because they reduce how many records exist
+    /// rather than how big each one is. At village scale that is the larger number.
+    ///
+    /// The husk. Families are pruned at zero, and <see cref="Read"/> returns null on an empty map,
+    /// but the map ENTRY survived and serialised as <c>"12345":{"Fams":{}}</c>, about 22 bytes of
+    /// nothing. Every tile ever farmed and since recovered kept one forever.
+    ///
+    /// The sweep. Pruning only ever reached the tile being read or written, so a RETIRED field was
+    /// never touched again and its records never cleaned up even though the levels decayed to zero
+    /// seasons ago. Settling the whole store on flush costs a pass over what is already in memory,
+    /// and decay is lazy arithmetic rather than a tick.
+    ///
+    /// Occupancy comes from each tile's own remembered <see cref="Tile.Occ"/> and is written back
+    /// unchanged. A sweep is not a transition: nothing here has just been planted or harvested,
+    /// and sampling the world for tiles nobody asked about would re-introduce exactly the fallow
+    /// bug this field was added to close.
+    /// </summary>
+    private static void Sweep(Dictionary<int, Tile> map, double today)
+    {
+        List<int>? husks = null;
+        foreach (var kv in map)
+        {
+            SettleAll(kv.Value, today, kv.Value.Occ);
+            if (kv.Value.Fams.Count == 0) (husks ??= new List<int>()).Add(kv.Key);
+        }
+        if (husks != null) foreach (int k in husks) map.Remove(k);
+    }
+
     private static void Flush(ICoreServerAPI sapi, BlockPos pos, Dictionary<int, Tile> map)
     {
         var chunk = sapi.World.BlockAccessor.GetChunkAtBlockPos(pos);
         if (chunk == null) return;
+        Sweep(map, sapi.World.Calendar.TotalDays);
         try
         {
-            chunk.SetModdata(ModdataKey, Encoding.UTF8.GetBytes(
-                Newtonsoft.Json.JsonConvert.SerializeObject(map, NoNulls)));
+            if (map.Count == 0)
+            {
+                // A chunk whose last sick tile has recovered goes back to costing nothing at all,
+                // rather than carrying an empty JSON object for the life of the save. Dropping the
+                // cache entry with it keeps the in-memory side honest: the next read finds no key
+                // and treats the ground as clean, which it is.
+                chunk.RemoveModdata(ModdataKey);
+                cache.Remove(ChunkKey(pos, GlobalConstants.ChunkSize));
+            }
+            else
+            {
+                chunk.SetModdata(ModdataKey, Encoding.UTF8.GetBytes(
+                    Newtonsoft.Json.JsonConvert.SerializeObject(map, NoNulls)));
+            }
             chunk.MarkModified();
         }
         catch (Exception e)
@@ -360,6 +404,58 @@ public static class FarSoilSickness
             $"{farmlandPos} {family}: {before:0.#} -> {f.Level:0.#} "
           + $"(speed x{SpeedMul(f.Level):0.00}, yield x{YieldMul(f.Level):0.00}; "
           + $"{t.Fams.Count} family/families tracked here)");
+    }
+
+    // ------------------------------------------------------------------ biofumigation
+
+    /// <summary>What a turn-in bought, per family, for the message that reports it. Empty means
+    /// the ground had nothing on it worth clearing, which is a real outcome and not a failure.</summary>
+    public readonly record struct Cleared(string Family, double Before, double After);
+
+    /// <summary>
+    /// Takes a share off EVERY family's level on one tile, the arithmetic half of biofumigation
+    /// (scope 2026-08-24). Broad-spectrum on purpose: isothiocyanates do not care which pathogen
+    /// they meet, and clearing only brassicas would make a mustard slot worth almost nothing.
+    ///
+    /// Strictly this tile. No radius, ruled: turning in nine plants costs exactly what harvesting
+    /// nine plants costs, and the player was going to work that bed anyway, so there is no chore to
+    /// design around. One mustard plant does not treat nine squares in any real sense.
+    ///
+    /// The tile is settled to the present first, so the share comes off a CURRENT level rather
+    /// than a remembered one, and it is settled as BARE because the crop is already out of the
+    /// ground by the time this is called.
+    /// </summary>
+    public static List<Cleared>? Biofumigate(ICoreServerAPI sapi, BlockPos farmlandPos, double clearShare)
+    {
+        if (!Enabled) return null;
+        var map = Store(sapi, farmlandPos, false);
+        if (map == null) return null;
+        if (!map.TryGetValue(LocalIndex(farmlandPos, GlobalConstants.ChunkSize), out var t)) return new List<Cleared>();
+
+        double today = sapi.World.Calendar.TotalDays;
+        SettleAll(t, today, false);
+
+        double keep = 1.0 - GameMath.Clamp(clearShare, 0, 1);
+        var cleared = new List<Cleared>();
+        foreach (var kv in t.Fams)
+        {
+            double before = kv.Value.Level;
+            if (before <= 0.01) continue;
+            kv.Value.Level = before * keep;
+            kv.Value.Day = today;
+            cleared.Add(new Cleared(kv.Key, before, kv.Value.Level));
+        }
+
+        // Flush sweeps and prunes, so a tile cleared to nothing leaves no husk behind. That
+        // matters more here than anywhere else: a mass-zeroing operation is precisely the thing
+        // that manufactures empty records, and a farmer using the cure as intended would have
+        // generated the most of them.
+        Flush(sapi, farmlandPos, map);
+        sapi.World.BlockAccessor.GetBlockEntity(farmlandPos)?.MarkDirty(true);
+
+        foreach (var c in cleared)
+            TcmLog.Cat(sapi, TcmLog.Soil, $"{farmlandPos} biofumigated {c.Family}: {c.Before:0.#} -> {c.After:0.#}");
+        return cleared;
     }
 
     // ------------------------------------------------------------------ the growth penalty

@@ -83,6 +83,25 @@ public static class FarPatches
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
         Hook(api, harmony, "Vintagestory.GameContent.ItemHoe", "DoTill", nameof(TillPostfix), "FAR tilling");
+
+        // Biofumigation (soil-stabilisers scope 2026-08-24). A hoe held on a ripe brassica turns
+        // the plant into the ground instead of harvesting it, and the sickness on that tile goes
+        // with it. Three seams, because vanilla's hoe declines the swing before it ever reaches
+        // DoTill:
+        //   1. BlockCrop stands aside, so a crop wearing the Harvestable behaviour does not eat
+        //      the click before the held item is offered one. Eruca is the brassica this matters
+        //      for today (far-lifecycle-harvestable.json).
+        //   2. OnHeldInteractStart claims the swing, which vanilla only does for a block coded
+        //      "soil" (ItemHoe.cs:70). Without this the animation never starts and DoTill is
+        //      never called.
+        //   3. DoTill itself is intercepted, since vanilla's own body returns immediately on
+        //      anything that is not soil.
+        HookPrefixDeclared(api, harmony, "Vintagestory.GameContent.BlockCrop", "OnBlockInteractStart",
+            nameof(CropStandAsidePrefix), "FAR biofumigation (crop stands aside)");
+        HookDeclared(api, harmony, "Vintagestory.GameContent.ItemHoe", "OnHeldInteractStart",
+            nameof(HoeStartPostfix), "FAR biofumigation (hoe claims the swing)");
+        HookPrefixDeclared(api, harmony, "Vintagestory.GameContent.ItemHoe", "DoTill",
+            nameof(HoeTurnInPrefix), "FAR biofumigation (turn-in)");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFarmland", "TryPlant", nameof(PlantPostfix), "FAR planting");
         // Harvest: the Phase 2 Untrained dock rides a prefix on the same declared override
         // (dropQuantityMultiplier is passed by ref into the drop roll).
@@ -149,6 +168,16 @@ public static class FarPatches
             // farmland (tilling) or a furrow channel (the furrow verb).
             HookDeclared(api, harmony, "PrimitiveSurvival.ModSystem.ItemHoeExtended", "DoTill", nameof(TillExtendedPostfix), "FAR tilling/furrow (PS hoe)");
 
+            // Biofumigation through the PS hoe. DoTill is an OVERRIDE, so the prefix on the
+            // vanilla method above never runs on a PS-hoed field and the turn-in has to be bound
+            // here too. OnHeldInteractStart is a different case: PS may or may not override it,
+            // and INHERITING it is the normal, working outcome, so an absent declaration is
+            // reported as information rather than warned about.
+            HookPrefixDeclared(api, harmony, "PrimitiveSurvival.ModSystem.ItemHoeExtended", "DoTill",
+                nameof(HoeTurnInPrefix), "FAR biofumigation (PS hoe turn-in)");
+            HookDeclaredOptional(api, harmony, "PrimitiveSurvival.ModSystem.ItemHoeExtended", "OnHeldInteractStart",
+                nameof(HoeStartPostfix), "FAR biofumigation (PS hoe claims the swing)");
+
             // Furrow maintenance: clearing debris keeps the channels watering (recurring raw).
             HookDeclared(api, harmony, "PrimitiveSurvival.ModSystem.BEFurrowedLand", "OnInteract", nameof(FurrowMaintainPostfix), "FAR furrow maintenance");
         }
@@ -214,6 +243,19 @@ public static class FarPatches
         TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
     }
 
+    /// <summary>HookDeclared for a seam where NOT declaring the method is the normal case: a
+    /// subclass that inherits the base implementation is already covered by the base patch, so
+    /// silence there is success and a warning would be noise that trains people to ignore the
+    /// real ones.</summary>
+    private static void HookDeclaredOptional(ICoreAPI api, Harmony harmony, string typeName, string method, string postfix, string label)
+    {
+        var t = AccessTools.TypeByName(typeName);
+        var m = t == null ? null : AccessTools.DeclaredMethod(t, method);
+        if (m == null) { TcmLog.Info(api, $"{label}: {typeName} does not override {method}; the base hook covers it"); return; }
+        harmony.Patch(m, postfix: new HarmonyMethod(AccessTools.Method(typeof(FarPatches), postfix)));
+        TcmLog.Info(api, $"{label} hooked ({typeName}.{method}, declared)");
+    }
+
     private static void HookPrefixDeclared(ICoreAPI api, Harmony harmony, string typeName, string method, string prefix, string label)
     {
         var t = AccessTools.TypeByName(typeName);
@@ -249,8 +291,80 @@ public static class FarPatches
     {
         IPlayer? player = PlayerOf(byEntity);
         if (player == null || blockSel == null || !ServerSide(byEntity?.World)) return;
+
+        // OUTCOME, NOT ATTEMPT. Vanilla's DoTill returns without doing anything on a block that
+        // is not soil, and a postfix runs regardless, so this seam used to bank tilling for any
+        // hoe swing that reached the method. That was harmless only because vanilla declines the
+        // swing outright on anything but soil (ItemHoe.cs:70) — a guarantee biofumigation now
+        // deliberately breaks, because a turn-in has to reach DoTill to be intercepted. Reading
+        // the result closes both: a turn-in leaves air where the crop stood and banks nothing.
+        if (byEntity!.World.BlockAccessor.GetBlockEntity(blockSel.Position) is not Vintagestory.GameContent.BlockEntityFarmland) return;
+
         Core?.Ledger?.Log(player, FarDomain.Code, FarDomain.TechTilling,
             HashCode.Combine(blockSel.Position.X, blockSel.Position.Y, blockSel.Position.Z));
+    }
+
+    // ------------------------------------------------------------ biofumigation (the hoe turn-in)
+
+    /// <summary>
+    /// The crop declines the click so the hoe in hand can have it. Returns __result false and
+    /// skips the original, which is exactly what the original would have returned for a hoe on a
+    /// plain crop anyway — the difference is that it also skips the block BEHAVIOURS underneath,
+    /// and Harvestable is one of them. Without this a ripe eruca would be picked by the
+    /// cut-and-come-again seam before the hoe was ever offered the interaction.
+    ///
+    /// Deliberately narrow: only a hoe, only a crop biofumigation would actually accept, only on
+    /// farmland. Anything else and vanilla runs untouched.
+    /// </summary>
+    public static bool CropStandAsidePrefix(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, ref bool __result)
+    {
+        if (world == null || byPlayer == null || blockSel == null) return true;
+        if (!FarBiofumigation.HoeInHand(byPlayer)) return true;
+        if (!FarBiofumigation.IsCandidate(world.Api, world.BlockAccessor.GetBlock(blockSel.Position))) return true;
+        if (FarBiofumigation.FarmlandUnder(world, blockSel.Position) == null) return true;
+
+        __result = false;
+        return false;
+    }
+
+    /// <summary>
+    /// Claims the swing. Vanilla sets PreventDefault only for a block coded "soil", so without
+    /// this the hoe animation never starts on a crop and DoTill is never reached. Runs on both
+    /// sides, as held interactions do, so the client plays the swing the server is going to act
+    /// on. The "didtill" latch is re-armed for the same reason vanilla arms it: the step handler
+    /// reads it to fire DoTill exactly once per swing.
+    /// </summary>
+    public static void HoeStartPostfix(EntityAgent byEntity, BlockSelection blockSel, ref EnumHandHandling handHandling)
+    {
+        if (byEntity == null || blockSel == null) return;
+        if (handHandling == EnumHandHandling.PreventDefault) return;   // vanilla already took it
+        if (byEntity.Controls.ShiftKey && byEntity.Controls.CtrlKey) return;
+
+        var world = byEntity.World;
+        if (world == null) return;
+        if (!FarBiofumigation.IsCandidate(world.Api, world.BlockAccessor.GetBlock(blockSel.Position))) return;
+        if (FarBiofumigation.FarmlandUnder(world, blockSel.Position) == null) return;
+        if (!FarBiofumigation.HoeInHand(PlayerOf(byEntity))) return;
+
+        byEntity.Attributes.SetInt("didtill", 0);
+        handHandling = EnumHandHandling.PreventDefault;
+    }
+
+    /// <summary>
+    /// The turn-in. Returning false skips vanilla's till, which on a crop block would have done
+    /// nothing at all; returning true on anything this is not means every ordinary till runs
+    /// exactly as before.
+    ///
+    /// Bound to the vanilla method AND to Primitive Survival's override, because DoTill is
+    /// virtual and a prefix on the base never fires for a subclass that overrides it.
+    /// </summary>
+    public static bool HoeTurnInPrefix(EntityAgent byEntity, BlockSelection blockSel)
+    {
+        if (byEntity == null || blockSel == null || !ServerSide(byEntity.World)) return true;
+        if (byEntity.World.Api is not ICoreServerAPI sapi) return true;
+        IPlayer? player = PlayerOf(byEntity);
+        if (player == null) return true;
+        return !FarBiofumigation.TurnIn(sapi, player, blockSel.Position);
     }
 
     /// <summary>The PS hoe override, both branches: after the till, the block on the ground says
@@ -260,7 +374,11 @@ public static class FarPatches
         IPlayer? player = PlayerOf(byEntity);
         if (player == null || blockSel == null || !ServerSide(byEntity?.World)) return;
         Block? now = byEntity!.World.BlockAccessor.GetBlock(blockSel.Position);
-        string tech = now?.Code?.Path?.StartsWith("furrowedland") == true ? FarDomain.TechFurrow : FarDomain.TechTilling;
+        bool furrow = now?.Code?.Path?.StartsWith("furrowedland") == true;
+        // Outcome, not attempt — see TillPostfix. Neither a furrow nor farmland means the swing
+        // did something else entirely (a biofumigation turn-in) or nothing at all.
+        if (!furrow && byEntity.World.BlockAccessor.GetBlockEntity(blockSel.Position) is not Vintagestory.GameContent.BlockEntityFarmland) return;
+        string tech = furrow ? FarDomain.TechFurrow : FarDomain.TechTilling;
         Core?.Ledger?.Log(player, FarDomain.Code, tech,
             HashCode.Combine(blockSel.Position.X, blockSel.Position.Y, blockSel.Position.Z));
     }

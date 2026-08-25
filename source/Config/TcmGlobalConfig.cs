@@ -232,4 +232,33 @@ public class TcmGlobalConfig
     /// <summary>Worst-case yield penalty. Kept below the speed penalty, so a sick tile stays a
     /// slow disappointment rather than two punishments for one mistake.</summary>
     public double SickMaxYieldPenalty { get; set; } = 0.40;
+
+    // ------------------------------------------------------------------ biofumigation
+
+    /// <summary>The stabiliser switch. Off leaves the hoe doing exactly what vanilla does, so a
+    /// server that wants sickness without a cure can have one.</summary>
+    public bool SickBiofumigation { get; set; } = true;
+
+    /// <summary>
+    /// The share of EVERY family's level a turned-in brassica clears from that one tile.
+    ///
+    /// A strong cure and deliberately not a reset. At 0.8 a tile sitting at the 100 ceiling comes
+    /// back to 20, which is under the tiring line and free to plant, but a tile that has been
+    /// abused twice over still is not clean in one pass. Isothiocyanates are broad-spectrum, which
+    /// is why this clears every family and not only brassicas, and it is what makes spending a
+    /// rotation slot on mustard worth the forfeited harvest.
+    /// </summary>
+    public double SickBiofumigationClearShare { get; set; } = 0.80;
+
+    /// <summary>
+    /// The FAR level at which the turn-in starts REPORTING itself: which families eased, and by
+    /// how much. The labour is never gated (scope 2026-08-24, "gate the knowledge, never the
+    /// labour"), so the ground clears for an Untrained hand exactly as it does for a Master. What
+    /// rank buys is being told, both in the confirmation and in the Grower's Eye hint that says
+    /// this ground would take a turn-in.
+    ///
+    /// Default 1, Novice I: the same floor the sickness readout itself uses, so a farmer who can
+    /// see the ground is tired can also see what to do about it.
+    /// </summary>
+    public int SickBiofumigationReadRank { get; set; } = 1;
 }
