@@ -115,28 +115,31 @@ public static class FarGrowerEye
             // domain that punishes without being asked about, so the effect has to be legible
             // before the number is: a Novice sees that the ground is tired of this crop, and only
             // an Apprentice gets to measure how tired.
-            if (level >= Rank.Novice && api is Vintagestory.API.Server.ICoreServerAPI ssapi)
+            // READS THE CLIENT MIRROR, NOT THE STORE. This block asked `api is ICoreServerAPI`
+            // until 2026-08-24, inside a postfix that has already returned unless the side is
+            // Client. Those interfaces are disjoint, so it was dead from the day it shipped and
+            // sickness punished in total silence. The store is server-only by design, so the fix
+            // is the synced snapshot rather than a widened type test.
+            if (level >= Rank.Novice)
             {
-                var sick = FarSoilSickness.Read(ssapi, __instance!.Pos);
+                var sick = FarSoilSickness.ClientRead(__instance!.Pos);
                 // Ground can be sick with several families at once. Name the one standing in it
                 // if that is the sick one, because it explains the crop in front of the reader;
                 // otherwise name the worst, because that is what the ground most needs said.
                 string? sickFam = null;
-                if (sick != null)
+                double lvl = 0;
+                if (sick != null && sick.Count > 0)
                 {
                     string? plantedFam = cropId == null ? null : FarFamiliarity.FamilyOf(cropId);
-                    if (plantedFam != null && sick.Fams.TryGetValue(plantedFam, out var pf)
-                        && FarSoilSickness.Bites(pf.Level)) sickFam = plantedFam;
+                    if (plantedFam != null && sick.TryGetValue(plantedFam, out double pf)
+                        && FarSoilSickness.Bites(pf)) { sickFam = plantedFam; lvl = pf; }
                     else
-                    {
-                        var worst = sick.Worst();
-                        if (worst != null && FarSoilSickness.Bites(worst.Value.Value.Level))
-                            sickFam = worst.Value.Key;
-                    }
+                        foreach (var kv in sick)
+                            if (kv.Value > lvl && FarSoilSickness.Bites(kv.Value))
+                            { sickFam = kv.Key; lvl = kv.Value; }
                 }
                 if (sickFam != null)
                 {
-                    double lvl = sick!.Fams[sickFam].Level;
                     string famName = Lang.HasTranslation("almanactcm:far-family-" + sickFam)
                         ? Lang.Get("almanactcm:far-family-" + sickFam).ToLowerInvariant()
                         : sickFam;

@@ -137,6 +137,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("MEL-parry", () => Domains.MelParryPatches.PatchConditional(api, harmony));
             Try("FAR", () => Domains.FarPatches.PatchConditional(api, harmony));
             Try("FAR-soilsickness", () => Domains.FarSoilSickness.PatchGrowth(api, harmony));
+            Try("FAR-soilsickness-sync", () => Domains.FarSoilSickness.PatchSync(api, harmony));
             Try("FAR-bonus", () => Domains.FarBonusPatches.PatchConditional(api, harmony));
             Try("COO", () => Domains.CooPatches.PatchConditional(api, harmony));
             Try("COO-bonus", () => Domains.CooBonusPatches.PatchConditional(api, harmony));

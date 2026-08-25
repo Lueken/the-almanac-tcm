@@ -303,6 +303,11 @@ public static class FarSoilSickness
         f.Day = today;
         Flush(sapi, farmlandPos, map);
 
+        // Push it to whoever is looking. The tree-attribute sync only carries on a resend, and a
+        // harvest is the one moment the number moves far enough to matter to a reader standing
+        // right there.
+        sapi.World.BlockAccessor.GetBlockEntity(farmlandPos)?.MarkDirty(true);
+
         TcmLog.Cat(sapi, TcmLog.Soil,
             $"{farmlandPos} {family}: {before:0.#} -> {f.Level:0.#} "
           + $"(speed x{SpeedMul(f.Level):0.00}, yield x{YieldMul(f.Level):0.00}; "
@@ -321,6 +326,96 @@ public static class FarSoilSickness
     /// taking the mod down for. An unrecognised shape warns and leaves the yield haircut doing
     /// the work alone.
     /// </summary>
+    // ------------------------------------------------------------------ the client mirror
+
+    /// <summary>
+    /// Sickness state lives in SERVER chunk moddata and the farmland tooltip is composed on the
+    /// CLIENT. 0.5.0 shipped that gap as a dead branch: the hover asked `api is ICoreServerAPI`
+    /// inside a postfix that had already returned unless the side was Client, so no player at
+    /// any rank ever saw a sickness line while the penalties were charged in full. Silent
+    /// punishment is the worst failure this domain can have, which is why the fix is a real sync
+    /// and not a relaxed type test: relaxing it would only have swapped a dead branch for a null
+    /// read, because the client has no store to consult.
+    ///
+    /// The carrier is the farmland block entity's own attribute tree, which the engine already
+    /// serialises to disk AND ships to clients. Levels are settled server-side at write time, so
+    /// a packet always carries a current level rather than a remembered one.
+    /// </summary>
+    private const string SyncKey = "almanactcm:soilsick";
+
+    private static readonly Dictionary<BlockPos, Dictionary<string, double>> mirror = new();
+
+    /// <summary>Server side: stamp the settled per-family levels onto the tree being written.</summary>
+    public static void SyncOut(Vintagestory.API.Common.BlockEntity __instance,
+                               Vintagestory.API.Datastructures.ITreeAttribute tree)
+    {
+        if (tree == null || __instance?.Api is not ICoreServerAPI sapi) return;
+        try
+        {
+            var t = Enabled ? Read(sapi, __instance.Pos) : null;
+            if (t == null || t.Fams.Count == 0) { tree.RemoveAttribute(SyncKey); return; }
+
+            var sub = new Vintagestory.API.Datastructures.TreeAttribute();
+            foreach (var kv in t.Fams)
+                if (kv.Value.Level > 0.01) sub.SetDouble(kv.Key, kv.Value.Level);
+            if (sub.Count == 0) { tree.RemoveAttribute(SyncKey); return; }
+            tree[SyncKey] = sub;
+        }
+        catch (Exception e) { TcmLog.Warn(sapi, $"soil sickness sync-out failed at {__instance.Pos} ({e.Message})"); }
+    }
+
+    /// <summary>Client side: keep the last synced snapshot for the tooltip to read.</summary>
+    public static void SyncIn(Vintagestory.API.Common.BlockEntity __instance,
+                              Vintagestory.API.Datastructures.ITreeAttribute tree,
+                              IWorldAccessor worldAccessForResolve)
+    {
+        // Api is still null while a BE is being deserialised, so side comes from the world.
+        if (tree == null || __instance == null || worldAccessForResolve?.Side != EnumAppSide.Client) return;
+        var pos = __instance.Pos;
+        if (pos == null) return;
+
+        lock (mirror)
+        {
+            if (tree[SyncKey] is not Vintagestory.API.Datastructures.ITreeAttribute sub)
+            { mirror.Remove(pos); return; }
+
+            // Bounded and safe to drop at any moment: the authority is the server store, and a
+            // missing mirror entry costs a blank line rather than a wrong one.
+            if (mirror.Count > 4096) mirror.Clear();
+
+            var map = new Dictionary<string, double>();
+            foreach (var kv in sub) map[kv.Key] = sub.GetDouble(kv.Key);
+            mirror[pos.Copy()] = map;
+        }
+    }
+
+    /// <summary>The tooltip's only view of sickness. Null means nothing is known here, which a
+    /// caller must render as silence rather than as clean ground.</summary>
+    public static IReadOnlyDictionary<string, double>? ClientRead(BlockPos pos)
+    {
+        if (pos == null) return null;
+        lock (mirror) return mirror.TryGetValue(pos, out var m) ? m : null;
+    }
+
+    public static void PatchSync(ICoreAPI api, HarmonyLib.Harmony harmony)
+    {
+        var t = HarmonyLib.AccessTools.TypeByName("Vintagestory.GameContent.BlockEntityFarmland");
+        // DeclaredMethod on purpose: resolving up the hierarchy would patch BlockEntity itself
+        // and stamp every block entity in the game.
+        var to = t == null ? null : HarmonyLib.AccessTools.DeclaredMethod(t, "ToTreeAttributes");
+        var from = t == null ? null : HarmonyLib.AccessTools.DeclaredMethod(t, "FromTreeAttributes");
+        if (to == null || from == null)
+        {
+            TcmLog.Warn(api, "soil sickness: farmland tree attributes not found; the readout stays server-only this build (penalties still apply)");
+            return;
+        }
+        harmony.Patch(to, postfix: new HarmonyLib.HarmonyMethod(
+            HarmonyLib.AccessTools.Method(typeof(FarSoilSickness), nameof(SyncOut))));
+        harmony.Patch(from, postfix: new HarmonyLib.HarmonyMethod(
+            HarmonyLib.AccessTools.Method(typeof(FarSoilSickness), nameof(SyncIn))));
+        TcmLog.Info(api, "soil sickness: readout synced to clients (farmland tree attributes)");
+    }
+
     public static void PatchGrowth(ICoreAPI api, HarmonyLib.Harmony harmony)
     {
         const string typeName = "Vintagestory.GameContent.BlockEntityFarmland";
