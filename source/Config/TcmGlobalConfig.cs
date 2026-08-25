@@ -243,32 +243,40 @@ public class TcmGlobalConfig
     /// Take-all decline is exactly this. Organic matter feeds the microbes that antagonise the
     /// pathogen, so continuously cropped ground eventually part-suppresses its own disease.
     ///
-    /// 0.15, NOT THE 0.5 THE SCOPE SUGGESTED. The scope proposed "start near 0.5, so terra preta
-    /// sheds half again as fast as poor ground" without deriving a ceiling, and 0.5 breaks the
-    /// domain's headline lesson outright. Derivation, at the shipped defaults on 54-day cycles:
+    /// BARE GROUND ONLY (RULED 2026-08-24). A standing crop is a host; an inoculum with something
+    /// to live on does not care how rich the soil around it is. That is the honest agronomy, and
+    /// it is also the only thing that makes this knob usable.
     ///
-    /// In a two-course A-B-A-B each family accrues every SECOND cycle but decays every cycle, so
-    /// it faces 108 occupied days between its own harvests. That is `108 x 0.35 x 0.75 = 28.35`
-    /// of decay against 34 of accrual: a margin of only 5.65, which is why two-course creeps at
-    /// all. Scaling decay by `m` breaks even at `34 / 28.35 = 1.199`. **At or above that, a
-    /// two-course rotation is clean forever**, and "two-course creeps on both crops while three
-    /// or four courses stay clean" stops being true. A 0.5 bonus reaches 1.5 and clears the cliff
-    /// by a wide margin.
+    /// WHY THAT RESTRICTION EXISTS. The first build scaled both rates and had to be pinned at
+    /// 0.15 by a hard ceiling. A two-course A-B-A-B is entirely occupied: each family accrues
+    /// every SECOND cycle but decays every cycle, so it faces `108 x 0.35 x 0.75 = 28.35` of decay
+    /// against 34 of accrual, a margin of only 5.65. Scaling decay by `m` broke even at
+    /// `34 / 28.35 = 1.199`, and past that a two-course rotation is clean FOREVER, deleting the
+    /// lesson the whole domain exists to teach. The cliff was sharp: 0.15 delayed the first bite
+    /// from the third course to the sixth, 0.19 to the twenty-fourth, 0.25 to never.
     ///
-    /// The cliff is sharp rather than gradual, exactly like the accrual lever in the regional
-    /// pressure scope: 0.10 delays the first bite from cycle 3 to 4, 0.15 to cycle 6, 0.19 to
-    /// cycle 24, and 0.25 to never. 0.15 sits with real margin under 1.199 and reads well across
-    /// the soil ladder: very poor, low and medium bite on the third course, compost on the
-    /// fourth, high-fertility on the sixth. Rich ground roughly doubles the grace a two-field
-    /// rotation gets and never grants immunity.
+    /// Restricting the bonus to bare ground removes the cliff entirely, because no rotation ever
+    /// touches the bare rate. Monoculture, two-course and four-course behave at ANY setting
+    /// exactly as they did before this tier existed. 0.5 is therefore back to the scope's own
+    /// original number, and this time it is correct: the best ground rests half again as fast as
+    /// the worst, and rest is the only thing it speeds.
     ///
-    /// Untouched at any setting: a true four-family rotation already clears to zero (216 occupied
-    /// days give 56.7 of decay against 34), and monoculture still bites on the second cycle
-    /// everywhere. This lever only ever moves the middle case.
+    /// What it buys, on a tile sitting at 84 with the clean line at 40:
     ///
-    /// RE-DERIVE THIS if accrual, decay, the occupied factor, or the assumed cycle length move.
+    ///   verylow (5)      x1.00    126 days of rest
+    ///   low (25)         x1.13    111 days
+    ///   medium (50)      x1.30    101 days
+    ///   compost (65)     x1.40     90 days
+    ///   high / terra (80) x1.50     84 days
+    ///
+    /// And it gives fallow a reason to exist, which the scope had noticed was missing once a
+    /// farmer rotates by family. The reason is the historical one: crop-and-fallow two-field
+    /// holds clean on good ground (54 occupied + 54 bare sheds 42.5 against 34 of accrual) and
+    /// creeps on poor (33.1 against 34). It costs half the land, which is the right price. It is
+    /// also the remedy available to a player who has not yet found brassica seed, so
+    /// biofumigation is an upgrade rather than the only door.
     /// </summary>
-    public double SickFertilityDecayBonus { get; set; } = 0.15;
+    public double SickFertilityDecayBonus { get; set; } = 0.50;
 
     /// <summary>
     /// The fertility values the bonus ramps between. These are farmland's OWN scale, not the soil

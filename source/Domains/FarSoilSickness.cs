@@ -57,7 +57,7 @@ public static class FarSoilSickness
     private static double DecayDay  => Cfg?.SickFallowDecayPerDay ?? 0.35;
     private static double Occupied  => Cfg?.SickOccupiedDecayFactor ?? 0.75;
     private static double CleanBelow=> Cfg?.SickCleanBelow ?? 40;
-    private static double FertBonus => Cfg?.SickFertilityDecayBonus ?? 0.15;
+    private static double FertBonus => Cfg?.SickFertilityDecayBonus ?? 0.50;
     private static double FertFloor => Cfg?.SickFertilityFloor ?? 5;
     private static double FertCeil  => Cfg?.SickFertilityCeiling ?? 80;
     private static double SpeedBite => Cfg?.SickMaxSpeedPenalty ?? 0.60;
@@ -276,7 +276,9 @@ public static class FarSoilSickness
     {
         double days = today - f.Day;
         if (days <= 0) { f.Day = today; return; }
-        f.Level = Math.Max(0, f.Level - days * DecayDay * (occupied ? Occupied : 1.0) * fertMul);
+        // Fertility rides the BARE rate only (RULED 2026-08-24). A standing crop is a host, and
+        // an inoculum with something to live on does not care how good the soil around it is.
+        f.Level = Math.Max(0, f.Level - days * DecayDay * (occupied ? Occupied : fertMul));
         f.Day = today;
     }
 
@@ -291,13 +293,22 @@ public static class FarSoilSickness
     /// part-suppresses its own disease. It also costs a player nothing to discover, because the
     /// soil investment it rewards is one they were already making for growth speed.
     ///
-    /// IT MUST NEVER RESCUE A BAD ROTATION, and the band that holds that line is narrow. A
-    /// two-course A-B-A-B faces 108 occupied days between one family's harvests, which is 28.35
-    /// of decay against 34 of accrual: a margin of 5.65. Scaling decay past `34/28.35 = 1.199`
-    /// makes two-course clean forever and deletes the lesson the whole domain exists to teach.
-    /// The shipped 0.15 tops out at 1.15, which delays the first bite from the third course to
-    /// the sixth on the best ground. See TcmGlobalConfig.SickFertilityDecayBonus for the full
-    /// derivation, and re-derive it if any of the four constants move.
+    /// IT APPLIES TO BARE GROUND ONLY (RULED 2026-08-24 by Jeffrey). A standing crop is a host,
+    /// and an inoculum with something to live on does not care how rich the soil around it is.
+    /// That is the honest agronomy, and it is also what makes the knob usable at all.
+    ///
+    /// The first build scaled BOTH rates and had to be pinned at 0.15 by a hard ceiling: a
+    /// two-course A-B-A-B is entirely occupied, facing 28.35 of decay against 34 of accrual, so
+    /// scaling decay past `34/28.35 = 1.199` made two-course clean forever and deleted the lesson
+    /// the whole domain exists to teach. Restricting the bonus to bare ground removes that cliff
+    /// completely, because rotation never touches the bare rate. Monoculture, two-course and
+    /// four-course all behave exactly as they did before this tier existed, at any setting.
+    ///
+    /// What it moves instead is FALLOW, which the scope had noticed was left with no reason to
+    /// exist once a farmer rotates by family. Now there is one, and it is the historical one: a
+    /// two-field system of crop-and-fallow holds clean on good ground and creeps on poor. It also
+    /// gives a player who has not yet found brassica seed a remedy they can reach, with
+    /// biofumigation as the upgrade rather than the only door.
     ///
     /// UNKNOWN GROUND (zero) TAKES NO BONUS rather than being treated as poor. Records written
     /// before this field existed, and tiles whose farmland is not loaded, then heal at exactly
@@ -331,7 +342,7 @@ public static class FarSoilSickness
 
     /// <summary>The rate a tile is actually shedding at, for the readouts that quote it.</summary>
     public static double DecayPerDay(bool occupied, double fert) =>
-        DecayDay * (occupied ? Occupied : 1.0) * FertMul(fert);
+        DecayDay * (occupied ? Occupied : FertMul(fert));
 
     /// <summary>
     /// In-game days of BARE rest before this level stops being felt. Zero when it already is not.
@@ -736,7 +747,7 @@ public static class FarSoilSickness
         double fertMul = FertMul(fertility);
         var rows = new List<string> {
             $"pattern {pattern} | {cycleDays:0.#}-day cycles | accrual {Accrual:0.#}, decay {DecayDay:0.##}/day, occupied x{Occupied:0.##}, clean below {CleanBelow:0.#}",
-            $"fertility {(fertility > 0 ? $"{fertility:0}" : "unknown")} | shedding x{fertMul:0.00}",
+            $"fertility {(fertility > 0 ? $"{fertility:0}" : "unknown")} | fallow cycles decay x{fertMul:0.00} (bare ground only)",
             "cycle  crop  its level   speed   yield",
         };
 
@@ -753,7 +764,7 @@ public static class FarSoilSickness
             // A standing crop occupies the ground for every family alike, so they all decay at
             // the same rate whichever one is planted.
             foreach (char k in new List<char>(levels.Keys))
-                levels[k] = Math.Max(0, levels[k] - cycleDays * DecayDay * (fallow ? 1.0 : Occupied) * fertMul);
+                levels[k] = Math.Max(0, levels[k] - cycleDays * DecayDay * (fallow ? fertMul : Occupied));
 
             if (fallow) { rows.Add($"{i + 1,5}  {c,4}  {"",9}  x1.00  x1.00"); continue; }
 
@@ -822,7 +833,8 @@ public static class FarSoilSickness
                 var sb = new StringBuilder();
                 sb.Append($"{pos}\n");
                 sb.Append($"  decaying    {DecayPerDay(occupied, fert):0.###}/day ({(occupied ? "occupied" : "bare")})\n");
-                sb.Append($"  fertility   {(fert > 0 ? $"{fert:0} of {FertCeil:0}, shedding x{FertMul(fert):0.00}" : "unknown, no bonus")}\n");
+                sb.Append($"  fertility   {(fert > 0 ? $"{fert:0} of {FertCeil:0}, bare decay x{FertMul(fert):0.00} (no effect under a crop)" : "unknown, no bonus")}\n");
+                sb.Append($"  bare rest   {(t.Worst() is { } w && Bites(w.Value.Level) ? $"{DaysToClean(w.Value.Level, fert):0} days to the clean line" : "already under the clean line")}\n");
                 sb.Append($"  now         day {sapi.World.Calendar.TotalDays:0.##}, clean below {CleanBelow:0} of {Max:0}\n");
                 foreach (var kv in t.Fams)
                 {
