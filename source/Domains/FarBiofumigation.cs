@@ -101,6 +101,27 @@ public static class FarBiofumigation
         return stages > 0 && stage >= stages;
     }
 
+    /// <summary>
+    /// SNEAK plus right-click, and nothing less (RULED 2026-08-25 after a tap turned in a ripe
+    /// eruca in play).
+    ///
+    /// Vanilla fires DoTill from the held-interaction step at 0.6 seconds, which is a perfectly
+    /// good guard for tilling soil because a mis-till costs nothing. Destroying a ripe crop is not
+    /// that, and 0.6 seconds sits inside reflex range: the first build claimed a tap could not do
+    /// it and was wrong on the very first test. Raising our own threshold was the alternative and
+    /// it is worse, because vanilla's step ends the interaction at 1.0s, leaving a 0.4s window
+    /// that would feel broken rather than careful.
+    ///
+    /// Sneak has no timing in it at all. It cannot be produced by reflex, it is the modifier VS
+    /// players already read as "do the other thing", and it also means an ordinary hoe click on a
+    /// ripe brassica goes back to doing exactly what it always did.
+    ///
+    /// Shift WITHOUT Ctrl: vanilla's own hoe reserves Shift+Ctrl for the place-block fallthrough
+    /// (ItemHoe.cs:52), so claiming that combination would fight it.
+    /// </summary>
+    public static bool TurnInIntent(EntityAgent? byEntity) =>
+        byEntity?.Controls != null && byEntity.Controls.ShiftKey && !byEntity.Controls.CtrlKey;
+
     /// <summary>True when the player is holding something that can turn a crop in. The tag test
     /// comes first because vanilla's hoe.json declares no tool type at all (it carries the
     /// <c>tool-hoe</c> TAG instead), and the class test catches every modded hoe that subclasses
@@ -137,6 +158,9 @@ public static class FarBiofumigation
         Block? crop = sapi.World.BlockAccessor.GetBlock(cropPos);
         if (!IsCandidate(sapi, crop)) return false;
         if (!HoeInHand(byPlayer)) return false;
+        // Re-checked server side rather than trusted from the swing: this is the step that
+        // destroys a ripe crop, so the deliberate input is verified where the authority is.
+        if (!TurnInIntent(byPlayer.Entity)) return false;
 
         var farmland = FarmlandUnder(sapi.World, cropPos);
         if (farmland == null) return false;

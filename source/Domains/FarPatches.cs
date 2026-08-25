@@ -371,6 +371,7 @@ public static class FarPatches
     public static bool CropStandAsidePrefix(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, ref bool __result)
     {
         if (world == null || byPlayer == null || blockSel == null) return true;
+        if (!FarBiofumigation.TurnInIntent(byPlayer.Entity)) return true;
         if (!FarBiofumigation.HoeInHand(byPlayer)) return true;
         if (!FarBiofumigation.IsCandidate(world.Api, world.BlockAccessor.GetBlock(blockSel.Position))) return true;
         if (FarBiofumigation.FarmlandUnder(world, blockSel.Position) == null) return true;
@@ -390,7 +391,7 @@ public static class FarPatches
     {
         if (byEntity == null || blockSel == null) return;
         if (handHandling == EnumHandHandling.PreventDefault) return;   // vanilla already took it
-        if (byEntity.Controls.ShiftKey && byEntity.Controls.CtrlKey) return;
+        if (!FarBiofumigation.TurnInIntent(byEntity)) return;
 
         var world = byEntity.World;
         if (world == null) return;
@@ -778,6 +779,29 @@ public static class FarPatches
     /// farmer takes it.
     /// </summary>
     /// <summary>
+    /// How much of the plant's life a pick just took, as a share of the whole ladder. A chive
+    /// ripens at stage 6 and regrows from stage 4, so a pick costs two of six and returns 1/3.
+    ///
+    /// Read from the two blocks themselves, before and after, rather than from the behaviour's
+    /// private harvestedBlockCode. That keeps it free of reflection AND correct when another mod
+    /// redirects the regrowth: whatever is standing there now IS the answer.
+    ///
+    /// Falls back to a full share whenever the ladder cannot be read, which is the conservative
+    /// direction: an unreadable crop tires the ground exactly as it did before this existed,
+    /// rather than quietly becoming free to farm.
+    /// </summary>
+    private static double LifeTakenByPick(Block? ripe, Block? regrown)
+    {
+        int stages = ripe?.CropProps?.GrowthStages ?? 0;
+        if (stages <= 0 || regrown == null) return 1.0;
+        if (!int.TryParse(ripe!.LastCodePart(), out int from)) return 1.0;
+        if (!int.TryParse(regrown.LastCodePart(), out int to)) return 1.0;
+        int taken = from - to;
+        if (taken <= 0) return 1.0;
+        return Math.Min(1.0, taken / (double)stages);
+    }
+
+    /// <summary>
     /// Hands the borrowed drop quantities back, whatever happened inside.
     ///
     /// WHY A FINALIZER AND NOT THE POSTFIX. A Harmony postfix does not run when the original
@@ -888,7 +912,8 @@ public static class FarPatches
         // standing; the eventual break writes it through HarvestPostfix.
         if (__state.Family != null
             && world.BlockAccessor.GetBlockEntity(blockSel.Position.DownCopy()) is Vintagestory.GameContent.BlockEntityFarmland farmland)
-            FarSoilSickness.NoteHarvest(sapi, farmland.Pos, __state.Family);
+            FarSoilSickness.NoteHarvest(sapi, farmland.Pos, __state.Family,
+                LifeTakenByPick(__instance?.block, world.BlockAccessor.GetBlock(blockSel.Position)));
     }
 
     // ------------------------------------------------------------ milking

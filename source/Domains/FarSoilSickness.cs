@@ -458,7 +458,23 @@ public static class FarSoilSickness
     /// for the same reason familiarity is: a cut-and-come-again crop picked four times in an
     /// afternoon is one crop standing in that ground, not four.
     /// </summary>
-    public static void NoteHarvest(ICoreServerAPI sapi, BlockPos farmlandPos, string family)
+    /// <param name="share">Fraction of a full harvest's accrual this taking is worth. One for an
+    /// ordinary harvest, which ends the plant. Less for a cut-and-come-again PICK, which takes
+    /// only part of the plant's life and leaves it standing.
+    ///
+    /// WHY THIS EXISTS (found in play 2026-08-25). Accrual is charged per harvest and decay is
+    /// owed per day, and that pairing quietly assumes a harvest costs a full growth cycle. A pick
+    /// does not: chives ripen at stage 6 and regrow from stage 4, so a pick costs a third of the
+    /// plant and used to pay the whole 34. Two chive picks thirteen days apart drove one tile from
+    /// clean to 64 and into a felt penalty, where two ordinary harvests would have taken most of
+    /// two seasons. Across the seven cut-and-come-again crops the unearned multiplier ran from
+    /// 2.5x on eruca to 4x on cucumber, and none of those numbers was chosen by anyone: they fell
+    /// out of each crop's regrowth span.
+    ///
+    /// Scaling by the share of life taken makes three picks cost what one full grow costs, which
+    /// is the honest exchange, and it self-tunes per crop from the ladder rather than from a
+    /// table that would go stale.</param>
+    public static void NoteHarvest(ICoreServerAPI sapi, BlockPos farmlandPos, string family, double share = 1.0)
     {
         if (!Enabled || string.IsNullOrEmpty(family)) return;
         var map = Store(sapi, farmlandPos, true);
@@ -492,7 +508,7 @@ public static class FarSoilSickness
         }
 
         double before = f.Level;
-        f.Level = Math.Min(Max, f.Level + Accrual);
+        f.Level = Math.Min(Max, f.Level + Accrual * GameMath.Clamp(share, 0, 1));
         f.LastCreditDay = today;
         f.Day = today;
         Flush(sapi, farmlandPos, map);
