@@ -197,6 +197,21 @@ public class TcmGlobalConfig
     public double SickCleanBelow { get; set; } = 40;
 
     /// <summary>
+    /// Where the ground starts SAYING it is tiring, well before anything is charged for it.
+    /// Must sit below SickCleanBelow; at or above it the tiring tier never appears.
+    ///
+    /// Found in play 2026-08-24. A tile read 33.99 in brassicas and the hover said nothing,
+    /// which is exactly what "nothing is felt below the clean line" promises. But one turnip
+    /// harvest adds 34 and lands it at 68, deep into a felt penalty, so a farmer was being asked
+    /// to plant blind onto ground that looked identical whether it stood at 2 or at 39. Free and
+    /// silent are not the same thing: the repeat stays free, and the trap goes.
+    ///
+    /// 30 against a 34 accrual means the warning appears exactly when a repeat would cost
+    /// something, and never when it would not.
+    /// </summary>
+    public double SickTiringAbove { get; set; } = 30;
+
+    /// <summary>
     /// Worst-case growth-speed penalty, multiplying with vanilla's nutrient speed bands.
     ///
     /// RAISED from 0.40 on 2026-08-24 after watching a full run. At 0.40 a two-course rotation

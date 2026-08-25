@@ -128,14 +128,19 @@ public static class FarGrowerEye
                 // otherwise name the worst, because that is what the ground most needs said.
                 string? sickFam = null;
                 double lvl = 0;
+                // Selection runs on Notable, not on Bites (RULED 2026-08-24). A tile reading 34
+                // in brassicas said nothing, which is what "nothing is felt below the clean line"
+                // promises, but one more turnip lands it at 68 and deep into a penalty. The
+                // farmer was being asked to plant blind onto ground that looked the same at 2 as
+                // at 39. The repeat stays free; the blindness goes.
                 if (sick != null && sick.Count > 0)
                 {
                     string? plantedFam = cropId == null ? null : FarFamiliarity.FamilyOf(cropId);
                     if (plantedFam != null && sick.TryGetValue(plantedFam, out double pf)
-                        && FarSoilSickness.Bites(pf)) { sickFam = plantedFam; lvl = pf; }
+                        && FarSoilSickness.Notable(pf)) { sickFam = plantedFam; lvl = pf; }
                     else
                         foreach (var kv in sick)
-                            if (kv.Value > lvl && FarSoilSickness.Bites(kv.Value))
+                            if (kv.Value > lvl && FarSoilSickness.Notable(kv.Value))
                             { sickFam = kv.Key; lvl = kv.Value; }
                 }
                 if (sickFam != null)
@@ -143,11 +148,19 @@ public static class FarGrowerEye
                     string famName = Lang.HasTranslation("almanactcm:far-family-" + sickFam)
                         ? Lang.Get("almanactcm:far-family-" + sickFam).ToLowerInvariant()
                         : sickFam;
+                    bool felt = FarSoilSickness.Bites(lvl);
+                    // The tiring line quotes no multipliers on purpose: nothing is being charged
+                    // yet, and printing x1.00 twice would read as a penalty that is not there.
+                    // It quotes the line instead, so a reader can measure their own margin.
                     dsc.AppendLine(level >= Rank.Apprentice
-                        ? Lang.Get("almanactcm:far-eye-sick-full", famName, (int)lvl,
-                                   FarSoilSickness.SpeedMul(lvl).ToString("0.00"),
-                                   FarSoilSickness.YieldMul(lvl).ToString("0.00"))
-                        : Lang.Get("almanactcm:far-eye-sick-rough", famName));
+                        ? (felt
+                            ? Lang.Get("almanactcm:far-eye-sick-full", famName, (int)lvl,
+                                       FarSoilSickness.SpeedMul(lvl).ToString("0.00"),
+                                       FarSoilSickness.YieldMul(lvl).ToString("0.00"))
+                            : Lang.Get("almanactcm:far-eye-sick-tiring-full", famName, (int)lvl,
+                                       FarSoilSickness.CleanLine))
+                        : Lang.Get(felt ? "almanactcm:far-eye-sick-rough"
+                                        : "almanactcm:far-eye-sick-tiring-rough", famName));
                 }
             }
 

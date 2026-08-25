@@ -296,6 +296,14 @@ public static class FarSoilSickness
     /// <summary>Nothing at all is felt below the clean line.</summary>
     public static bool Bites(double level) => level > CleanBelow;
 
+    /// <summary>Worth SAYING, which begins before anything is worth charging. Below this the
+    /// ground is genuinely fine and the readout stays quiet; between here and the clean line it
+    /// warns without costing, so a repeat is still free but never blind.</summary>
+    public static bool Notable(double level) => level > (Cfg?.SickTiringAbove ?? 30);
+
+    /// <summary>The line the tiring readout quotes, so a reader can judge their own margin.</summary>
+    public static int CleanLine => (int)CleanBelow;
+
     // ------------------------------------------------------------------ the harvest hook
 
     /// <summary>
@@ -564,7 +572,7 @@ public static class FarSoilSickness
                      // No angle brackets: the game's chat renders VTML, so a bare '<' opens a
                      // tag and the parser swallows the rest of the line. The marker went missing
                      // in play before anyone noticed the rows it belonged on.
-                     + (Bites(lvl) ? "   (felt)" : ""));
+                     + (Bites(lvl) ? "   (felt)" : Notable(lvl) ? "   (tiring)" : ""));
         }
 
         var final = new List<string>();
@@ -623,7 +631,8 @@ public static class FarSoilSickness
                 {
                     sb.Append($"  {kv.Key,-12} {kv.Value.Level,6:0.##}  growth x{SpeedMul(kv.Value.Level):0.000}"
                             + $"  yield x{YieldMul(kv.Value.Level):0.000}"
-                            + (Bites(kv.Value.Level) ? "  (felt)" : "  (not felt)") + "\n");
+                            + (Bites(kv.Value.Level) ? "  (felt)"
+                               : Notable(kv.Value.Level) ? "  (tiring)" : "  (not felt)") + "\n");
                 }
                 return TextCommandResult.Success(sb.ToString().TrimEnd());
             });
