@@ -395,6 +395,13 @@ public static class FarPatches
         if (!__result) return;
         IPlayer? player = PlayerOf(byEntity);
         if (player == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+
+        // Close the fallow span before the practice credit, because it is the tile's business
+        // rather than the player's: the ground has just stopped being bare and is owed the
+        // bare-ground decay rate for every day it was.
+        if (__instance.Api is ICoreServerAPI sickApi)
+            FarSoilSickness.NotePlanted(sickApi, __instance.Pos);
+
         Core?.Ledger?.Log(player, FarDomain.Code, FarDomain.TechPlanting,
             HashCode.Combine(__instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z));
     }

@@ -83,6 +83,20 @@ public static class FarSoilSickness
         /// nothing and the whole record disappears with it. Bounded by the taxonomy at eight.</summary>
         public Dictionary<string, Fam> Fams = new();
 
+        /// <summary>Whether something was GROWING here across the span now being charged, as
+        /// opposed to whatever happens to stand here at the instant somebody looks.
+        ///
+        /// This is the whole of the fallow fix. Decay is lazy, so a span is only ever charged
+        /// when something asks, and the first build sampled occupancy at that moment and applied
+        /// it backwards across the lot. Nothing asks about a BARE tile (the growth hook returns
+        /// before it reads anything when no crop stands), so a fallow year was invariably billed
+        /// at the occupied rate by the next crop that grew on it. Fallow bought almost nothing,
+        /// which quietly falsified the two-field result the whole design leans on.
+        ///
+        /// Defaults false, which is the safe way round for records written before this field
+        /// existed: a first settle after upgrade over-heals slightly rather than over-sickening.</summary>
+        public bool Occ { get; set; }
+
         // --- Legacy single-pair fields. Read on load, migrated into Fams, then written as null
         // and dropped by the serializer. Kept so a world tilled under the 2026-08-24 build does
         // not silently forget ground it had already poisoned.
@@ -191,9 +205,15 @@ public static class FarSoilSickness
     /// bare-ground rate when nothing is growing and a fraction of it when something is, so
     /// fallow is always the faster cure and rotation the one that also feeds you.
     ///
-    /// Approximation, recorded honestly: occupancy is sampled NOW and applied across the whole
-    /// elapsed span, because nothing records what stood here in between. It errs by at most the
-    /// difference between the two rates, and only on tiles nobody has looked at in a while.
+    /// Occupancy comes from the TILE's remembered state (Tile.Occ), never from what happens to
+    /// stand here at the instant of the call. The first build sampled it live and called that a
+    /// small approximation "erring by at most the difference between the two rates". That was
+    /// wrong, and the error was not small: nothing ever asks about a bare tile, so every fallow
+    /// span was billed at the occupied rate by the next crop to grow on it. Two-field bit at
+    /// cycle 5 and hit the ceiling by cycle 25 instead of biting at 15 and levelling near 70,
+    /// which is to say fallowing bought nothing and the design's headline result was false in
+    /// play. Spans are closed at each transition instead: NotePlanted when a crop goes in, the
+    /// harvest prefix while it still stands.
     /// </summary>
     private static void Settle(Fam f, double today, bool occupied)
     {
@@ -206,15 +226,35 @@ public static class FarSoilSickness
     /// <summary>Brings every family on a tile up to the present and drops the ones that have
     /// burned out. A standing crop occupies the ground for all of them alike, whichever family
     /// it belongs to, so occupancy is a property of the tile and not of the record.</summary>
-    private static void SettleAll(Tile t, double today, bool occupied)
+    private static void SettleAll(Tile t, double today, bool occupiedNow)
     {
+        // Charge the span at the rate that was true ACROSS it, then remember the state going
+        // forward. Passing occupiedNow straight down was the bug: it billed a fallow year at the
+        // occupied rate as soon as the next crop grew tall enough for anything to ask.
         List<string>? dead = null;
         foreach (var kv in t.Fams)
         {
-            Settle(kv.Value, today, occupied);
+            Settle(kv.Value, today, t.Occ);
             if (kv.Value.Level <= 0.01) (dead ??= new List<string>()).Add(kv.Key);
         }
         if (dead != null) foreach (string k in dead) t.Fams.Remove(k);
+        t.Occ = occupiedNow;
+    }
+
+    /// <summary>Closes the bare span at the moment a crop goes in, so the ground is credited the
+    /// fallow rate for the time it actually lay fallow. Without this the span stays open until
+    /// something reads the tile with a crop standing on it, and the whole rest is billed as
+    /// occupied. This is the single call that makes the two-field pattern behave as modelled.</summary>
+    public static void NotePlanted(ICoreServerAPI sapi, BlockPos farmlandPos)
+    {
+        if (!Enabled) return;
+        var map = Store(sapi, farmlandPos, false);
+        if (map == null) return;
+        if (!map.TryGetValue(LocalIndex(farmlandPos, GlobalConstants.ChunkSize), out var t)) return;
+        if (t.Fams.Count == 0) return;
+
+        SettleAll(t, sapi.World.Calendar.TotalDays, true);   // bare span ends here, occupied begins
+        Flush(sapi, farmlandPos, map);
     }
 
     /// <summary>The tile's current state, decayed to now. Null when the ground is clean.</summary>
