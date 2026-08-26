@@ -42,7 +42,7 @@ public class AlmanacTcmModSystem : ModSystem
     /// so nothing breaks loudly: the earned reveal simply never happens and the chapter sits
     /// visible from the first login, which is the whole thing it exists to prevent. Pinned
     /// to 0.1.2 rather than 0.0.18 so the pair stays in step, and that holds at 0.1.4.</summary>
-    private const string MinIlluminatedVersion = "0.2.0";
+    private const string MinIlluminatedVersion = "0.3.0";
 
     /// <summary>Static access for Harmony patches, split by side (set in Start, cleared in
     /// Dispose). Singleplayer loads BOTH a client-side and a server-side ModSystem in one

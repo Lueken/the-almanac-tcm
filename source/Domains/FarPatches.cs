@@ -60,6 +60,18 @@ public static class FarPatches
     /// keeps the same BE at the same pos, so pos-keying is stable placement-to-outcome.</summary>
     private static Dictionary<string, string> graftOwners = new();
 
+    /// <summary>Cutting pos -> the SCION's familiarity id, stored beside the owner and for the
+    /// same reason: the take fires on an unattended tick where neither the player nor the stack
+    /// is in scope. On a graft onto existing rootstock the species learned is the scion's,
+    /// because the scion is what will fruit, and that is the same string vanilla reads at
+    /// BlockFruitTreeBranch.cs:118 to decide the graft.
+    ///
+    /// Its own savegame key rather than a widened value, so an existing world loads with the
+    /// owner map intact and only the scion map empty. A cutting already in the ground when this
+    /// shipped still pays its grafting practice; what it cannot do is open a tree's page, which
+    /// is the right way round for a gate.</summary>
+    private static Dictionary<string, string> graftScions = new();
+
     private static void LoadGraftOwners()
     {
         try
@@ -67,7 +79,10 @@ public static class FarPatches
             byte[]? data = sapi!.WorldManager.SaveGame.GetData("almanacFarGraftOwners");
             if (data != null)
                 graftOwners = Vintagestory.API.Util.SerializerUtil.Deserialize<Dictionary<string, string>>(data) ?? new();
-            TcmLog.Cat(sapi, TcmLog.Config, $"FAR graft owners loaded: {graftOwners.Count} pending cutting(s)");
+            byte[]? scions = sapi!.WorldManager.SaveGame.GetData("almanacFarGraftScions");
+            if (scions != null)
+                graftScions = Vintagestory.API.Util.SerializerUtil.Deserialize<Dictionary<string, string>>(scions) ?? new();
+            TcmLog.Cat(sapi, TcmLog.Config, $"FAR graft owners loaded: {graftOwners.Count} pending cutting(s), {graftScions.Count} with a known scion");
         }
         catch (Exception e) { TcmLog.Error(sapi, $"graft owner map unreadable ({e.Message}); starting empty"); }
     }
@@ -76,6 +91,8 @@ public static class FarPatches
     {
         sapi!.WorldManager.SaveGame.StoreData("almanacFarGraftOwners",
             Vintagestory.API.Util.SerializerUtil.Serialize(graftOwners));
+        sapi!.WorldManager.SaveGame.StoreData("almanacFarGraftScions",
+            Vintagestory.API.Util.SerializerUtil.Serialize(graftScions));
     }
 
     // ------------------------------------------------------------ seam wiring
@@ -457,11 +474,22 @@ public static class FarPatches
 
     /// <summary>Owner at placement: byPlayer is in scope HERE and only here (the outcome fires
     /// on an unattended tick, possibly days and restarts later). Persisted map, pos-keyed.</summary>
-    public static void GraftPlacePostfix(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, bool __result)
+    public static void GraftPlacePostfix(Block __instance, IWorldAccessor world, IPlayer byPlayer,
+        ItemStack itemstack, BlockSelection blockSel, bool __result)
     {
         if (!__result || byPlayer == null || blockSel == null || !ServerSide(world)) return;
-        graftOwners[PosKey(blockSel.Position)] = byPlayer.PlayerUID;
-        TcmLog.Cat(world.Api, "far", $"cutting placed at {blockSel.Position} by {byPlayer.PlayerName}; take-or-die pending (silent until the outcome)");
+        string key = PosKey(blockSel.Position);
+        graftOwners[key] = byPlayer.PlayerUID;
+
+        // The scion, captured here because it is the only point where the stack exists. Harmony
+        // binds `itemstack` by parameter name off TryPlaceBlock's own signature, so this is a
+        // signature addition rather than new machinery.
+        string? scion = itemstack?.Attributes?.GetString("type");
+        string scionId = FarPerennials.TreeId(__instance?.Code?.Domain, scion);
+        if (scionId.Length > 0) graftScions[key] = scionId;
+
+        TcmLog.Cat(world.Api, "far", $"cutting placed at {blockSel.Position} by {byPlayer.PlayerName}" +
+            $"{(scionId.Length > 0 ? $" (scion {scionId})" : " (scion unknown)")}; take-or-die pending (silent until the outcome)");
     }
 
     public readonly record struct GraftState(bool WasCutting, BlockPos? Pos, int FoliageBefore);
@@ -491,7 +519,9 @@ public static class FarPatches
         if (be.PartType == Vintagestory.GameContent.EnumTreePartType.Branch)
         {
             graftOwners.TryGetValue(key, out string? uid);
+            graftScions.TryGetValue(key, out string? scionId);
             graftOwners.Remove(key);
+            graftScions.Remove(key);
             IPlayer? owner = uid == null ? null : be.Api.World.PlayerByUid(uid);
             if (owner == null)
             {
@@ -501,6 +531,18 @@ public static class FarPatches
             TcmLog.Cat(be.Api, "far", $"cutting TOOK at {__state.Pos} -> grafting credit for {owner.PlayerName}");
             Core?.Ledger?.Log(owner, FarDomain.Code, FarDomain.TechGrafting,
                 HashCode.Combine("graft", __state.Pos.X, __state.Pos.Y, __state.Pos.Z));
+
+            // The tree's FIRST familiarity mark, and the only act that can pay it. Picking a
+            // ripe branch is worth nothing on a species whose counter still stands at zero, so
+            // this is the gate: an orchard is learned by planting it, never by finding it.
+            // Vanilla worldgen scatters every tree type across the map, so without this a wild
+            // grove would carry a player to Versed having never put anything in the ground,
+            // which no sown crop can do because no wheat field regrows on its own.
+            if (scionId != null && be.Api is ICoreServerAPI graftApi)
+            {
+                FarFamiliarity.BumpHarvest(graftApi, owner, scionId);
+                TcmLog.Cat(be.Api, "far", $"{scionId} opens for {owner.PlayerName}: a rooted cutting is what begins a tree's page");
+            }
         }
         else if (be.FoliageState == Vintagestory.GameContent.EnumFoliageState.Dead)
         {
@@ -522,7 +564,8 @@ public static class FarPatches
                 return;
             }
             graftOwners.Remove(key);
-            TcmLog.Cat(be.Api, "far", $"cutting DIED at {__state.Pos}; no practice (success-gated by ruling)");
+            graftScions.Remove(key);
+            TcmLog.Cat(be.Api, "far", $"cutting DIED at {__state.Pos}; no practice and no page (success-gated by ruling)");
         }
     }
 
@@ -948,6 +991,19 @@ public static class FarPatches
         if (secondsUsed <= 1.1f) return;
         Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechOrchard,
             HashCode.Combine("orchard", __instance.Pos.X >> 2, __instance.Pos.Z >> 2, __instance.Api.World.ElapsedMilliseconds / 30000));
+
+        // Familiarity, but only on a species the picker has already rooted or grafted for
+        // themselves. The counter standing at zero IS the gate, so this costs no extra storage:
+        // GraftGrowPostfix is the only thing that can move a tree id off zero, and everything
+        // after that is the ordinary one-mark-a-day rule.
+        //
+        // Practice above is unconditional and stays that way. Picking a wild grove is real work
+        // and pays as such; what it is not is knowledge of how to grow the thing.
+        string? id = FarPerennials.TreeIdOf(__instance as Vintagestory.GameContent.BlockEntityFruitTreePart);
+        if (id == null || __instance.Api is not ICoreServerAPI sapi) return;
+        var know = FarFamiliarity.KnowledgeOf(__instance.Api, byPlayer);
+        if (FarFamiliarity.OwnCount(know, id) <= 0) return;
+        FarFamiliarity.BumpHarvest(sapi, byPlayer, id);
     }
 
     // ------------------------------------------------------------ beekeeping (harvest a full skep)

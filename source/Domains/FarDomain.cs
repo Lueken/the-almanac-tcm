@@ -38,6 +38,10 @@ public static class FarDomain
     public const string TechMilking = "milking";       // EntityBehaviorMilkable.MilkingComplete
     public const string TechEggs = "eggs";             // BlockEntityHenBox.OnInteract (spammy, heavy dedup)
     public const string TechGrafting = "grafting";     // fruit-tree propagation (DEFERRED to 1b)
+    /// <summary>Taking a cutting off a berry bush (BEBehaviorFruitingBush.SetHarvested). Its own
+    /// verb rather than a share of grafting, because taking one is riskless where rooting one is
+    /// not, and vanilla's once-a-year-per-bush gate means it needs no dedup of ours.</summary>
+    public const string TechCuttings = "cuttings";
     public const string TechOrchard = "orchard";       // BlockEntityFruitTreePart.OnBlockInteractStop
     public const string TechBeekeeping = "beekeeping"; // BlockSkep.OnBlockBroken harvest
     public const string TechShearing = "shearing";     // EntityBehaviorShearable.DoShear (shearlib)
@@ -127,6 +131,9 @@ public static class FarDomain
             // The weakest, spammiest row: low raw + heavy contextHash dedup (a coop sweep = one context).
             [TechEggs] = new() { Raw = 1, K = 12 },
             [TechGrafting] = new() { Raw = 6, K = 10 },
+            // Deliberate and annual, but riskless: half a graft's raw, the same K, because the
+            // one-cutting-per-bush-per-year gate is already the spam floor.
+            [TechCuttings] = new() { Raw = 3, K = 10 },
             [TechOrchard] = new() { Raw = 2, K = 20 },
             [TechBeekeeping] = new() { Raw = 5, K = 12 },
             [TechShearing] = new() { Raw = 2, K = 20 },
