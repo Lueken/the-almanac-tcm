@@ -32,7 +32,6 @@
         }
       ]
     },
-
     {
       "id": "learning-a-plant",
       "title": "Learning a plant",
@@ -42,8 +41,8 @@
           "text": "You come to know a crop by growing it. Not by reading about it, not by holding its seed, and not by watching somebody else's field. Take a harvest and the plant becomes a little less of a stranger to you, and the Almanac begins to fill in what it knows."
         },
         {
-          "type": "steps",
-          "items": [
+          "type": "ledger",
+          "entries": [
             "<strong>Stranger.</strong> You can name the plant and nothing more. Its page stands mostly empty, which is itself a useful thing: it is a map of what you have not yet grown.",
             "<strong>Acquainted</strong>, after two harvests. The plant tells you its habits in plain words. Whether it wants a rich bed or a poor one, whether it minds the cold, roughly how long it holds the ground.",
             "<strong>Versed</strong>, after eight. Now you get figures. Exact draw, exact span, the temperatures it will stand between, and where in its life it is worth the most to you."
@@ -58,9 +57,9 @@
           "variant": "tip",
           "text": "Everything on these pages is yours the moment you open the book. What you have not yet earned is the detail about a particular plant, and the only price for that is having grown it."
         }
-      ]
+      ],
+      "keepTogether": true
     },
-
     {
       "id": "kin",
       "title": "Kin teach you something, never everything",
@@ -78,13 +77,12 @@
           "text": "Kin will carry you to <strong>Acquainted</strong> and no further. The exact figures on a plant are earned on that plant, by your own hands, and a family full of experience will always stop one step short of handing them to you. That is deliberate. Knowing the family is knowing the shape of a thing. Knowing the plant is a different order of knowing."
         },
         {
-          "type": "callout",
-          "variant": "lore",
+          "type": "paragraph",
           "text": "Work a whole family thoroughly and something else opens: the book begins to hold what you have grown where, and in what order, which is the beginning of keeping a rotation in your head instead of on a slate."
         }
-      ]
+      ],
+      "keepTogether": true
     },
-
     {
       "id": "why-ground-tires",
       "title": "Why the ground tires",
@@ -104,11 +102,12 @@
             "Past that, it begins to say it is <strong>tiring</strong> before it does anything about it. You are never punished blind.",
             "Left alone, a badly worked square grows slowly and yields poorly, up to well under half speed at the worst. Growth is hit harder than yield, deliberately, so a bad plot is a slow disappointment rather than two punishments for the same mistake.",
             "It can never become worthless forever. There is a floor. A square you have ruined is a square that will come back if you leave it be."
-          ]
+          ],
+          "ordered": false
         }
-      ]
+      ],
+      "keepTogether": true
     },
-
     {
       "id": "rotation",
       "title": "The whole answer is rotation",
@@ -134,7 +133,6 @@
         }
       ]
     },
-
     {
       "id": "rest-and-remedy",
       "title": "Rest, and the two remedies",
@@ -149,20 +147,21 @@
             "<strong>Leave it fallow.</strong> An empty square recovers faster than a planted one. This is the oldest answer there is and it still works.",
             "<strong>Feed the ground well.</strong> Rich soil sheds its weariness faster than poor soil does, permanently, with nothing to learn and no work to do. It only helps while the square is empty, because a standing crop shelters what ails it. Compost your beds and your rest years get shorter on their own.",
             "<strong>Fold in a brassica.</strong> Grow a cabbage, a mustard, a cress or a horseradish to its full growth, then sneak and take a hoe to it rather than harvesting. You lose the crop entirely and the ground is largely cleansed of everything, not only what that plant would have tired."
-          ]
+          ],
+          "ordered": false
         },
         {
           "type": "paragraph",
           "text": "The folding is worth understanding, because it looks like waste and is not. Those plants carry a bitterness in their leaves, the same heat you taste in mustard and horseradish, and it is kept locked apart inside them until something crushes the leaf. Chop the plant into the soil and the bitterness comes out all at once as a vapour, and very little that troubles a field survives it. The plant was defending itself. You have simply pointed that defence downward."
         },
         {
-          "type": "callout",
-          "variant": "warning",
+          "type": "paragraph",
           "text": "Fallowing and folding are remedies for a field you cannot rotate properly. Neither is better than rotating properly. If you find yourself folding a crop every round, the field is telling you it wants another family in it, not another cure."
         }
-      ]
+      ],
+      "keepTogether": true,
+      "pageBreakBefore": true
     },
-
     {
       "id": "what-the-plant-says",
       "title": "What the field will tell you, and when",
@@ -172,8 +171,8 @@
           "text": "Look at a growing crop and the Almanac reads two things at once, from two different kinds of knowing. <strong>What the plant is doing</strong> comes from your experience of that plant. <strong>What the ground underneath is like</strong> comes from your standing as a grower, and it is one eye for every square you ever look at."
         },
         {
-          "type": "steps",
-          "items": [
+          "type": "ledger",
+          "entries": [
             "A <strong>novice</strong> is told the ground is tired, and of which family, in plain words. The trouble is named before it is measured, because this is the one thing in the whole trade that punishes you without being asked.",
             "An <strong>apprentice</strong> is given the figure, and is told how long the square would need lying bare to come right again.",
             "Higher still, and the reading turns to the whole field rather than the square: what you have grown here, and what the ground would rather see next."
@@ -188,7 +187,8 @@
           "variant": "author",
           "text": "None of this is hidden from you as a trick. It is hidden because a field does not explain itself to a stranger, and there has never been a way to learn ground except by working it."
         }
-      ]
+      ],
+      "keepTogether": true
     }
   ]
 }
