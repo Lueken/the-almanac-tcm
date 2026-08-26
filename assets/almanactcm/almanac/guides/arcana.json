@@ -4,7 +4,7 @@
 	"id": "almanactcm:arcana",
 	"gate": "rustboundmagic",
 	"order": 40,
-	"ribbonTab": true,
+	"pinned": true,
 	"title": "Arcana",
 	"subtitle": "The one trade nobody is born to",
 	"byline": "set down by Venah",
