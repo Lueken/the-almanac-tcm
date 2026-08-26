@@ -256,6 +256,7 @@
   "almanactcm:far-eye-w-fair": "fair",
   "almanactcm:far-eye-w-rich": "rich",
   "almanactcm:far-eye-soil-full": "Nutrients: N {0}, P {1}, K {2}. Moisture: {3}%",
+  "almanactcm:far-eye-rough-bed": "The bed is {0} in {1}.",
   "almanactcm:far-eye-stranger": "This plant is a stranger to you.",
   "almanactcm:far-eye-crop-young": "The crop is young.",
   "almanactcm:far-eye-crop-grown": "The crop is grown, not yet ready.",

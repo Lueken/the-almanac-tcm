@@ -73,6 +73,62 @@ public static class FarGrowerEye
         return client != null && id >= 0 && client.Domains.TryGetValue(id, out var st) ? st.Level : 0;
     }
 
+    /// <summary>
+    /// The same gate over a CULTIVATED BERRY BUSH's soil, which the farmland patch cannot
+    /// reach and which was handing out exact N, P and K to anyone at any rank.
+    ///
+    /// The two are siblings, not parent and child: BlockEntityFarmland and
+    /// BlockEntityBerryBushFarmland both extend BlockEntitySoilNutrition, and the berry bush
+    /// one never overrides GetBlockInfo at all. So it inherits BESoilNutrition.cs:583, which
+    /// prints farmland-nutrientlevels outright, and a postfix on BlockEntityFarmland cannot
+    /// see it. Planting a bush cutting was a way to read the ground with an untrained eye.
+    ///
+    /// Patched on the BASE and filtered by type, deliberately. Patching
+    /// typeof(BlockEntityBerryBushFarmland) would resolve up to this same base method anyway,
+    /// since that class declares no override, so the patch site is identical either way and
+    /// naming it honestly is better than looking narrower than it is. The consequence to
+    /// respect is that this postfix ALSO fires part-way through the crop farmland's own
+    /// readout, where BEFarmland.cs:419 calls base.GetBlockInfo. The type test is what keeps
+    /// the two paths apart, and it must stay exact rather than becoming a SoilNutrition test,
+    /// or every farmland hover would be rewritten twice.
+    ///
+    /// Ground channel only. There is no plant channel here because a berry bush earns no
+    /// familiarity yet, and no sickness line because the store is keyed by crop family and a
+    /// bush belongs to none of them. Moisture is absent too, and correctly so: berry bush
+    /// farmland sets ConsidersMoistureLevels to false, so vanilla never prints it either.
+    /// </summary>
+    [HarmonyPatch(typeof(BlockEntitySoilNutrition), nameof(BlockEntitySoilNutrition.GetBlockInfo))]
+    public static class BerryBedReadPatch
+    {
+        public static void Postfix(BlockEntitySoilNutrition __instance, IPlayer forPlayer, StringBuilder dsc)
+        {
+            if (__instance is not BlockEntityBerryBushFarmland) return;
+
+            var api = __instance.Api;
+            if (api == null || api.Side != EnumAppSide.Client || forPlayer == null || dsc == null) return;
+            if (!FarFamiliarity.EyeEnabled(api)) return;
+
+            int level = FarLevelOf(api, forPlayer);
+            if (level >= Rank.Apprentice) return;   // vanilla already says exactly this
+
+            dsc.Clear();
+            if (level >= Rank.Novice)
+            {
+                float[] n = __instance.Nutrients;
+                int dom = 0;
+                for (int i = 1; i < 3; i++) if (n[i] > n[dom]) dom = i;
+                string letter = dom == 0 ? "N" : dom == 1 ? "P" : "K";
+                string richWord = Lang.Get(n[dom] < 33 ? "almanactcm:far-eye-w-poor"
+                    : n[dom] < 66 ? "almanactcm:far-eye-w-fair" : "almanactcm:far-eye-w-rich");
+                dsc.AppendLine(Lang.Get("almanactcm:far-eye-rough-bed", richWord, letter));
+            }
+            else
+            {
+                dsc.AppendLine(Lang.Get("almanactcm:far-eye-blind"));
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(BlockEntityFarmland), nameof(BlockEntityFarmland.GetBlockInfo))]
     public static class FarmlandReadPatch
     {
