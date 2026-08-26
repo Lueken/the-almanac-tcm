@@ -281,15 +281,33 @@ Arts deploy went to the live server ahead of the release and was reverted the sa
 **Upload set.** All of it lands together or none of it does; the pack patches and the mods
 they patch are one unit.
 
+**THE ARTS CHAIN IS RETIRED (RULED 2026-08-25).** Core of Arts, Art of Growing and the
+Breeding Addon do not go on the server, now or later. A successor is being written in
+house instead; see `docs/design/2026-08-25_successor-mod-brief.md`. Three reasons, in
+weight order: the suite has no licence of any kind, so it cannot be forked or extended
+legally (confirmed six ways on 2026-08-25, GitHub API `license` null, `/license` 404, no
+LICENSE anywhere in the tree, none in the shipped zips, none on the ModDB page); its last
+commit was 2025-07-06; and its Breeding Addon is where 148 of the pack's 177 crop ladders
+came from, which is the complexity this release is trying to shed rather than adopt.
+
+**The live server never received it.** The 2026-08-24 deploy was reverted the same hour,
+so retiring it costs the live world nothing and there is no world-state migration. The
+test installation does hold it, and its sized blocks orphan when it is pulled, which is
+moot because that world is being wiped anyway for the thirteen-family key change.
+
 | # | File | From | Replaces | Why it cannot go alone |
 |---|---|---|---|---|
-| 1 | `CoreOfArts_1.2.2.zip` | `~/Downloads` | new | hard dep of both Arts mods (`coreofartspatch`) |
-| 2 | `ArtOfGrowing_1.2.2.zip` | `~/Downloads` | new | needs 1 |
-| 3 | `AOGBreedingAddon_1.2.2.zip` | `~/Downloads` | new | needs 1 and 2 |
-| 4 | `IFFallow_1.0.4.zip` | `~/Downloads` | new | modid `invfarming`, display name "Involved Farming", ModDB page "Involved Farming: Fallow". Four names, one mod; the modid is the only one patching resolves against. Adds a fallow step after every harvest. Must land at or before 5, because thequire 0.1.36 patches `FallowPlacer` onto the ten Biodiversity: Crops plants upstream does not cover and gates those ops on this modid: without it they hold back and the pack's own crops silently skip fallow |
-| 5 | `thequire_0.1.36.zip` | pack `Releases/` | `thequire_0.1.33.zip` | carries the five `far-comb-*.json` files. Without it the Arts crops land UNTUNED and the whole comb stays inert. 0.1.36 adds the bdcrop fallow patch for 4 |
-| 6 | `almanactcm_0.5.0.zip` | TCM `Releases/` | `almanactcm_0.4.40.zip` | rebuilt 2026-08-25 at commit `4a436a5` |
-| 7 | `almanacilluminated_0.2.0.zip` | Illuminated `Releases/` | `almanacilluminated_0.1.4.zip` | TCM 0.5.0 gates on `MinIlluminatedVersion` 0.2.0 |
+| 1 | `IFFallow_1.0.4.zip` | `~/Downloads` | new | modid `invfarming`, display name "Involved Farming", ModDB page "Involved Farming: Fallow". Four names, one mod; the modid is the only one patching resolves against. Adds a fallow step after every harvest. Must land at or before 2, because thequire 0.1.36 patches `FallowPlacer` onto the ten Biodiversity: Crops plants upstream does not cover and gates those ops on this modid: without it they hold back and the pack's own crops silently skip fallow |
+| 2 | `thequire_0.1.36.zip` | pack `Releases/` | `thequire_0.1.33.zip` | carries the five `far-comb-*.json` files. 0.1.36 adds the bdcrop fallow patch for 1 |
+| 3 | `almanactcm_0.5.0.zip` | TCM `Releases/` | `almanactcm_0.4.40.zip` | rebuilt 2026-08-25, thirteen-family taxonomy and the deferred sickness writer |
+| 4 | `almanacilluminated_0.2.0.zip` | Illuminated `Releases/` | `almanacilluminated_0.1.4.zip` | TCM 0.5.0 gates on `MinIlluminatedVersion` 0.2.0 |
+
+**What goes dormant rather than broken.** Every AoG-dependent patch op already carries
+`dependsOn: {"modid": "aogbreedingaddonpatch"}`, so it self-disables with the mod absent
+and nothing errors. That covers all 156 ops of `far-comb-aog-ladder.json` and two ops in
+`far-comb-storage.json`. The bdcrop and DAR ops in the other comb files are gated
+separately and still apply. Leave those files in place: they cost nothing dormant and
+they are the reference if the successor ever wants that tuning back.
 
 **The whole set is already assembled and running at
 `%APPDATA%/Translocator/Installations/Ingenium-test/Mods/`.** That installation holds all seven
@@ -324,17 +342,32 @@ cache-cleared join. That is the mistake this section exists to prevent.
 **Verify before restarting:** exactly one zip per modid in `data/Mods`. Two versions of the
 same modid is the "Assembly already loaded" hazard, and it bites at startup, not at upload.
 
-**World-state warning, decide before the restart.** Art of Growing rewrites vanilla crop
-blocks to the 11-stage peak-then-bolt curve and the breeding addon adds the sized block set
-beside them. Anything already planted becomes the unsized vestigial variety: it still grows
-and harvests, but sits outside the breeding ladder. Pulling the zips back out does not undo
-that. Given the pack's season-wipe balance policy, this wants to land AT a wipe rather than
-mid-season.
+**World-state warning, decide before the restart.** No longer about Art of Growing, which
+is retired and never reached the live world. The remaining reason this wants a wipe is the
+thirteen-family taxonomy: soil sickness stores its levels per tile keyed by the family
+NAME, and the eight hand-cut buckets were renamed to the real botanical families on
+2026-08-25 with no migration written. Any world already holding 8-family sickness data
+orphans those entries. They decay and self-prune rather than corrupting anything, so the
+practical effect is a soft reset of soil sickness, but it is still a reset. Given the
+pack's season-wipe balance policy this wants to land AT a wipe.
 
-**Known and tolerated.** ArtOfGrowing 1.2.2 gates 23 of its own patches on the un-suffixed
-`aogbreedingaddon` with `invert: true`; the name never resolves so all 23 apply even with
-the addon installed. That is what leaves the vestigial unsized blocks visible in the
-Illuminated Crops tab. Upstream, not ours, already tolerated, do not try to fix it in AoG.
+**What retiring Arts costs the Grower's Eye, stated plainly.** Three readouts were built
+on the shape of AoG's curve and stop firing on carrot, onion, parsnip, cabbage and turnip
+once those revert to vanilla:
+
+- `far-eye-crop-seedfork`, the two-peak reveal ("It bears best at 7 of 11, near 11; run it
+  to 11 instead and it gives seed and no food"). It gates on `FoodOrSeedNeverBoth`, and
+  vanilla carrot drops 1.2 seeds AND 11 carrots at stage 7, so the fork does not exist.
+- `far-eye-crop-goingover` needs a decline window after peak. Vanilla's peak IS its last
+  stage, so there is nothing to go over.
+- `far-eye-life-bolt` describes grow-bear-bolt. Vanilla carrot is RIPENS, not BOLTS.
+
+`turnfork` and the leaf-then-head lines survive, because those ride DAR's TRANSFORMS crops
+rather than AoG's. Soil sickness, familiarity, the comb, N-fixation, biofumigation and
+cut-and-come-again are all unaffected: they read the live drop tables and adapt.
+
+This is a real thinning of the readout on the five crops players grow most, and it is the
+strongest argument for the successor being worth building rather than a nice-to-have.
 
 ## 0.4.40 (hotfix, released 2026-08-21)
 
