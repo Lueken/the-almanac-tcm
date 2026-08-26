@@ -1,0 +1,193 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
+  "schemaVersion": 1,
+  "id": "almanactcm:the-turned-earth",
+  "gate": "almanactcm",
+  "order": 20,
+  "ribbonTab": true,
+  "title": "The Turned Earth",
+  "subtitle": "What the ground remembers, and what you come to know",
+  "byline": "set down by Venah",
+  "accentColor": "#4f6338",
+  "sections": [
+    {
+      "id": "the-ground-keeps-accounts",
+      "title": "The ground keeps accounts",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "dropcap": true,
+          "text": "A field is not a container you empty and refill. It is a thing with a memory, and what it remembers is what you kept asking of it. Grow the same crop in the same square season after season and the ground will begin to refuse you, quietly at first, then plainly. This is not the soil running short of food. You can feed a tired field all you like and it will stay tired."
+        },
+        {
+          "type": "paragraph",
+          "text": "What tires it is everything that lives on that crop and nowhere else. Sow the same plant again and you have set the table for them a second time. Farmers learned to move their crops around the field long before anyone could say why, and the reason they gave, that the ground wants a change, turns out to be almost exactly right."
+        },
+        {
+          "type": "callout",
+          "variant": "lore",
+          "text": "The record sits in the ground, not in the block you tilled. Breaking the farmland and laying it again changes nothing at all, and neither does barrowing in fresh dirt. What ails that square lives deeper than the few inches you can lift."
+        }
+      ]
+    },
+
+    {
+      "id": "learning-a-plant",
+      "title": "Learning a plant",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "You come to know a crop by growing it. Not by reading about it, not by holding its seed, and not by watching somebody else's field. Take a harvest and the plant becomes a little less of a stranger to you, and the Almanac begins to fill in what it knows."
+        },
+        {
+          "type": "steps",
+          "items": [
+            "<strong>Stranger.</strong> You can name the plant and nothing more. Its page stands mostly empty, which is itself a useful thing: it is a map of what you have not yet grown.",
+            "<strong>Acquainted</strong>, after two harvests. The plant tells you its habits in plain words. Whether it wants a rich bed or a poor one, whether it minds the cold, roughly how long it holds the ground.",
+            "<strong>Versed</strong>, after eight. Now you get figures. Exact draw, exact span, the temperatures it will stand between, and where in its life it is worth the most to you."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "A crop pays you <strong>one mark a day</strong>, however much of it you bring in. A single row and forty rows teach the same lesson on the same afternoon, because what makes a grower is seasons, not sacks. There is no way to hurry this and no reason to want one."
+        },
+        {
+          "type": "callout",
+          "variant": "tip",
+          "text": "Everything on these pages is yours the moment you open the book. What you have not yet earned is the detail about a particular plant, and the only price for that is having grown it."
+        }
+      ]
+    },
+
+    {
+      "id": "kin",
+      "title": "Kin teach you something, never everything",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Plants come in families, and a family is not a matter of opinion. There are <strong>thirteen</strong> of them across everything you can sow here, and they are the real ones: the botanists' families, not a farmer's rough sorting. Learn one member well and you have learned something true about the rest."
+        },
+        {
+          "type": "paragraph",
+          "text": "So a season of carrots leaves you readier for parsnip, and readier again for fennel and chervil and anise, which are all one house whatever a market stall might tell you. Some of the kinships surprise people. <strong>Beetroot is cousin to amaranth.</strong> Rye and spelt are near relations; flax stands alone with no relatives at all."
+        },
+        {
+          "type": "paragraph",
+          "text": "Kin will carry you to <strong>Acquainted</strong> and no further. The exact figures on a plant are earned on that plant, by your own hands, and a family full of experience will always stop one step short of handing them to you. That is deliberate. Knowing the family is knowing the shape of a thing. Knowing the plant is a different order of knowing."
+        },
+        {
+          "type": "callout",
+          "variant": "lore",
+          "text": "Work a whole family thoroughly and something else opens: the book begins to hold what you have grown where, and in what order, which is the beginning of keeping a rotation in your head instead of on a slate."
+        }
+      ]
+    },
+
+    {
+      "id": "why-ground-tires",
+      "title": "Why the ground tires",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "The ground keeps its account <strong>by family, and by the square</strong>. Harvest a cabbage and that one square grows a little wearier of the cabbage family, and not at all wearier of anything else. Turnips and cress and mustard will find that square every bit as tired as the cabbage did, because they are the same house. Rye will find it perfectly fresh."
+        },
+        {
+          "type": "paragraph",
+          "text": "Time undoes it. Every day that passes sheds a little of what has built up, and <strong>bare ground sheds faster than ground with something growing in it</strong>. A crop standing in the square is still a host, and what troubles the soil does not go hungry while it stands there."
+        },
+        {
+          "type": "steps",
+          "items": [
+            "One careless repeat is always free. The ground says nothing until it has real cause.",
+            "Past that, it begins to say it is <strong>tiring</strong> before it does anything about it. You are never punished blind.",
+            "Left alone, a badly worked square grows slowly and yields poorly, up to well under half speed at the worst. Growth is hit harder than yield, deliberately, so a bad plot is a slow disappointment rather than two punishments for the same mistake.",
+            "It can never become worthless forever. There is a floor. A square you have ruined is a square that will come back if you leave it be."
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "rotation",
+      "title": "The whole answer is rotation",
+      "keepTogether": true,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Nothing here is a puzzle. Move your crops around the field so that no square sees the same family twice in quick succession, and the ground never tires at all. That is the entire remedy, it costs nothing, and it is available to you from your first tilled square."
+        },
+        {
+          "type": "paragraph",
+          "text": "What matters is not how many crops you grow but <strong>how many families</strong>, and how they are arranged. Four crops that are secretly two families will still wear the ground down. Two grasses standing next to each other in the round come back too soon; the same two set opposite each other never trouble it. Order is worth more than variety."
+        },
+        {
+          "type": "callout",
+          "variant": "tip",
+          "text": "A rotation of three or four true families never tires the ground at any point in the cycle, forever, with no rest year and no remedy needed. A two-course back and forth wears down on both crops. This is not a rule anyone wrote in: it falls out of how fast the ground forgets. Our grandfathers found the same answer with no arithmetic at all."
+        },
+        {
+          "type": "link",
+          "to": "almanac://chapter/almanactcm:trades",
+          "text": "How does a season's work become rank? See Trades."
+        }
+      ]
+    },
+
+    {
+      "id": "rest-and-remedy",
+      "title": "Rest, and the two remedies",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Sometimes the right answer is not available to you. The plot is small, the seed is short, or there is a crop you must keep growing more often than the ground would like. Three things will buy the ground back."
+        },
+        {
+          "type": "steps",
+          "items": [
+            "<strong>Leave it fallow.</strong> An empty square recovers faster than a planted one. This is the oldest answer there is and it still works.",
+            "<strong>Feed the ground well.</strong> Rich soil sheds its weariness faster than poor soil does, permanently, with nothing to learn and no work to do. It only helps while the square is empty, because a standing crop shelters what ails it. Compost your beds and your rest years get shorter on their own.",
+            "<strong>Fold in a brassica.</strong> Grow a cabbage, a mustard, a cress or a horseradish to its full growth, then sneak and take a hoe to it rather than harvesting. You lose the crop entirely and the ground is largely cleansed of everything, not only what that plant would have tired."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "The folding is worth understanding, because it looks like waste and is not. Those plants carry a bitterness in their leaves, the same heat you taste in mustard and horseradish, and it is kept locked apart inside them until something crushes the leaf. Chop the plant into the soil and the bitterness comes out all at once as a vapour, and very little that troubles a field survives it. The plant was defending itself. You have simply pointed that defence downward."
+        },
+        {
+          "type": "callout",
+          "variant": "warning",
+          "text": "Fallowing and folding are remedies for a field you cannot rotate properly. Neither is better than rotating properly. If you find yourself folding a crop every round, the field is telling you it wants another family in it, not another cure."
+        }
+      ]
+    },
+
+    {
+      "id": "what-the-plant-says",
+      "title": "What the field will tell you, and when",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "Look at a growing crop and the Almanac reads two things at once, from two different kinds of knowing. <strong>What the plant is doing</strong> comes from your experience of that plant. <strong>What the ground underneath is like</strong> comes from your standing as a grower, and it is one eye for every square you ever look at."
+        },
+        {
+          "type": "steps",
+          "items": [
+            "A <strong>novice</strong> is told the ground is tired, and of which family, in plain words. The trouble is named before it is measured, because this is the one thing in the whole trade that punishes you without being asked.",
+            "An <strong>apprentice</strong> is given the figure, and is told how long the square would need lying bare to come right again.",
+            "Higher still, and the reading turns to the whole field rather than the square: what you have grown here, and what the ground would rather see next."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "The plant's own line works the same way. Early on it will only say the crop is young, or grown, or ready. Once you are <strong>versed</strong> in that plant it will say where in its life it is worth the most to you, and what waiting past that point will cost."
+        },
+        {
+          "type": "callout",
+          "variant": "author",
+          "text": "None of this is hidden from you as a trick. It is hidden because a field does not explain itself to a stranger, and there has never been a way to learn ground except by working it."
+        }
+      ]
+    }
+  ]
+}
