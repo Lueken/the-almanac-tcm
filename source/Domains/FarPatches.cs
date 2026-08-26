@@ -158,7 +158,8 @@ public static class FarPatches
             nameof(FertilizePrefix), nameof(FertilizePostfix), "FAR fertilizing");
         Hook(api, harmony, "Vintagestory.GameContent.EntityBehaviorMilkable", "MilkingComplete", nameof(MilkPostfix), "FAR milking");
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityHenBox", "OnInteract", nameof(EggPostfix), "FAR eggs");
-        Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFruitTreePart", "OnBlockInteractStop", nameof(OrchardPostfix), "FAR orchard");
+        HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockEntityFruitTreePart", "OnBlockInteractStop",
+            nameof(OrchardPrefix), nameof(OrchardPostfix), "FAR orchard");
         // RouteBeekeeping (RULED 2026-07-30): with the BEE domain enabled these seams belong
         // to BeePatches, which grants at finer grain (per-frame contexts, verb-split hiving/
         // combwork/wintering). One presence test decides the owner, so nothing double-grants.
@@ -1070,12 +1071,27 @@ public static class FarPatches
 
     // ------------------------------------------------------------ orchard (pick + prune)
 
-    public static void OrchardPostfix(BlockEntity __instance, float secondsUsed, IPlayer byPlayer)
+    public readonly record struct OrchardState(bool WasRipe);
+
+    /// <summary>The ripe foliage has to be read BEFORE vanilla runs, because a successful pick is
+    /// exactly what destroys the evidence: BEFruitTreePart.OnBlockInteractStop sets FoliageState
+    /// to Plain on its way to handing over the fruit. A postfix looking for Ripe therefore never
+    /// finds it, which is why the check could not simply live downstream.</summary>
+    public static void OrchardPrefix(BlockEntity __instance, out OrchardState __state)
+    {
+        var part = __instance as Vintagestory.GameContent.BlockEntityFruitTreePart;
+        __state = new OrchardState(part != null
+            && part.FoliageState == Vintagestory.GameContent.EnumFoliageState.Ripe);
+    }
+
+    public static void OrchardPostfix(BlockEntity __instance, float secondsUsed, IPlayer byPlayer, OrchardState __state)
     {
         if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
-        // The vanilla harvest branch requires a held interact past ~1s (the same threshold FGC's
-        // pollination prefix checks); a tap-and-release stop is not a pick and banks nothing.
-        if (secondsUsed <= 1.1f) return;
+        // Outcome, not attempt (the file's rule). Vanilla drops fruit on exactly one condition,
+        // `secondsUsed > 1.1 && FoliageState == Ripe`, and this mirrors both halves rather than
+        // the timer alone. Held-past-a-second over unripe foliage used to pay, and once
+        // familiarity hung off the same guard below it would have paid a learning mark too.
+        if (secondsUsed <= 1.1f || !__state.WasRipe) return;
         Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechOrchard,
             HashCode.Combine("orchard", __instance.Pos.X >> 2, __instance.Pos.Z >> 2, __instance.Api.World.ElapsedMilliseconds / 30000));
 
