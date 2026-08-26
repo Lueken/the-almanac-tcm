@@ -272,10 +272,23 @@ public static class FarGrowerEye
 
             // How far along it is: a fact about the plant in front of you, so familiarity.
             //
-            // For a BOLTING crop this is measured against the PEAK, not the last stage. Art of
-            // Growing's roots and leaves peak mid-life and then decline into a stage that drops no
-            // food at all, so reporting ripeness against the last stage would aim the farmer at
-            // the one moment that feeds nobody. Grains are unaffected and keep the vanilla reading.
+            // For a BOLTING crop this is measured against the PEAK, not the last stage. A crop
+            // that peaks mid-life and then declines into a stage dropping no food at all would
+            // otherwise have its ripeness reported against the one moment that feeds nobody.
+            // Grains are unaffected and keep the vanilla reading.
+            //
+            // SUCCESSOR: this whole branch is DORMANT on the five staples as of 2026-08-25.
+            // It needs curve.TurnsOver, which needs PeakStage < FinalStage. Art of Growing gave
+            // carrot, onion, parsnip, cabbage and turnip exactly that shape (peak at 7 of 11 and
+            // so on) and the Arts chain was retired from the roster, so vanilla's peak IS its last
+            // stage and the else-branch below takes every one of them. Two readouts go quiet with
+            // it: far-eye-crop-goingover, which needs a decline window after the peak, and
+            // far-eye-life-bolt, which describes grow-then-bear-then-bolt.
+            //
+            // Nothing here is broken and nothing needs deleting. The branch still fires correctly
+            // for DAR's crops, which do turn over. To light it again for the staples, the successor
+            // has to give them a real post-peak decline in their drop tables; the code then works
+            // unchanged. See docs/design/2026-08-25_successor-mod-brief.md.
             if (curve != null && curve.TurnsOver && stage > 0)
             {
                 dsc.AppendLine(Lang.Get(
@@ -309,6 +322,22 @@ public static class FarGrowerEye
             // farmer who always lifts at the peak empties the seed bin with nothing explaining
             // why. Naming it is the single most valuable line here.
             //
+            // SUCCESSOR: DORMANT as of 2026-08-25, and this is the most valuable thing that went
+            // quiet. far-eye-crop-seedfork is the two-peak reveal ("It bears best at 7 of 11, near
+            // 11; run it to 11 instead and it gives seed and no food"), and far-eye-crop-seedcost
+            // is its Acquainted-tier warning.
+            //
+            // Both need FoodOrSeedNeverBoth, which is only true where no single stage drops food
+            // and seed together. Art of Growing built exactly that: food peaking mid-ladder,
+            // declining for three stages, then seed 3.2 and nothing else at the end. Vanilla does
+            // the opposite and hands you 1.2 seeds AND 11 carrots at stage 7, so the fork does not
+            // exist and the gate is correctly false. DAR is the same, seed at 0.7 every stage.
+            //
+            // This is the single strongest argument for the successor. The product-or-propagation
+            // decision is the mod's whole thesis, and the readout that explains it to a player is
+            // already written and already tested. It needs a crop model where taking the product
+            // genuinely costs the propagation. Give it that and this lights up untouched.
+            //
             // Acquainted hears it only once the plant is worth taking, because before that the
             // decision is not live and the line is noise on every seedling. Versed gets the
             // figures at any stage, because that tier is planning rather than deciding.
@@ -325,6 +354,11 @@ public static class FarGrowerEye
             {
                 // The leaf-then-head crops keep giving food at the end, so there is no seed cost
                 // to warn about. What a Versed grower needs is where the leaf window closes.
+                //
+                // SUCCESSOR: this one STILL FIRES. It rides DAR's TRANSFORMS crops (eruca, cress,
+                // anise, chervil, meum, bearleek), which are asset-only and unaffected by the Arts
+                // retirement. Recorded here so nobody reads the two dormant blocks above and
+                // "fixes" this one alongside them.
                 dsc.AppendLine(Lang.Get("almanactcm:far-eye-crop-turnfork",
                     curve.PeakStage, curve.FinalStage));
             }

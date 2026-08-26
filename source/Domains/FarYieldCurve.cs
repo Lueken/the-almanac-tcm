@@ -66,8 +66,15 @@ namespace AlmanacTcm.Domains
             /// This plus PeakStage &lt; FinalStage is what makes a crop a bolting crop.</summary>
             public bool BoltsToSeed;
 
-            /// <summary>Roots and leaves under Art of Growing. Grains and pulses are false and
-            /// keep vanilla's meaning of "ripe".</summary>
+            /// <summary>Roots and leaves whose life peaks mid-ladder. Grains and pulses are false
+            /// and keep vanilla's meaning of "ripe".
+            ///
+            /// SUCCESSOR: false for EVERY vanilla crop as of 2026-08-25, because the Arts chain was
+            /// retired from the roster. Art of Growing was what gave carrot, onion, parsnip,
+            /// cabbage and turnip a peak before their final stage; vanilla's peak IS its final
+            /// stage, so PeakStage &lt; FinalStage never holds. Still true for DAR's crops. This
+            /// flag is read live from drop tables, so a successor that restores a post-peak decline
+            /// gets every downstream readout back with no code change.</summary>
             public bool Bolts => BoltsToSeed && PeakStage > 0 && PeakStage < FinalStage;
 
             /// <summary>The ruled warning point: the SECOND stage of decline. The first still
@@ -75,7 +82,16 @@ namespace AlmanacTcm.Domains
             public int GoingOverStage => PeakStage + 2;
 
             /// <summary>True when no stage of this plant gives both food and seed, so a harvest
-            /// for the table returns nothing to sow. The silent failure the readout must name.</summary>
+            /// for the table returns nothing to sow. The silent failure the readout must name.
+            ///
+            /// SUCCESSOR: false across the whole live roster as of 2026-08-25. Art of Growing was
+            /// the only mod that made the two exclusive (food peaking mid-ladder, then seed 3.2 and
+            /// nothing else at the end) and it is retired. Vanilla gives 1.2 seeds AND 11 carrots
+            /// at the same stage; DAR gives seed at 0.7 at every stage. Both are correctly false.
+            ///
+            /// This flag IS the product-or-propagation decision the successor brief is built on,
+            /// already computed from live data. When the successor makes taking the product cost
+            /// the propagation, this goes true and far-eye-crop-seedfork lights up untouched.</summary>
             public bool FoodOrSeedNeverBoth;
 
             /// <summary>Item families the peak stage yields, and those the last stage yields.</summary>
