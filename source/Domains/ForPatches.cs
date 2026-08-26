@@ -153,6 +153,14 @@ public static class ForPatches
         LoadState();
         api.Event.GameWorldSave += SaveState;
         api.Event.RegisterGameTickListener(_ => ReconcileForageYield(api), 2000);
+
+        // Resolved once per world rather than lazily, so switching worlds inside one client
+        // process cannot leave a stale answer behind, and so the log says which way it went.
+        GatheringPracticePatch.SetSubstrateLoaded(api.ModLoader.IsModEnabled(GatheringPracticePatch.SubstrateDomain));
+        TcmLog.Cat(api, "for", GatheringPracticePatch.SubstrateLoaded
+            ? "substrate present: mushrooms grown in a vessel will pay no gathering practice"
+            : "substrate absent: every mushroom counts as found");
+
         TcmLog.Info(api, "FOR hooks live (harvesting, gathering, forage/wildcrop yield, novel-finds)");
     }
 
@@ -349,13 +357,77 @@ public static class ForPatches
             if (block.Code?.FirstCodePart() == "tallgrass") return false;
             // BlockPlant covers BlockMushroom + BlockReeds by inheritance; BlockLooseRock covers
             // loose stones; BlockLooseOres is surface flint/ore bits.
-            if (block is BlockPlant || block is BlockLooseRock || block is BlockLooseOres) return true;
+            if (block is BlockPlant || block is BlockLooseRock || block is BlockLooseOres)
+            {
+                // ...but a mushroom raised in a Substrate vessel was farmed, not found.
+                return !(block is BlockMushroom && IsCultivatedMushroom(world, pos));
+            }
             // A crop with no farmland beneath is a WILD crop — vanilla's own FAR/FOR boundary
             // (BlockCrop applies wildCropDropRate on exactly this test). Farmland crops are FAR's.
             if (block is BlockCrop)
             {
                 return world.BlockAccessor.GetBlockEntity(pos.DownCopy()) is not BlockEntityFarmland;
             }
+            return false;
+        }
+
+        // -------------------------------------------------- cultivated mushrooms (Substrate)
+
+        internal const string SubstrateDomain = "substrate";
+        private const string GrowBedPart = "growbed";
+        private const string FruitingBagPart = "fruitingbag";
+
+        /// <summary>Set once per world in RegisterServer. Substrate is optional pack content, so
+        /// in a world without it the vessel test never runs at all.</summary>
+        internal static bool SubstrateLoaded { get; private set; }
+
+        internal static void SetSubstrateLoaded(bool loaded) => SubstrateLoaded = loaded;
+
+        /// <summary>Matched by CODE, not by type: TCM coexists with Substrate and must not take a
+        /// hard reference to it. Domain plus first code part is enough, both vessels being
+        /// single-purpose blocks in their own domain.</summary>
+        private static bool IsSubstrateVessel(Block? b, string part) =>
+            b?.Code != null
+            && b.Code.Domain == SubstrateDomain
+            && b.Code.FirstCodePart() == part;
+
+        /// <summary>
+        /// A mushroom standing on or beside one of Substrate's vessels was farmed, not found.
+        ///
+        /// Without this the whole cultivation loop paid FOR gathering: a player levelled the
+        /// Master Forager out of a basement, drew the novel-find multiplier on farmed species,
+        /// and filled the Forager's Memory with their own beds. It is the same line vanilla
+        /// itself draws one branch up for crops, where farmland beneath means the harvest
+        /// belongs to farming.
+        ///
+        /// Cultivated mushrooms pay NOTHING here rather than paying FAR. Crediting the vessel
+        /// is a feature with its own design (rank ladder, verb split, dedup shape), not part of
+        /// closing a leak, and paying the wrong domain twice is worse than paying once.
+        ///
+        /// Geometry read from Substrate 2.0.0 BlockEntityFruitingBag.GetGrowFaces:
+        ///   • grow bed — a 2x2 multiblock whose four grow spots are the positions DIRECTLY
+        ///     ABOVE it, so look down. Three of those four look down onto a BlockMultiblock
+        ///     placeholder rather than the bed itself, hence the hop, which mirrors Substrate's
+        ///     own FertilityCheckPatch on BlockRequireFertileGround.CanPlantStay.
+        ///   • fruiting bag — the four HORIZONTAL neighbours only, conks growing off its sides.
+        ///     Never above it and never below it, so a vertical test would miss every one.
+        /// </summary>
+        private static bool IsCultivatedMushroom(IWorldAccessor world, BlockPos pos)
+        {
+            if (!SubstrateLoaded) return false;
+
+            var acc = world.BlockAccessor;
+
+            // Grow bed: one below, hopping to the controller column first when the block under
+            // the mushroom is the multiblock placeholder.
+            Block? under = acc.GetBlock(pos.DownCopy());
+            if (under is BlockMultiblock mb) under = acc.GetBlock(pos.AddCopy(mb.OffsetInv).Down());
+            if (IsSubstrateVessel(under, GrowBedPart)) return true;
+
+            // Fruiting bag: any of the four sides.
+            foreach (var facing in BlockFacing.HORIZONTALS)
+                if (IsSubstrateVessel(acc.GetBlock(pos.AddCopy(facing)), FruitingBagPart)) return true;
+
             return false;
         }
     }
