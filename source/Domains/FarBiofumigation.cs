@@ -48,8 +48,13 @@ namespace AlmanacTcm.Domains;
 /// </summary>
 public static class FarBiofumigation
 {
-    /// <summary>The taxonomy key from crop-families.json. Plural, because the file is.</summary>
-    private const string Brassicas = "brassicas";
+    /// <summary>The taxonomy key from crop-families.json. Latin, because the file went to the
+    /// real botanical families on 2026-08-25 and the Latin name is the one that never needs
+    /// renegotiating. The plain-English display name lives in lang under far-family-brassicaceae.
+    /// Membership is unchanged by the move: the same six species, cabbage through horseradish,
+    /// and biofumigation is a real brassica property (glucosinolates breaking down to
+    /// isothiocyanates), so it stays keyed to the family rather than listed per crop.</summary>
+    private const string Brassicas = "brassicaceae";
 
     private static Config.TcmGlobalConfig? Cfg => AlmanacTcmModSystem.ServerInstance?.GlobalConfig;
 

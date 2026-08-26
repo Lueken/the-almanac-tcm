@@ -1,47 +1,8 @@
 {
-	"_note": "The FAR crop taxonomy (RULED 2026-08-22): eight families on the botanical cut, taxonomy per docs/design/2026-08-22_far-crop-reality-baseline.md. Keys under families are canonical crop ids (the familiarity key is far-crop-<id>); values are block-code PREFIXES that identify the crop (longest prefix wins). Ruled calls baked in: potato sits in roots, the bdcrop and DAR leeks share ONE id, the Apiaceae split (carrot/parsnip in roots, fennel/anise/chervil/meum in herbs) is accepted. ripeBlocks lists the exact ripe FRUIT block codes of the vine crops, whose harvest never passes the BlockCrop seam. CUCURBITS CARRY TWO PREFIXES ON PURPOSE (fixed 2026-08-24): the fruit and vine are bdcrop:<name>- or game:pumpkin-, but the block that actually STANDS ON THE FARMLAND is the motherplant, coded <domain>:crop-<name>-<stage>. Only the fruit prefix was registered, so every cucurbit read as a permanent stranger on the hover and never sickened the ground it grew in, while its familiarity counter climbed invisibly through the vine-fruit seam. NAMING TRAP: naples long squash codes itself naplessquash in bdcrop, not napleslongsquash, so BOTH its prefix and its ripeBlocks entry matched nothing at all. Our crop id stays napleslongsquash because far-crop-<id> counters are already written under it. Read the block codes, never the folder names. Breeding-Addon varietal codes join at the 1.2.2 Arts adoption review.",
+	"_note": "The FAR crop taxonomy. RULED 2026-08-25: the eight hand-cut buckets are replaced by the THIRTEEN real botanical families, supplied by TheRealFrogit (Biodiversity) against our own census research. The map is exact: 46 species, 13 families, nothing unmapped in either direction. Keys are the Latin family name because it is canonical and will never need renegotiating; the DISPLAY name is a plain-English gloss in lang (far-family-<key>), because a player should never have to read Latin to know their carrots are related to their parsnips. Crop ids under each family are canonical (the familiarity key is far-crop-<id>); values are block-code PREFIXES that identify the crop (longest prefix wins). WHAT CHANGED FROM THE EIGHT: the 'herbs' bucket was a leftovers drawer (eight species, five real families, five harvested organs) and is gone. 'roots' was four families wearing one name and is gone. Potato rejoins tomato in Solanaceae, which is where it always belonged and the old note apologised for. Beetroot joins amaranth in Amaranthaceae (Beta was Chenopodiaceae until APG folded it in) — no game grouping would ever have found that. Carrot and parsnip join fennel/anise/chervil/meum in Apiaceae, which makes the umbel a six-species fact rather than a three-species one. Pineapple gets Bromeliaceae, a family of one, which is the principled version of the ad-hoc 2026-08-25 ruling that moved it out of herbs. WHY IT MATTERS BEYOND TIDINESS: FamSpread is the mechanic that lets knowledge of one crop teach you about its family-mates, and on real families that spread is botanically true rather than a designer's guess. TRAPS THAT STILL APPLY, DO NOT REMOVE: cucurbits carry TWO prefixes on purpose (fixed 2026-08-24) — the fruit and vine are bdcrop:<name>- or game:pumpkin-, but the block that actually STANDS ON THE FARMLAND is the motherplant, coded <domain>:crop-<name>-<stage>; registering only the fruit prefix made every cucurbit read as a permanent stranger on the hover and never sicken the ground it grew in. NAMING TRAP: naples long squash codes itself naplessquash in bdcrop, not napleslongsquash, so BOTH its prefix and its ripeBlocks entry matched nothing at all; our crop id stays napleslongsquash because far-crop-<id> counters are already written under it. Read the block codes, never the folder names. The bdcrop and DAR leeks still share ONE id on purpose: they are the same cultivated leek shipped by two mods. ripeBlocks lists the exact ripe FRUIT block codes of the vine crops, whose harvest never passes the BlockCrop seam.",
 
 	"families": {
-		"grains": {
-			"rice": ["game:crop-rice"],
-			"rye": ["game:crop-rye"],
-			"spelt": ["game:crop-spelt"],
-			"amaranth": ["game:crop-amaranth"],
-			"sunflower": ["game:crop-sunflower"],
-			"flax": ["game:crop-flax"]
-		},
-		"legumes": {
-			"peas": ["deartibusrusticis:crop-peas"],
-			"favabeans": ["deartibusrusticis:crop-favabeans"],
-			"lentils": ["deartibusrusticis:crop-lentils"],
-			"soybean": ["game:crop-soybean"],
-			"peanut": ["game:crop-peanut"],
-			"alfalfa": ["bdcrop:crop-alfalfa"],
-			"licorice": ["game:crop-licorice"]
-		},
-		"brassicas": {
-			"cabbage": ["game:crop-cabbage"],
-			"turnip": ["game:crop-turnip", "game:crop-seed-turnip"],
-			"cress": ["deartibusrusticis:crop-cress"],
-			"eruca": ["deartibusrusticis:crop-eruca"],
-			"whitemustard": ["deartibusrusticis:crop-whitemustard"],
-			"horseradish": ["deartibusrusticis:crop-horseradish"]
-		},
-		"roots": {
-			"carrot": ["game:crop-carrot", "game:crop-seed-carrot"],
-			"parsnip": ["game:crop-parsnip", "game:crop-seed-parsnip"],
-			"beetroot": ["deartibusrusticis:crop-beetroot"],
-			"potato": ["bdcrop:crop-potato"],
-			"cassava": ["game:crop-cassava"]
-		},
-		"alliums": {
-			"onion": ["game:crop-onion", "game:crop-seed-onion"],
-			"leek": ["bdcrop:crop-leek", "deartibusrusticis:crop-leek"],
-			"garlic": ["deartibusrusticis:crop-garlic"],
-			"chives": ["deartibusrusticis:crop-chives"],
-			"bearleek": ["deartibusrusticis:crop-bearleek"]
-		},
-		"cucurbits": {
+		"cucurbitaceae": {
 			"pumpkin": ["game:crop-pumpkin-", "game:pumpkin-"],
 			"butternutsquash": ["bdcrop:crop-butternutsquash-", "bdcrop:butternutsquash-"],
 			"napleslongsquash": ["bdcrop:crop-naplessquash-", "bdcrop:naplessquash-"],
@@ -51,18 +12,67 @@
 			"watermelon": ["bdcrop:crop-watermelon-", "bdcrop:watermelon-"],
 			"cucumber": ["deartibusrusticis:crop-cucumber"]
 		},
-		"nightshades": {
-			"tomato": ["bdcrop:crop-tomato"]
+		"fabaceae": {
+			"peas": ["deartibusrusticis:crop-peas"],
+			"favabeans": ["deartibusrusticis:crop-favabeans"],
+			"lentils": ["deartibusrusticis:crop-lentils"],
+			"soybean": ["game:crop-soybean"],
+			"peanut": ["game:crop-peanut"],
+			"alfalfa": ["bdcrop:crop-alfalfa"],
+			"licorice": ["game:crop-licorice"]
 		},
-		"herbs": {
+		"brassicaceae": {
+			"cabbage": ["game:crop-cabbage"],
+			"turnip": ["game:crop-turnip", "game:crop-seed-turnip"],
+			"cress": ["deartibusrusticis:crop-cress"],
+			"eruca": ["deartibusrusticis:crop-eruca"],
+			"whitemustard": ["deartibusrusticis:crop-whitemustard"],
+			"horseradish": ["deartibusrusticis:crop-horseradish"]
+		},
+		"apiaceae": {
+			"carrot": ["game:crop-carrot", "game:crop-seed-carrot"],
+			"parsnip": ["game:crop-parsnip", "game:crop-seed-parsnip"],
 			"fennel": ["game:crop-fennel"],
 			"anise": ["deartibusrusticis:crop-anise"],
 			"chervil": ["deartibusrusticis:crop-chervil"],
-			"meum": ["deartibusrusticis:crop-meum"],
-			"blackcumin": ["deartibusrusticis:crop-blackcumin"],
-			"estragon": ["deartibusrusticis:crop-estragon"],
+			"meum": ["deartibusrusticis:crop-meum"]
+		},
+		"amaryllidaceae": {
+			"onion": ["game:crop-onion", "game:crop-seed-onion"],
+			"leek": ["bdcrop:crop-leek", "deartibusrusticis:crop-leek"],
+			"garlic": ["deartibusrusticis:crop-garlic"],
+			"chives": ["deartibusrusticis:crop-chives"],
+			"bearleek": ["deartibusrusticis:crop-bearleek"]
+		},
+		"poaceae": {
+			"rice": ["game:crop-rice"],
+			"rye": ["game:crop-rye"],
+			"spelt": ["game:crop-spelt"]
+		},
+		"asteraceae": {
+			"sunflower": ["game:crop-sunflower"],
 			"lettuce": ["deartibusrusticis:crop-lettuce"],
+			"estragon": ["deartibusrusticis:crop-estragon"]
+		},
+		"amaranthaceae": {
+			"amaranth": ["game:crop-amaranth"],
+			"beetroot": ["deartibusrusticis:crop-beetroot"]
+		},
+		"solanaceae": {
+			"potato": ["bdcrop:crop-potato"],
+			"tomato": ["bdcrop:crop-tomato"]
+		},
+		"euphorbiaceae": {
+			"cassava": ["game:crop-cassava"]
+		},
+		"bromeliaceae": {
 			"pineapple": ["game:crop-pineapple"]
+		},
+		"ranunculaceae": {
+			"blackcumin": ["deartibusrusticis:crop-blackcumin"]
+		},
+		"linaceae": {
+			"flax": ["game:crop-flax"]
 		}
 	},
 
