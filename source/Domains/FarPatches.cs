@@ -72,6 +72,15 @@ public static class FarPatches
     /// is the right way round for a gate.</summary>
     private static Dictionary<string, string> graftScions = new();
 
+    /// <summary>Bush cutting pos -> planter uid. The bush half of the same problem the graft
+    /// maps solve: a cutting roots on an unattended tick months later, where nobody is in scope.
+    ///
+    /// Its own map rather than a share of graftOwners, because the two have different lifetimes.
+    /// A graft entry deliberately SURVIVES a death when a ranked owner's stock clings to life
+    /// and vanilla re-rolls; a bush cutting has no such retry and its entry is claimed once and
+    /// dropped. Folding them together would put two lifecycles behind one key.</summary>
+    private static Dictionary<string, string> bushPlanters = new();
+
     private static void LoadGraftOwners()
     {
         try
@@ -82,7 +91,10 @@ public static class FarPatches
             byte[]? scions = sapi!.WorldManager.SaveGame.GetData("almanacFarGraftScions");
             if (scions != null)
                 graftScions = Vintagestory.API.Util.SerializerUtil.Deserialize<Dictionary<string, string>>(scions) ?? new();
-            TcmLog.Cat(sapi, TcmLog.Config, $"FAR graft owners loaded: {graftOwners.Count} pending cutting(s), {graftScions.Count} with a known scion");
+            byte[]? bushes = sapi!.WorldManager.SaveGame.GetData("almanacFarBushPlanters");
+            if (bushes != null)
+                bushPlanters = Vintagestory.API.Util.SerializerUtil.Deserialize<Dictionary<string, string>>(bushes) ?? new();
+            TcmLog.Cat(sapi, TcmLog.Config, $"FAR graft owners loaded: {graftOwners.Count} pending cutting(s), {graftScions.Count} with a known scion; {bushPlanters.Count} bush cutting(s) rooting");
         }
         catch (Exception e) { TcmLog.Error(sapi, $"graft owner map unreadable ({e.Message}); starting empty"); }
     }
@@ -93,6 +105,8 @@ public static class FarPatches
             Vintagestory.API.Util.SerializerUtil.Serialize(graftOwners));
         sapi!.WorldManager.SaveGame.StoreData("almanacFarGraftScions",
             Vintagestory.API.Util.SerializerUtil.Serialize(graftScions));
+        sapi!.WorldManager.SaveGame.StoreData("almanacFarBushPlanters",
+            Vintagestory.API.Util.SerializerUtil.Serialize(bushPlanters));
     }
 
     // ------------------------------------------------------------ seam wiring
@@ -211,6 +225,16 @@ public static class FarPatches
         HookDeclared(api, harmony, "Vintagestory.GameContent.BlockFruitTreeBranch", "TryPlaceBlock", nameof(GraftPlacePostfix), "FAR graft placement");
         HookPairDeclared(api, harmony, "Vintagestory.GameContent.FruitTreeGrowingBranchBH", "TryGrow",
             nameof(GraftGrowPrefix), nameof(GraftGrowPostfix), "FAR grafting outcome");
+
+        // The bush half of the same verb, and the same owner-at-action, bank-at-unattended-event
+        // shape. Rooting has no take-or-die roll: OnGrownFromCutting is called only when a
+        // cutting has matured, so arriving there IS the success. DECLARED-strict on both, so a
+        // future signature move warns instead of silently binding something else. The taking
+        // half lives in ForPatches beside the other BEBehaviorFruitingBush seams.
+        HookDeclared(api, harmony, "Vintagestory.GameContent.BlockBehaviorFruitingBushCutting", "CanPlaceBlock",
+            nameof(BushCuttingPlacePostfix), "FAR bush cutting placement");
+        HookDeclared(api, harmony, "Vintagestory.GameContent.BEBehaviorFruitingBush", "OnGrownFromCutting",
+            nameof(BushRootedPostfix), "FAR bush rooting outcome");
 
         // Vermiculture — ithania's worm bin (verified V1.1.1, 2026-07-21): the owner is whoever
         // last maintained the bin (bedding/seed/feed via OnInteract, watering via WaterStep);
@@ -490,6 +514,69 @@ public static class FarPatches
 
         TcmLog.Cat(world.Api, "far", $"cutting placed at {blockSel.Position} by {byPlayer.PlayerName}" +
             $"{(scionId.Length > 0 ? $" (scion {scionId})" : " (scion unknown)")}; take-or-die pending (silent until the outcome)");
+    }
+
+    // ---------------------------------------------------- bush cuttings: rooting (the outcome)
+
+    /// <summary>
+    /// The planter of a berry bush cutting, stored the same way and for the same reason as a
+    /// graft's: rooting happens on an unattended tick two to four months later, where neither
+    /// the player nor the stack is in scope.
+    ///
+    /// CanPlaceBlock is a permission check rather than a confirmed placement, and that is a
+    /// deliberate trade. The alternatives were worse: OnGrownFromCutting has no player,
+    /// BEBehaviorFruitingBushCutting.OnBlockPlaced takes only an ItemStack, and a postfix on
+    /// Block.TryPlaceBlock would fire for every block placed in the game to catch one. This
+    /// method exists ONLY on the cutting block, so the patch surface is exactly the feature.
+    ///
+    /// What the trade costs, stated plainly: a check that never became a placement leaves an
+    /// entry nothing will ever claim, because OnGrownFromCutting only fires where a cutting
+    /// actually grew. Last writer wins, so if two players check the same spot the one who
+    /// placed is the one credited. The only way to mis-credit is for something other than a
+    /// player placement to put a cutting at a position somebody checked, which nothing in the
+    /// game does.
+    /// </summary>
+    public static void BushCuttingPlacePostfix(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, bool __result)
+    {
+        if (!__result || byPlayer == null || blockSel?.Position == null || !ServerSide(world)) return;
+        bushPlanters[PosKey(blockSel.Position)] = byPlayer.PlayerUID;
+        TcmLog.Cat(world.Api, "far", $"bush cutting set at {blockSel.Position} by {byPlayer.PlayerName}; rooting pending");
+    }
+
+    /// <summary>
+    /// The verdict. Unlike a graft there is no take-or-die roll: vanilla calls this only when a
+    /// cutting has matured into a bush, so reaching here IS the success and there is no death
+    /// branch to filter. It is also the exact moment the bush becomes cultivated, since this is
+    /// where vanilla clears WildBushState.
+    ///
+    /// Paid as grafting rather than as its own verb: rooting a bush and taking a graft are the
+    /// same trade skill applied to two plants, and splitting them would say otherwise. Taking
+    /// the cutting was the cheaper, riskless half and has its own verb over in ForPatches.
+    ///
+    /// No familiarity here. The bush ladder is paid on cuttings TAKEN off a raised bush, and
+    /// this is the act that first makes such a bush exist. Paying a mark here as well would
+    /// credit one propagation cycle twice.
+    /// </summary>
+    public static void BushRootedPostfix(Vintagestory.GameContent.BEBehaviorFruitingBush __instance)
+    {
+        var api = __instance?.Api;
+        if (api == null || api.Side != EnumAppSide.Server) return;
+        var pos = __instance!.Pos;
+        if (pos == null) return;
+
+        string key = PosKey(pos);
+        if (!bushPlanters.TryGetValue(key, out string? uid)) return;
+        bushPlanters.Remove(key);
+
+        IPlayer? planter = api.World.PlayerByUid(uid);
+        if (planter == null)
+        {
+            TcmLog.Cat(api, "far", $"bush cutting ROOTED at {pos} but the planter is unknown or offline; uncredited");
+            return;
+        }
+        Core?.Ledger?.Log(planter, FarDomain.Code, FarDomain.TechGrafting,
+            HashCode.Combine("bushroot", pos.X, pos.Y, pos.Z));
+        TcmLog.Cat(api, "far", $"bush cutting ROOTED at {pos} -> grafting credit for {planter.PlayerName}");
     }
 
     public readonly record struct GraftState(bool WasCutting, BlockPos? Pos, int FoliageBefore);
