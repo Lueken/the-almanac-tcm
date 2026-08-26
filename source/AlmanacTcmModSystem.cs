@@ -243,6 +243,7 @@ public class AlmanacTcmModSystem : ModSystem
         Affinity = new Engine.AffinitySystem(sapi, Server, Ledger);
         Commands = new Engine.TcmCommands(sapi, this);
         Domains.FarSoilSickness.RegisterCommands(sapi);
+        Domains.FarSoilSickness.RegisterPersistence(sapi);
         Domains.FarCropCensus.RegisterCommands(sapi);
 
         // The declarative knowledge mint (almanac/triggers/*.json, any domain): block

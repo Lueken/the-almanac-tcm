@@ -83,7 +83,7 @@ public static class FarSoilSickness
     public sealed class Tile
     {
         /// <summary>Family id to its standing. Entries are pruned at zero, so a clean tile holds
-        /// nothing and the whole record disappears with it. Bounded by the taxonomy at eight.</summary>
+        /// nothing and the whole record disappears with it. Bounded by the taxonomy at thirteen.</summary>
         public Dictionary<string, Fam> Fams = new();
 
         /// <summary>Whether something was GROWING here across the span now being charged, as
@@ -162,7 +162,11 @@ public static class FarSoilSickness
         // Bounded, and safe to drop at any moment: an in-memory tile is always derivable from
         // the on-disk one, because decay is computed from the stored day rather than accumulated
         // into it. Losing the cache costs a re-read, never a level.
-        if (cache.Count > 4096) cache.Clear();
+        //
+        // WRITES MUST LAND FIRST. Once writes became deferred (2026-08-25) a bare Clear() here
+        // would discard every pending change the moment the cache filled, which is the one way
+        // this design can actually lose a level rather than a read.
+        if (cache.Count > 4096) { FlushDirty(sapi); cache.Clear(); }
 
         var map = new Dictionary<int, Tile>();
         try
@@ -226,6 +230,81 @@ public static class FarSoilSickness
         if (husks != null) foreach (int k in husks) map.Remove(k);
     }
 
+    /// <summary>
+    /// Chunks with unwritten changes, and one block position inside each so the writer can find
+    /// the chunk again without decomposing the key.
+    ///
+    /// WHY WRITES ARE DEFERRED (2026-08-25). Every write used to serialize the whole chunk map
+    /// on the spot, which put a Sweep over every tile in the chunk plus a Newtonsoft pass on the
+    /// crop-break path. Captanredbeard flagged exactly this shape of cost: do not hang work off
+    /// the harvest event or the game grinds on each breakage. The arithmetic was never the
+    /// problem, a Settle is one subtract and one multiply; the serialization was. One player
+    /// pulling carrots would never notice, but bulk breaks are the real case, and this pack is
+    /// heading toward a scythe.
+    ///
+    /// His other suggestion, ticking crops to decrement them, we do NOT need and must not adopt:
+    /// decay is derived from a stored day rather than accumulated, so ground nobody looks at
+    /// costs nothing forever. The tick here is over DIRTY CHUNKS, a handful at a time, never
+    /// over plants.
+    ///
+    /// The trade is honest: a crash can lose up to one flush interval of accrual, worth at most
+    /// a harvest or two of sickness in the player's favour. Losing a little sickness is a pardon;
+    /// stuttering the server on every swing is not.
+    /// </summary>
+    private static readonly Dictionary<long, BlockPos> dirty = new();
+
+    /// <summary>Records that a chunk's store has changed without paying to write it. The cache
+    /// holds the truth until the next flush, and every read goes through the cache.</summary>
+    private static void MarkDirty(BlockPos pos)
+    {
+        long key = ChunkKey(pos, GlobalConstants.ChunkSize);
+        if (!dirty.ContainsKey(key)) dirty[key] = pos.Copy();
+    }
+
+    /// <summary>Writes every pending chunk. Cheap because it is O(dirty chunks), not O(tiles)
+    /// and certainly not O(crops).</summary>
+    public static void FlushDirty(ICoreServerAPI sapi)
+    {
+        if (dirty.Count == 0) return;
+        var pending = new List<KeyValuePair<long, BlockPos>>(dirty);
+        dirty.Clear();
+        foreach (var kv in pending)
+            if (cache.TryGetValue(kv.Key, out var map)) Flush(sapi, kv.Value, map);
+    }
+
+    /// <summary>
+    /// Wires the deferred writer. Three triggers, and all three are needed:
+    /// the interval covers ordinary play, the world save covers a clean shutdown, and the column
+    /// unload covers the one case that would genuinely lose data, because Flush cannot write to
+    /// a chunk the server has already let go.
+    /// </summary>
+    public static void RegisterPersistence(ICoreServerAPI sapi)
+    {
+        sapi.Event.RegisterGameTickListener(_ => FlushDirty(sapi), 5000);
+        sapi.Event.GameWorldSave += () => FlushDirty(sapi);
+        // TRAP: this delegate hands back a Vec3i, NOT the Vec2i that ChunkColumnLoaded uses.
+        // Reading the column's Z off .Y compiles cleanly, because both types have an .X and a .Y,
+        // and then silently never matches: it compares a block's Z against a chunk's Y index. The
+        // flush would have missed on almost every unload and lost exactly the writes this hook
+        // exists to save. Match the COLUMN, so X and Z only, and ignore Y: a column unload takes
+        // every vertical chunk with it.
+        sapi.Event.ChunkColumnUnloaded += chunkCoord =>
+        {
+            if (dirty.Count == 0) return;
+            int csize = GlobalConstants.ChunkSize;
+            List<long>? hit = null;
+            foreach (var kv in dirty)
+                if (kv.Value.X / csize == chunkCoord.X && kv.Value.Z / csize == chunkCoord.Z)
+                    (hit ??= new List<long>()).Add(kv.Key);
+            if (hit == null) return;
+            foreach (long key in hit)
+            {
+                if (cache.TryGetValue(key, out var map)) Flush(sapi, dirty[key], map);
+                dirty.Remove(key);
+            }
+        };
+    }
+
     private static void Flush(ICoreServerAPI sapi, BlockPos pos, Dictionary<int, Tile> map)
     {
         var chunk = sapi.World.BlockAccessor.GetChunkAtBlockPos(pos);
@@ -240,7 +319,9 @@ public static class FarSoilSickness
                 // cache entry with it keeps the in-memory side honest: the next read finds no key
                 // and treats the ground as clean, which it is.
                 chunk.RemoveModdata(ModdataKey);
-                cache.Remove(ChunkKey(pos, GlobalConstants.ChunkSize));
+                long gone = ChunkKey(pos, GlobalConstants.ChunkSize);
+                cache.Remove(gone);
+                dirty.Remove(gone);
             }
             else
             {
@@ -400,7 +481,7 @@ public static class FarSoilSickness
         if (t.Fams.Count == 0) return;
 
         SettleAll(t, sapi.World.Calendar.TotalDays, true, FertOf(sapi, farmlandPos));   // bare span ends here, occupied begins
-        Flush(sapi, farmlandPos, map);
+        MarkDirty(farmlandPos);
     }
 
     /// <summary>The tile's current state, decayed to now. Null when the ground is clean.</summary>
@@ -490,9 +571,11 @@ public static class FarSoilSickness
 
         if (!t.Fams.TryGetValue(family, out var f))
         {
-            // A taxonomy-bounded guard, not a design limit: eight families exist, so this can
-            // only trip if a pack adds more. Drop the least sick rather than grow without bound.
-            if (t.Fams.Count >= 8)
+            // A taxonomy-bounded guard, not a design limit: THIRTEEN families exist as of the
+            // 2026-08-25 move to the real botanical families, so this can only trip if a pack
+            // adds more. Left at eight it would have started evicting live families from a tile
+            // that legitimately carried nine. Drop the least sick rather than grow without bound.
+            if (t.Fams.Count >= 13)
             {
                 string? weakest = null;
                 foreach (var kv in t.Fams)
@@ -503,7 +586,7 @@ public static class FarSoilSickness
         }
         else if (f.LastCreditDay == today)
         {
-            Flush(sapi, farmlandPos, map);
+            MarkDirty(farmlandPos);
             return;   // already learned what this day had to teach
         }
 
@@ -511,7 +594,7 @@ public static class FarSoilSickness
         f.Level = Math.Min(Max, f.Level + Accrual * GameMath.Clamp(share, 0, 1));
         f.LastCreditDay = today;
         f.Day = today;
-        Flush(sapi, farmlandPos, map);
+        MarkDirty(farmlandPos);
 
         // Push it to whoever is looking. The tree-attribute sync only carries on a resend, and a
         // harvest is the one moment the number moves far enough to matter to a reader standing
@@ -568,7 +651,7 @@ public static class FarSoilSickness
         // matters more here than anywhere else: a mass-zeroing operation is precisely the thing
         // that manufactures empty records, and a farmer using the cure as intended would have
         // generated the most of them.
-        Flush(sapi, farmlandPos, map);
+        MarkDirty(farmlandPos);
         sapi.World.BlockAccessor.GetBlockEntity(farmlandPos)?.MarkDirty(true);
 
         foreach (var c in cleared)
