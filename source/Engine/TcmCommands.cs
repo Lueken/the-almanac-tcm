@@ -190,7 +190,7 @@ public class TcmCommands
 
         PracticeLedger ledger = core.Ledger.LedgerFor(player);
         StringBuilder sb = new();
-        sb.AppendLine("== The Copybook page for today ==");
+        sb.AppendLine("== The Almanac page for today ==");
 
         foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)
         {
@@ -218,6 +218,13 @@ public class TcmCommands
 
         int gmCount = AffinitySystem.GmCount(domainSet);
         sb.AppendLine($"Great Works declared: {gmCount}/{core.GlobalConfig.GmDomainCap}");
+        // Named, not only counted. The per-domain loop above skips !Enabled and Hidden; the
+        // count does neither, by ruling, so a dormant Grandmaster spends a lifetime slot while
+        // appearing nowhere else on this page. Naming them here is the only place it shows.
+        foreach (string name in AffinitySystem.GreatWorkNames(domainSet))
+        {
+            sb.AppendLine($"   {name}");
+        }
         return TextCommandResult.Success(sb.ToString());
     }
 

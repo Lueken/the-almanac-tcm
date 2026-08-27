@@ -50,18 +50,42 @@ public static class MetPatches
     /// either (verified 2026-08-12 against Smithing+ 1.9.0-rc.1 and Toolsmith 1.2.17/1.2.18:
     /// zero hits in any encoding), so retiring the key is ours alone to do.
     ///
-    /// KEEP UNTIL 0.5.0 (RULED 2026-08-12). The Quire's world was wiped, so the SERVER holds
-    /// no tier-stamped tools. That is not the whole population: closed-beta testers run
-    /// SINGLEPLAYER worlds that were never wiped and can still be holding tools that carry
-    /// this key and its quality buff. They are the live consumer, and the reason the "no
-    /// server data, therefore no data" argument does not hold.
+    /// KEEP PERMANENTLY (ruled 2026-08-12 as "until 0.5.0", made permanent 2026-08-27). The
+    /// Quire's world was wiped, so the SERVER holds no tier-stamped tools. That is not the whole
+    /// population: closed-beta testers run SINGLEPLAYER worlds that were never wiped and can
+    /// still be holding tools that carry this key and its quality buff. They are the live
+    /// consumer, and the reason the "no server data, therefore no data" argument does not hold.
+    /// Nothing migrates them, either: ReStamp refuses any stack that already has MakerAttr, and
+    /// every legacy stack has one, so a tool is never upgraded in place. This branch is the only
+    /// thing that still knows what those saved ints mean.
     ///
-    /// REMOVAL PLAN. Announce it in the patch notes of the releases leading up to 0.5.0, then
-    /// delete this const and the fallback branch in MarkLevel as part of 0.5.0 itself.
-    /// Deleting it early does not crash anything: MarkLevel returns -1, the tool drops to the
-    /// flat "made-by" line, and it keeps its durability because that rides a separate float.
-    /// But a Grandmaster piece SILENTLY loses its masterwork line and its wear skip, and a
-    /// silent downgrade on someone's best tool is exactly what the advance warning is for.</summary>
+    /// REMOVAL ABANDONED 2026-08-27. This shim is permanent. Three reasons, in weight order.
+    ///
+    /// THE ANNOUNCEMENT NEVER HAPPENED. The 2026-08-12 plan required the releases leading up to
+    /// 0.5.0 to carry a reminder. The deprecation appears exactly once in PATCHNOTES.md, inside
+    /// 0.4.38's own notes; 0.4.39 and 0.4.40 say nothing, and no changelog ships inside the zip
+    /// (dll, pdb, deps, modinfo and assets, nothing else). The testers holding the affected
+    /// singleplayer worlds were never actually told. Removing on the strength of a warning that
+    /// was not given is not a thing we get to do.
+    ///
+    /// THE DELETE IS COMPILE-CLEAN BUT NOT CONSEQUENCE-CLEAN. MarkLevel returning -1 diverges
+    /// from five consumers that do not gate on it, and two of those are worse than the flat
+    /// fallback 0.4.38 promised. MakerKey has no unmarked branch, so a stored legacy head renders
+    /// through ToolPartMarks as "Smithed by", asserting a Journeyman rank the stack never held.
+    /// WillFoldToolMark flips true the moment MarkLevel drops to -1, and MetPatches wraps the
+    /// ENTIRE maker-line block in it, so on a folding tool the promised "Made by" line does not
+    /// appear at all. Beyond those: the folded quality clause gates on Level rather than the
+    /// float, and the unfitted-mark warning disappears, reinstating the silent nerf the comment
+    /// beside it exists to prevent. Honouring the promise costs four more changes across three
+    /// files, in provenance rendering, immediately before a release.
+    ///
+    /// MIGRATION WAS CONSIDERED AND DOES NOT WORK. A write-through here (convert once, stamp
+    /// MakerLevelAttr, drop the legacy key) would upgrade a stack on first read and make a later
+    /// delete free. But the dominant reader is MarkTooltipPatch on CollectibleObject
+    /// .GetHeldItemInfo, which runs CLIENT side, and a client-side attribute write never reaches
+    /// the server's copy of the stack. It would appear to work and quietly persist nothing.
+    ///
+    /// The cost of keeping it is one const and a four-line branch that nothing else touches.</summary>
     private const string LegacyMakerTierAttr = "almanactcm:makertier";
 
     /// <summary>Smithing+'s own per-tool durability-quality attribute. We stamp it with the

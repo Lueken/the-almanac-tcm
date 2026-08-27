@@ -132,6 +132,12 @@ public class AffinitySystem
         }
     }
 
+    /// <summary>The one rule behind both the count and the names. There is deliberately NO
+    /// Enabled check here: a Grandmaster earned in a domain whose supporting mod was later
+    /// removed still spends one of the two lifetime slots (ruled 2026-08-20). Keeping the
+    /// count and the name list on one predicate is what stops them disagreeing.</summary>
+    private static bool IsGreatWork(PlayerDomain pd) => pd.Level >= Rank.Grandmaster;
+
     /// <summary>Guard #12 stub: lifetime GM count vs the configured cap. Real
     /// enforcement lives in the ascension flow (Track 2); lowering the cap never
     /// revokes attained GMs: this only gates future ascensions.</summary>
@@ -141,9 +147,26 @@ public class AffinitySystem
         int count = 0;
         foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)
         {
-            if (playerDomain.Level >= Rank.Grandmaster) count++;
+            if (IsGreatWork(playerDomain)) count++;
         }
         return count;
+    }
+
+    /// <summary>The domains BEHIND that count, in roster order, for display. Shares the
+    /// predicate above, so a name list can never disagree with the number beside it.
+    ///
+    /// This exists because /tcm status listed domains through an Enabled and Hidden filter
+    /// while the count above passes neither. A Grandmaster in a domain gone dormant (ARC
+    /// without Rustbound Magic, say) therefore spent a lifetime slot while appearing nowhere
+    /// on the page, and the reader had a number with nothing behind it.</summary>
+    public static List<string> GreatWorkNames(PlayerDomainSet domainSet)
+    {
+        var names = new List<string>();
+        foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)
+        {
+            if (IsGreatWork(playerDomain)) names.Add(playerDomain.Domain.DisplayName);
+        }
+        return names;
     }
 
     public static bool CanAscend(PlayerDomainSet domainSet, int gmDomainCap)

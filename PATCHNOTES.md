@@ -272,6 +272,16 @@ because Grandmaster work builds directly on this state.
   spends stay exempt exactly as before. With SpecializedClasses present nothing
   changes, and the two paths can never stack.
 
+- The old maker's mark is not being removed after all. 0.4.38 said the compatibility path for
+  marks written before it would be removed in this version, and that a tool stamped earlier
+  would fall back to a plain "Made by" line while a Grandmaster piece lost its masterwork line.
+  That is withdrawn. The path stays, permanently. Two reasons: the reminder those notes promised
+  in the releases leading up to here was never actually written, so nobody was warned; and the
+  removal turned out to be messier than the notice described, because a stored older head would
+  have started claiming a rank it never held rather than falling back cleanly. A tool forged
+  before 0.4.38 keeps its provenance, its buffs and its masterwork line, and no longer needs
+  reforging to hold them.
+
 - Fruit trees and berry bushes can be learned. Until now the orchard and the hedge earned
   no familiarity whatever, however much of them you picked, so their pages in the Crops
   chapter stood permanently blank while every annual crop filled in. Both open now, and

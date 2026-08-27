@@ -126,7 +126,7 @@
     "title": "The Brewer's Mark",
     "tagline": "The barrel knows its keeper.",
     "identity": "The humblest mark, worn in the cellar. Liquids mix and lose their signature, so a brewer's name lives instead on the solid things the cellar keeps: the cured wheel, the aged ham, the barrel that came out right.",
-    "mastery": "A Grandmaster's preserves and cures carry their mark, and the exceptional batch comes out of their barrels more often than chance allows. The cellar knows its keeper."
+    "mastery": "A Grandmaster's preserves and cures carry their mark, and one sealed barrel in four comes out over the measure it was rated for. The cellar knows its keeper."
   },
   "TAI": {
     "title": "The Master Tailor",
@@ -160,9 +160,9 @@
   },
   "TEM": {
     "title": "The Storm-Warden",
-    "tagline": "Feels the storm a day before the village hears it.",
+    "tagline": "Keeps the warning everyone else lost.",
     "identity": "The one who stands when the world dissolves. This is the trade of the temporal storm: feeling it coming, weathering it upright, and keeping the wards and translocators of a region running.",
-    "mastery": "A Grandmaster feels the storm a day before its first warning reaches anyone else, stays standing while novices black out, and runs the region's machinery on the fewest gears. Forecast, resilience, and economy, the rarest kind of calm."
+    "mastery": "A Grandmaster keeps the full quarter hour of warning the sky used to give everyone for free, stays standing while novices black out, and runs the region's machinery on the fewest gears. Forecast, resilience, and economy, the rarest kind of calm."
   },
   "ARC": {
     "title": "The Archmage",
