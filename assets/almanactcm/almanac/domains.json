@@ -77,7 +77,7 @@
     "title": "The Glassmaker's Mark",
     "tagline": "A Master's glass does not crack.",
     "identity": "Command of a narrow window. Glass forgives nothing: too hot or too cold, and the work is lost. This is the trade of the annealer's patience, the rarest calling on the server, and no one is born to it.",
-    "mastery": "Where a novice's melt shatters at the edge of tolerance, a Grandmaster works glass that simply holds. Work blown in a mold or cast from the crucible carries the maker's name from the moment it is formed."
+    "mastery": "Where a novice's melt shatters at the edge of tolerance, a Grandmaster works glass that simply holds. A piece blown in a mold or cast from the crucible carries the maker's name from the moment it is formed."
   },
   "PAN": {
     "title": "The Surveyor",
@@ -94,7 +94,7 @@
     "title": "The Master Hunter",
     "tagline": "Reads the animal before it knows they are there.",
     "identity": "The reader of living country. A hunter learns to see an animal at range for what it is, to move unseen, and to take it cleanly enough that nothing of it is wasted.",
-    "mastery": "A novice sees a deer, spooks it, and loses it. A Grandmaster reads its size, its condition, and its heading from forty paces, walks a quarter closer than anyone else before it startles, and follows a wounded animal down a trail that holds half again as long.",
+    "mastery": "A novice sees a deer, spooks it, and loses it. A Grandmaster reads its size, its condition, and its heading from forty paces, walks a quarter closer than anyone else before it startles, and follows a wounded animal down a trail that lasts half again as long.",
     "tip": "Green hands spook the game from twice as far and waste half the carcass to clumsy knife work; practiced hands walk closer, dress cleaner, and their snares hold what they catch. Work the whole trade and not only the kill: dressing, trapping, butchery and the tanning that follows all fill the same page.",
     "techniques": [
       "The hunt",
@@ -174,14 +174,14 @@
   "ARC": {
     "title": "The Archmage",
     "tagline": "Even at the height of the art, the storm can reach back.",
-    "identity": "The one trade no one is born to. No calling claims it as its own, though an archivist's habits give them a step's head start. An arcanist learns the art of spells as a discipline, tier by careful tier.",
+    "identity": "The one trade no one is born to. No calling claims it as its own, though an archivist's habits start them a step ahead. An arcanist learns the art of spells as a discipline, tier by careful tier.",
     "mastery": "A Grandmaster commands the deep workings others cannot reach, but the greatest are never routine: even the Archmage carries a sliver of misfire on the highest spells, and each costs minutes of vulnerable trance to recover. Their trade is the scroll, magic scribed and sold by the charge."
   },
   "BEE": {
     "title": "The Hive Warden",
     "tagline": "Sites a hive where it will keep itself.",
     "identity": "Stewardship of a living thing that cannot be told what to do. A hive is not harvested so much as kept: read the flowers around it, read the weight of the frames, read whether the colony is growing or quietly dying, and act a season before the answer becomes obvious. The comb is only the receipt. The skill is everything that had to go right in the eleven months before it.",
-    "mastery": "A Grandmaster reads a site before setting a hive on it, and reads the frames before deciding what the colony can spare. The comb follows from that judgement rather than from anything done at the hive on the day. Beekeeping carries no Grandmaster signature of its own yet; it pays in rank and in what the reading saves you.",
+    "mastery": "A Grandmaster reads a site before setting a hive on it, and reads the frames before deciding what the colony can spare. The comb follows from that judgement rather than from anything done at the hive on the day.",
     "tip": "Flowers are the whole account. A hive set among too few will bleed population every day no matter how carefully you tend it, and no amount of feeding covers a bad site. Site well first, then keep. Take comb with an eye on what the colony needs to hold, not on what the frames will give you today: a hive robbed bare in autumn is a hive you will not have in spring.",
     "techniques": [
       "Hiving",
