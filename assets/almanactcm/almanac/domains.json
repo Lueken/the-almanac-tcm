@@ -15,23 +15,28 @@
     "title": "The Forester",
     "tagline": "Leaves the forest richer than they found it.",
     "identity": "The whole circle of the woods: the felling, the planting, and the slow burn that turns wood to fuel. A forester learns to read a stand, to take without emptying it, and to leave saplings that will stand when they are gone.",
-    "mastery": "A Grandmaster fells all day without tiring, and their planted trees take where others wither. Above all they are the master collier: charcoal bearing their mark burns hotter and longer, and smiths ask for it by name.",
+    "mastery": "A Grandmaster fells all day without tiring, and lays every trunk within a few degrees of where they aimed it. Above all they are the master collier: charcoal bearing their mark burns hotter and longer, and smiths ask for it by name.",
     "tip": "A tree falls toward the face you cut, not away. Stand to the side and strike the face pointing where you want it down, never the one facing you. A green hand's aim wanders and the trunk can land on them; a master lays it exactly where they mean to, clear of their own feet. The wood is heavy and it does not forgive standing in its path.",
     "techniques": [
       "Felling",
-      "Planting"
+      "Planting",
+      "Chopping",
+      "Sawing",
+      "Hewing",
+      "Pounding",
+      "Charcoal burning"
     ]
   },
   "FAR": {
     "title": "The Cultivator",
     "tagline": "Mastery bred into the seed itself.",
     "identity": "The patient science of the seed. A cultivator learns the soil and the season, coaxing a little more from a plot each year, and saving back the best of the harvest to sow again.",
-    "mastery": "A Grandmaster's heirloom seed out-yields in any hands for a few generations before the line fades and the village comes back for fresh stock. Their harvest keeps through the winter, and their grafts almost always take."
+    "mastery": "A Grandmaster's heirloom seed out-yields in any hands for a few generations before the line fades and the village comes back for fresh stock. Their harvest keeps through the winter, and a dying cutting in their hands will often take hold anyway."
   },
   "FIS": {
     "title": "The Steward of the Pond",
     "tagline": "Their waters never go barren.",
-    "identity": "Not the biggest catch, but the longest-lived water. A steward reads a pond's stock at a glance, fishes it with a light hand, and seeds roe to bring a tired pool back to life.",
+    "identity": "Not the biggest catch, but the longest-lived water. A steward fishes a pond with a light hand, seeds roe to bring a tired pool back to life, and leaves it able to feed them again next season.",
     "mastery": "A novice fishes a pond dead in an afternoon. A Grandmaster's waters stay stocked for years, and a place to fish them is worth trading for. They take what a water can spare, and never more.",
     "tip": "A pond remembers every fish you take, whether it left on a hook, a spear, or in a basket overnight. Fish a spot hard and it goes quiet; left alone it recovers a little each day, never all at once. Roe cast on tired waters brings fish back sooner, and a steward's roe goes further. A green hand loses bites, lands the small ones, and empties a water without noticing.",
     "techniques": [
@@ -72,7 +77,7 @@
     "title": "The Glassmaker's Mark",
     "tagline": "A Master's glass does not crack.",
     "identity": "Command of a narrow window. Glass forgives nothing: too hot or too cold, and the work is lost. This is the trade of the annealer's patience, the rarest calling on the server, and no one is born to it.",
-    "mastery": "Where a novice's melt shatters at the edge of tolerance, a Grandmaster works glass that simply holds. Their blown vessels carry the maker's name from the annealer onward."
+    "mastery": "Where a novice's melt shatters at the edge of tolerance, a Grandmaster works glass that simply holds. Work blown in a mold or cast from the crucible carries the maker's name from the moment it is formed."
   },
   "PAN": {
     "title": "The Surveyor",
@@ -87,15 +92,16 @@
   },
   "HUN": {
     "title": "The Master Hunter",
-    "tagline": "Knows the country they have hunted.",
-    "identity": "The reader of living country. A hunter learns to see an animal at range for what it is, to move unseen, and to carry in their head a map of where every quarry they have chased is likely to be found.",
-    "mastery": "A novice sees a deer, spooks it, and loses it. A Grandmaster reads its size, its condition, and its heading at a glance, stalks it unseen, and knows the country well enough to find its kind again.",
-    "tip": "Green hands spook the game from twice as far and waste half the carcass to clumsy knife work; practiced hands walk closer, dress cleaner, and their snares hold what they catch. Every animal you take teaches you its kind. Hunt widely: the country you have hunted is country you will one day know by heart.",
+    "tagline": "Reads the animal before it knows they are there.",
+    "identity": "The reader of living country. A hunter learns to see an animal at range for what it is, to move unseen, and to take it cleanly enough that nothing of it is wasted.",
+    "mastery": "A novice sees a deer, spooks it, and loses it. A Grandmaster reads its size, its condition, and its heading from forty paces, walks a quarter closer than anyone else before it startles, and follows a wounded animal down a trail that holds half again as long.",
+    "tip": "Green hands spook the game from twice as far and waste half the carcass to clumsy knife work; practiced hands walk closer, dress cleaner, and their snares hold what they catch. Work the whole trade and not only the kill: dressing, trapping, butchery and the tanning that follows all fill the same page.",
     "techniques": [
       "The hunt",
       "Field dressing",
       "Trapping",
-      "Butchery"
+      "Butchery",
+      "Tanning"
     ]
   },
   "ANI": {
@@ -113,7 +119,8 @@
     "techniques": [
       "Wild harvesting",
       "Wild gathering",
-      "Tapping"
+      "Tapping",
+      "Sap collecting"
     ]
   },
   "ALC": {
@@ -150,7 +157,7 @@
     "title": "The Master-at-Arms",
     "tagline": "Reads the fight before the first blow lands.",
     "identity": "Not a harder hitter, but a veteran. This trade is read and defense: sizing up a foe before the first blow, planting a shield like a wall, and wearing heavy plate like a second skin.",
-    "mastery": "A Grandmaster sees at a glance what a foe is, how close to death, and whether it can pierce their iron, and they plant themselves where a lesser fighter breaks. The edge is knowledge and footing, never raw force."
+    "mastery": "A Grandmaster sees at a glance what a foe is and how close to death, learns by fighting it where a creature is soft and where a blow is wasted, and plants themselves where a lesser fighter breaks. The edge is knowledge and footing, never raw force."
   },
   "RAN": {
     "title": "The Marksman's Eye",
@@ -167,14 +174,14 @@
   "ARC": {
     "title": "The Archmage",
     "tagline": "Even at the height of the art, the storm can reach back.",
-    "identity": "The one trade no one is born to. The initiation is open to anyone, and the road is the same length for all who walk it. An arcanist learns the art of spells as a discipline, tier by careful tier.",
+    "identity": "The one trade no one is born to. No calling claims it as its own, though an archivist's habits give them a step's head start. An arcanist learns the art of spells as a discipline, tier by careful tier.",
     "mastery": "A Grandmaster commands the deep workings others cannot reach, but the greatest are never routine: even the Archmage carries a sliver of misfire on the highest spells, and each costs minutes of vulnerable trance to recover. Their trade is the scroll, magic scribed and sold by the charge."
   },
   "BEE": {
     "title": "The Hive Warden",
-    "tagline": "Their colonies come through the winter that empties everyone else's.",
+    "tagline": "Sites a hive where it will keep itself.",
     "identity": "Stewardship of a living thing that cannot be told what to do. A hive is not harvested so much as kept: read the flowers around it, read the weight of the frames, read whether the colony is growing or quietly dying, and act a season before the answer becomes obvious. The comb is only the receipt. The skill is everything that had to go right in the eleven months before it.",
-    "mastery": "A Grandmaster's hives do not fail. Where others lose colonies to a thin autumn or a hard winter, the warden's come through in strength, and the swarms they cast are the stock every other keeper in the valley starts from.",
+    "mastery": "A Grandmaster reads a site before setting a hive on it, and reads the frames before deciding what the colony can spare. The comb follows from that judgement rather than from anything done at the hive on the day. Beekeeping carries no Grandmaster signature of its own yet; it pays in rank and in what the reading saves you.",
     "tip": "Flowers are the whole account. A hive set among too few will bleed population every day no matter how carefully you tend it, and no amount of feeding covers a bad site. Site well first, then keep. Take comb with an eye on what the colony needs to hold, not on what the frames will give you today: a hive robbed bare in autumn is a hive you will not have in spring.",
     "techniques": [
       "Hiving",
