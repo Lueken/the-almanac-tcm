@@ -80,40 +80,49 @@ public static class PartQualityLevers
         bindingBehaviorType = AccessTools.TypeByName("Toolsmith.ToolTinkering.Behaviors.CollectibleBehaviorToolBinding");
         var toolsType = AccessTools.TypeByName("Toolsmith.ToolTinkering.Behaviors.CollectibleBehaviorTinkeredTools");
 
+        // ONE SEAM PER TRY. These three were a single unguarded run until 2026-08-28, when the
+        // binding seam threw on a parameter-name mismatch and took the two seams around it with
+        // it: the handle stamp survived only because it ran first, and the assembly seam that
+        // APPLIES the quality never patched at all. A stamp nothing reads is worse than no stamp,
+        // so a seam that fails now says so and leaves the others standing.
         int hooked = 0;
-        var mh = handleType == null ? null : AccessTools.DeclaredMethod(handleType, "OnCreatedByCrafting");
-        if (mh != null)
+        void Seam(string what, System.Reflection.MethodBase? target, string postfix, string absent)
         {
-            harmony.Patch(mh, postfix: new HarmonyMethod(AccessTools.Method(typeof(PartQualityLevers), nameof(HandleCraftPostfix))));
-            hooked++;
+            if (target == null) { TcmLog.Warn(api, absent); return; }
+            try
+            {
+                harmony.Patch(target, postfix: new HarmonyMethod(
+                    AccessTools.Method(typeof(PartQualityLevers), postfix)));
+                hooked++;
+            }
+            catch (System.Exception e)
+            {
+                TcmLog.Error(api, $"part-quality seam '{what}' failed to patch ({e.Message}); "
+                    + "the other seams are unaffected");
+            }
         }
-        else TcmLog.Warn(api, "toolsmith handle craft seam not found; the WOO haft lever is inactive");
 
-        var mb = bindingBehaviorType == null ? null
-            : AccessTools.DeclaredMethod(typeof(CollectibleBehavior), nameof(CollectibleBehavior.OnCreatedByCrafting));
-        if (mb != null)
-        {
-            harmony.Patch(mb, postfix: new HarmonyMethod(AccessTools.Method(typeof(PartQualityLevers), nameof(BindingCraftPostfix))));
-            hooked++;
-        }
-        else TcmLog.Warn(api, "toolsmith binding behavior not found; the TAI/HUN binding lever is inactive");
+        Seam("handle", handleType == null ? null : AccessTools.DeclaredMethod(handleType, "OnCreatedByCrafting"),
+            nameof(HandleCraftPostfix),
+            "toolsmith handle craft seam not found; the WOO haft lever is inactive");
 
-        var mt = toolsType == null ? null : AccessTools.DeclaredMethod(toolsType, "OnCreatedByCrafting");
-        if (mt != null)
-        {
-            harmony.Patch(mt, postfix: new HarmonyMethod(AccessTools.Method(typeof(PartQualityLevers), nameof(AssemblyPostfix))));
-            hooked++;
-        }
-        else TcmLog.Warn(api, "toolsmith assembly seam not found; part quality stamps but never applies");
+        Seam("binding", bindingBehaviorType == null ? null
+                : AccessTools.DeclaredMethod(typeof(CollectibleBehavior), nameof(CollectibleBehavior.OnCreatedByCrafting)),
+            nameof(BindingCraftPostfix),
+            "toolsmith binding behavior not found; the TAI/HUN binding lever is inactive");
+
+        Seam("assembly", toolsType == null ? null : AccessTools.DeclaredMethod(toolsType, "OnCreatedByCrafting"),
+            nameof(AssemblyPostfix),
+            "toolsmith assembly seam not found; part quality stamps but never applies");
 
         if (hooked > 0)
             TcmLog.Info(api, $"part-quality levers live ({hooked}/3 seams): WOO hafts and TAI/HUN bindings carry their maker's quality");
     }
 
     /// <summary>Crafting a handle part stamps the crafter's WOO quality onto the part.</summary>
-    public static void HandleCraftPostfix(ItemSlot[] allInputslots, ItemSlot outputSlot)
+    public static void HandleCraftPostfix(ItemSlot[] __0, ItemSlot outputSlot)
     {
-        var player = CrafterOf(allInputslots);
+        var player = CrafterOf(__0);
         var stack = outputSlot?.Itemstack;
         if (player == null || stack == null || player.Entity?.Api?.Side != EnumAppSide.Server) return;
 
@@ -128,10 +137,10 @@ public static class PartQualityLevers
     /// <summary>Crafting a binding part stamps TAI or HUN quality by material: leather is the
     /// hunter's chain, fibre is the tailor's. Rides the behavior BASE hook (the binding behavior
     /// does not override it), so the type filter exits first.</summary>
-    public static void BindingCraftPostfix(CollectibleBehavior __instance, ItemSlot[] allInputslots, ItemSlot outputSlot)
+    public static void BindingCraftPostfix(CollectibleBehavior __instance, ItemSlot[] __0, ItemSlot outputSlot)
     {
         if (bindingBehaviorType == null || __instance.GetType() != bindingBehaviorType) return;
-        var player = CrafterOf(allInputslots);
+        var player = CrafterOf(__0);
         var stack = outputSlot?.Itemstack;
         if (player == null || stack == null || player.Entity?.Api?.Side != EnumAppSide.Server) return;
 
@@ -151,13 +160,13 @@ public static class PartQualityLevers
     /// <summary>Assembly applies the stamped part qualities to the durability Toolsmith just
     /// computed. The same-code guard skips Toolsmith's copy path (values there were scaled at
     /// their first assembly and are carried, not recomputed), so nothing compounds.</summary>
-    public static void AssemblyPostfix(ItemSlot[] allInputslots, ItemSlot outputSlot)
+    public static void AssemblyPostfix(ItemSlot[] __0, ItemSlot outputSlot)
     {
         var tool = outputSlot?.Itemstack;
-        if (tool?.Collectible?.Code == null || allInputslots == null) return;
+        if (tool?.Collectible?.Code == null || __0 == null) return;
 
         ItemStack? handlePart = null, bindingPart = null;
-        foreach (var slot in allInputslots)
+        foreach (var slot in __0)
         {
             var s = slot?.Itemstack;
             if (s?.Collectible?.Code == null) continue;

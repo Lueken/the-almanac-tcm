@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Vintagestory.API.Client;
@@ -280,7 +281,18 @@ public static class TemStormShift
         {
             serverChannel ??= sapi?.Network.GetChannel("temporalsymphony");
             if (serverChannel == null) return;
-            cachedSend ??= typeof(IServerNetworkChannel).GetMethod("SendPacket")!.MakeGenericMethod(pktType);
+            // TWO OVERLOADS, so GetMethod(name) alone throws AmbiguousMatchException and the
+            // whole shift silently degrades to chat. The interface declares
+            //   SendPacket<T>(T, params IServerPlayer[])
+            //   SendPacket<T>(T, byte[], params IServerPlayer[])
+            // and we want the two-parameter one. Selected by shape rather than by index,
+            // because a third overload would otherwise pick itself.
+            cachedSend ??= typeof(IServerNetworkChannel).GetMethods()
+                .Single(m => m.Name == "SendPacket"
+                             && m.IsGenericMethodDefinition
+                             && m.GetParameters().Length == 2
+                             && m.GetParameters()[1].ParameterType == typeof(IServerPlayer[]))
+                .MakeGenericMethod(pktType);
             cachedSend.Invoke(serverChannel, new object[] { pkt, new IServerPlayer[] { plr } });
         }
         catch (Exception e)

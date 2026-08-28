@@ -4,6 +4,30 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.1 (hotfix, 2026-08-28)
+
+Two 0.5.0 features never ran on the server. Both were found by reading the boot log after the
+deploy rather than in testing, which is the argument for reading it every time.
+
+- **The tool remembers every hand that made it, and now it actually does.** The part-quality
+  levers bound to a parameter by NAME, and the name was wrong by one capital letter: the game
+  spells it `allInputSlots` on the type we hook, and `allInputslots` on several of its own
+  overrides. The patch threw at load, so no haft or binding ever carried its maker's quality.
+  All three seams now bind by position instead of by name, which no rename can break.
+
+- **One bad seam no longer takes the good ones with it.** The three part-quality seams ran
+  inside a single unguarded block, so the binding seam's failure also stopped the assembly seam
+  that APPLIES the quality from ever patching. The handle seam survived only because it happened
+  to run first, which meant the feature was stamping a mark that nothing would ever read. Each
+  seam is now tried on its own and reports its own failure.
+
+- **The storm warning reaches Temporal Symphony users again.** Sending one of Temporal Symphony's
+  own packets looked up `SendPacket` by name alone. There are two overloads, so the lookup threw
+  every time and the per-rank warning quietly fell back to plain chat. The overload is now chosen
+  by its shape.
+
+---
+
 ## 0.5.0 (in development)
 
 The gap pass: every domain reviewed and the weak ones lifted toward the bar Metalworking
