@@ -314,6 +314,15 @@ because Grandmaster work builds directly on this state.
   The same ladder now applies to both, so an untrained eye reads nothing in a berry bed
   either.
 
+- Anvils stop freezing your game. The first time you looked at an anvil in a session, the game
+  could lock up while it worked out which anvil tier every castable tool in the pack needs, and
+  on a large modlist it sat there long enough to look like a crash. Then it happened again at
+  the next anvil tier, and every session after. That work is now done once and remembered, so
+  the first look is instant. The Quire's players have had this since August through the server's
+  own patch mod, and it moves into the Almanac here because a singleplayer world loads no server
+  patch mod and was left with the freeze. The fault is Smithing Plus's own, reported upstream
+  with the fix offered; when it lands there, this stops mattering and comes out again.
+
 ### Release staging: what goes on the server, and in what order
 
 Nothing in this section is deployed. The Quire runs `thequire_0.1.33` and
