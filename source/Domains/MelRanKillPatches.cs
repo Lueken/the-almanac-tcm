@@ -187,7 +187,12 @@ public static class MelRanKillPatches
         int ctx = HashCode.Combine(species,
             (int)(entity.ServerPos.X / 64), (int)(entity.ServerPos.Z / 64));
 
+        // BRACES ARE LOAD-BEARING. Adding the counters below to an unbraced if/else silently
+        // reparsed this whole block: the else bound to the inner distance test, so every melee
+        // kill bumped "ran-kills", and MEL fighting was granted on any kill under 60 blocks,
+        // paying a ranged kill BOTH callings. It compiled clean. Do not unbrace it.
         if (ranged)
+        {
             Core?.Ledger?.Log(player, RanDomain.Code, RanDomain.TechShooting, ctx, mult);
             // The Marksman's book (0.5, the TEM storm-ledger shape): kill classification lived
             // only at this grant, so the ascension proof (a witnessed long kill) had nothing
@@ -196,8 +201,11 @@ public static class MelRanKillPatches
             double dist = player.Entity.Pos.DistanceTo(entity.Pos.XYZ);
             BumpCounter(player, "ran-kills");
             if (dist >= LongKillBlocks) BumpCounter(player, "ran-long-kills");
+        }
         else
+        {
             Core?.Ledger?.Log(player, MelDomain.Code, MelDomain.TechFighting, ctx, mult);
+        }
 
         // The temporal-kill co-grant (ruled 2026-08-21, A7 of the 0.5 gap pass): a rust-mob
         // kill pays the method its full practice above AND TEM half, sharing ctx so the two
