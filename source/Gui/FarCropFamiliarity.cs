@@ -38,13 +38,14 @@ public class FarCropFamiliarity : ICropFamiliaritySource
 
     public CropStanding? Of(CropEntry entry)
     {
-        var block = entry.PlantBlock;
-        if (block == null) return null;
+        string? id = IdOf(entry);
+        if (id == null) return null;                       // not tracked: the book says so plainly
 
-        string? id = FarFamiliarity.CropIdOf(capi, block) ?? FarFamiliarity.RipeFruitIdOf(capi, block);
-        if (id == null) return null;                       // not in the taxonomy: the book says so plainly
+        // A perennial has no family and never will, so an absent one is expected here rather
+        // than a reason to give up. For a sown crop it still is: an id with no family means the
+        // taxonomy half-knows the plant, and the book should not pretend otherwise.
         string? family = FarFamiliarity.FamilyOf(id);
-        if (family == null) return null;
+        if (family == null && !FarPerennials.IsPerennialId(id)) return null;
 
         var know = FarFamiliarity.KnowledgeOf(capi, capi.World.Player);
         var ladder = FarFamiliarity.Ladder(capi);
@@ -53,7 +54,7 @@ public class FarCropFamiliarity : ICropFamiliaritySource
         return new CropStanding
         {
             CropId = id,
-            FamilyId = family,
+            FamilyId = family ?? "",
             OwnCount = FarFamiliarity.OwnCount(know, id),
             EffectiveCount = effective,
             AcquaintedAt = ladder.Acquainted,
@@ -62,6 +63,36 @@ public class FarCropFamiliarity : ICropFamiliaritySource
                  : effective >= ladder.Acquainted ? CropTier.Acquainted
                  : CropTier.Stranger,
         };
+    }
+
+    /// <summary>
+    /// Which counter this entry reads from, dispatched on what the plant actually is.
+    ///
+    /// A fruit tree is the awkward one and needs the new TypeKey. It is built from a branch
+    /// block's TypeProps rather than from a block of its own, so PlantBlock is null for it and
+    /// there is nothing else on the entry to address it by. Everything else is keyed off the
+    /// block: a sown crop through the taxonomy's prefix map, a vine fruit through its ripe-block
+    /// map, a bush through its own type variant.
+    ///
+    /// Mushrooms fall out here with a null id and keep their plain card, which is correct.
+    /// Nothing plants a mushroom, so there is nothing about one to learn by growing it.
+    /// </summary>
+    private string? IdOf(CropEntry entry)
+    {
+        if (entry.Kind == CropKind.FruitTree)
+        {
+            string[] parts = (entry.TypeKey ?? "").Split(':');
+            if (parts.Length != 2) return null;
+            string id = FarPerennials.TreeId(parts[0], parts[1]);
+            return id.Length == 0 ? null : id;
+        }
+
+        var block = entry.PlantBlock;
+        if (block == null) return null;
+
+        if (entry.Kind == CropKind.BerryBush) return FarPerennials.BushIdOf(block);
+
+        return FarFamiliarity.CropIdOf(capi, block) ?? FarFamiliarity.RipeFruitIdOf(capi, block);
     }
 
     public IReadOnlyList<CropFamilyStanding> Families

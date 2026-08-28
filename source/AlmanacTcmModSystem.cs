@@ -42,7 +42,7 @@ public class AlmanacTcmModSystem : ModSystem
     /// so nothing breaks loudly: the earned reveal simply never happens and the chapter sits
     /// visible from the first login, which is the whole thing it exists to prevent. Pinned
     /// to 0.1.2 rather than 0.0.18 so the pair stays in step, and that holds at 0.1.4.</summary>
-    private const string MinIlluminatedVersion = "0.2.0";
+    private const string MinIlluminatedVersion = "0.3.0";
 
     /// <summary>Static access for Harmony patches, split by side (set in Start, cleared in
     /// Dispose). Singleplayer loads BOTH a client-side and a server-side ModSystem in one
@@ -119,6 +119,10 @@ public class AlmanacTcmModSystem : ModSystem
             Try("MET-conditional", () => Domains.MetConditionalPatches.PatchAllPresent(api, harmony));
             Try("MET-gate", () => Domains.MetGatePatches.PatchConditional(api, harmony));
             Try("MET-signature", () => Domains.MetSignaturePatches.PatchConditional(api, harmony));
+            // COMPAT, not mechanic: the Smithing Plus cast-tool scan behind the anvil-look
+            // freeze. Migrated from thequire 0.1.25 because the freeze is a client-side path
+            // and singleplayer players never load a server patch mod.
+            Try("MET-anvil-lag", () => Domains.MetSmithingPlusAnvilLag.PatchConditional(api, harmony));
             Try("MIN-conditional", () => Domains.MinConditionalPatches.PatchAllPresent(api, harmony));
             Try("WOO-fallingtree", () => Domains.WooFallingTreePatches.PatchConditional(api, harmony));
             Try("WOO-idg", () => Domains.WooIdgPatches.PatchConditional(api, harmony));
@@ -563,6 +567,11 @@ public class AlmanacTcmModSystem : ModSystem
     {
         harmony?.UnpatchAll("almanactcm");
         harmony = null;
+        // Global teardown, same scope as the UnpatchAll above: the anvil-lag index holds
+        // GridRecipe references from this world, and a second world loaded in the same
+        // singleplayer process can carry an identical recipe count, so the staleness check
+        // alone would not catch it.
+        Domains.MetSmithingPlusAnvilLag.ClearCaches();
         Toasts?.Dispose();
         Toasts = null;
         // The two parchment surfaces unregister their own Ortho renderers; without this they

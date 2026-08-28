@@ -272,6 +272,57 @@ because Grandmaster work builds directly on this state.
   spends stay exempt exactly as before. With SpecializedClasses present nothing
   changes, and the two paths can never stack.
 
+- The old maker's mark is not being removed after all. 0.4.38 said the compatibility path for
+  marks written before it would be removed in this version, and that a tool stamped earlier
+  would fall back to a plain "Made by" line while a Grandmaster piece lost its masterwork line.
+  That is withdrawn. The path stays, permanently. Two reasons: the reminder those notes promised
+  in the releases leading up to here was never actually written, so nobody was warned; and the
+  removal turned out to be messier than the notice described, because a stored older head would
+  have started claiming a rank it never held rather than falling back cleanly. A tool forged
+  before 0.4.38 keeps its provenance, its buffs and its masterwork line, and no longer needs
+  reforging to hold them.
+
+- Fruit trees and berry bushes can be learned. Until now the orchard and the hedge earned
+  no familiarity whatever, however much of them you picked, so their pages in the Crops
+  chapter stood permanently blank while every annual crop filled in. Both open now, and
+  both open on one principle: you learn a perennial by propagating it. A tree stays a
+  stranger however much fruit you take off it, until a cutting or a graft of your own has
+  taken; from that moment every pick teaches you a little more. A bush needs no such rule
+  written, because a cutting can only be taken from a bush somebody already raised.
+
+- Rooting a cutting is worth something. Setting a berry bush cutting and having it take
+  now pays Grafting, and clipping a bush pays according to where it grew: a wild hedge
+  pays Foraging, a bush you raised yourself pays Cuttings. Propagation was the one part
+  of the domain that asked real patience and paid nothing at all for it.
+
+- Picking an orchard pays for the fruit, not for holding the button. The orchard grant
+  fired on any interaction held past a second, including one over foliage that was
+  carrying nothing. The game drops fruit on two conditions, held past a second AND ripe,
+  and the grant now mirrors both of them. This mattered more than it looked: the new tree
+  familiarity above hangs off the same test and would have inherited the same fault,
+  handing out knowledge of a tree for standing in front of an empty one.
+
+- A cultivated mushroom is no longer a forage find. Picking a mushroom off a grow bed or
+  a fruiting bag paid Foraging exactly as though it had been found on a hillside, which
+  made a shed of vessels a better forager than a day of walking. Anything standing on or
+  beside one of those vessels is now read as a harvest and pays nothing through Foraging.
+  Wild mushrooms are untouched, and they remain the only mushrooms that pay.
+
+- The Grower's Eye covers a berry bed's soil too. Nutrient figures under a berry bush
+  went on reading in full to anyone who looked, because the game gives berry bushes their
+  own kind of farmland and the rank ladder had only ever been fitted to the crop kind.
+  The same ladder now applies to both, so an untrained eye reads nothing in a berry bed
+  either.
+
+- Anvils stop freezing your game. The first time you looked at an anvil in a session, the game
+  could lock up while it worked out which anvil tier every castable tool in the pack needs, and
+  on a large modlist it sat there long enough to look like a crash. Then it happened again at
+  the next anvil tier, and every session after. That work is now done once and remembered, so
+  the first look is instant. The Quire's players have had this since August through the server's
+  own patch mod, and it moves into the Almanac here because a singleplayer world loads no server
+  patch mod and was left with the freeze. The fault is Smithing Plus's own, reported upstream
+  with the fix offered; when it lands there, this stops mattering and comes out again.
+
 ### Release staging: what goes on the server, and in what order
 
 Nothing in this section is deployed. The Quire runs `thequire_0.1.33` and
@@ -299,8 +350,10 @@ moot because that world is being wiped anyway for the thirteen-family key change
 |---|---|---|---|---|
 | 1 | `IFFallow_1.0.4.zip` | `~/Downloads` | new | modid `invfarming`, display name "Involved Farming", ModDB page "Involved Farming: Fallow". Four names, one mod; the modid is the only one patching resolves against. Adds a fallow step after every harvest. Must land at or before 2, because thequire 0.1.36 patches `FallowPlacer` onto the ten Biodiversity: Crops plants upstream does not cover and gates those ops on this modid: without it they hold back and the pack's own crops silently skip fallow |
 | 2 | `thequire_0.1.36.zip` | pack `Releases/` | `thequire_0.1.33.zip` | carries the five `far-comb-*.json` files. 0.1.36 adds the bdcrop fallow patch for 1 |
-| 3 | `almanactcm_0.5.0.zip` | TCM `Releases/` | `almanactcm_0.4.40.zip` | rebuilt 2026-08-25, thirteen-family taxonomy and the deferred sickness writer |
-| 4 | `almanacilluminated_0.2.0.zip` | Illuminated `Releases/` | `almanacilluminated_0.1.4.zip` | TCM 0.5.0 gates on `MinIlluminatedVersion` 0.2.0 |
+| 3 | `precisionknapping_v1.4.3.zip` | `~/Desktop/vs-quire-mod-review` | new | ruled 2026-08-22. Enters on its own terms, no rank scaling of its mechanics. Order-independent of the rest; listed here so the set is one list |
+| 4 | `horseplow-1.0.0.zip` | Ingenium-test `Mods/` | new | reviewed and play-tested 2026-08-26. Zero Harmony patches; cannot touch soil sickness, which is written at plant and harvest and never at till. Order-independent, but it special-cases `invfarming` by name, so 1 should be present when it lands |
+| 5 | `almanactcm_0.5.0.zip` | TCM `Releases/` | `almanactcm_0.4.40.zip` | rebuilt 2026-08-25, thirteen-family taxonomy and the deferred sickness writer |
+| 6 | `almanacilluminated_0.3.0.zip` | Illuminated `Releases/` | `almanacilluminated_0.1.4.zip` | TCM gates on `MinIlluminatedVersion`. Was 0.2.0 when this table was written; the perennial and mushroom work took it to 0.3.0, so confirm the gate value against the zip before uploading |
 
 **What goes dormant rather than broken.** Every AoG-dependent patch op already carries
 `dependsOn: {"modid": "aogbreedingaddonpatch"}`, so it self-disables with the mod absent

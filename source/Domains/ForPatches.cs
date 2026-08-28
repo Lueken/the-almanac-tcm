@@ -308,6 +308,57 @@ public static class ForPatches
         }
     }
 
+    // ============================================================ berry bush cuttings
+
+    /// <summary>
+    /// Taking a cutting off a berry bush: the scarcest, most deliberate act in the whole bush
+    /// loop, and until now the only one that paid nothing at all.
+    ///
+    /// It paid nothing because it shares a block entity with the berry pluck but not a seam.
+    /// OnBlockInteractStop returns immediately unless the bush is Ripe, so the pluck patch above
+    /// never sees a cutting; the FOR harvesting verb listens for the onitemcollected bus event,
+    /// which the pluck path pushes and SetHarvested does not; and a cutting is not a break, so
+    /// the gathering patch below never sees it either. Three seams, three misses.
+    ///
+    /// PRACTICE routes by origin, the same line vanilla draws for a crop on and off farmland: a
+    /// cutting off a bush somebody raised is farming, off a wild one it is foraging.
+    ///
+    /// FAMILIARITY is paid only off a CULTIVATED bush, and that one condition is the whole gate.
+    /// A cultivated bush exists only because somebody took a wild cutting and grew it out, so
+    /// the first mark already costs a full propagation cycle and no extra rule is needed. That
+    /// is the same principle the orchard gate states out loud, arrived at from the other side.
+    ///
+    /// No dedup of ours. Vanilla allows one cutting per bush per year (yearsBetweenCuttings = 1,
+    /// enforced in IsHarvestable), which is a harder spam floor than any contextHash we would
+    /// write. The hash still carries the day so two bushes cut on one day both count.
+    /// </summary>
+    [HarmonyPatch(typeof(BEBehaviorFruitingBush), nameof(BEBehaviorFruitingBush.SetHarvested))]
+    public static class FruitingBushCuttingPatch
+    {
+        public static void Postfix(BEBehaviorFruitingBush __instance, IPlayer byPlayer)
+        {
+            var api = __instance?.Api;
+            if (api == null || api.Side != EnumAppSide.Server || byPlayer == null) return;
+
+            bool cultivated = FarPerennials.IsCultivated(__instance);
+            var pos = __instance!.Pos;
+            int day = (int)api.World.Calendar.TotalDays;
+            int hash = HashCode.Combine("cutting", pos?.X ?? 0, pos?.Y ?? 0, pos?.Z ?? 0, day);
+
+            if (cultivated)
+                Core?.Ledger?.Log(byPlayer, FarDomain.Code, FarDomain.TechCuttings, hash);
+            else
+                Core?.Ledger?.Log(byPlayer, ForDomain.Code, ForDomain.TechGathering, hash);
+
+            if (!cultivated || api is not ICoreServerAPI sapi) return;
+
+            string? id = FarPerennials.BushIdOf(__instance.Block);
+            if (id == null) return;
+            FarFamiliarity.BumpHarvest(sapi, byPlayer, id);
+            TcmLog.Cat(api, "far", $"cutting taken from a raised {id} at {pos}; familiarity credited to {byPlayer.PlayerName}");
+        }
+    }
+
     // ============================================================ gathering (break-collect)
 
     /// <summary>Destructive wild gather: plants, mushrooms, reeds, loose surface litter, and
