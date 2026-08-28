@@ -11,50 +11,133 @@ sets. Groundwork first: the pre-ascension fix list from the 2026-08-17 domain ve
 because Grandmaster work builds directly on this state.
 
 - The farmer learns each crop by name. Knowledge of a crop is now earned by harvesting it,
-  not granted for existing: every real harvest teaches you that crop a little, and what you
-  know of one crop spreads partway through its family, never all the way. Vanilla used to
-  show farmland moisture, nutrient figures, and every crop's demands to anyone who looked.
-  Now an untrained eye reads nothing in the soil; a Novice reads it in rough words; an
-  Apprentice reads bare ground in full figures, but a planted crop stays a stranger until
-  you have grown it (or its kin) enough times to know it; and from Journeyman, once a
-  family is truly known, the ground itself remembers for you what it last bore. Rank
-  decides what your hands do; familiarity decides what you know. They never cross.
+  not granted for existing, and what you know of one crop spreads partway through its
+  family, never all the way. Vanilla used to show farmland moisture, nutrient figures, and
+  every crop's demands to anyone who looked. Now an untrained eye reads nothing in the
+  soil; a Novice reads it in rough words; an Apprentice reads bare ground in full figures,
+  but a planted crop stays a stranger until you have grown it, or its kin, enough times to
+  know it; and from Journeyman, once a family is truly known, the ground itself remembers
+  for you what it last bore. Rank decides what your hands do; familiarity decides what you
+  know. They never cross.
 
-- The crop tells you when it is worth taking, and what taking it costs. Under Art of Growing
-  the roots and leaves do not ripen and hold the way vanilla crops do: a carrot bears most at
-  its seventh stage of eleven, then falls away for four more into a stage that gives no food
-  at all, only seed and rot. Vanilla's readout calls that last stage ripe, which aims a farmer
-  at the one moment that feeds nobody. A grower who knows the crop now reads it properly.
-  "Ready" means ready for the table, never for the seed head. Two stages past its best the
-  plant is going over, and every day it holds after that costs you. At the end it has gone to
-  seed and says so plainly. Grains and pulses are untouched, because for them the grain IS the
-  seed and their best stage is their last, so the old reading was always right for them. The
-  ladder is read from the drop tables as the game has them, not from a list kept in the mod, so
-  it stays true when the pack retunes a crop.
+  **What changed, on the plant side.** A crop reaches Acquainted at **2** credited harvests
+  and Versed at **8**. A family opens its shared reading when its members' own counters sum
+  to **16**. What you know of one crop carries **half way** into its kin, and kin alone stop
+  you **one short of Versed**, so the last step to knowing a crop is always your own hands.
+  Four of the thirteen families have a single member and so have no kin term at all. The
+  taxonomy is 13 families over 46 crops, and the Breeding Addon's size varietals fold onto
+  the species, so a gigantic carrot teaches carrot. Server knobs, all in
+  `ModConfig/almanactcm/`: `FamAcquaintedHarvests`, `FamVersedHarvests`,
+  `FamFamilyVersedSum`, `FamSpread`, `FamKinCeiling`, `FamCountCap`.
 
-- Some harvests leave you nothing to sow. On those same roots and leaves, a harvest taken for
-  the table returns no seed whatever, and only the bolted plant gives any. Lift every carrot at
-  its best forever and the seed bin empties with nothing on screen ever having explained why. A
-  grower who knows the crop is now told the price before paying it, once the plant is worth
-  taking. One who knows it well is told the whole fork: which stage bears best, roughly how
-  much, and what running it on instead would trade that harvest for.
+  **Two limits worth knowing before you plan around it.** A crop teaches **once per in-game
+  day** no matter how much of it you lift, so a single large field and a long patient season
+  teach the same amount (`FamMaxCreditsPerDay`). And a harvest only teaches if the plant was
+  at least **half grown**; ripping seedlings teaches nothing (`harvestRipeFloor`, 0.50).
 
-- The legumes give back. Peas, fava beans, lentils, soybean, peanut, alfalfa, and licorice
-  now return nitrogen to the farmland they grow in, each to its own measure and never past
-  a cap: fava the strongest of the annuals, alfalfa the strongest of all, and soybean
-  barely at all, because its harvest carries away more than the plant banks. Crop rotation
-  stops being lore and starts being practice.
+  **What changed, on the ground side.** Below Novice I the soil tooltip is cleared outright.
+  Novice reads words rather than numbers: parched, damp or soaked for moisture, poor, fair
+  or rich for the dominant nutrient. Apprentice I and above reads N, P, K and moisture as
+  figures. That ladder is rank alone and never consults familiarity, exactly as the plant
+  side never consults rank.
 
-- Some crops are picked, not pulled. Chives, leaf lettuce, eruca, estragon, cucumber,
-  tomato, and alfalfa can now be harvested by hand at their bearing stage: the plant gives
-  a small pick and falls back to regrow on the farmland's own clock. Breaking the plant
-  remains the full and final harvest. Keep picking small, or pull the plant; that is the
-  standing trade.
+  The full ladder, and what it comes to across a growing year:
+  [familiarity](https://thequirevs.com/farming-0-5.html#familiarity) and
+  [the two channels](https://thequirevs.com/farming-0-5.html#two-channels)
 
-- Yield answers to the crop, not to a single curve. The flat Untrained harvest dock is
-  replaced by a per-crop, per-rank yield table in server config, generated at the old
-  behaviour on first run so nothing changes until it is deliberately tuned, with a master
-  switch that removes TCM's hand from yield entirely.
+- The crop tells you when it is worth taking. Some crops do not ripen and hold the way
+  vanilla crops do: they bear most partway up the ladder, then fall away into a last stage
+  that gives seed and rot and no food at all. Vanilla's readout calls that last stage ripe,
+  which aims a farmer at the one moment that feeds nobody. A grower who knows such a crop
+  now reads it properly. "Ready" means ready for the table, never for the seed head. Two
+  stages past its best the plant is going over, and every day it holds after that costs
+  you. At the end it has gone to seed and says so plainly.
+
+  **What changed.** The reading is built per species by walking the block registry's own
+  drop tables, stage by stage, and caching the result, so it stays true when a pack retunes
+  a crop and needs no list kept inside the mod. Nine chaff codes (rot, grass, hay, thatch,
+  straw, firewood and kin) are struck out before the food total is counted, so litter never
+  reads as a harvest. "Ready" is the first stage carrying the maximum food. "Going over"
+  fires two stages past that, which is the second stage of decline rather than the first.
+  Size varietals keep their own ladder, because a gigantic carrot is not a normal one.
+
+  **This only fires for crops that turn over**, meaning ones that either bolt to seed or
+  change what they yield near the end. No vanilla crop does either, so on a vanilla install
+  every crop takes the ordinary young / grown / ready reading and nothing here is visible.
+  Art of Growing supplied the turning crops this was written against and was retired from
+  The Quire on licence grounds, and De Artibus Rusticis, the other source of them, is not
+  in the pack either. The reading is correct, general, and currently waiting for a roster
+  that exercises it.
+
+- The seed fork is built, and nothing on the current roster triggers it. Where a crop makes
+  taking the product cost the propagation, so that a harvest taken for the table returns no
+  seed at all and only the bolted plant gives any, a grower who knows the crop is told the
+  price before paying it, and one who knows it well is told the whole fork: which stage
+  bears best, roughly how much, and what running it on instead would trade away.
+
+  **Said plainly because it would otherwise read as a promise.** The warning is gated on a
+  crop that both bolts and never gives food and seed from the same stage. No crop on the
+  live roster satisfies the second half, so no player will see either line today. This is
+  groundwork for the successor to the retired Arts chain, which is where that trade-off was
+  going to live. It is recorded here so it is not rediscovered as a bug later, and so
+  nobody goes looking in game for a message the code cannot currently produce.
+
+- The legumes give back. Seven pulses now return nitrogen to the farmland they stand in,
+  each to its own measure and never past its own ceiling. Crop rotation stops being lore
+  and starts being practice.
+
+  **What changed.** Nitrogen added per growth stage, and the ceiling it climbs toward:
+  alfalfa 2.5 to a cap of 90, fava beans 2.0 to 85, lentils 1.2 to 70, peas, peanut and
+  licorice 1.0 to 70, soybean 0.4 to 55. Nitrogen only; phosphorus and potash are never
+  touched. The cap is hard rather than soft, so at or above it the plant adds nothing at
+  all. Fixation rides a completed growth step, which means a plant left standing ripe banks
+  no more than one that was taken on time.
+
+  **What is live depends on your modlist.** Soybean, peanut and licorice patch vanilla
+  crops and work anywhere. Fava beans, lentils and peas need De Artibus Rusticis; alfalfa
+  needs Biodiversity: Crops. Without those, four of the seven are inert, and The Quire runs
+  neither, so three legumes fix nitrogen on this server.
+
+  Why the rotation pays: [the reason to rotate](https://thequirevs.com/farming-0-5.html#rotation)
+
+- Some crops are picked, not pulled. Seven crops can now be harvested by hand at their
+  bearing stage: the plant gives a small pick and falls back to regrow on the farmland's
+  own clock. Breaking the plant remains the full and final harvest. Keep picking small, or
+  pull the plant; that is the standing trade.
+
+  **What changed.** The bearing stage, the stage it falls back to, and what one pick gives:
+  chives 6 back to 4 (about 1.5 herb), leaf lettuce 6 back to 4 (about 1.5), eruca 5 back
+  to 3 (about 2), estragon 6 back to 4 (about 2), cucumber 12 back to 9 (about 2, the
+  longest ladder of the set), tomato 7 back to 5 (about 3, the largest pick), alfalfa 8
+  back to 5 (about 1.5). The pick takes six tenths of a second and never breaks the block,
+  which is why breaking still pays the whole plant. Regrowth uses the farmland's existing
+  timer, so no second clock is introduced. Horseradish was deliberately left out: a
+  perennial root is dug, not picked.
+
+  **None of the seven is a vanilla crop.** Five need De Artibus Rusticis and two, tomato
+  and alfalfa, need Biodiversity: Crops. In an install with neither, this entry does
+  nothing, and that includes The Quire as it stands.
+
+- Yield answers to the crop, not to a single curve. A per-crop, per-rank yield table now
+  sits in server config, generated at the old behaviour on first run so nothing changes
+  until somebody deliberately tunes it.
+
+  **What changed.** `ModConfig/almanactcm/FAR-yields.json` is written on first world load
+  with one row per crop, 46 of them across 13 botanical families, and six bands per row:
+  `untrained`, `novice`, `apprentice`, `journeyman`, `master`, `grandmaster`. Generated
+  values are the legacy shape, 0.85 untrained and 1.0 everywhere above, so a fresh install
+  behaves exactly as 0.4.40 did. The bands map to levels 0, 1-4, 5-8, 9-12, 13-16 and 17.
+  The table applies at both harvest seams, breaking the plant and the cut-and-come-again
+  pick. A row set to zero or below is read as 1.0, so no crop can be zeroed through this
+  file, and an unreadable file logs an error and is left untouched rather than overwritten.
+
+  **Two corrections to how this was described.** The flat Untrained dock is not replaced;
+  it survives as the fallback for any crop with no table row, and it lives in
+  `ModConfig/almanactcm/FAR.json` as `harvestDockUntrained`, not in the yield table. And
+  `enabled: false` lifts TCM's RANK hand off yield, dock included, but soil sickness
+  applies its own multiplier before the table is consulted and is not covered by that
+  switch. The honest claim is that the switch removes rank from yield, not that it removes
+  TCM from yield.
 
 - The kill ledger stops counting the barn. Hunting credit for a kill now applies the same
   livestock fence as combat: owned, tamed, domesticated, or an established captive lineage
@@ -83,6 +166,12 @@ because Grandmaster work builds directly on this state.
   all, naming the holder, as it always did for pieces from before this change. A freehand
   piece annealed straight off the pipe still carries no mark; that gap is known and stays.
 
+  **One behaviour worth stating outright.** Stamping does not brand only the piece you have
+  finished. It brands every unmarked raw-glass stack anywhere in your inventory at that
+  moment. That is deliberate rather than accidental, since unmarked glass is by definition
+  glass nobody has claimed, but it does mean a stack picked up unmarked and carried becomes
+  yours the next time you blow or cast. Creative inventories are skipped.
+
 - A rank-up banner survives a disconnect. The ceremony held for a player inside login
   protection was queued in memory only, so logging out within a few seconds of an
   overnight consolidation discarded the banner permanently. The rank itself was always
@@ -110,14 +199,26 @@ because Grandmaster work builds directly on this state.
 - The fighter's deeds go on record. A perfect parry, a ranged kill, and the long kill
   from past the Marksman's Eye's own reach, where no aiming aid can have helped the
   shot, now each write a silent tally to the fighter's own knowledge, the same book
-  the Storm-Warden's deeds already keep.
-  Nothing pays practice and nothing shows off; these are the ledgers a Melee or
-  Marksmanship ascension will one day be judged against, and until now both callings
-  detected the feats and forgot them in the same breath.
+  the Storm-Warden's deeds already keep. The tallies pay no practice and show nothing
+  off; these are the ledgers a Melee or Marksmanship ascension will one day be judged
+  against, and until now both callings detected the feats and forgot them in the same
+  breath.
+
+  **What counts as ranged is worth knowing.** A kill is filed as ranged when a separate
+  projectile delivered the blow, not by what you were holding and not by how far away you
+  stood. A thrown spear is a ranged kill; the same spear thrust is a melee one. A bow fired
+  at two paces is still ranged. Distance only decides whether the long-kill tally is bumped
+  as well, at sixty blocks, which is the Marksman's Eye's own outer reach.
+
+  **Caught before release.** Adding these two counters silently reparsed the kill grant, so
+  for a time every melee kill wrote to the ranged tally and a ranged kill paid both Melee
+  and Marksmanship at full rate. It compiled without a warning. Fixed before this shipped;
+  recorded here because the failure left no trace anywhere else.
 
 - The drying rack pays whichever trade the drying served. Dried herbs off the alchemy
-  rack pay Alchemy exactly as before. Dried charcuterie off the same rack, meats and
-  sausages hung there thanks to Expanded Foods, now pays Cooking's drying credit, the
+  rack pay Alchemy exactly as before. Food dried off the same rack, the meats and sausages
+  hung there thanks to Expanded Foods among anything else edible, now pays Cooking's drying
+  credit, the
   same one the meat hooks and drying frames pay, where before it passed every honesty
   check and paid no one at all. Same anti-farm gates, same once-per-rack-per-minute
   pace; nothing changed for herbs.
@@ -126,8 +227,9 @@ because Grandmaster work builds directly on this state.
   open at Apprentice I Fishing: below that, the trap refuses to be set (it stays in
   your hand) and the net refuses the swing. Everything around them stays free at any
   rank: baiting and emptying a trap someone else set, the worm bin and compost bin,
-  the fillet knife, the logbook and tags. A Master sets the trap line and a Novice can
-  run the collection rounds, the same division the temporal repair gate draws. The
+  the fillet knife, the logbook and tags. One player can set the line and another of any
+  rank can run the collection rounds, the same division the temporal repair gate draws.
+  There is one threshold and nothing above it changes how the tackle behaves. The
   primitive gear, basket, trotline, weir and spear, remains the road that gets you
   there, and all of it now wants bait: an unbaited basket or trotline catches nothing
   on this server, with the weir left as the one baitless exception, slow and patient
@@ -148,21 +250,26 @@ because Grandmaster work builds directly on this state.
   gated at any rank, because pottery's day-one reachability is the point of the
   calling. The duplicate-layer stroke is not gated but learned: where the game always
   copied a flat four voxels per click, an untrained hand now manages two, Novice I
-  restores the four, and the count climbs to six by Master and holds. The powered
-  pottery wheel is untouched: it remains the accessibility option at low rank and the
-  mass-production path when driven.
+  restores the four, and the count climbs through five to six by Master and holds. The
+  powered pottery wheel is untouched: it remains the accessibility option at low rank and
+  the mass-production path when driven, at double the hand rate. One correction to how
+  that has been described elsewhere: the wheel places one voxel per use before its
+  multiplier, not three.
 
-- The tool remembers every hand that made it. A crafted handle now carries its
-  woodworker's quality, and a crafted binding its maker's, leather bindings by the
+- The tool remembers every hand that made it. A handle now carries the quality of the
+  woodworker who made it, and a binding its own maker's, leather bindings by the
   hunter's hand, fibre and cloth by the tailor's, the same banded figures the smith's
   head has always carried: five percent more part durability from a Journeyman's
   work, ten from a Master's, fifteen from a Grandmaster's. The quality is stamped on
   the part when it is made and settles into the tool when it is assembled, through
   the tinkering system's own part durability, so nothing double counts. A plain
   stick was never made by anyone and stays plain, and work below Journeyman stays
-  unmarked, because a mark always means something. One tool can now carry four
-  names: the smith at the head, the woodworker at the haft, the tailor or hunter at
-  the binding, and the engineer who keeps it serviced.
+  unmarked, because a mark always means something. One tool can now carry three names on
+  its tooltip: the smith at the head, the woodworker at the haft, and the tailor at the
+  binding. An earlier draft of this note claimed a fourth, the engineer who keeps it
+  serviced; that line belongs to wear and tear on a block and never renders on a tool. The
+  hunter's hand counts toward a leather binding's durability but the visible credit line
+  reads Tailoring for every binding material.
 
 - The brewer learns to read the dark. A sealed barrel has always been a black box; now
   your Brewing rank lights it up when you look at one. An Apprentice reads roughly how
@@ -176,8 +283,10 @@ because Grandmaster work builds directly on this state.
   never less than one portion extra, barrel and clay fermenter alike. It fires at the
   top rather than climbing to it, the same shape as the Cook's Mark, and it lives
   entirely in the count, so no liquid ever carries an attribute the barrel could
-  erase. Spirits, preserves and brews all qualify; the measure is the first thing the
-  calling gives its Grandmaster beyond the words on the label.
+  erase. It reaches anything that finishes in a barrel or a clay fermenter, which means
+  preserves and brews. Distilled spirits do not qualify: distillation banks its practice at
+  the boiler and has no completion hook for the measure to fire on. The measure is the first
+  thing the calling gives its Grandmaster beyond the words on the label.
 
 - No remedy without a maker outdoes the best maker's work. An unbranded healing item,
   loot, trader stock, anything that never knew an alchemist's hands, used to wake a
@@ -188,13 +297,15 @@ because Grandmaster work builds directly on this state.
 
 - The herb rack remembers its alchemist, not its last visitor. Taking dried herbs off a
   rack used to re-mark the rack with the taker's own rank, so a Master's preserving
-  touch vanished the moment anyone else collected from it. Only placing herbs marks the
-  rack now; taking never does.
+  touch vanished the moment anyone else collected from it. Placing marks the rack now;
+  taking never does. The mark follows whoever loaded the rack, with no filter on what was
+  loaded, so anything the rack accepts will set it.
 
 - An annealer batch banks once, as its own book always said. Retrieving a finished batch
   across several seconds used to pay the annealing credit again for each second the
   unloading took; now loading the annealer arms a single credit and the first finished
-  piece taken collects it. Nothing else about annealing changed.
+  piece taken collects it. The rate a batch pays is unchanged; what changed is the number
+  of times it pays.
 
 - Building the machine teaches the builder; running it teaches no one. The mill was ruled
   to grant nothing for use, and this is the other half of that ruling: the first time a
@@ -202,8 +313,10 @@ because Grandmaster work builds directly on this state.
   builder banks a large one-time Engineering credit. Every machine type pays its own
   first: the first windmill, waterwheel, helve hammer, pulverizer, mechanized quern,
   chopper and sawmill, and with IndustrialStory the first reverberatory furnace that
-  takes heat with its structure whole. Repeats of a type pay half of the one before,
-  never quite reaching nothing. A decorative or misassembled machine pays nothing at
+  takes heat with its structure whole. Repeats of a type pay half of the one before until
+  the fourth, then hold at a floor rather than halving forever: the sequence runs 20, 10,
+  5, 2.5, then 2 from the fifth build onward. A decorative or misassembled machine pays
+  nothing at
   all: the credit waits until the thing runs, however long that takes, and it waits for
   its builder, not for whoever stands near. A hand-cranked quern never counts; the same
   quern first turned by an axle does.
@@ -219,14 +332,28 @@ because Grandmaster work builds directly on this state.
   beside it, and nothing ever credited that, so the trapping ledger has been empty since
   the day it opened. Now a trap kill banks trapping practice for the trap's owner. The
   owner's rank works the trap itself: a green hand's set loses its bait and springs empty
-  more often than the stock numbers, a master's set fails not much more than half as
-  often, and no rank ever makes a trap certain. At the top, one kill in four leaves the
-  trap still set with its bait untouched, the line still working. Unowned traps, and
-  traps whose owner is offline, behave exactly as stock and bank nothing.
+  more often than the stock numbers, a ranked hand's set fails less often, and no rank ever
+  makes a trap certain. At the top, one kill in four leaves the trap still set with its
+  bait untouched, the line still working. Unowned traps, and traps whose owner is offline,
+  behave exactly as stock and bank nothing.
+
+  **The figures, because an earlier draft said "about half" and that was too generous.**
+  Stock failure is 19 percent. A Master's set fails about 13.5 percent of the time and a
+  Grandmaster's about 11.6, so the best hands cut failure by roughly a third. The knob
+  underneath reads as a larger reduction than the rounding ever delivers.
 
 - The raised split follows the carcass to the workstation. Butchering a player-raised
-  beast at the hook or the table now pays the barn and the knife alike, half Hunting and
-  half Farming butchery, the same split the field knife has used since it landed.
+  beast at the hook or the table now pays the barn and the knife alike, half to Hunting's
+  dressing and half to Farming's butchery, on the same seam the field knife has used since
+  it landed.
+
+  **It is an even split of the act, not of the reward.** The two verbs are not worth the
+  same per unit, so half of each is not half of the total: Farming's butchery pays twice
+  what Hunting's dressing does, and a raised carcass taken at the station banks half again
+  what a wild one does. Both an earlier draft of this note and a comment in the code called
+  it "same total", which is true of the field knife, where the two verbs match, and false
+  at the station. Raising a beast is meant to be worth more than finding one. The
+  arithmetic was simply not what either description claimed.
   Before this the attribution died twice on the way to the station: the carcass pickup
   copied the animal's weight, generation and drop table onto the item but not who
   raised it, and the skinning stage rebuilt the item keeping only the mod's own three
@@ -244,9 +371,10 @@ because Grandmaster work builds directly on this state.
 - The Storm-Warden's deeds go on record. Surviving a temporal storm from its first gust
   to its last without dying, sheltered or not, now writes a per-strength tally to the
   player's own knowledge, and finishing a translocator repair or a teleporter recharge
-  writes another. Nothing pays practice here and nothing shows off; these are the
-  ledgers a Temporal ascension will one day be judged against, and until now the domain
-  kept no book at all.
+  writes another. The tallies themselves pay no practice and show nothing off; these are
+  the ledgers a Temporal ascension will one day be judged against, and until now the domain
+  kept no book at all. Repairing still pays its own practice as it always did. It is the
+  counter beside it that is silent, not the deed.
 
 - The storm's first warning now finds each player by their rank, and the ladder is the
   warning. The approaching cues, Temporal Symphony's warning call, bells, fog and
@@ -260,9 +388,12 @@ because Grandmaster work builds directly on this state.
   rank, by ruling: the toll is predictable, and reading "can I survive this outside"
   from it is the player's own call. The written storm sense arrives in the same breath
   as the bells now, naming the strength from Journeyman up, instead of running a day
-  ahead. Temporal Symphony itself is untouched and renders every cue exactly as before;
-  its own timings simply arrive addressed to you now. One config switch returns the
-  whole thing to stock.
+  ahead. Temporal Symphony renders every cue exactly as it always did; what changed is who
+  receives them and when. Two of its calls are intercepted to do that, and there is a cost
+  worth naming: a player whose own window has not opened yet no longer gets the early quake
+  cue that Temporal Symphony used to send everyone. That is the gate working as ruled rather
+  than a fault, but it is a cue you will notice missing if you are used to it. One config
+  switch returns the whole thing to stock.
 
 - Storm resilience works off The Quire. The Temporal rank curve that slows stability
   loss (and speeds it for the untrained) was applied through a stat only
@@ -282,31 +413,84 @@ because Grandmaster work builds directly on this state.
   before 0.4.38 keeps its provenance, its buffs and its masterwork line, and no longer needs
   reforging to hold them.
 
+  **Three reasons, where an earlier draft gave two.** The promised reminder was never
+  written, so nobody was warned. The delete is not consequence-clean: a stored older head
+  would have started claiming a rank it never held, and on a folding tool the promised
+  "Made by" fallback would not have printed at all. And the migration that would have
+  avoided both does not work, because the dominant reader of the old mark runs client-side,
+  so the write would never persist.
+
 - Fruit trees and berry bushes can be learned. Until now the orchard and the hedge earned
   no familiarity whatever, however much of them you picked, so their pages in the Crops
   chapter stood permanently blank while every annual crop filled in. Both open now, and
-  both open on one principle: you learn a perennial by propagating it. A tree stays a
-  stranger however much fruit you take off it, until a cutting or a graft of your own has
-  taken; from that moment every pick teaches you a little more. A bush needs no such rule
-  written, because a cutting can only be taken from a bush somebody already raised.
+  both open on one principle: you learn a perennial by propagating it.
+
+  **What changed.** A tree stays a stranger however much fruit you take off it until a
+  cutting or graft of your own has taken; from that moment every pick teaches a little
+  more. The gate is literal, a check that your own counter for that tree is already above
+  zero, and the only thing that can move it off zero is a scion of yours rooting. Trees and
+  bushes file under `tree-{mod}-{type}` and `bush-{mod}-{type}`, so a modded orchard keeps
+  its own pages rather than being filed under vanilla. The tiers are the crop tiers,
+  Acquainted at 2 and Versed at 8.
+
+  **Correction to how the bush rule was described.** An earlier draft of this note said a
+  bush needed no cultivation rule because a cutting can only come from a bush someone
+  raised. That is wrong on both halves: vanilla lets you clip any bush, wild ones included,
+  and the rule is written explicitly. A clip from a bush you raised teaches; a clip from a
+  wild hedge does not.
+
+  **One known gap.** The scion's identity is captured when the cutting is placed. A cutting
+  already in the ground before this shipped pays grafting practice but opens no tree page,
+  because there is no record of what it was.
 
 - Rooting a cutting is worth something. Setting a berry bush cutting and having it take
   now pays Grafting, and clipping a bush pays according to where it grew: a wild hedge
   pays Foraging, a bush you raised yourself pays Cuttings. Propagation was the one part
   of the domain that asked real patience and paid nothing at all for it.
 
+  **What changed.** Grafting is the highest-paying verb in Farming, and it is meant to be:
+  no other Farming verb pays more per act. Cuttings pays exactly half of it, and a wild
+  clip pays the Foraging gathering rate instead, which is far lower and much more heavily
+  damped. The patience is real: a bush cutting matures over two to four months, which on
+  The Quire's thirty-day months is sixty to a hundred and twenty days. There is no
+  take-or-die roll on a bush; reaching maturity is itself the success.
+
 - Picking an orchard pays for the fruit, not for holding the button. The orchard grant
-  fired on any interaction held past a second, including one over foliage that was
-  carrying nothing. The game drops fruit on two conditions, held past a second AND ripe,
-  and the grant now mirrors both of them. This mattered more than it looked: the new tree
-  familiarity above hangs off the same test and would have inherited the same fault,
-  handing out knowledge of a tree for standing in front of an empty one.
+  fired on any interaction held past the threshold, including one over foliage carrying
+  nothing. The game drops fruit on two conditions, held long enough AND ripe, and the grant
+  now mirrors both.
+
+  **What changed.** The threshold is vanilla's own 1.1 seconds, not a figure this mod
+  invented. Ripeness has to be read before the interaction runs, because a successful pick
+  sets the foliage back to plain on its way to handing over the fruit, so checking
+  afterwards always finds an unripe tree. This mattered more than it looked: the new tree
+  familiarity hangs off the same test and would have inherited the same fault, handing out
+  knowledge of a tree for standing in front of an empty one.
+
+  **One thing the fix deliberately does not change.** Practice and knowledge part ways
+  here. Picking a wild grove still pays orchard practice forever; only the familiarity mark
+  carries the propagation gate. Repeat picking is damped by position and time rather than
+  by tree, and the bucket covers a whole vertical column, so working up one tree is one
+  context, not one per branch.
 
 - A cultivated mushroom is no longer a forage find. Picking a mushroom off a grow bed or
   a fruiting bag paid Foraging exactly as though it had been found on a hillside, which
-  made a shed of vessels a better forager than a day of walking. Anything standing on or
-  beside one of those vessels is now read as a harvest and pays nothing through Foraging.
-  Wild mushrooms are untouched, and they remain the only mushrooms that pay.
+  made a shed of vessels a better forager than a day of walking. Wild mushrooms are
+  untouched, and they remain the only mushrooms that pay.
+
+  **What changed, precisely.** A mushroom growing out of a bed directly below it, or off a
+  bag directly beside it, is read as a harvest. Those are the only two geometries tested:
+  a mushroom sitting on top of a bag is not caught, and neither is one merely standing
+  beside a bed. The test applies to mushrooms alone, so other plants near a vessel are
+  unaffected. Vessels are matched by block code rather than by a hard reference, so TCM
+  does not depend on Substrate and the whole test is skipped in a world without it.
+
+  **A cultivated pick now falls out of the Foraging path entirely**, which is worth saying
+  because two side effects follow that the first draft of this note did not mention. It no
+  longer records a spot in the Forager's Memory, and it no longer runs Patch Stewardship,
+  so an untrained player picking off a grow bed no longer wounds the patch, and a ranked
+  one no longer earns the stewardship roll. Both are consequences of the same ruling, not
+  separate changes.
 
 - The Grower's Eye covers a berry bed's soil too. Nutrient figures under a berry bush
   went on reading in full to anyone who looked, because the game gives berry bushes their
