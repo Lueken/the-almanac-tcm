@@ -98,7 +98,10 @@ public static class FarFamiliarity
     // ------------------------------------------------------------ identity
 
     // The AoG Breeding Addon's varietal sizes (verified 1.2.2: game:crop-(size)-(type)-(stage)).
-    // A varietal IS its species for familiarity: growing wild carrots teaches you carrots.
+    // A varietal IS its species for familiarity: a "wild" SIZE grade sown and raised on your own
+    // farmland teaches its species like any other grade. Whether a harvest teaches AT ALL is the
+    // seams' farmland gate (RULED 2026-08-30, farmed-only): a wild FIND pulled off unworked
+    // ground maps to the same id and banks nothing.
     private static readonly string[] varietalSizes =
         { "wild", "small", "medium", "decent", "large", "hefty", "gigantic" };
 

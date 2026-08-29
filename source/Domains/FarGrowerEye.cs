@@ -466,8 +466,30 @@ public static class FarGrowerEye
             if (ripeIds == null || !ReferenceEquals(builtFor, api)) Build(sapi);
             if (!ripeIds!.Contains(__instance.BlockId)) return;
 
-            if (idToCrop.TryGetValue(__instance.BlockId, out string? cropId))
+            if (idToCrop.TryGetValue(__instance.BlockId, out string? cropId) && IsFarmed(world, pos))
                 FarFamiliarity.BumpHarvest(sapi, byPlayer, cropId);
+        }
+
+        /// <summary>
+        /// Farmed-only (RULED 2026-08-30). A vine fruit never stands ON farmland: the
+        /// motherplant does, and the fruit sets on whatever free block sits beside it. So
+        /// "farmed" here is farmland directly below the fruit (the fruit crept onto the next
+        /// tilled tile, or a modded vine fruiting in place) OR a cardinal neighbour that is a
+        /// crop standing on farmland (the motherplant). Wild worldgen pumpkins carry their
+        /// motherplant on plain soil and fail both tests. Break the vines before the fruit and
+        /// the fruit forfeits its mark, which is the price of clearing in the wrong order.
+        /// </summary>
+        private static bool IsFarmed(IWorldAccessor world, Vintagestory.API.MathTools.BlockPos pos)
+        {
+            var ba = world.BlockAccessor;
+            if (ba.GetBlockEntity(pos.DownCopy()) is Vintagestory.GameContent.BlockEntityFarmland) return true;
+            foreach (var face in Vintagestory.API.MathTools.BlockFacing.HORIZONTALS)
+            {
+                var npos = pos.AddCopy(face);
+                if (ba.GetBlock(npos)?.CropProps == null) continue;
+                if (ba.GetBlockEntity(npos.DownCopy()) is Vintagestory.GameContent.BlockEntityFarmland) return true;
+            }
+            return false;
         }
 
         private static void Build(Vintagestory.API.Server.ICoreServerAPI sapi)

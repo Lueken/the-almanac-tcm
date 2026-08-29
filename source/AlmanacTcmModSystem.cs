@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.5.1")]
+    Version = "0.5.2")]
 
 namespace AlmanacTcm;
 
@@ -143,6 +143,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("FAR-soilsickness", () => Domains.FarSoilSickness.PatchGrowth(api, harmony));
             Try("FAR-soilsickness-sync", () => Domains.FarSoilSickness.PatchSync(api, harmony));
             Try("FAR-bonus", () => Domains.FarBonusPatches.PatchConditional(api, harmony));
+            Try("FAR-fallow-read", () => Domains.FarFallowRead.PatchConditional(api, harmony));
             Try("COO", () => Domains.CooPatches.PatchConditional(api, harmony));
             Try("COO-bonus", () => Domains.CooBonusPatches.PatchConditional(api, harmony));
             Try("COO-ovengate", () => Domains.CooOvenGate.PatchConditional(api, harmony));

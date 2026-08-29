@@ -856,10 +856,14 @@ public static class FarPatches
         string? cropId = FarFamiliarity.CropIdOf(world.Api, crop);
         if (cropId != null && world.Api is Vintagestory.API.Server.ICoreServerAPI sapi)
         {
-            FarFamiliarity.BumpHarvest(sapi, byPlayer, cropId);
-
             if (world.BlockAccessor.GetBlockEntity(pos.DownCopy()) is Vintagestory.GameContent.BlockEntityFarmland farmlandBe)
             {
+                // Familiarity is FARMED-ONLY (RULED 2026-08-30): pulling a wild crop is real
+                // work and pays practice through FOR, but only ground you tilled teaches. The
+                // farmland test is the whole gate, the same shape the orchard seam already
+                // holds with its rooted-species counter.
+                FarFamiliarity.BumpHarvest(sapi, byPlayer, cropId);
+
                 farmlandBe.CropAttributes.SetString(FarGrowerEye.LastBoreIdAttr, cropId);
                 farmlandBe.CropAttributes.SetString(FarGrowerEye.LastBoreNutrientAttr,
                     crop.CropProps.RequiredNutrient.ToString());
@@ -1036,7 +1040,9 @@ public static class FarPatches
         // Familiarity and soil sickness both carry their OWN once-per-in-game-day cap inside
         // BumpHarvest and NoteHarvest, so a bed picked four times in an afternoon is still the one
         // crop standing in that ground. Nothing extra is needed at this seam to hold that line.
-        FarFamiliarity.BumpHarvest(sapi, byPlayer, __state.CropId);
+        // Farmed-only (RULED 2026-08-30): a wild pick pays the practice above and teaches nothing.
+        if (world.BlockAccessor.GetBlockEntity(blockSel.Position.DownCopy()) is Vintagestory.GameContent.BlockEntityFarmland)
+            FarFamiliarity.BumpHarvest(sapi, byPlayer, __state.CropId);
 
         // The farmland's rotation memory (LastBore) is deliberately NOT stamped here. It records
         // what the ground last bore once the crop is GONE, and after a pick the plant is still

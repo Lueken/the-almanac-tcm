@@ -4,6 +4,28 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.2 (2026-08-30)
+
+Two farming answers out of the first beta week.
+
+- **Only ground you tilled teaches.** Familiarity was meant to be earned by growing, and the
+  book already said so; three harvest seams didn't. A wild crop pulled off unworked ground
+  banked the same learning mark as a farmed one, so a walk through the weeds could carry a
+  plant to Versed without a seed ever going in the ground. All three seams now gate on
+  farmland under the harvest: the row-crop break, the cut-and-come-again pick, and the vine
+  fruit, which never stands on farmland itself and instead looks for its motherplant on
+  farmland beside it. Wild pulls still pay Foraging practice as the real work they are; what
+  they no longer pay is knowledge. This is the rule the orchard seam has held since 0.5.0,
+  applied to the rest of the field.
+- **The fallow mat now explains itself.** Involved Farming stands a Fallow block on every
+  harvested square and puts the how-to in the handbook, where nobody reads it mid-harvest.
+  Testers were breaking the mat by hand and quietly eating that mod's 5% nutrient spill
+  without knowing there was a choice. The block's hover now carries the two lines that
+  matter: the soil under a standing mat mends toward a tenth more than worked land holds, and
+  the hoe re-till is the clean removal while the hand-tear spills 5% of every nutrient. The
+  Turned Earth's rest chapter says the same in full. Invfarming-conditional; without that mod
+  nothing changes.
+
 ## 0.5.1 (hotfix, 2026-08-28)
 
 Two 0.5.0 features never ran on the server. Both were found by reading the boot log after the

@@ -38,7 +38,7 @@
       "blocks": [
         {
           "type": "paragraph",
-          "text": "You come to know a crop by growing it. Not by reading about it, not by holding its seed, and not by watching somebody else's field. Take a harvest and the plant becomes a little less of a stranger to you, and the Almanac begins to fill in what it knows."
+          "text": "You come to know a crop by growing it. Not by reading about it, not by holding its seed, not by watching somebody else's field, and not by pulling a wild one out of the weeds. A find on unworked ground fills your basket and teaches you nothing; only a harvest off ground you tilled yourself makes the plant less of a stranger, and then the Almanac begins to fill in what it knows."
         },
         {
           "type": "ledger",
@@ -144,7 +144,7 @@
         {
           "type": "steps",
           "items": [
-            "<strong>Leave it fallow.</strong> An empty square recovers faster than a planted one. This is the oldest answer there is and it still works.",
+            "<strong>Leave it fallow.</strong> An empty square recovers faster than a planted one. This is the oldest answer there is and it still works. After a harvest the square says so itself: a mat of spent stalks stands on the ground, and while it stands the soil beneath mends toward a tenth more than worked land holds. When you mean to sow again, till the mat under with your hoe. Tear it out by hand and it spills 5% of every nutrient on the way, which is the lazy road and priced like one.",
             "<strong>Feed the ground well.</strong> Rich soil sheds its weariness faster than poor soil does, permanently, with nothing to learn and no work to do. It only helps while the square is empty, because a standing crop shelters what ails it. Compost your beds and your rest years get shorter on their own.",
             "<strong>Fold in a brassica.</strong> Grow a cabbage, a mustard, a cress or a horseradish to its full growth, then sneak and take a hoe to it rather than harvesting. You lose the crop entirely and the ground is largely cleansed of everything, not only what that plant would have tired."
           ],
