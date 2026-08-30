@@ -218,16 +218,25 @@ public static class WooStumpPatches
     /// a stump block never flies, and the base faller spawns as a ghost instead of dying.</summary>
     public static class GhostPatch
     {
+        /// <summary>Last refused-stump position, for log dedup only (server thread).</summary>
+        private static BlockPos? lastRefusedPos;
+
         public static bool Prefix(Entity __0)
         {
             if (__0 is not EntityBlockFalling faller) return true;
 
             // Never fly: refuse the spawn outright (the domino toss). Initialize never runs,
             // so the stump block is never removed either — it simply stays in the ground.
+            // Logged once per position: the sweep re-tries every tick the trunk overlaps the
+            // stump (nine refusals in one second on the first live test).
             if (IsStumpBlockCode(BlockCodeRef(faller)))
             {
-                if (logApi != null) TcmLog.Cat(logApi, TcmLog.Hooks,
-                    $"WOO stump: refused a flying stump at {faller.initialPos}");
+                if (logApi != null && !Equals(lastRefusedPos, faller.initialPos))
+                {
+                    lastRefusedPos = faller.initialPos?.Copy();
+                    TcmLog.Cat(logApi, TcmLog.Hooks,
+                        $"WOO stump: refused a flying stump at {faller.initialPos}");
+                }
                 return false;
             }
 
