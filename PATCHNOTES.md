@@ -4,7 +4,7 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
-## 0.5.3 (unreleased)
+## 0.5.3 (2026-08-30)
 
 - **A felled tree leaves a stump.** Strike the base and the trunk goes over the way it always
   has, but the butt stays in the ground as a new block: bark on its sides, rings on its cut,
