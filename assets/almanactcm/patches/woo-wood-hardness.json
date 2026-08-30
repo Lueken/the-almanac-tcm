@@ -1,0 +1,63 @@
+[
+  // WOO wood hardness (the IDG divorce, Phase 1; brief: projects/briefs/idg-divorce).
+  // Wood gets its character back as plain block resistance, the one number the decompiles
+  // proved feeds felling, hand-breaking and station work alike. Independently derived from
+  // public Janka hardness data: resistance = 4.5 x clamp(1.0 + 0.46 ln(J/540), 0.70, 1.80),
+  // pine anchored at vanilla 4.5, ebony on the 1.80 ceiling, kapok on the 0.70 floor.
+  // Logarithmic on purpose: ebony costs 2.6x kapok's work, not the punishing 7.5x a linear
+  // map gives. Identical table on all three log variants, so a debarked log never hardens.
+  // Gated INVERT on indappledgroves: inert while IDG is installed (its own resistance patch
+  // owns these paths), arms itself the boot IDG is removed. Aged, rotten and every modded
+  // species fall through to the vanilla 4.5 catch-all.
+  {
+    "op": "remove",
+    "path": "/resistance",
+    "file": "game:blocktypes/wood/woodtyped/log.json",
+    "dependsOn": [ { "modid": "indappledgroves", "invert": true } ]
+  },
+  {
+    "op": "add",
+    "path": "/resistanceByType",
+    "value": {
+      "*-kapok-*": 3.15, "*-redwood-*": 4.12, "*-baldcypress-*": 4.38, "*-larch-*": 5.15,
+      "*-walnut-*": 5.8, "*-acacia-*": 6.08, "*-birch-*": 6.25, "*-oak-*": 6.41,
+      "*-maple-*": 6.54, "*-purpleheart-*": 7.69, "*-ebony-*": 8.1, "*": 4.5
+    },
+    "file": "game:blocktypes/wood/woodtyped/log.json",
+    "dependsOn": [ { "modid": "indappledgroves", "invert": true } ]
+  },
+  {
+    "op": "remove",
+    "path": "/resistance",
+    "file": "game:blocktypes/wood/woodtyped/log-debarked.json",
+    "dependsOn": [ { "modid": "indappledgroves", "invert": true } ]
+  },
+  {
+    "op": "add",
+    "path": "/resistanceByType",
+    "value": {
+      "*-kapok-*": 3.15, "*-redwood-*": 4.12, "*-baldcypress-*": 4.38, "*-larch-*": 5.15,
+      "*-walnut-*": 5.8, "*-acacia-*": 6.08, "*-birch-*": 6.25, "*-oak-*": 6.41,
+      "*-maple-*": 6.54, "*-purpleheart-*": 7.69, "*-ebony-*": 8.1, "*": 4.5
+    },
+    "file": "game:blocktypes/wood/woodtyped/log-debarked.json",
+    "dependsOn": [ { "modid": "indappledgroves", "invert": true } ]
+  },
+  {
+    "op": "remove",
+    "path": "/resistance",
+    "file": "game:blocktypes/wood/woodtyped/log-withresin.json",
+    "dependsOn": [ { "modid": "indappledgroves", "invert": true } ]
+  },
+  {
+    "op": "add",
+    "path": "/resistanceByType",
+    "value": {
+      "*-kapok-*": 3.15, "*-redwood-*": 4.12, "*-baldcypress-*": 4.38, "*-larch-*": 5.15,
+      "*-walnut-*": 5.8, "*-acacia-*": 6.08, "*-birch-*": 6.25, "*-oak-*": 6.41,
+      "*-maple-*": 6.54, "*-purpleheart-*": 7.69, "*-ebony-*": 8.1, "*": 4.5
+    },
+    "file": "game:blocktypes/wood/woodtyped/log-withresin.json",
+    "dependsOn": [ { "modid": "indappledgroves", "invert": true } ]
+  }
+]

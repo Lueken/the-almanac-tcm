@@ -4,6 +4,16 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.3 (unreleased)
+
+- **Wood remembers what it is** (staged; brief: idg-divorce). Every log carries a hardness
+  drawn from real Janka figures on a logarithmic curve: kapok at 0.70x vanilla, pine exactly
+  vanilla, ebony at the 1.80x ceiling, identical on barked, debarked and resin logs, with
+  every modded species held at vanilla. Independently derived from public data
+  (resistance = 4.5 x clamp(1.0 + 0.46 ln(J/540), 0.70, 1.80)); nothing copied. The patch is
+  gated INVERT on In Dappled Groves and stays inert until that mod leaves the pack, then arms
+  itself on the next boot with no coordination.
+
 ## 0.5.2 (2026-08-30)
 
 Two farming answers out of the first beta week.
