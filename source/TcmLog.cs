@@ -24,7 +24,10 @@ public static class TcmLog
 
     public static void Cat(ICoreAPI api, string category, string message)
     {
-        if (!Verbose) return;
+        // Null-tolerant on purpose: Cat is called from Harmony seams where the api can be a
+        // not-yet-initialized entity's (the 0.5.3 stump-suppressor NRE: entity.Api is null
+        // before Initialize). A lost debug line beats a throw inside someone else's method.
+        if (!Verbose || api?.Logger == null) return;
         api.Logger.Notification($"[{Prefix}:{category}] {message}");
     }
 
