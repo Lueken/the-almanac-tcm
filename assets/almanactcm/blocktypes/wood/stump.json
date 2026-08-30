@@ -1,0 +1,103 @@
+{
+	code: "stump",
+
+	// A felled tree leaves its butt in the ground (WOO stump mechanic; brief:
+	// projects/briefs/idg-divorce, Phase 4). Created only by WooStumpPatches at the moment of
+	// felling; never craftable, never placeable in survival, drops firewood and never a clean
+	// log. Modded species with no stump variant keep their base log standing instead.
+
+	// A tree felled on a hillside can leave its stump over a cell the player later digs out,
+	// and a stump hanging in the air is a worse outcome than a lost one.
+	behaviors: [{ name: "BreakIfFloating" }],
+
+	// Redwood is ABSENT on purpose: its trunk base is four logsection quarter-blocks
+	// (game:worldgen/treegen/redwoodpine.json), not a log, so a full-footprint stump has
+	// nowhere sane to go; the keep-the-base-standing fallback already reads as a redwood
+	// stump. "aged" is absent because no treegen produces it.
+	variantgroups: [
+		{ code: "wood", states: ["birch", "oak", "maple", "pine", "acacia", "kapok",
+		                         "baldcypress", "larch", "ebony", "walnut", "purpleheart"] }
+	],
+
+	shape: { base: "block/wood/stump" },
+	blockmaterial: "Wood",
+	requiredMiningTier: 1,
+
+	// Vanilla textures by domain reference, per species: bark on the sides, the cut rings on
+	// top, mirroring the roles log.json already gives these two sheets.
+	textures: {
+		"bark":  { base: "game:block/wood/bark/{wood}" },
+		"rings": { base: "game:block/wood/treetrunk/{wood}" }
+	},
+
+	attributes: {
+		handbook: { groupBy: ["stump-*"] },
+		canChisel: false
+		// NO treeFellingGroupCode, ever: a stump carrying it would be swept into a
+		// neighbouring tree's fell set, and WOO would pay felling practice on stump chops.
+		// NO preventsDecay: the tree is gone; its leaves should go too.
+	},
+
+	// The Janka-derived log curve (patches/woo-wood-hardness.json) x 1.25. Butt logs are the
+	// densest wood in the trunk: compression wood, root flare, crossed grain. Unlike felling,
+	// this chop is not pooled or square-rooted, so the full species character lands here.
+	resistanceByType: {
+		"*-kapok": 3.94, "*-baldcypress": 5.48, "*-pine": 5.63, "*-larch": 6.44,
+		"*-walnut": 7.25, "*-acacia": 7.6, "*-birch": 7.81, "*-oak": 8.01,
+		"*-maple": 8.18, "*-purpleheart": 9.61, "*-ebony": 10.13, "*": 5.63
+	},
+
+	// Roughly 60% of the firewood a split log gives, and never a log: grit carried up by the
+	// roots and grain running four ways is why nobody saws a board out of a stump. Vanilla
+	// pays 4 firewood per log, 3 for the dense tropicals; the stump keeps that ratio.
+	dropsByType: {
+		"*-kapok": [{ type: "item", code: "game:firewood", quantity: { avg: 1.5, var: 0.5 } }],
+		"*-purpleheart": [{ type: "item", code: "game:firewood", quantity: { avg: 1.5, var: 0.5 } }],
+		"*-ebony": [{ type: "item", code: "game:firewood", quantity: { avg: 1.5, var: 0.5 } }],
+		"*": [{ type: "item", code: "game:firewood", quantity: { avg: 2.5, var: 0.5 } }]
+	},
+
+	// One box, and the same box: the model tops out flat at the cut, 6/16 high, deliberately
+	// under step height so a cleared forest is walkable, not an ankle-catcher field. The
+	// outer half-voxel of each root sits outside collision on purpose.
+	selectionbox: { x1: 0.0625, y1: 0, z1: 0.0625, x2: 0.9375, y2: 0.375, z2: 0.9375 },
+	collisionbox: { x1: 0.0625, y1: 0, z1: 0.0625, x2: 0.9375, y2: 0.375, z2: 0.9375 },
+
+	// A 12-wide, 6-tall model fills no side of its cell, so every neighbour keeps drawing its
+	// adjoining face. Same three lines as rotten-log.json.
+	sidesolid:  { all: false },
+	sideopaque: { all: false },
+	emitSideAo: { all: false },
+
+	// sidesolid.up:false is what actually stops a floating snow layer; this states the intent.
+	snowCoverage: false,
+
+	// The four root bumps differ in width and placement, so the four orientations read as
+	// four different stumps. Selection and collision are square and unaffected.
+	randomizeRotations: true,
+
+	replaceable: 500,
+	materialDensity: 700,
+
+	// Creative only: nothing crafts a stump and its drops never include itself.
+	creativeinventory: { "general": ["*"], "flora": ["*"] },
+
+	sounds: {
+		"place": "block/planks",
+		"walk": "walk/wood",
+		"hit": "block/planks",
+		"break": "block/planks",
+		byTool: {
+			"Axe": { hit: "block/chop", break: "block/planks" }
+		}
+	},
+
+	heldTpIdleAnimation: "holdbothhandslarge",
+	heldRightReadyAnimation: "heldblockready",
+	heldTpUseAnimation: "twohandplaceblock",
+	tpHandTransform: {
+		translation: { x: -1.23, y: -0.91, z: -0.8 },
+		rotation: { x: -2, y: 25, z: -78 },
+		scale: 0.4
+	}
+}

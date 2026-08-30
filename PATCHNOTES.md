@@ -6,6 +6,17 @@ The Almanac: Trades, Callings & Mastery.
 
 ## 0.5.3 (unreleased)
 
+- **A felled tree leaves a stump.** Strike the base and the trunk goes over the way it always
+  has, but the butt stays in the ground as a new block: bark on its sides, rings on its cut,
+  roots lifting the dirt around it, one for each of eleven vanilla species. It is the hardest
+  wood the tree had (the log's own hardness and a quarter again; ebony's is the toughest block
+  in the family) and one more chop clears it, paying two or three firewood and never a clean
+  board. Cut low enough to walk over, so a cleared forest is not an ankle-catcher field. A
+  strike partway up the trunk fells from the strike point and leaves no stump; the logs below
+  stay standing, as they always have. Trees the Almanac has no stump for, redwoods and every
+  modded species among them, keep their bottom course standing as plain trunk instead: same
+  wood, same chop, only the shape differs. Works with FallingTree and without it; the felling
+  credit is untouched, and a stump can never be swept into the next tree's fall.
 - **Wood remembers what it is** (staged; brief: idg-divorce). Every log carries a hardness
   drawn from real Janka figures on a logarithmic curve: kapok at 0.70x vanilla, pine exactly
   vanilla, ebony at the 1.80x ceiling, identical on barked, debarked and resin logs, with
