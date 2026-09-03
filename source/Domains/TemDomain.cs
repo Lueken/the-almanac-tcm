@@ -46,6 +46,7 @@ public static class TemDomain
     public const string TechWarding = "warding";   // BlockEntityRiftWard.OnInteract (fuel/toggle)
     public const string TechRepair = "repair";      // BlockEntityStaticTranslocator.DoRepair + teleporter recharge
     public const string TechTemporalKill = "temporalkill"; // rust-mob kills, 50% co-grant beside MEL/RAN (ruled 2026-08-21)
+    public const string TechWayfaring = "wayfaring"; // Conjunction homecoming: frontier travel returned home alive (TemTetherBridge, ruled 2026-09-02)
 
     // ---- The Storm-Warden's persisted deeds (0.5 third-pass ruling): synced Knowledge-store
     // counters anchoring the non-producer ascension proof. Storm keys append the lowercased
@@ -107,6 +108,10 @@ public static class TemDomain
             // Mirrors the combat kill config (Raw 4, K 30) so the 0.5 share multiplier
             // yields exactly half the method's practice at the same saturation cadence.
             [TechTemporalKill] = new() { Raw = 4, K = 30 },
+            // Conjunction homecomings (one per excursion, scaled by the bridge's
+            // weighted-distance multiplier up to its cap): naturally rate-limited by
+            // travel time, so K sits between the rare repair and the grindable kill.
+            [TechWayfaring] = new() { Raw = 2, K = 25 },
         },
         Bonus = new Dictionary<string, double>
         {
@@ -126,7 +131,7 @@ public static class TemDomain
         if (level <= 0) return untrained;
         int novice = Leveling.Domain.SubLevelsPerTier;       // 4
         if (level <= novice) return 1.0;
-        int max = Leveling.Domain.MaxLevelDefault;           // 20
+        int max = Leveling.Domain.MaxLevelDefault;           // 17 (the 2026-07-15 ladder; a stale "20" here once misled a reader)
         double t = (level - novice) / (double)(max - novice);
         return 1.0 + t * (gm - 1.0);
     }

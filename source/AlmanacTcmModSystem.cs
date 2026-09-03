@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.5.3")]
+    Version = "0.5.4")]
 
 namespace AlmanacTcm;
 
@@ -366,6 +366,12 @@ public class AlmanacTcmModSystem : ModSystem
                 Domains.WooDomain.Knob(Domains.WooDomain.StaminaUntrained, 1.15),
                 Domains.WooDomain.Knob(Domains.WooDomain.StaminaGm, 0.85));
 
+        // TEM's tether reach: hands Conjunction a level->radius provider by reflection
+        // when that mod is present (soft posture, neither assembly references the other).
+        // Self-contained warn-and-skip inside; after `Server` exists because the provider
+        // reads levels through it.
+        Domains.TemTetherBridge.Wire(sapi);
+
         TcmLog.Cat(sapi, TcmLog.Config,
             $"engine config: consolidationHour={GlobalConfig.ConsolidationHour}, " +
             $"gmDomainCap={GlobalConfig.GmDomainCap}, lambdaDeath={GlobalConfig.LambdaDeath}, " +
@@ -584,7 +590,13 @@ public class AlmanacTcmModSystem : ModSystem
         QuestToasts = null;
         // Singleplayer disposes the two instances independently, so clear only the static
         // that points at this one (a blind null would drop the surviving side's handle).
-        if (ReferenceEquals(ServerInstance, this)) ServerInstance = null;
+        if (ReferenceEquals(ServerInstance, this))
+        {
+            // The tether provider captured this world's server API; left standing it
+            // would answer the NEXT world's radius questions from a dead server.
+            Domains.TemTetherBridge.Unwire();
+            ServerInstance = null;
+        }
         if (ReferenceEquals(ClientInstance, this)) ClientInstance = null;
         base.Dispose();
     }
