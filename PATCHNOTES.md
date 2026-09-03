@@ -4,6 +4,31 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.4 (2026-09-02)
+
+The Temporal calling reaches across the aisle. Both changes ride one bridge that only
+wakes when The Marginalia: Conjunction is installed; the two mods still reference
+nothing of each other, and a TCM without Conjunction behaves exactly as before, to the
+byte.
+
+- **Your training carries the tether.** Where Conjunction's Anchorholds stand, the calm
+  around a consecrated pool now reaches as far as YOUR Temporal rank says it does:
+  900 blocks untrained, climbing the seventeen earned steps to 24,000 at Grandmaster.
+  Before the bridge every player stood at the untrained wall no matter their rank; a
+  storm-warden's title was worth nothing to the ground under their feet. The ladder
+  itself lives in Conjunction beside the ring table it feeds, so tether balance is
+  tuned there; TCM's half of the bargain is only the level. On the wire it is a single
+  provider handed across by reflection, warned and skipped if either side is missing,
+  and unhooked clean on world exit.
+- **Wayfaring.** A new Temporal technique for the walk that comes back. Cross your
+  wall, range the frontier, and return home alive: the crossing back banks practice
+  scaled by how far and how deep the excursion ran, every block walked out there
+  counting more the deeper the ring it was walked in. Only the living collect. Dying
+  voids the run (the tether debt has already priced that death once), logging out in
+  the frontier voids it, creative flight earns nothing, and a doorstep dip across the
+  wall is not an expedition. A serious mid-ring circuit banks about what two rust-mob
+  kills would; no single homecoming, however suicidal, mints more than about six.
+
 ## 0.5.3 (2026-08-30)
 
 - **A felled tree leaves a stump.** Strike the base and the trunk goes over the way it always
