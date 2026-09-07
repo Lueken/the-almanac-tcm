@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.5.6")]
+    Version = "0.5.7")]
 
 namespace AlmanacTcm;
 
@@ -123,6 +123,9 @@ public class AlmanacTcmModSystem : ModSystem
             // freeze. Migrated from thequire 0.1.25 because the freeze is a client-side path
             // and singleplayer players never load a server patch mod.
             Try("MET-anvil-lag", () => Domains.MetSmithingPlusAnvilLag.PatchConditional(api, harmony));
+            // COMPAT + one ruled balance line: bits/native nuggets warm on the forge (asset
+            // patch supplies forgable); heated nuggets top up in-progress pieces only.
+            Try("MET-forge-heating", () => Domains.MetForgeHeatingPatches.PatchConditional(api, harmony));
             Try("MIN-conditional", () => Domains.MinConditionalPatches.PatchAllPresent(api, harmony));
             Try("WOO-fallingtree", () => Domains.WooFallingTreePatches.PatchConditional(api, harmony));
             Try("WOO-stump", () => Domains.WooStumpPatches.PatchConditional(api, harmony));

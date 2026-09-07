@@ -4,6 +4,25 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.7 (2026-09-07)
+
+Untrained fishing loosens its grip a little. The escape chance before your first
+FIS rank drops from 25% to 20%. The one that got away still takes your bait with
+it, and the chat line has always said so; check your hook after a fish turns
+away, because an empty hook gets inspected and refused until you bait it again.
+Live testing on a full pond showed the old rate reading as "fish never bite" to
+new anglers, which is a harsher lesson than the pond meant to teach.
+
+Native metal comes back to the forge. Metal bits and native copper, gold, silver and
+platinum nuggets can be warmed in a forge again, the way they could before Smithing Plus
+took over bit-working from Toolsmith and the forge half of the handoff got dropped. The
+math is honest: a heated piece is worth exactly what it smelts to, slag voxel included.
+A heated nugget is raw material, so it feeds an in-progress piece on the anvil and never
+asks what you want to make; bits remain smith's stock with every verb Smithing Plus
+gives them. Ore nuggets still belong to the crucible.
+
+---
+
 ## 0.5.6 (2026-09-06)
 
 The forecast itself is now earned. The bells and the written storm sense already

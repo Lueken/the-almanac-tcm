@@ -1,0 +1,46 @@
+[
+  // MET native-metal forge heating (beta find 2026-09-07, Silasxsecrets).
+  // Vanilla bits and nuggets carry no forgable attribute: forge heating historically came
+  // from Toolsmith's workablebits class, which stands down whenever Smithing Plus is
+  // installed, and Smithing Plus's replacement wires only the anvil half (WorkableNugget) —
+  // nothing grants forge acceptance, so the pack had no way to warm them at all. This
+  // restores the forge half for metal bits and the four NATIVE metals. Material-neutral by
+  // Smithing Plus's own math: ~2.1 voxels per 5-unit piece, exactly its smelt value, and
+  // each piece carries a slag voxel to split off. Ore nuggets (cassiterite, sphalerite...)
+  // stay smelt-only on purpose: chemistry belongs to the crucible and Industrial Story.
+  // Transform matches Smithing Plus's MakeForgeable() so pieces sit right in the coals.
+  // The companion rule lives in MetForgeHeatingPatches.cs: heated NUGGETS only top up an
+  // in-progress work item (no recipe prompt); bits keep Smithing Plus's full verbs.
+  {
+    "op": "addmerge",
+    "path": "/attributes",
+    "value": {
+      "forgable": true,
+      "inForgeTransform": {
+        "translation": { "x": 0, "y": -0.1, "z": 0.35 },
+        "rotation": { "x": 0, "y": 90, "z": 0 },
+        "scale": 0.7
+      }
+    },
+    "file": "game:itemtypes/resource/metalbit.json",
+    "side": "Server",
+    "dependsOn": [ { "modid": "smithingplus" } ]
+  },
+  {
+    "op": "addmerge",
+    "path": "/attributesByType",
+    "value": {
+      "@.*-(nativecopper|nativegold|nativesilver|nativeplatinum)": {
+        "forgable": true,
+        "inForgeTransform": {
+          "translation": { "x": 0, "y": -0.1, "z": 0.35 },
+          "rotation": { "x": 0, "y": 90, "z": 0 },
+          "scale": 0.7
+        }
+      }
+    },
+    "file": "game:itemtypes/resource/nugget.json",
+    "side": "Server",
+    "dependsOn": [ { "modid": "smithingplus" } ]
+  }
+]

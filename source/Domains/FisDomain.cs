@@ -104,7 +104,7 @@ public static class FisDomain
     /// linear to the GM floor at max level.</summary>
     public static double EscapeChanceFor(int level)
     {
-        double u = Knob(EscapeChanceUntrained, 0.25);
+        double u = Knob(EscapeChanceUntrained, 0.20);
         double n = Knob(EscapeChanceNovice, 0.10);
         double g = Knob(EscapeChanceGm, 0.02);
         if (level <= 0) return u;
