@@ -26,18 +26,18 @@ that page closed until your own window opens.
   that many real minutes out, so the whole reveal ladder can be watched end to end.
   Every warning system re-arms on the new schedule by construction.
 - **Arcana follows Rustbound Magic 4.0.** The big RBM rewrite moved two of the seams
-  Arcana hooks: the spell base class changed namespaces, and the ritual XP funnel
-  split in two (rituals in one place, the oculus in another). Casting practice,
-  school familiarity, the over-tier backfire, and ritual/oculus laboratory credit all
-  ride the new locations now — and still resolve the old ones, so the same build runs
-  on 3.2.5 or 4.0.4. Everything else survived the rewrite untouched (verified against
-  the 4.0.4 decompile), including the mana re-root, which never depended on those
-  seams in the first place.
+  Arcana hooks into. The spell base class changed namespaces, and the ritual XP funnel
+  split in two: rituals in one place, the oculus in another. Casting practice, school
+  familiarity, the over-tier backfire, and laboratory credit for rituals and the
+  oculus all ride the new locations now. The old locations still resolve too, so the
+  same build runs on 3.2.5 or 4.0.4. Everything else survived the rewrite untouched,
+  verified against the 4.0.4 decompile. The mana re-root never depended on those seams
+  in the first place.
 - **The new rite and the new portal both count.** RBM 4.0's Ritual of Binding pays
   laboratory practice like every other completed working, on its own tunable knob.
-  And the redesigned Thaumic Foundry credits whoever loads its portal inventory, not
-  just whoever last touched the core — the mage running the station owns its products
-  even if they only ever feed the portal.
+  The redesigned Thaumic Foundry credits whoever feeds its portal, not merely whoever
+  last touched the core. Run the station through the portal alone and its products
+  are still yours.
 - **Your treant is not quarry.** RBM's pets live in the same mod domain as its
   monsters, so the Duelist's and Marksman's Eyes would read a mage's own follower as
   a target. Animus companions and familiars are now excluded from both.
@@ -800,7 +800,7 @@ its fix landed hours after 0.4.39 deployed.
 - Alchemical matter is ALC, never COO (ruled 2026-08-17). Item types may declare
   `attributes.tcmCraftDomain: "ALC"` (Conjunction's reagents do); grinding them at the
   quern and working them at the pot then banks the new ALC `reagentwork` technique and
-  abstains from COO/FAR entirely — no milling credit, no cook's mark, no serving proc.
+  abstains from COO/FAR entirely: no milling credit, no cook's mark, no serving proc.
   ALC small-m rises to 3 with an ALC-matter supplier installed; the available-technique
   clamp keeps other servers unchanged.
 
