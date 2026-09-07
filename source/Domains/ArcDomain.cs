@@ -103,6 +103,7 @@ public static class ArcDomain
             ["ritualRawGrace"] = 16.0,
             ["ritualRawResonance"] = 16.0,
             ["ritualRawElementalInfusion"] = 16.0,
+            ["ritualRawBinding"] = 16.0,
         },
     };
 
@@ -139,10 +140,10 @@ public static class ArcDomain
     // (defaults above) holding the RAW practice a completed working banks.
     /// <summary>RBM ritual-system trigger-method name -> the Bonus knob holding that working's
     /// completion raw. Method names verified against the 3.2.5 AND 4.0.4 decompiles (4.0 moved them
-    /// from ModSystemWorldMagic to ModSystemRitualsRM; all 17 names unchanged). A name that stops
-    /// resolving warns and leaves that working on the floor weight (never throws). 4.0.4 also added
-    /// TriggerRitualOfBinding (the Animus rite) — NOT listed yet, so it pays the floor weight until
-    /// a ritualRawBinding knob is ruled.</summary>
+    /// from ModSystemWorldMagic to ModSystemRitualsRM; the original 17 names unchanged). A name that
+    /// stops resolving warns and leaves that working on the floor weight (never throws) — which is
+    /// exactly what TriggerRitualOfBinding (the Animus rite, new in 4.0.4, listed here at the shared
+    /// default) does on a pre-4.0 RBM.</summary>
     public static readonly Dictionary<string, string> RitualKnobByTrigger = new()
     {
         ["TriggerRitualOfDecay"] = "ritualRawDecay",
@@ -162,6 +163,9 @@ public static class ArcDomain
         ["TriggerRitualOfGrace1"] = "ritualRawGrace",
         ["TriggerRitualOfResonance1"] = "ritualRawResonance",
         ["TriggerWorldMagicGrimoireElementalInfusion"] = "ritualRawElementalInfusion",
+        // The Animus-acquisition rite (RBM 4.0.4+; its choke-point call sits inside
+        // CompleteRitualOfBinding, which the trigger runs synchronously, so the marker holds).
+        ["TriggerRitualOfBinding"] = "ritualRawBinding",
     };
 
     /// <summary>Shipped raw per completed working, mirrored by every ritualRaw* default above.</summary>

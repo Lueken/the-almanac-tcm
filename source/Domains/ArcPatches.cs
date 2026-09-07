@@ -585,6 +585,24 @@ public static class ArcPatches
         // BOTH halves or neither — a stamp with no bank is dead weight, and a bank with no stamp
         // credits nobody, so one missing seam disables the pair rather than half-wiring it.
         else TcmLog.Warn(api, "ARC foundry seam pair not found (BlockEntityStationThaumicFoundryCoreRM.OnInteract/RunThaumicFoundryCreateItem); the foundry laboratory grant is inactive this build");
+
+        // RBM 4.0's foundry redesign feeds the core through a 16-slot portal GUI, so a player can
+        // load every ingredient at the portal and never touch the core — the OnInteract stamp above
+        // would then credit whoever LAST opened the core, not the mage actually running it. The
+        // portal sits one block above the core by RBM's own construction (the portal initialises
+        // ThaumicFoundryCorePos = Pos.DownCopy(1), and the core polls its portal at Pos.UpCopy(1) —
+        // verified 4.0.4), so the portal stamp keys the block BELOW it: the exact key
+        // FoundryCreatePostfix reads. Absent on pre-4.0 RBM (no portal inventory), which is the
+        // expected shape there, not a warning.
+        var portal = AccessTools.TypeByName("rustboundmagic.src.common.blockentity.station.extra.BlockEntityStationThaumicFoundryPortalRM");
+        var portalTouch = portal == null ? null : AccessTools.DeclaredMethod(portal, "OnPlayerRightClick",
+            new[] { typeof(IPlayer), typeof(BlockSelection) });
+        if (portalTouch != null)
+        {
+            harmony.Patch(portalTouch, postfix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(FoundryPortalTouchPostfix))));
+            TcmLog.Info(api, "ARC foundry portal stamp hooked (loading the portal GUI owns the next product)");
+        }
+        else TcmLog.Cat(api, TcmLog.Config, "ARC foundry portal seam absent (pre-4.0 RBM has no portal inventory; the core stamp is the whole surface)");
     }
 
     /// <summary>Foundry owner-at-action, in memory only: pos key -> player uid. The FAR troughOwners
@@ -686,6 +704,22 @@ public static class ArcPatches
         foundryOwners[key] = byPlayer.PlayerUID;
         if (changed)  // one line per ownership change, not one per click
             TcmLog.Cat(__instance.Api, "arc", $"foundry owner stamp: {__instance.Pos} -> {byPlayer.PlayerName} (silent by design; credit lands when the foundry mints a product)");
+    }
+
+    /// <summary>The portal-side ownership stamp (RBM 4.0's 16-slot portal inventory): whoever opens
+    /// or loads the portal owns the core's next product — same unconditional reading as the core
+    /// stamp above (a refused click is still the tell of who runs this station). Keyed by the block
+    /// BELOW the portal, which is the core's position and therefore the key FoundryCreatePostfix
+    /// looks up.</summary>
+    public static void FoundryPortalTouchPostfix(BlockEntity __instance, IPlayer byPlayer)
+    {
+        if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        BlockPos corePos = __instance.Pos.DownCopy();
+        string key = PosKey(corePos);
+        bool changed = !foundryOwners.TryGetValue(key, out string? prev) || prev != byPlayer.PlayerUID;
+        foundryOwners[key] = byPlayer.PlayerUID;
+        if (changed)  // one line per ownership change, not one per click
+            TcmLog.Cat(__instance.Api, "arc", $"foundry owner stamp via portal: {corePos} -> {byPlayer.PlayerName} (credit lands when the foundry mints a product)");
     }
 
     /// <summary>A foundry completes a synthesis: bank the laboratory verb to its stamped owner. The

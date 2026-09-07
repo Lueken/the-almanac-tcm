@@ -33,6 +33,11 @@ that page closed until your own window opens.
   on 3.2.5 or 4.0.4. Everything else survived the rewrite untouched (verified against
   the 4.0.4 decompile), including the mana re-root, which never depended on those
   seams in the first place.
+- **The new rite and the new portal both count.** RBM 4.0's Ritual of Binding pays
+  laboratory practice like every other completed working, on its own tunable knob.
+  And the redesigned Thaumic Foundry credits whoever loads its portal inventory, not
+  just whoever last touched the core — the mage running the station owns its products
+  even if they only ever feed the portal.
 
 ## 0.5.5 (2026-09-03)
 
