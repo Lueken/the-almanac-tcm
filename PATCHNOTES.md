@@ -38,6 +38,9 @@ that page closed until your own window opens.
   And the redesigned Thaumic Foundry credits whoever loads its portal inventory, not
   just whoever last touched the core — the mage running the station owns its products
   even if they only ever feed the portal.
+- **Your treant is not quarry.** RBM 4.0's animus companions live in the same mod
+  domain as its monsters, so the Duelist's and Marksman's Eyes would have read a
+  mage's own pet as a target. Companions are now excluded from both.
 
 ## 0.5.5 (2026-09-03)
 
