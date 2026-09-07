@@ -4,6 +4,31 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.5 (2026-09-03)
+
+Marked food behaves like food again. A grower's mark is a signature, not a different
+vegetable, and the game now agrees everywhere it used to argue.
+
+- **Marked produce cooks.** An onion carrying a Cultivator's Mark counted as no
+  ingredient at all in the pot; a whole harvest of marked vegetables could not make a
+  soup. Marked and plain now read as the same good at every one of vanilla's identity
+  checks: the cooking pot, the firepit, the trough, crates and shelves, and plain
+  inventory stacking.
+- **Marked and plain stack, by the quern's own law.** Merging two stacks of the same
+  hand keeps the mark. Merging mixed hands, or marked into plain, comes out plain,
+  exactly as a mixed batch already behaved at the quern: the mark tells the truth or
+  it comes off. No merge can talk a stack UP to a better mark, so the spoilage value
+  of a Grandmaster's produce cannot be laundered onto anyone else's.
+- **Fiber and straw stop carrying names.** The harvest stamp now rides only what the
+  mark is FOR: food that keeps and seed that breeds. Flax fiber with a farmer's name
+  on it was a stacking headache with nothing underneath.
+- **Heirloom seeds still refuse to mix with plain seed.** That one is a strain, not a
+  signature, and keeping the stacks apart is what protects the line from one careless
+  shift-click.
+
+Nothing to migrate: food already marked in the world cooks and stacks the moment the
+server updates, and stray fiber marks dissolve on their first merge.
+
 ## 0.5.4 (2026-09-02)
 
 The Temporal calling reaches across the aisle. Both changes ride one bridge that only

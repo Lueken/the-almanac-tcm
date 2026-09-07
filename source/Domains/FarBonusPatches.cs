@@ -152,7 +152,11 @@ public static class FarBonusPatches
                 stack.StackSize += whole;
             }
 
-            if (grownBy != null) // the provenance tag rides produce AND seed (display + spoilage)
+            // The provenance tag rides produce AND seed (display + spoilage), and ONLY those.
+            // Flax drops fiber, grain drops straw: neither is food (no nutrition, no perish
+            // transition) nor seed, so a mark there had no display and no spoilage value, and
+            // pure stacking cost (ken's report, 2026-09-03).
+            if (grownBy != null && (isSeed || Engine.FoodProvenance.IsFood(stack.Collectible)))
             {
                 stack.Attributes.SetString(GrownByAttr, grownBy);
                 stack.Attributes.SetInt(GrownTierAttr, grownTier);

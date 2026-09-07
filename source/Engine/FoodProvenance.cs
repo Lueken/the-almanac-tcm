@@ -170,11 +170,116 @@ public static class FoodProvenance
         foreach (string key in mark.Keys) stack.Attributes.RemoveAttribute(key);
     }
 
+    // ------------------------------------------------------------ the identity law
+
+    /// <summary>
+    /// THE IDENTITY LAW (2026-09-03, after the third and fourth eruption of one defect class).
+    ///
+    /// A mark is an ItemStack attribute, and vanilla compares stacks with
+    /// <c>GlobalConstants.IgnoredStackAttributes</c> at every identity gate: stack merging
+    /// (Collectible.GetMergableQuantity), the cooking matcher (CookingRecipeIngredient
+    /// .GetMatchingStack lists vegetable-onion as an EXACT code in soup.json, so a marked onion
+    /// was simply not an ingredient at all, even in a uniformly marked pot), the trough, the
+    /// firepit output merge. The quern (2026-08-13) and the trough (2026-08-21, LauCaRo) were
+    /// patched one seam at a time; Silas's uncookable onions and ken's unstackable flax
+    /// (2026-09-03) proved the class does not close until the keys are IN the list those checks
+    /// consult.
+    ///
+    /// So the carryable mark keys go into IgnoredStackAttributes (<see cref="RegisterIgnoredKeys"/>),
+    /// which opens every vanilla identity gate at once, and the anti-laundering rule the old
+    /// refuse-to-mix behaviour enforced moves to the one method vanilla itself uses for exactly
+    /// this job. TEMPERATURE IS THE PRECEDENT: it is in the ignore list for identity, and
+    /// TryMergeStacks reconciles it honestly (averages it) at merge time. Ours is the quern law,
+    /// per domain mark set: the same level on both sides keeps the mark, anything else strips the
+    /// whole set from the sink. Mixed batch goes plain. No merge can launder a mark upward, and
+    /// no marked good refuses ordinary play again.
+    ///
+    /// HEIRLOOM STAYS OUT of the ignore list, deliberately. A generation tail is a strain, not a
+    /// signature: heirloom seeds ARE a different good, and refusing to mix protects the rare
+    /// thing from a careless shift-click. It cannot re-break cooking, because the tail only ever
+    /// lands on seeds-* items (the isSeed gate in FarBonusPatches) and no cooking recipe takes
+    /// seeds.
+    /// </summary>
+    public static void RegisterIgnoredKeys(ICoreAPI api)
+    {
+        var current = Vintagestory.API.Config.GlobalConstants.IgnoredStackAttributes;
+        var missing = new List<string>();
+        foreach (Mark mark in Carryable)
+            foreach (string key in mark.Keys)
+                if (Array.IndexOf(current, key) < 0 && !missing.Contains(key))
+                    missing.Add(key);
+        if (missing.Count == 0) return; // singleplayer runs Start twice in one process
+
+        var grown = new string[current.Length + missing.Count];
+        current.CopyTo(grown, 0);
+        missing.CopyTo(grown, current.Length);
+        Vintagestory.API.Config.GlobalConstants.IgnoredStackAttributes = grown;
+        TcmLog.Info(api, $"food marks joined IgnoredStackAttributes ({missing.Count} keys, list now {grown.Length}): marked goods stack and cook like plain ones; TryMergeStacks reconciles");
+    }
+
+    /// <summary>Prefix state for the merge reconciliation: each carryable mark's level on both
+    /// sides, captured before vanilla mutates either stack.</summary>
+    public struct MergeState
+    {
+        public bool Reconcile;
+        public int[] SrcLevels;
+        public int[] SinkLevels;
+    }
+
+    public static void MergeReconcilePrefix(ItemStackMergeOperation op, out MergeState __state)
+    {
+        __state = default;
+        ItemStack? src = op?.SourceSlot?.Itemstack;
+        ItemStack? sink = op?.SinkSlot?.Itemstack;
+        if (src == null || sink == null) return;
+
+        int[]? srcLevels = null, sinkLevels = null; // allocate only when a mark is present
+        for (int i = 0; i < Carryable.Length; i++)
+        {
+            int s = LevelOf(Carryable[i], src);
+            int k = LevelOf(Carryable[i], sink);
+            if (s < 0 && k < 0) continue;
+            if (srcLevels == null)
+            {
+                srcLevels = new int[Carryable.Length];
+                sinkLevels = new int[Carryable.Length];
+                for (int j = 0; j < Carryable.Length; j++) { srcLevels[j] = -1; sinkLevels[j] = -1; }
+            }
+            srcLevels[i] = s; sinkLevels![i] = k;
+        }
+        if (srcLevels == null) return; // the common case: nothing marked, vanilla untouched
+        __state = new MergeState { Reconcile = true, SrcLevels = srcLevels, SinkLevels = sinkLevels! };
+    }
+
+    public static void MergeReconcilePostfix(ItemStackMergeOperation op, MergeState __state)
+    {
+        if (!__state.Reconcile || op == null || op.MovedQuantity <= 0) return;
+        ItemStack? sink = op.SinkSlot?.Itemstack;
+        if (sink?.Collectible == null) return;
+
+        bool changed = false;
+        for (int i = 0; i < Carryable.Length; i++)
+        {
+            // Same level both sides (including both unmarked): the batch is uniform, the mark
+            // stands. Same-level marks are interchangeable for effect, exactly as
+            // RestoreAfterMerge already rules for the quern; the name is display.
+            if (__state.SrcLevels[i] == __state.SinkLevels[i]) continue;
+            StripMark(Carryable[i], sink);
+            changed = true;
+            if (op.World?.Side == EnumAppSide.Server)
+                TcmLog.Cat(op.World.Api, "far", $"mixed-batch merge on {sink.Collectible.Code}: {Carryable[i].Domain} mark dropped");
+        }
+        if (changed) op.SinkSlot!.MarkDirty();
+    }
+
     // --------------------------------------------- merging into an already-marked output slot
 
     /// <summary>
     /// A machine that produces into a slot it may reuse (the quern is the first) has to be told
-    /// how to merge, because ATTRIBUTES ARE PART OF STACK IDENTITY in Vintage Story.
+    /// how to merge, because attributes were part of stack identity in Vintage Story. (Since the
+    /// identity law above, the carried keys are ignored in that compare; the lift-and-restore
+    /// stays because it is what CARRIES the mark onto the fresh output and enforces
+    /// all-or-nothing there.)
     ///
     /// THE BUG THIS EXISTS FOR (found in play 2026-08-13, and it was ours). Vanilla creates the
     /// output and merges it into the slot INSIDE the method body, so a postfix that marks the slot
@@ -287,6 +392,28 @@ public static class FoodProvenance
     /// CONVENTIONS.md section 6: a bad seam must warn and skip, never abort Start.</summary>
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
+        // The identity law ships as a PAIR and only as a pair: keys in IgnoredStackAttributes
+        // open every vanilla identity gate (merge, cooking matcher, trough, firepit), and the
+        // quern-law reconcile at vanilla's own merge point keeps an open gate from becoming a
+        // laundering route. If the reconcile seam is gone, neither half activates: marked goods
+        // fall back to refusing to mix, which is annoying and safe, never launderable.
+        // Patched both sides, like the trough patch, so the client's merge prediction matches
+        // what the server authorizes.
+        var merge = AccessTools.Method(typeof(CollectibleObject),
+            nameof(CollectibleObject.TryMergeStacks));
+        if (merge == null)
+        {
+            TcmLog.Warn(api, "food provenance: CollectibleObject.TryMergeStacks not found; identity law inactive, marked goods keep refusing to stack or cook with plain ones");
+        }
+        else
+        {
+            harmony.Patch(merge,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(FoodProvenance), nameof(MergeReconcilePrefix))),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(FoodProvenance), nameof(MergeReconcilePostfix))));
+            RegisterIgnoredKeys(api);
+            TcmLog.Info(api, "food provenance merge reconcile hooked (TryMergeStacks: uniform batch keeps the mark, mixed goes plain)");
+        }
+
         var target = AccessTools.Method(typeof(CollectibleObject),
             nameof(CollectibleObject.OnCreatedByCrafting));
         if (target == null)
