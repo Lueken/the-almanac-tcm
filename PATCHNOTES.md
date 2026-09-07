@@ -25,6 +25,14 @@ that page closed until your own window opens.
 - **A test lever.** `/tcm stormin <realminutes>` (admin) parks the next storm exactly
   that many real minutes out, so the whole reveal ladder can be watched end to end.
   Every warning system re-arms on the new schedule by construction.
+- **Arcana follows Rustbound Magic 4.0.** The big RBM rewrite moved two of the seams
+  Arcana hooks: the spell base class changed namespaces, and the ritual XP funnel
+  split in two (rituals in one place, the oculus in another). Casting practice,
+  school familiarity, the over-tier backfire, and ritual/oculus laboratory credit all
+  ride the new locations now — and still resolve the old ones, so the same build runs
+  on 3.2.5 or 4.0.4. Everything else survived the rewrite untouched (verified against
+  the 4.0.4 decompile), including the mana re-root, which never depended on those
+  seams in the first place.
 
 ## 0.5.5 (2026-09-03)
 

@@ -290,7 +290,12 @@ public static class ArcPatches
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
-        var spellBase = AccessTools.TypeByName("rustboundmagic.src.system.interfaces.SpellBase");
+        // RBM 4.0.4 moved SpellBase (system.interfaces -> system.abstracts); everything else about the
+        // seam is unchanged (same (EntityPlayer, string, bool) overload, same param names, same
+        // School/Tier/ManaCost properties — verified in the 4.0.4 decompile). New name first, old name
+        // as the fallback so the same build works on either side of the update window.
+        var spellBase = AccessTools.TypeByName("rustboundmagic.src.system.abstracts.SpellBase")
+            ?? AccessTools.TypeByName("rustboundmagic.src.system.interfaces.SpellBase");
         // Disambiguate the (EntityPlayer, string, bool) overload from the (EntityPlayer, string, int) one.
         var cast = spellBase == null ? null : AccessTools.Method(spellBase, "ConsumeManaForSpell",
             new[] { typeof(EntityPlayer), typeof(string), typeof(bool) });
@@ -488,8 +493,10 @@ public static class ArcPatches
     ///
     ///   • The world-magic choke point — every ritual (17 TriggerRitualOf* methods) AND the Oculus
     ///     pedestal's essence-consume funnel their XP through ONE private method,
-    ///     ModSystemWorldMagic.ApplyPlayerMagicExpGain(EntityPlayer, int) (RBM 3.2.5 :24231, 25 call
-    ///     sites verified). Postfixing that one method credits all of them, with the player in scope.
+    ///     ApplyPlayerMagicExpGain(EntityPlayer, int) (RBM 3.2.5 :24231, 25 call sites verified).
+    ///     Postfixing it credits all of them, with the player in scope. RBM 4.0 renamed the class
+    ///     (ModSystemWorldMagic -> ModSystemRitualsRM) and split the oculus off to a private copy of
+    ///     the same method on BlockEntityStationOculusCoreRM (4.0.4 :2145) — same postfix, two targets.
     ///     Casting does NOT reach here — ConsumeManaForSpell writes the XP attribute INLINE (:72551,
     ///     :72567), as do the wand/staff held-interact paths (:93484, :95195), so CastPostfix and this
     ///     postfix can never both fire for one action.
@@ -507,9 +514,14 @@ public static class ArcPatches
     {
         if (!api.ModLoader.IsModEnabled("rustboundmagic")) return;
 
-        // The single XP choke point for rituals + oculus. PRIVATE, hence DeclaredMethod; the seam is
-        // one method with a fixed (EntityPlayer, int) shape, so no overload disambiguation is needed.
-        var worldMagic = AccessTools.TypeByName("rustboundmagic.src.system.ModSystemWorldMagic");
+        // The XP choke point for rituals. PRIVATE, hence DeclaredMethod; the seam is one method with a
+        // fixed (EntityPlayer, int) shape, so no overload disambiguation is needed. RBM 4.0.4 renamed
+        // the class (ModSystemWorldMagic -> modsystems.ModSystemRitualsRM) and split the oculus off to
+        // its own private copy (patched below); the method name, signature, param names, and all 17
+        // trigger-method names survive verbatim (verified in the 4.0.4 decompile). New name first, old
+        // as the fallback so the same build works on either side of the update window.
+        var worldMagic = AccessTools.TypeByName("rustboundmagic.src.system.modsystems.ModSystemRitualsRM")
+            ?? AccessTools.TypeByName("rustboundmagic.src.system.ModSystemWorldMagic");
         var expGain = worldMagic == null ? null : AccessTools.DeclaredMethod(worldMagic, "ApplyPlayerMagicExpGain",
             new[] { typeof(EntityPlayer), typeof(int) });
         if (expGain != null)
@@ -540,7 +552,23 @@ public static class ArcPatches
             }
             TcmLog.Info(api, $"ARC per-ritual completion pay armed ({marked}/{ArcDomain.RitualKnobByTrigger.Count} triggers marked, all knobs shipped at {ArcDomain.RitualRawDefault} raw)");
         }
-        else TcmLog.Warn(api, "ARC ritual/oculus seam not found (ModSystemWorldMagic.ApplyPlayerMagicExpGain); those laboratory grants are inactive this build");
+        else TcmLog.Warn(api, "ARC ritual seam not found (ModSystemRitualsRM/ModSystemWorldMagic.ApplyPlayerMagicExpGain); the ritual laboratory grants are inactive this build");
+
+        // RBM 4.0.4 split the choke point: the oculus core carries its OWN private copy of
+        // ApplyPlayerMagicExpGain (nine call sites, verified 4.0.4 :2145), so oculus work no longer
+        // reaches the ritual system's method. Same signature, same postfix — no ritual marker can be
+        // active here, so every oculus pulse takes RitualExpPostfix's floor-weight path and gets its
+        // XP re-wiped, exactly what the single 3.2.5 choke point did for it. Absent on 3.2.5 (one
+        // choke served both), so a miss is the expected pre-4.0 shape, not a warning.
+        var oculus = AccessTools.TypeByName("rustboundmagic.src.common.blockentity.station.BlockEntityStationOculusCoreRM");
+        var oculusExp = oculus == null ? null : AccessTools.DeclaredMethod(oculus, "ApplyPlayerMagicExpGain",
+            new[] { typeof(EntityPlayer), typeof(int) });
+        if (oculusExp != null)
+        {
+            harmony.Patch(oculusExp, postfix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(RitualExpPostfix))));
+            TcmLog.Info(api, "ARC laboratory grant hooked (oculus XP choke point, split from the ritual system in RBM 4.0)");
+        }
+        else TcmLog.Cat(api, TcmLog.Config, "ARC oculus choke absent (pre-4.0 RBM routes the oculus through the ritual choke point)");
 
         // The foundry pair: stamp the owner at the interaction, bank at the unattended completion.
         var foundry = AccessTools.TypeByName("rustboundmagic.src.common.blockentity.station.BlockEntityStationThaumicFoundryCoreRM");
@@ -589,7 +617,8 @@ public static class ArcPatches
 
     private static string PosKey(BlockPos pos) => pos.X + "/" + pos.Y + "/" + pos.Z;
 
-    /// <summary>Rituals and Oculus grimoire synthesis, credited at RBM's one XP choke point. Also
+    /// <summary>Rituals and Oculus grimoire synthesis, credited at RBM's XP choke point (one method
+    /// on 3.2.5; the same shape on two targets — ritual system + oculus core — from 4.0). Also
     /// re-wipes the XP this call just added — the same belt-and-suspenders freeze CastPostfix does, so
     /// nothing accumulates toward an RBM mana level-up between reconciles (ARC owns the pool).
     ///

@@ -137,9 +137,12 @@ public static class ArcDomain
     // and a casting), yet RBM's XP choke point passes the same literal 1 for a finished ritual as
     // for an oculus pulse — so 0.4.29 paid the floor. Each trigger method gets its own Bonus knob
     // (defaults above) holding the RAW practice a completed working banks.
-    /// <summary>RBM ModSystemWorldMagic trigger-method name -> the Bonus knob holding that
-    /// working's completion raw. Method names verified against the 3.2.5 decompile; a name that
-    /// stops resolving warns and leaves that working on the floor weight (never throws).</summary>
+    /// <summary>RBM ritual-system trigger-method name -> the Bonus knob holding that working's
+    /// completion raw. Method names verified against the 3.2.5 AND 4.0.4 decompiles (4.0 moved them
+    /// from ModSystemWorldMagic to ModSystemRitualsRM; all 17 names unchanged). A name that stops
+    /// resolving warns and leaves that working on the floor weight (never throws). 4.0.4 also added
+    /// TriggerRitualOfBinding (the Animus rite) — NOT listed yet, so it pays the floor weight until
+    /// a ritualRawBinding knob is ruled.</summary>
     public static readonly Dictionary<string, string> RitualKnobByTrigger = new()
     {
         ["TriggerRitualOfDecay"] = "ritualRawDecay",
