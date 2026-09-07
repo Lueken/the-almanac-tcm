@@ -63,6 +63,12 @@ public class TcmCommands
                 .RequiresPrivilege(Privilege.controlserver)
                 .WithArgs(parsers.Word("action"), parsers.OptionalWord("key"))
                 .HandleWith(OnKnowledge)
+            .EndSubCommand()
+            .BeginSubCommand("stormin")
+                .WithDescription("(admin) Schedule the next temporal storm N real minutes out (storm-sense testing)")
+                .RequiresPrivilege(Privilege.controlserver)
+                .WithArgs(parsers.Float("realminutes"))
+                .HandleWith(OnStormIn)
             .EndSubCommand();
 
         // SINGLEPLAYER ONLY, by construction. The subcommand is not registered at all on a
@@ -348,6 +354,44 @@ public class TcmCommands
         // of on the next 2s reconcile tick (the "set it and wait a minute to catch" bug).
         if (domain == "ARC") Domains.ArcPatches.ApplyReRoot(player);
         return TextCommandResult.Success($"{domain} set to {RankName(level)} (level {level}). Reopen the station or book to see it.");
+    }
+
+    /// <summary>Park the next storm exactly N real minutes out, so the storm-sense ladder can be
+    /// watched end to end without waiting out a natural schedule. Everything downstream reacts by
+    /// construction: TemStormShift and TemPatches.Forecast see a new nextStormTotalDays and re-arm
+    /// per player, TemForecastGate treats it as a new cycle and re-sweeps every client on its next
+    /// tick, and vanilla runs the storm at the appointed minute. With the shift disabled (stock
+    /// behavior) the truth is broadcast here instead, since the gate will not do it.</summary>
+    private TextCommandResult OnStormIn(TextCommandCallingArgs args)
+    {
+        float realMinutes = (float)args[0];
+        if (realMinutes < 0) return TextCommandResult.Error("Minutes must be 0 or more (0 = now).");
+
+        var temporal = sapi.ModLoader.GetModSystem<SystemTemporalStability>(true);
+        var data = temporal?.StormData;
+        if (data == null) return TextCommandResult.Error("Temporal stability system unavailable.");
+        if (sapi.World.Config.GetString("temporalStorms", "sometimes") == "off")
+            return TextCommandResult.Error("Temporal storms are off in this world's config.");
+        if (data.nowStormActive)
+            return TextCommandResult.Error("A storm is active now; its end re-rolls the schedule. Wait it out first.");
+
+        double days = Domains.TemStormShift.RealSecondsToDays(sapi, realMinutes * 60.0);
+        data.nextStormTotalDays = sapi.World.Calendar.TotalDays + days;
+        // Re-arm the stock notify ladder for paths that use it (vanilla-without-shift); the shift
+        // and Temporal Symphony both pin this every tick, so under them it is a harmless no-op.
+        data.stormDayNotify = 99;
+
+        if (!core.GlobalConfig.StormShiftTEM)
+        {
+            // Stock behavior: no gate to correct the clients, so sync the truth the vanilla way.
+            sapi.Network.GetChannel("temporalstability")?.BroadcastPacket(data);
+        }
+
+        TcmLog.Cat(sapi, TcmLog.Hooks,
+            $"stormin: next storm scheduled {realMinutes:0.#} real minutes out ({days:0.####} game days) by {args.Caller.Player?.PlayerName ?? "console"}");
+        return TextCommandResult.Success(
+            $"Next storm in {realMinutes:0.#} real minutes ({days:0.###} game days). "
+            + "Storm-sense reveals at each player's own lead; /nexttempstorm to read it back.");
     }
 
     private TextCommandResult OnNextDay(TextCommandCallingArgs args)

@@ -22,6 +22,9 @@ that page closed until your own window opens.
 - **One switch.** The gate rides the same StormShiftTEM flag as the warning shift.
   Off means stock behavior everywhere, and toggling off live restores the true
   schedule to everyone online.
+- **A test lever.** `/tcm stormin <realminutes>` (admin) parks the next storm exactly
+  that many real minutes out, so the whole reveal ladder can be watched end to end.
+  Every warning system re-arms on the new schedule by construction.
 
 ## 0.5.5 (2026-09-03)
 
