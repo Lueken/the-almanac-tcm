@@ -289,8 +289,8 @@ public class MelDuelistsEye : HudElement
     // ------------------------------------------------------------ target + condition
 
     /// <summary>The aimed hostile: tightest cone among living non-player agents that carry the
-    /// harvestable behaviour (game) OR are rustboundmagic (the combat quarry set; animus
-    /// companions excepted — they are pets), out to 40m.</summary>
+    /// harvestable behaviour (game) OR are rustboundmagic (the combat quarry set; companions
+    /// and familiars excepted — they are pets), out to 40m.</summary>
     private Entity? PickHostile(Entity plr, Vec3d eye, Vec3d look)
     {
         Entity? best = null; double bestDist = 40;
@@ -312,10 +312,12 @@ public class MelDuelistsEye : HudElement
 
     private static bool IsQuarry(Entity e)
     {
-        // RBM 4.0's animus companions live in the rustboundmagic domain but are player PETS
-        // (codes companion-<calling>); a mage's own treant is not quarry, checked before either
-        // positive test so no behavior they carry can re-admit them.
-        if (e.Code?.Domain == "rustboundmagic" && e.Code.FirstCodePart() == "companion") return false;
+        // RBM's player pets live in the rustboundmagic domain alongside its monsters: the 4.0
+        // animus companions (codes companion-<calling>) and the cosmetic familiars (codes
+        // entityfamiliar-<type>-<variant>). A mage's own pet is not quarry, checked before
+        // either positive test so no behavior they carry can re-admit them.
+        if (e.Code?.Domain == "rustboundmagic"
+            && e.Code.FirstCodePart() is "companion" or "entityfamiliar") return false;
         return e.GetBehavior<Vintagestory.GameContent.EntityBehaviorHarvestable>() != null
             || e.Code?.Domain == "rustboundmagic";
     }

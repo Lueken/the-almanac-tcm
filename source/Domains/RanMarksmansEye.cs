@@ -165,11 +165,13 @@ public class RanMarksmansEye : HudElement
     /// <summary>Quarry worth a marksman's lead (ruled 2026-07-20: animals and rust monsters,
     /// never butterflies): anything harvestable — which covers game AND the temporal hostiles
     /// (drifters/bells carry the behavior; critters do not) — plus rustboundmagic's creatures
-    /// by domain in case theirs skip it. RBM 4.0's animus companions (codes companion-&lt;calling&gt;)
-    /// are player pets, not quarry — excluded before either positive test.</summary>
+    /// by domain in case theirs skip it. RBM's player pets — the 4.0 animus companions (codes
+    /// companion-&lt;calling&gt;) and the cosmetic familiars (entityfamiliar-&lt;type&gt;-&lt;variant&gt;) —
+    /// are not quarry, excluded before either positive test.</summary>
     private static bool IsMarkTarget(Entity e)
     {
-        if (e.Code?.Domain == "rustboundmagic" && e.Code.FirstCodePart() == "companion") return false;
+        if (e.Code?.Domain == "rustboundmagic"
+            && e.Code.FirstCodePart() is "companion" or "entityfamiliar") return false;
         if (e.GetBehavior<Vintagestory.GameContent.EntityBehaviorHarvestable>() != null) return true;
         return e.Code?.Domain == "rustboundmagic";
     }
