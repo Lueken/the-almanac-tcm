@@ -55,7 +55,8 @@ public static class TemPatches
         api.Event.RegisterGameTickListener(_ => Reconcile(api), 2000);
         api.Event.PlayerDeath += OnPlayerDeath;
         TemStormShift.RegisterServer(api);
-        TcmLog.Info(api, "TEM hooks live (warding + repair grants, gear/stability stats, Storm-Sense forecast, storm ledger, warning shift)");
+        TemForecastGate.RegisterServer(api);
+        TcmLog.Info(api, "TEM hooks live (warding + repair grants, gear/stability stats, Storm-Sense forecast, storm ledger, warning shift, forecast gate)");
 
         // The Axis-3 resistance rides stabilityLossMul. With SpecializedClasses (The Quire) SC applies
         // the stat; without it TemStabilityFallback patches the vanilla integrator directly (0.5), so
@@ -65,6 +66,7 @@ public static class TemPatches
     private static void Reconcile(ICoreServerAPI api)
     {
         TrackStorm(api);
+        TemForecastGate.Tick(api);
 
         foreach (IServerPlayer player in api.World.AllOnlinePlayers)
         {

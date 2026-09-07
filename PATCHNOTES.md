@@ -4,6 +4,25 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.6 (2026-09-06)
+
+The forecast itself is now earned. The bells and the written storm sense already
+arrive at your rank's own lead, but the raw schedule still rode the wire to every
+client at join, and any clock HUD would read it out days early. The server now keeps
+that page closed until your own window opens.
+
+- **Storm-blind means the HUD too.** The synced storm schedule carries a far-future
+  placeholder until the next storm crosses YOUR Storm-Sense lead, then the truth
+  arrives in the same breath as the bells. Clock and HUD mods (HudClock, Status HUD's
+  tempstorm element) light up at exactly the earned second and not one sooner.
+  Untrained sees nothing at all until the sky breaks.
+- **Nothing vanilla changes.** Storm visuals, the waning bell, and Temporal Symphony's
+  fog and bass all key off the active-storm fields, which stay truthful everywhere.
+  Verified against TS 2.3.2's client: it never reads the schedule.
+- **One switch.** The gate rides the same StormShiftTEM flag as the warning shift.
+  Off means stock behavior everywhere, and toggling off live restores the true
+  schedule to everyone online.
+
 ## 0.5.5 (2026-09-03)
 
 Marked food behaves like food again. A grower's mark is a signature, not a different
