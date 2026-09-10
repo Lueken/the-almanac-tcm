@@ -566,7 +566,13 @@ public static class HunPatches
             var seen = new HashSet<ItemStack>();
             foreach (var inv in player.InventoryManager.Inventories.Values)
             {
-                if (inv == null) continue;
+                // Skip the creative palette. It rides in Inventories.Values on every player,
+                // survival included, and its Count getter (currentTab.Inventory.Count) NREs
+                // when currentTab is null, which it is until the player opens the creative tab.
+                // Enumerating it here threw up through EntityBehaviorButcherable.OnInteract and
+                // kicked survival players off the server on any dead-animal interaction. It never
+                // holds a butchering drop, so it is never wanted here anyway.
+                if (inv == null || inv.ClassName == GlobalConstants.creativeInvClassName) continue;
                 foreach (var slot in inv) if (slot?.Itemstack != null) seen.Add(slot.Itemstack);
             }
             __state = (uid, seen, player);
@@ -577,7 +583,7 @@ public static class HunPatches
             if (__state.uid == null || __state.seen == null || __state.player == null) return;
             foreach (var inv in __state.player.InventoryManager.Inventories.Values)
             {
-                if (inv == null) continue;
+                if (inv == null || inv.ClassName == GlobalConstants.creativeInvClassName) continue;
                 foreach (var slot in inv)
                 {
                     var stack = slot?.Itemstack;

@@ -4,6 +4,22 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.8 (2026-09-10)
+
+Butchering an animal you raised no longer throws you off the server. Reaching for the
+carcass of anything that carried a raiser's mark raised a server-side error and
+disconnected whoever reached for it, which walled off the end of the husbandry road:
+raise the goat, go to butcher it, get thrown out. Wild kills were never affected, so
+the fault found only the players who had done the longer work.
+
+The cause was ours. The carcass credit check reads your inventories to see what the
+butchering hands you, and the inventory list every player carries includes the creative
+palette, survival characters included. On a server that palette has no open tab, so
+counting it fails. It never holds a butchering drop, so it is skipped now, the way it
+should have been from the start.
+
+---
+
 ## 0.5.7 (2026-09-07)
 
 Untrained fishing loosens its grip a little. The escape chance before your first
