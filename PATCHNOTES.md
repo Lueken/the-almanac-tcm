@@ -6,6 +6,60 @@ The Almanac: Trades, Callings & Mastery.
 
 ## 0.5.8 (2026-09-10)
 
+Cooking pays for cooking now, and stops paying quite so well for eating.
+
+**A pie is worth building.** Assembling one takes six separate acts, a dough base, four
+fillings and a top crust, and every one of them used to bank nothing at all. Only the oven
+was ever watching. Closing a pie with its crust now counts as work in its own right, once
+per pie, which is the one moment in the build that cannot be repeated by clicking at a
+half-finished one.
+
+**And a pie is worth baking.** A pie takes the whole oven, so it came out worth a quarter
+of what four loaves were worth out of the same oven, the same fuel and the same wait, while
+costing four dough and eight fillings to make. Anything that fills an oven on its own now
+pays double for it. Not quadruple: a pie is one dish and four loaves are four.
+
+**The saucepan finally counts.** Simmering has been quietly signing your name to its results
+for months without ever crediting the work. It grants practice now, which puts the pan
+alongside the pot and the oven where it always belonged.
+
+**Charring meat on a stick pays less.** It is the one thing every seraph does daily without
+owning a station, buying an ingredient or preparing anything, and it had drifted up to
+paying nearly as well as real kitchen work. It comes back down. Nothing else on the table
+was cut, because the daily ceiling was already doing that job: an honest cook was never
+near it, and shaving every number would only have meant more clicking for the same day.
+
+**Cooking climbs slower than the other trades.** Every rung of the Cooking ladder is a
+quarter longer than its neighbours in other domains. This is the only domain nobody opts
+out of, because everybody eats, and the honest place to price that is the ladder rather than
+the numbers over your hotbar. A cook's day still reads like a cook's day. It simply asks for
+more of them.
+
+Servers that have tuned any of these values keep their own. Servers that have not will pick
+the new ones up on the next start, with one exception: the ladder itself is not part of that
+merge, so an existing server wanting the slower Cooking climb has to change TierTotals in
+ModConfig/almanactcm/COO.json by hand.
+
+The oven paid for work nobody did, three ways, all of them out of one mistake: the
+check that decided whether something taken out of an oven was a finished bake read the
+item's name instead of its baking chain.
+
+Firewood was the worst of it. An oven's fuel sits in the same inventory its loaves do,
+and the game hands the fuel back first, so an unlit oven would let you drop a log in,
+take it straight back out, and collect a full baking credit for it. Every two seconds,
+for as long as you cared to keep clicking. An unbaked pie taken back out paid the same
+way, and so did a raw doughball from Expanded Foods, whose name does not begin with the
+word the check was watching for.
+
+None of that pays now, and the reason it does not is better than a longer list of names
+to refuse: the oven reads where a thing sits on its own baking chain. Raw and part-baked
+are unfinished, charred is the ruin, and what is left is the good. That holds for any
+mod's chain as readily as for vanilla's, including the ones that end at the good because
+they cannot burn at all, like roasted peanuts and dried seaweed.
+
+The same reading now decides whose name goes on a dish, so a raw doughball no longer
+leaves the oven signed as somebody's finished loaf.
+
 Butchering an animal you raised no longer throws you off the server. Reaching for the
 carcass of anything that carried a raiser's mark raised a server-side error and
 disconnected whoever reached for it, which walled off the end of the husbandry road:
@@ -17,6 +71,24 @@ butchering hands you, and the inventory list every player carries includes the c
 palette, survival characters included. On a server that palette has no open tab, so
 counting it fails. It never holds a butchering drop, so it is skipped now, the way it
 should have been from the start.
+
+**The Stockman's Eye.** A wild-caught ewe refuses the pail nineteen times in twenty, and
+one born three generations into your care never refuses at all. The game has always run
+on that and has never quite said so, which leaves a new hand kneeling at an animal that
+will not give, reading it as a broken pail rather than a wild herd. A stockman reads the
+animal instead. Look at a milkable beast and she tells you how she is likely to take being
+handled, and further along, how many births stand between this line and one that holds
+still. Nothing about the milking itself has changed. She is exactly as willing as she ever
+was; you are simply no longer guessing why.
+
+Two things the game never told anyone are now said out loud, because both change what you
+do next. A refusal takes nothing from the day's milk, so there is no cost to trying again
+beyond her temper. And a beast that refuses does not always turn on you, which is a
+difference worth knowing before you kneel down: what she will do is read from what she is,
+not from what her species is called.
+
+The reading is a farmer's, so it comes with the rank. Untrained sees the lactating window
+and nothing else. A Novice reads the animal. An Apprentice reads the line.
 
 ---
 

@@ -95,6 +95,10 @@ public static class CooPatches
 
         // --- player-attributed verbs (1a, unchanged) ---------------------------------------
         Hook(api, harmony, "Vintagestory.GameContent.BlockEntityFruitPress", "OnBlockInteractStop", nameof(JuicePostfix), "COO juicing");
+        // Pie assembly: credited at the CRUST, which is the one interact that finishes a pie.
+        // The base and the four fillings each grant nothing on purpose (see PieCrustPostfix).
+        HookPairDeclared(api, harmony, "Vintagestory.GameContent.BlockEntityPie", "OnInteract",
+            nameof(PieCrustPrefix), nameof(PieCrustPostfix), "COO pie assembly");
 
         // --- the seafarer stations (all seams verified against seafarer 0.5.15, 2026-07-21) ---
         if (api.ModLoader.IsModEnabled("seafarer"))
@@ -227,13 +231,24 @@ public static class CooPatches
 
     // ------------------------------------------------------------ oven baking (credit at pickup)
 
-    /// <summary>Snapshot the oven's slots before the interact so the postfix can see what left.</summary>
-    public static void OvenTakePrefix(BlockEntity __instance, IPlayer byPlayer, out string?[] __state)
+    /// <summary>Snapshot the oven's slots before the interact so the postfix can see what left.
+    /// Each slot keeps its code path (which is only ever used to tell "something left this slot"
+    /// from "nothing changed") and its BAKE STAGE, classified here while the stack is still in
+    /// hand. Classifying in the prefix is what lets both the stamp below and the credit in the
+    /// postfix stop guessing the stage from substrings in the code path — see StageOf.</summary>
+    public static void OvenTakePrefix(BlockEntity __instance, IPlayer byPlayer, out OvenSlotSnapshot[] __state)
     {
         var inv = (__instance as BlockEntityContainer)?.Inventory;
-        __state = new string?[inv?.Count ?? 0];
+        __state = new OvenSlotSnapshot[inv?.Count ?? 0];
+        IWorldAccessor? snapWorld = __instance?.Api?.World;
         for (int i = 0; i < __state.Length; i++)
-            __state[i] = inv![i]?.Itemstack?.Collectible?.Code?.Path;
+        {
+            ItemStack? stack = inv![i]?.Itemstack;
+            __state[i] = new OvenSlotSnapshot(
+                stack?.Collectible?.Code?.Path,
+                snapWorld == null ? OvenStage.NotBakeware : StageOf(snapWorld, stack),
+                IsLargeBake(stack?.Collectible));
+        }
 
         // Stamp the finished loaves HERE, before the interaction can carry one off. The postfix
         // fires after the take, by which point the bread is in the player's hands and finding it
@@ -271,11 +286,13 @@ public static class CooPatches
         int cx = (int)CooDomain.Knob(CooDomain.CxBaking, 1);
         for (int i = 0; i < __state.Length && i < inv.Count; i++)
         {
-            string? code = __state[i];
-            if (code == null) continue;
-            if (code.StartsWith("dough") || code.Contains("partbaked")) continue; // not finished work
-            if (code.Contains("-raw")) continue;                                  // an unbaked pie is not finished work either
-            if (code.Contains("charred")) continue;                               // ruined, unsigned
+            if (__state[i].Path == null) continue;
+            // Only FINISHED work gets signed. This was four substring tests (dough / partbaked /
+            // -raw / charred) until 0.5.8. They read the vanilla naming and nothing else, so
+            // ExpandedFoods' plaindoughball-dough — a raw doughball whose path starts with the
+            // product name, not with "dough" — passed every one of them and got signed as a
+            // cook's finished loaf. The stage classifier replaces all four.
+            if (__state[i].Stage != OvenStage.Finished) continue;
 
             ItemStack? loaf = inv[i]?.Itemstack;
             if (loaf == null) continue;
@@ -304,8 +321,25 @@ public static class CooPatches
     /// <summary>RULED 2026-07-21: baking XP fires on PICKUP of the finished good, one credit per
     /// loaf taken. Dough or a par-baked loaf taken back out is unfinished work (nothing); a
     /// charred pickup is the ruin (logged, nothing). Batches are batch-friendly by construction:
-    /// each slot's take is its own context.</summary>
-    public static void OvenTakePostfix(BlockEntity __instance, IPlayer byPlayer, string?[] __state)
+    /// each slot's take is its own context.
+    ///
+    /// The stage now comes from the prefix's classifier instead of substring tests on the code
+    /// path, which fixes three ways this seam paid for work nobody did (all found 2026-09-10):
+    ///
+    ///  1. FUEL. The oven's inventory includes its fuel slot, and vanilla's TryTake walks that
+    ///     slot FIRST (BEClayOven.cs:318 counts down from bakeableCapacity), so firewood can be
+    ///     put into an unlit oven and taken straight back out. "firewood" starts with neither
+    ///     "dough" nor anything else the old filters looked for, so every put-and-take cycle
+    ///     banked a full baking credit, throttled only by the 2s dedup bucket. This is the same
+    ///     hole the STAMP path found and closed on 2026-08-13 with its food guard; the credit
+    ///     path beside it was never given the same treatment.
+    ///  2. RAW PIES. A pie's states are raw / partbaked / perfect / charred, and "pie-raw" is
+    ///     caught by none of the old tests, so an unbaked pie taken back out paid in full.
+    ///  3. MODDED DOUGH. ExpandedFoods' plaindoughball-dough does not start with "dough".
+    ///
+    /// Fuel is now NotBakeware and is refused on that ground rather than on being inedible, which
+    /// is the honest reason: the oven never bakes it.</summary>
+    public static void OvenTakePostfix(BlockEntity __instance, IPlayer byPlayer, OvenSlotSnapshot[] __state)
     {
         if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
         var inv = (__instance as BlockEntityContainer)?.Inventory;
@@ -313,18 +347,134 @@ public static class CooPatches
 
         for (int i = 0; i < __state.Length && i < inv.Count; i++)
         {
-            string? before = __state[i];
+            string? before = __state[i].Path;
             if (before == null || inv[i]?.Itemstack?.Collectible?.Code?.Path == before) continue; // nothing left this slot
 
-            if (before.StartsWith("dough") || before.Contains("partbaked")) continue; // unfinished work back out
-            if (before.Contains("charred"))
+            switch (__state[i].Stage)
             {
-                TcmLog.Cat(__instance.Api, "coo", $"charred pickup at {__instance.Pos} slot {i}: {before} — ruined, no practice");
-                continue;
+                case OvenStage.Finished:
+                    // CREDIT THE OVEN LOAD, NOT THE CLICK (2026-09-10). Baking pays once per
+                    // finished good taken, which is right for loaves and quietly wrong for a
+                    // pie: a pie is a LargeItem, so it takes the whole oven (BEClayOven.cs:98
+                    // switches to SingleCenter), and one pie was banking a quarter of what four
+                    // loaves banked out of the same oven, the same fuel and the same wait, while
+                    // costing four dough and eight filling units to build. Doubled rather than
+                    // quadrupled: a pie is one dish and four loaves are four, so parity is not
+                    // the target, and the lean on this domain is downward.
+                    Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechBaking,
+                        HashCode.Combine("bake", __instance.Pos.X, __instance.Pos.Z, i,
+                            __instance.Api.World.ElapsedMilliseconds / 2000),
+                        __state[i].Large ? 2.0 : 1.0);
+                    break;
+                case OvenStage.Ruined:
+                    TcmLog.Cat(__instance.Api, "coo",
+                        $"charred pickup at {__instance.Pos} slot {i}: {before} - ruined, no practice");
+                    break;
+                default: // unfinished work back out, or fuel: neither is a bake
+                    break;
             }
-            Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechBaking,
-                HashCode.Combine("bake", __instance.Pos.X, __instance.Pos.Z, i, __instance.Api.World.ElapsedMilliseconds / 2000));
         }
+    }
+
+    // ------------------------------------------------------- the bake-stage classifier
+
+    /// <summary>What one oven slot held when the interact began.</summary>
+    public readonly struct OvenSlotSnapshot
+    {
+        public readonly string? Path;
+        public readonly OvenStage Stage;
+        /// <summary>This stack monopolised the whole oven while it baked (a pie).</summary>
+        public readonly bool Large;
+
+        public OvenSlotSnapshot(string? path, OvenStage stage, bool large)
+        {
+            Path = path;
+            Stage = stage;
+            Large = large;
+        }
+    }
+
+    /// <summary>Where a stack sits on its own baking chain.</summary>
+    public enum OvenStage
+    {
+        /// <summary>The oven never bakes this. Fuel lives here.</summary>
+        NotBakeware,
+        /// <summary>Raw or part-baked: a stage the cook wants still comes after this one.</summary>
+        Unfinished,
+        /// <summary>The good the cook was after.</summary>
+        Finished,
+        /// <summary>Burnt past the good. The ruin.</summary>
+        Ruined,
+    }
+
+    /// <summary>The two chain links off a collectible's bakingProperties, or null when it has
+    /// none. Read straight off the attribute rather than through BakingProperties.ReadFrom,
+    /// which fills a missing temp by calling GetCombustibleProperties(null, ...) and so hands a
+    /// null world to any mod that overrides it. Only the links matter here.</summary>
+    private static (string? Result, string? Initial)? BakeLinks(CollectibleObject? obj)
+    {
+        var attr = obj?.Attributes?["bakingProperties"];
+        if (attr == null || !attr.Exists) return null;
+        return (attr["resultCode"].AsString(), attr["initialCode"].AsString());
+    }
+
+    /// <summary>Does this stack take the whole oven while it bakes? Both spellings are checked
+    /// because vanilla's own pie.json writes "LargeItem" while the API field the JSON binds to is
+    /// matched case-insensitively by Newtonsoft; a raw attribute read is not.</summary>
+    private static bool IsLargeBake(CollectibleObject? obj)
+    {
+        var attr = obj?.Attributes?["bakingProperties"];
+        if (attr == null || !attr.Exists) return false;
+        return attr["LargeItem"].AsBool(false) || attr["largeItem"].AsBool(false);
+    }
+
+    /// <summary>Resolve a chain code to its collectible. Tried as an item first and then as a
+    /// block, because chains cross the two: EF bakes the mushroom BLOCK into a cookedmushroom
+    /// ITEM, while a pie stays a block the whole way.</summary>
+    private static CollectibleObject? ChainTarget(IWorldAccessor world, string? code)
+    {
+        if (code == null) return null;
+        var loc = new AssetLocation(code);
+        return (CollectibleObject?)world.GetItem(loc) ?? world.GetBlock(loc);
+    }
+
+    /// <summary>Classify a stack by walking one link of its own baking chain, so the answer holds
+    /// for any mod's chain instead of only for vanilla's naming.
+    ///
+    /// Two chain shapes exist in the wild, and a rule that reads only one of them gets the other
+    /// backwards (census taken 2026-09-10 across survival + ACA + ExpandedFoods, 90-odd stages):
+    ///
+    ///  - FOUR STAGES, ending in a ruin: raw, part-baked, the good, charred. Vanilla bread and
+    ///    pie, EF's plaindoughball, cookedmushroom, pemmican. The ruin is the terminal stage
+    ///    (no resultCode).
+    ///  - TWO STAGES, ending in the good: it simply cannot burn. EF's roasted peanut, dried
+    ///    seaweed, gozinaki, soyprep. Here the TERMINAL stage is what the cook wanted.
+    ///
+    /// So "terminal" alone does not mean ruined, and the level bands do not settle it either:
+    /// pemmican runs 0 / 0.5 / 1.0 / 1.5 and EF's acorn dishes char at 0.85, so any fixed
+    /// "done is 0.5" test both misses pemmican's good and pays for its part-bake. What separates
+    /// them is whether the stage BEFORE the terminal one was itself baked into being, which the
+    /// chain records as initialCode. A stage that was reached by baking and is followed only by
+    /// the ruin is the good; a terminal stage whose predecessor was itself baked is the ruin.</summary>
+    private static OvenStage StageOf(IWorldAccessor world, ItemStack? stack)
+    {
+        var links = BakeLinks(stack?.Collectible);
+        if (links == null) return OvenStage.NotBakeware;
+        var (result, initial) = links.Value;
+
+        if (result == null)
+        {
+            // Terminal. Ruined only if the stage before it was itself a baked stage.
+            var previous = BakeLinks(ChainTarget(world, initial));
+            return previous?.Initial != null ? OvenStage.Ruined : OvenStage.Finished;
+        }
+
+        // Something comes after this. It is the good only when what comes after is the ruin AND
+        // this stage was itself reached by baking - otherwise it is the raw start of a two-stage
+        // chain, which is also followed by a terminal stage but has never seen an oven.
+        var next = BakeLinks(ChainTarget(world, result));
+        bool nextIsTerminal = next != null && next.Value.Result == null;
+        return nextIsTerminal && initial != null ? OvenStage.Finished : OvenStage.Unfinished;
     }
 
     /// <summary>Mark flour the quern ejected because its output slot could not take it. The
@@ -584,6 +734,38 @@ public static class CooPatches
     private static bool IsAlcMatter(ItemStack? stack)
         => stack?.Collectible?.Attributes?["tcmCraftDomain"]?.AsString() == "ALC";
 
+
+    // ------------------------------------------------------------ pie assembly
+
+    /// <summary>Did this pie already have its top crust before the interact?</summary>
+    public static void PieCrustPrefix(BlockEntityPie __instance, out bool __state)
+    {
+        // Default TRUE, which is the no-credit answer: a pie we cannot read is not a pie we pay for.
+        __state = __instance?.Api?.Side != EnumAppSide.Server || __instance.HasCrust;
+    }
+
+    /// <summary>RULED 2026-09-10: pie assembly grants ONCE, when the top crust closes the pie.
+    ///
+    /// A pie is built by six separate interacts (the dough base, four fillings, the crust) and
+    /// until now every one of them banked nothing, so the most ingredient-hungry dish in the game
+    /// paid only for its bake. Crediting per interact would have been the obvious fix and the
+    /// wrong one: fillings go in one slot at a time and a half-built pie can sit there being
+    /// clicked at. The crust is the single event that cannot repeat. Once it is on, HasCrust
+    /// stays true forever (CycleTopCrustType only restyles it), so a player cycling the crust
+    /// pattern is paid exactly once, and there is no way back down the state machine.
+    ///
+    /// The pie still has to be baked afterwards or it rots, so this is not a shortcut around the
+    /// oven; it is the part of the work the oven never saw.</summary>
+    public static void PieCrustPostfix(BlockEntityPie __instance, IPlayer byPlayer, bool __result, bool __state)
+    {
+        if (!__result || __state || byPlayer == null) return;
+        if (__instance?.Api?.Side != EnumAppSide.Server || !__instance.HasCrust) return;
+
+        Core?.Ledger?.Log(byPlayer, CooDomain.Code, CooDomain.TechPastry,
+            HashCode.Combine("pastry", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
+                __instance.Api.World.ElapsedMilliseconds / 2000));
+    }
+
     // ------------------------------------------------------------ juicing
 
     /// <summary>The press: ONE patch, routed by what is in the mash (RULED 2026-07-28/30,
@@ -716,6 +898,20 @@ public static class CooPatches
 
         BlockPos? pos = (cookingSlotsProvider as BlockEntity)?.Pos ?? (cookingSlotsProvider as InventorySmelting)?.pos;
         IPlayer? cook = CookAt(world, pos);
+
+        // PRACTICE (2026-09-10). Granted here, ABOVE the provenance branches below, because those
+        // return early on outcomes that are still real cooking: a simmer that pours a liquid into
+        // the pan skips the stamp (pooling beats provenance) but the cook still stood over it, and
+        // a result merging onto an already-signed stack skips the stamp too while being a second
+        // completed simmer. Neither is a reason to refuse the practice. No double-credit with
+        // direct-heat: BlockSaucepan.DoSmelt is an OVERRIDE, so the base CollectibleObject.DoSmelt
+        // patch never fires for it (the Harmony override rule, same as the ACA raw-food seam).
+        if (cook != null && pos != null)
+        {
+            Core?.Ledger?.Log(cook, CooDomain.Code, CooDomain.TechSimmering,
+                HashCode.Combine("simmer", pos.X, pos.Z, made.Collectible.Id,
+                    world.ElapsedMilliseconds / 20000));
+        }
 
         // IsCooksDish: the shared finished-dish predicate (see FoodProvenance for the family
         // of null-nutrition meal carriers it exists to cover).

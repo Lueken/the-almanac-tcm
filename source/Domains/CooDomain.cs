@@ -38,6 +38,8 @@ public static class CooDomain
     public const string TechDrying = "drying";         // ACA meat hooks + seafarer drying frame
     public const string TechSalting = "salting";       // seafarer salt pan evaporation
     public const string TechPrep = "prep";             // seafarer prep-table assembly
+    public const string TechPastry = "pastry";         // BlockEntityPie: the top crust closes the pie
+    public const string TechSimmering = "simmering";   // ACA BlockSaucepan.DoSmelt
 
     // ---- Phase 2 knobs (COO ladder RULED 2026-07-09; Proposal B: complexity class is the
     // rank-bonus ceiling, never a locked door). All live-editable in ModConfig/almanactcm/COO.json.
@@ -49,12 +51,13 @@ public static class CooDomain
     public const string CxBaking = "cxBaking";
     public const string CxGriddling = "cxGriddling";
     public const string CxMixing = "cxMixing";
-    public const string CxSimmering = "cxSimmering"; // ACA saucepan (provenance cx only; simmering grants no practice yet)
+    public const string CxSimmering = "cxSimmering"; // ACA saucepan
     public const string CxMilling = "cxMilling";
     public const string CxJuicing = "cxJuicing";
     public const string CxDrying = "cxDrying";
     public const string CxSalting = "cxSalting";
     public const string CxPrep = "cxPrep";
+    public const string CxPastry = "cxPastry";
 
     /// <summary>Axis 2 fuel economy (the MET fuel analog): burn-duration factor at the ends.</summary>
     public const string FuelUntrained = "fuelUntrained";
@@ -78,6 +81,17 @@ public static class CooDomain
         Code = Code,
         Smax = 100,
         M = 3, // locked; pre-pottery breadth is exactly 3 (direct-heat, quern, rack drying)
+        // COO PACES SLOWER THAN EVERY OTHER DOMAIN (2026-09-10, +25% on the shared table
+        // 150/500/1400/3200/6500). Cooking is the one domain nobody can opt out of: every player
+        // of every class eats, so COO accrues for everyone whether or not they ever chose to be
+        // a cook. The honest lever for that is the LADDER, not the grants. Cutting Smax would
+        // have paid for the same pacing by shrinking every number the player sees, which is the
+        // very thing the toast complaint that started this was about. Raising the rungs instead
+        // leaves an honest day's cooking reading like an honest day's cooking and simply asks
+        // for more of them. NOTE: TierTotals is not part of the three-way config merge (only
+        // Techniques and Bonus are), so this reaches a server that has already booted ONLY by
+        // editing its ModConfig/almanactcm/COO.json directly.
+        TierTotals = new() { 188, 625, 1750, 4000, 8125 },
         Adjacency = new List<string> { "FAR", "FIS", "FOR" },
         Techniques = new Dictionary<string, TechniqueConfig>
         {
@@ -98,7 +112,16 @@ public static class CooDomain
             // cheap, spammiest row — its contextHash dedup must treat "charred meat x40" as one
             // context (ruled) — so it gets the smallest lift of the group.
             [TechMealPot] = new() { Raw = 4, K = 14 },
-            [TechDirectHeat] = new() { Raw = 1.5, K = 20 },
+            // DIRECT-HEAT CUT 2026-09-10 (was 1.5/20). The one COO verb every player of every
+            // class does daily at zero investment: a chop on a stick over an open fire, no
+            // station, no ingredients, no preparation. The 2026-07-29 retune lifted the whole
+            // domain to session cadence and swept this row along with it, which is how casual
+            // cooking came to bank nearly as well as a cook's. Measured before the cut: a casual
+            // day (2 pots, 5 direct-heats, 1 bake) banked 26.8 of the 100/day cap, and 7.7 of it
+            // came from this row alone. Cutting HERE rather than across the table is the whole
+            // point: the domain cap already throttles a real cook, so an across-the-board Raw cut
+            // would only buy more clicks for the same ceiling.
+            [TechDirectHeat] = new() { Raw = 1.0, K = 25 },
             [TechMixing] = new() { Raw = 3, K = 18 },
             // Milling is genuinely repetitive (quern cranking) AND double-pays via the ruled
             // COO 50 / FAR 50 split, so it keeps the most conservative curve of the staples.
@@ -108,6 +131,19 @@ public static class CooDomain
             [TechGriddling] = new() { Raw = 3, K = 15 },
             [TechJuicing] = new() { Raw = 3, K = 15 },
             [TechPrep] = new() { Raw = 3, K = 15 },
+            // PASTRY (2026-09-10): a pie is the most expensive dish in the game to assemble —
+            // four dough and eight filling units — and until now every step of assembling one
+            // banked nothing, because the base, the fillings and the crust are all block
+            // interacts and only the OVEN was wired. Credited ONCE, at the crust: it is a single
+            // completion event, it cannot be farmed by adding and removing fillings, and it is
+            // the act a player means when they say they made a pie.
+            [TechPastry] = new() { Raw = 2, K = 20 },
+            // SIMMERING (2026-09-10): the ACA saucepan seam has been hooked since 0.4.x and has
+            // been stamping provenance the whole time, with a complexity class in config, while
+            // granting no practice at all. ExpandedFoods ships around 55 simmering recipes and
+            // the pan is a real station on a modded table. A wired, complexity-rated station
+            // sitting at zero was the same shape of gap as the pie.
+            [TechSimmering] = new() { Raw = 2, K = 20 },
             // Passive per-session pair (small K): one rack/pan cycle ~ banked.
             [TechDrying] = new() { Raw = 4, K = 12 },
             [TechSalting] = new() { Raw = 3, K = 12 },
@@ -119,6 +155,9 @@ public static class CooDomain
             [CxMealpot] = 1, [CxDirectheat] = 0, [CxBaking] = 2, [CxGriddling] = 2,
             [CxMixing] = 3, [CxSimmering] = 2, [CxMilling] = 2, [CxJuicing] = 2, [CxDrying] = 2,
             [CxSalting] = 2, [CxPrep] = 3,
+            // Pastry uses no apparatus at all, but every part going into it is itself a chain
+            // product (milled flour, kneaded dough, prepared filling), so it classes with prep.
+            [CxPastry] = 3,
             // The ruled illustrative ends (MET numeric posture, playtest-tuned).
             [FuelUntrained] = 0.90, [FuelGm] = 1.15,
             [CharUntrained] = 1.5, [CharGm] = 0.5,
