@@ -4,11 +4,21 @@ Thanks for looking. This is a Vintage Story mod, MIT licensed, built by Venah.
 
 ## Read these two first
 
-1. **`CONVENTIONS.md`** (workshop root), the nine engineering conventions every mod here follows.
+1. **`CONVENTIONS.md`** (workshop root), the ten engineering conventions every mod here follows.
    They are short, and most review comments you would otherwise get are already answered there.
 2. **`docs/design/rank-bonus-design.md`** § *Framework* and § *Governing principles*, the design
    rules for domain ladders. The governing principles are marked **do not re-litigate**; they were
    settled with reasons and reopening them is not a code review conversation.
+
+## What is already staged for the next release
+
+**`PENDING.md`** at the mod root lists everything sitting in the current unreleased version, and
+what still has to happen by hand at deploy time. Read it before you build a zip. It exists because
+work here happens across parallel sessions that cannot see each other, and the tree is all they
+share. See `CONVENTIONS.md` § 10.
+
+Version strings stay clean semver. Per-issue dev builds go to `Releases/staging/` with the issue in
+the filename, never in the manifest.
 
 ## Before you open a PR
 
