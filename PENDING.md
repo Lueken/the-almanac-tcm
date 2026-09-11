@@ -40,9 +40,13 @@ Zip `Releases/almanactcm_0.5.9.zip`, `sha256 43a1acd2de8a90ae`, 25 entries (iden
 to 0.5.8, code-only). Built against 1.22.7. All three changes verified present in the shipped DLL
 by decompile, not by trusting the build.
 
-**NOT deployed and NOT run in game.** The Quire is still on 0.5.8 on disk and still has not
-restarted, so 0.5.8 is not live either. A restart now brings up 0.5.9 if it is deployed first,
-or 0.5.8 if it is not.
+**DEPLOYED to The Quire 2026-09-11, not yet live.** Server `data/Mods` carries
+`almanactcm_0.5.9.zip`, sha256 readback verified identical to the repo zip; 0.5.8 renamed aside
+to `almanactcm_0.5.8.zip.pre059-bak`. Jeffrey's client profile synced the same way. It loads at
+the next restart, and 0.5.8 is live until then. Pushed to GitHub (`ba7f1a6`). Zip also staged in
+`~/Downloads` for the ModDB upload, which is Jeffrey's to post.
+
+NOT run in game.
 
 ## Not in the zip, needed at deploy time
 
