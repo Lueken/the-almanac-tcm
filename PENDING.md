@@ -21,23 +21,19 @@ Nothing yet.
   ships. Any server other than The Quire still needs the 0.5.8 array written into its
   `ModConfig/almanactcm/COO.json` by hand.
 
-## DRIFT: the server is holding an older 0.5.8
-
-The Quire has `almanactcm_0.5.8.zip` at sha `00353add...`; the repo now builds `2d616a95...`. The
-difference is the WOO tree-seed planting fix, committed `e15eedd` after the deploy. Same version
-number, different bytes, which is the drift § 10 exists to stop, and it is recorded here rather
-than tolerated quietly.
-
-It is harmless so far only because **the server has never restarted since the deploy**, so no
-build of 0.5.8 has ever been loaded. Resolve it by redeploying before that restart. Do not post to
-ModDB from the older zip.
-
 ## Last shipped
 
-**0.5.8, deployed to The Quire 2026-09-10.** Four items: the butchering crash, the oven credit
-exploits, the COO cooking XP retune (A through E), and FAR's Stockman's Eye. The Quire's
-`COO.json` was given the new `TierTotals` at deploy. **The server has not been restarted yet**, so
-none of it is live until it is, and the direct-heat adopt (`1.5/20` to `1.0/25`) happens at that
-boot. ModDB upload is Jeffrey's to post.
+**0.5.8, deployed to The Quire 2026-09-10.** Five items: the butchering crash, the oven credit
+exploits, the COO cooking XP retune (A through E), FAR's Stockman's Eye, and the WOO tree-seed
+planting fix. The Quire's `COO.json` carries the new `TierTotals`.
+
+Zip `sha256 2d616a95813b77c3`, verified identical on the server, in the client profile and in
+`Releases/`. An earlier 0.5.8 build (`00353add...`) was deployed a few hours before the planting
+fix landed; the drift it caused is resolved and it never loaded, because the server had not
+restarted in between.
+
+**The server still has not been restarted**, so none of 0.5.8 is live yet, and COO direct-heat
+adopts `1.5/20` to `1.0/25` at that boot. ModDB upload is Jeffrey's to post, from the
+`2d616a95` zip.
 
 Nothing in 0.5.8 was run in game before shipping.
