@@ -21,6 +21,17 @@ Nothing yet.
   ships. Any server other than The Quire still needs the 0.5.8 array written into its
   `ModConfig/almanactcm/COO.json` by hand.
 
+## DRIFT: the server is holding an older 0.5.8
+
+The Quire has `almanactcm_0.5.8.zip` at sha `00353add...`; the repo now builds `2d616a95...`. The
+difference is the WOO tree-seed planting fix, committed `e15eedd` after the deploy. Same version
+number, different bytes, which is the drift § 10 exists to stop, and it is recorded here rather
+than tolerated quietly.
+
+It is harmless so far only because **the server has never restarted since the deploy**, so no
+build of 0.5.8 has ever been loaded. Resolve it by redeploying before that restart. Do not post to
+ModDB from the older zip.
+
 ## Last shipped
 
 **0.5.8, deployed to The Quire 2026-09-10.** Four items: the butchering crash, the oven credit
