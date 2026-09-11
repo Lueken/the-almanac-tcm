@@ -62,8 +62,13 @@ Zip `sha256 2d616a95813b77c3`, verified identical on the server, in the client p
 fix landed; the drift it caused is resolved and it never loaded, because the server had not
 restarted in between.
 
-**The server still has not been restarted**, so none of 0.5.8 is live yet, and COO direct-heat
-adopts `1.5/20` to `1.0/25` at that boot. ModDB upload is Jeffrey's to post, from the
-`2d616a95` zip.
+**LIVE as of the 2026-09-11 17:16 restart.** Boot verified clean: `almanactcm 0.5.8` loaded, zero
+fatals, zero TCM errors, every domain configured, ledgers saving on schedule (16 of them). COO
+direct-heat took its `1.5/20` to `1.0/25` adoption at that boot. ModDB upload is Jeffrey's to
+post, from the `2d616a95` zip.
 
-Nothing in 0.5.8 was run in game before shipping.
+Nothing in 0.5.8 was run in game before shipping, so it is being exercised live now.
+
+The Quire's ledger was audited against the 0.5.9 stranded-marker bug on 2026-09-11 and is
+**clean**: 16 players, markers from 123 to 254, none ahead of the calendar. The Quire was never
+exposed to it. 0.5.9 is not urgent here.
