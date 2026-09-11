@@ -60,6 +60,16 @@ they cannot burn at all, like roasted peanuts and dried seaweed.
 The same reading now decides whose name goes on a dish, so a raw doughball no longer
 leaves the oven signed as somebody's finished loaf.
 
+Planting a tree seed pays when a sapling appears, and not before. Shift-clicking a walnut
+seed at cobblestone banked planting practice and handed the seed straight back, so the one
+forestry verb meant to be limited by how many seeds you had turned out to have no limit at
+all: one seed, any stone wall, as long as you cared to keep clicking. The refusal never
+reached us, because the game raises that failure on your own screen and tells the server
+nothing about it. So it asks the ground now rather than the click, and a seed that finds no
+purchase teaches nothing. The same change quietly fixes a second thing nobody had hit yet:
+credit used to watch the crouch key while the game plants on the shift key, which are the
+same key until you rebind one of them.
+
 Butchering an animal you raised no longer throws you off the server. Reaching for the
 carcass of anything that carried a raiser's mark raised a server-side error and
 disconnected whoever reached for it, which walled off the end of the husbandry road:

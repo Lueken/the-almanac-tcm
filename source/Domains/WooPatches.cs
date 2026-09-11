@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -145,20 +145,74 @@ public static class WooPatches
     }
 
     /// <summary>Planting: shift-interacting a tree seed onto ground. Low value, self-limiting
-    /// (seeds are finite) — credited at the plant action per the ruling.</summary>
+    /// (seeds are finite) — credited at the plant action per the ruling.
+    ///
+    /// CREDIT THE SAPLING, NOT THE CLICK (reported on GitHub 2026-09-10, walnut seeds on
+    /// cobblestone). This paid for the ATTEMPT. Shift-clicking a seed at a block with no
+    /// fertility banked planting practice and kept the seed, so the one verb in WOO that was
+    /// supposed to be self-limiting had an unlimited supply: the same seed paid over and over
+    /// against any stone in the world. Vanilla gave us nothing to read — OnHeldInteractStart
+    /// returns void, its failure branch only raises a client-side error, and it sets
+    /// handHandling to PreventDefault on success and failure alike (ItemTreeSeed.cs:108).
+    ///
+    /// It also tested Controls.Sneak while vanilla plants on Controls.ShiftKey. The API keeps
+    /// those apart deliberately: ShiftKey is the interact modifier and is the one to pair with a
+    /// mouse button, Sneak asks whether the entity is crouching, and either can be remapped
+    /// (EntityControls.cs:240, :323). On default bindings they agree, which is why this never
+    /// showed. Remap one and credit and planting fall out of step.
+    ///
+    /// Both faults go away by asking the world instead of the input. The prefix records the block
+    /// sitting where the sapling would go; the postfix pays only if that block changed. A refused
+    /// plant leaves it untouched, and which key was held stops mattering, so the control test is
+    /// gone rather than corrected.
+    ///
+    /// The test is "the block changed", not "the block is now a sapling". Naming the expected
+    /// sapling would mean repeating vanilla's own `sapling-{type}-free` lookup, and if that
+    /// naming ever moved, the stricter test would silently stop paying while the looser one keeps
+    /// working. Nothing else can change that position inside one synchronous interact.</summary>
     [HarmonyPatch(typeof(ItemTreeSeed), nameof(ItemTreeSeed.OnHeldInteractStart))]
     public static class PlantingPracticePatch
     {
+        /// <summary>Where the sapling would land, and what was there before the attempt.</summary>
+        public readonly struct PlantAttempt
+        {
+            public readonly BlockPos? Target;
+            public readonly int BlockIdBefore;
+
+            public PlantAttempt(BlockPos? target, int blockIdBefore)
+            {
+                Target = target;
+                BlockIdBefore = blockIdBefore;
+            }
+        }
+
         // Only a subset of the params — Harmony injects by name and ignores the rest, so the
         // ref handHandling stays out of our signature (its mis-named ref param crashed Start once).
-        public static void Postfix(EntityAgent byEntity, BlockSelection blockSel, bool firstEvent)
+        public static void Prefix(EntityAgent byEntity, BlockSelection blockSel, bool firstEvent,
+            out PlantAttempt __state)
         {
+            __state = default;
             if (!firstEvent || blockSel == null) return;
             if (byEntity?.World?.Side != EnumAppSide.Server) return;
-            IPlayer? player = (byEntity as EntityPlayer)?.Player;
-            if (player == null || !byEntity.Controls.Sneak) return; // planting is a shift-interact
 
-            Core?.Ledger?.Log(player, WooDomain.Code, WooDomain.TechPlanting, blockSel.Position.GetHashCode());
+            // The sapling goes one block above the clicked face (ItemTreeSeed.cs:85 clones the
+            // selection and calls Position.Up()). Read the position HERE: vanilla reassigns its
+            // own blockSel parameter to that clone, so by the time a postfix runs, the parameter
+            // no longer points at what the player clicked.
+            BlockPos target = blockSel.Position.UpCopy();
+            __state = new PlantAttempt(target, byEntity.World.BlockAccessor.GetBlockId(target));
+        }
+
+        public static void Postfix(EntityAgent byEntity, PlantAttempt __state)
+        {
+            if (__state.Target == null || byEntity?.World == null) return;
+            IPlayer? player = (byEntity as EntityPlayer)?.Player;
+            if (player == null) return;
+            if (byEntity.World.BlockAccessor.GetBlockId(__state.Target) == __state.BlockIdBefore)
+                return; // refused: infertile ground, occupied space, no room. Nothing was planted.
+
+            Core?.Ledger?.Log(player, WooDomain.Code, WooDomain.TechPlanting,
+                __state.Target.GetHashCode());
         }
     }
 
