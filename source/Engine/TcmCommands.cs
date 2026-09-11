@@ -38,8 +38,9 @@ public class TcmCommands
                 .HandleWith(OnPractice)
             .EndSubCommand()
             .BeginSubCommand("nextday")
-                .WithDescription("(admin) Rewind the boundary marker so the next engine tick consolidates")
+                .WithDescription("(admin) Rewind the boundary marker so the next engine tick consolidates; names an online player to repair theirs")
                 .RequiresPrivilege(Privilege.controlserver)
+                .WithArgs(parsers.OptionalWord("player"))
                 .HandleWith(OnNextDay)
             .EndSubCommand()
             .BeginSubCommand("setlevel")
@@ -394,13 +395,38 @@ public class TcmCommands
             + "Storm-sense reveals at each player's own lead; /nexttempstorm to read it back.");
     }
 
+    /// <summary>Rewinds the caller's boundary marker, or a named online player's. The name
+    /// form exists because a stranded marker is repaired from outside: the player who cannot
+    /// bank is rarely the one holding controlserver, and before 0.5.9 an admin had no way to
+    /// reach anyone's ledger but their own. Console-safe when a name is given.</summary>
     private TextCommandResult OnNextDay(TextCommandCallingArgs args)
     {
-        if (args.Caller.Player is not IServerPlayer player)
-            return TextCommandResult.Error("Player-only command.");
-        PracticeLedger ledger = core.Ledger!.LedgerFor(player);
+        string? name = args.Parsers[0].IsMissing ? null : args[0] as string;
+
+        IServerPlayer? target = null;
+        if (name == null)
+        {
+            if (args.Caller.Player is not IServerPlayer self)
+                return TextCommandResult.Error("Name a player when running this from the console.");
+            target = self;
+        }
+        else
+        {
+            foreach (IPlayer candidate in sapi.World.AllOnlinePlayers)
+            {
+                if (candidate is IServerPlayer sp
+                    && string.Equals(sp.PlayerName, name, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    target = sp;
+                    break;
+                }
+            }
+            if (target == null) return TextCommandResult.Error($"No online player named '{name}'.");
+        }
+
+        PracticeLedger ledger = core.Ledger!.LedgerFor(target);
         ledger.LastConsolidatedBoundary -= 1;
         return TextCommandResult.Success(
-            "Boundary marker rewound. The real consolidation runs on the next engine tick (within ~5s).");
+            $"Boundary marker rewound for {target.PlayerName}. The real consolidation runs on the next engine tick (within ~5s).");
     }
 }

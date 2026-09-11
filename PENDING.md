@@ -12,7 +12,37 @@ Convention: `CONVENTIONS.md` § 10 (workshop root).
 
 ## Staged in 0.5.9
 
-Nothing yet.
+- **Stranded consolidation marker (hotfix, the reason 0.5.9 exists).**
+  `LedgerSystem.TryConsolidate` now clamps `LastConsolidatedBoundary` down to the current
+  boundary when it sits ahead of the calendar, and says so in the server log. Ahead is never a
+  legitimate state, and it was permanently fatal: the guard returned on every tick, so the
+  player accrued practice they could never bank and nothing said why. The ledger file lives
+  outside the world save (`Saves/AlmanacTcm/{world}-ledger.json`), so a backup restore, a
+  regenerate under a reused world name, a folder carried between worlds, or a backwards time
+  command all strand it. Diagnosed live 2026-09-11 on Vintage Story Industrial
+  (Elitephoenix): every technique "settling at rest", zero banked in every ranked domain,
+  across multiple unbroken in-game days. Clamping to *now* means the next real boundary brings
+  the work in; nothing accrued is discarded. Self-healing, so anyone already stranded is
+  repaired by updating.
+- **Same stranding on the death marker.** `OnPlayerDeath` clears `LastDeath` when it is ahead
+  of the world clock. It rides the player entity, so a world rolled back beneath it held the
+  chain-death grace window open permanently and every death scattered nothing. Same player
+  reported dying with no loss at all.
+- **`/tcm nextday [player]`** takes an optional online player name, so an admin can repair a
+  stranded ledger from outside instead of only their own, and it runs from the console when a
+  name is given. The clamp heals; this forces the consolidation immediately rather than at the
+  next boundary.
+
+Files: `source/Engine/LedgerSystem.cs`, `source/Engine/TcmCommands.cs`. Branch: none, committed
+straight to `main` as a hotfix.
+
+Zip `Releases/almanactcm_0.5.9.zip`, `sha256 43a1acd2de8a90ae`, 25 entries (identical entry list
+to 0.5.8, code-only). Built against 1.22.7. All three changes verified present in the shipped DLL
+by decompile, not by trusting the build.
+
+**NOT deployed and NOT run in game.** The Quire is still on 0.5.8 on disk and still has not
+restarted, so 0.5.8 is not live either. A restart now brings up 0.5.9 if it is deployed first,
+or 0.5.8 if it is not.
 
 ## Not in the zip, needed at deploy time
 

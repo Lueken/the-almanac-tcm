@@ -4,6 +4,40 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.9 (2026-09-11)
+
+A hotfix for one silent way a player could stop banking practice forever.
+
+**Practice that never came to rest.** A day's work settles at a boundary the Almanac keeps
+per player, one mark saying which day it last brought in. If that mark ever came to sit
+ahead of the world's own calendar, the day never arrived: every technique kept reading
+"settling at rest", every ladder stayed where it was, and nothing anywhere said why. It
+could not be waited out, because the calendar had to climb back to a day it had already
+been told was finished.
+
+The mark gets ahead when the world moves and the Almanac's own file does not. That file
+lives beside the saves rather than inside them, so a world restored from a backup, a world
+regenerated under a name it has used before, a save folder carried in from another world,
+or a clock wound backwards by hand all leave it stranded in a future the world will not
+reach for days. It is not a state a world can honestly be in, so the Almanac no longer
+trusts it: a mark ahead of the calendar is pulled back to today, said plainly in the server
+log, and the next day's rest brings the work in.
+
+**Deaths that cost nothing.** The same stranding hit the mark that remembers your last
+costly death. Sitting in the future, it held the grace window open permanently, so dying
+scattered nothing at all. It is cleared on the same terms, and death costs what it should
+again.
+
+**`/tcm nextday` can name a player.** The admin who can run it is rarely the player who
+needs it. It now takes an optional name, so a stranded ledger can be brought in from
+outside instead of only by its owner, and it works from the console when a name is given.
+
+Anyone already stranded is repaired by updating. The mark is corrected the first time the
+engine looks at it, and the work that had piled up comes in at the next rest. Nothing that
+was accrued is discarded.
+
+---
+
 ## 0.5.8 (2026-09-10)
 
 Cooking pays for cooking now, and stops paying quite so well for eating.

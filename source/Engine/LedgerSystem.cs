@@ -604,6 +604,26 @@ public class LedgerSystem
     {
         PracticeLedger ledger = LedgerFor(player);
         long current = CurrentBoundary();
+
+        // A marker AHEAD of the calendar is never legitimate, and left alone it is fatal:
+        // the guard below would return on every tick forever, so the player accrues practice
+        // they can never bank and nothing anywhere says why. The ledger file lives OUTSIDE
+        // the world save (Saves/AlmanacTcm/{world}-ledger.json), so it does not roll back
+        // with the world; a restore from backup, a regenerate under the same world name, an
+        // AlmanacTcm folder carried between worlds, or a backwards time command all strand
+        // the marker in a future this calendar will not reach for days. Reported live
+        // 2026-09-11 (Vintage Story Industrial): every technique reading "settling at rest",
+        // zero banked in every ranked domain, across multiple in-game days played unbroken.
+        // Clamp to now. The next real boundary consolidates; /tcm nextday forces it sooner.
+        if (ledger.LastConsolidatedBoundary > current)
+        {
+            TcmLog.Warn(sapi,
+                $"{player.PlayerName}: consolidation marker sat ahead of the calendar " +
+                $"({ledger.LastConsolidatedBoundary} > {current}), so practice could never bank. " +
+                "Clamped to now; it consolidates at the next boundary.");
+            ledger.LastConsolidatedBoundary = current;
+        }
+
         if (current <= ledger.LastConsolidatedBoundary) return;
 
         PlayerDomainSet? domainSet = leveling.GetDomainSet(player);
@@ -918,6 +938,20 @@ public class LedgerSystem
         // Chain-death window: a penalized death opens a grace period during which
         // further deaths cost nothing (there is nothing left worth farming).
         double totalHours = sapi.World.Calendar.TotalHours;
+
+        // Same stranded-future failure as the consolidation marker, and it hides as
+        // well: LastDeath rides the player entity, so a world rolled back underneath it
+        // leaves the stamp in a future the clock has to climb back to, and until it does
+        // the window below never closes and every death is free. Found alongside the
+        // banking stall on 2026-09-11, where the player reported dying with no loss at all.
+        if (domainSet.LastDeath > totalHours)
+        {
+            TcmLog.Warn(sapi,
+                $"{byPlayer.PlayerName}: death marker sat ahead of the calendar " +
+                $"({domainSet.LastDeath:0.#} > {totalHours:0.#}), so every death was free. Cleared.");
+            domainSet.LastDeath = 0;
+        }
+
         if (domainSet.LastDeath + config.ChainDeathCooldownHours > totalHours)
         {
             TcmLog.Cat(sapi, TcmLog.Ledger, $"{byPlayer.PlayerName} chain death, no scatter");
