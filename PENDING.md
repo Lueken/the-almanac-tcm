@@ -48,6 +48,21 @@ the next restart, and 0.5.8 is live until then. Pushed to GitHub (`ba7f1a6`). Zi
 
 NOT run in game.
 
+## Staged in 0.5.10
+
+- **TEM learns at the edge of itself** (ruled 2026-09-11, Conjunction stability-toolkit
+  session; applies to ALL TEM practice). `LedgerSystem.Log` scales TEM practice
+  continuously by the practitioner's temporal stability: `raw *= 1 + (1 - stability) *
+  temFrayXpBonus`, knob `temFrayXpBonus` in TEM's `Bonus` config (shipped default 1.0,
+  so a whole meter is today's rates and an empty one doubles them). Reads the vanilla
+  attribute - no Conjunction dependency; its draughts, ring drain and wayfaring all move
+  the same number. Tree versions (modinfo + assembly) bumped to 0.5.10 with this entry;
+  the deployed-awaiting-restart 0.5.9 zip is unaffected.
+
+  Dev build `Releases/staging/almanactcm_0.5.10_tem-fray-xp-dev1.zip` deployed to
+  Ingenium-test 2026-09-11 (replacing the stale 0.5.6 there; the jump also carries
+  0.5.7-0.5.9's shipped fixes into that install). NOT on The Quire.
+
 ## Not in the zip, needed at deploy time
 
 - **COO `TierTotals` does not propagate.** It is not part of the three-way config merge (only

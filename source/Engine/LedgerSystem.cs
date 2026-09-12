@@ -320,6 +320,21 @@ public class LedgerSystem
 
         if (rawMultiplier != 1.0) raw = System.Math.Max(0, raw * rawMultiplier);
 
+        // TEM learns at the edge of itself (ruled 2026-09-11, ALL TEM practice): the one
+        // domain whose subject is the meter reads the meter. Practice scales continuously
+        // with how frayed the practitioner is — a whole meter is today's rates, an empty
+        // one doubles them at the shipped knob. Continuous rather than banded on purpose:
+        // TEM is temporal attunement and the raw value IS the attunement. Reads the
+        // vanilla attribute, so it works with or without Conjunction (soft-integration
+        // posture); Conjunction's draughts, ring drain and wayfaring all move the same
+        // number without this line knowing any of them exist.
+        if (raw > 0 && string.Equals(domainCode, Domains.TemDomain.Code, System.StringComparison.OrdinalIgnoreCase))
+        {
+            double stability = System.Math.Clamp(
+                player.Entity?.WatchedAttributes.GetDouble("temporalStability", 1.0) ?? 1.0, 0.0, 1.0);
+            raw *= 1.0 + (1.0 - stability) * Domains.TemDomain.Knob("temFrayXpBonus", 1.0);
+        }
+
         bool duplicate = IsDuplicateContext(ledger, domainCode, technique, contextHash);
         if (duplicate) raw = 0;
 
