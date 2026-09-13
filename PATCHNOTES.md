@@ -4,6 +4,30 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.10 (2026-09-12)
+
+One change, to one domain.
+
+**Temporal Attunement learns at the edge of itself.** TEM practice now scales with how
+frayed the practitioner is when the work happens. A whole meter earns exactly what it
+earned yesterday. An empty one earns double. Every state between sits on a straight line
+between those two, read at the moment the practice lands, from the same temporal
+stability the game already tracks.
+
+The reasoning is the domain's own: TEM is the study of the meter, and standing steady
+behind a wall teaches less about instability than carrying some. The scout who limps home
+drained banks more from the journey than the one who never left the calm, and a scholar
+who thins themselves on purpose before a working session is making a real trade, spending
+the safety margin the meter represents to learn faster from the state they entered.
+
+This reads the game's own stability value, nothing else, so it behaves sensibly on any
+world. Where The Quire's frontier mods are present, everything that moves the meter moves
+this with it, and none of it is required. Server keepers can tune or flatten the effect
+with the `temFrayXpBonus` entry in TEM's Bonus config; the shipped default is 1.0, which
+is the doubling described above, and 0 turns the whole thing off.
+
+---
+
 ## 0.5.9 (2026-09-11)
 
 A hotfix for one silent way a player could stop banking practice forever.
