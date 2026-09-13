@@ -59,9 +59,15 @@ NOT run in game.
   the same number. Tree versions (modinfo + assembly) bumped to 0.5.10 with this entry;
   the deployed-awaiting-restart 0.5.9 zip is unaffected.
 
-  Dev build `Releases/staging/almanactcm_0.5.10_tem-fray-xp-dev1.zip` deployed to
-  Ingenium-test 2026-09-11 (replacing the stale 0.5.6 there; the jump also carries
-  0.5.7-0.5.9's shipped fixes into that install). NOT on The Quire.
+  Dev build verified on Ingenium-test 2026-09-11/12.
+
+  **DEPLOYED to The Quire 2026-09-12, not yet live.** Release zip
+  `Releases/almanactcm_0.5.10.zip`, sha256 c3708c2ed04d6151, 25 entries, sha readback
+  from the server verified identical. 0.5.9 renamed aside to
+  `almanactcm_0.5.9.zip.pre0510-bak` WITHOUT ever loading (deployed 09-11, no restart
+  since), so the next restart takes the server 0.5.8 -> 0.5.10 in one step and 0.5.9's
+  ledger fixes arrive inside it. Jeffrey's client profile synced. Patchnotes on GitHub
+  (7d16eb0); ModDB post is Jeffrey's, from the c3708c2e zip.
 
 ## Not in the zip, needed at deploy time
 
