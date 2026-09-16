@@ -58,14 +58,48 @@ public static class BreBarrelRead
             if (!be.Sealed || be.CurrentRecipe == null || be.CurrentRecipe.SealHours <= 0) return;
 
             int level = BreLevelOf(world.Api, forPlayer);
+            double hoursPerDay = Math.Max(1.0, world.Calendar.HoursPerDay);
+
+            // THE TURN, first and for EVERYONE: rank buys the window, never the knowledge
+            // that something is wrong. An Untrained sealer must be able to see their cask
+            // turning, or the mechanic is the old blind dice roll wearing a costume.
+            var (phase, verb, nextFireAt) = BreTurnSystem.ClientStateFor(pos);
+            if (phase != BreTurnSystem.PhaseNone)
+            {
+                var tsb = new StringBuilder(__result ?? "");
+                if (tsb.Length > 0 && tsb[^1] != '\n') tsb.Append('\n');
+                tsb.AppendLine(Lang.Get(phase switch
+                {
+                    BreTurnSystem.PhaseSpoiled => "almanactcm:bre-turn-spoiled",
+                    BreTurnSystem.PhaseHeld => verb == BreTurnSystem.VerbSalt
+                        ? "almanactcm:bre-turn-held-salt" : "almanactcm:bre-turn-held-skim",
+                    _ => verb == BreTurnSystem.VerbSalt
+                        ? "almanactcm:bre-turn-turning-salt" : "almanactcm:bre-turn-turning-skim",
+                }));
+                __result = tsb.ToString();
+            }
+
             if (level < Rank.Apprentice) return;
 
             double remainHours = Math.Max(0.0,
                 be.CurrentRecipe.SealHours - (world.Calendar.TotalHours - be.SealedSinceTotalHours));
-            double hoursPerDay = Math.Max(1.0, world.Calendar.HoursPerDay);
 
             var sb = new StringBuilder(__result ?? "");
             if (sb.Length > 0 && sb[^1] != '\n') sb.Append('\n');
+
+            // Foresight (Apprentice up): the schedule is deterministic once sealed, so a
+            // trained eye may honestly be told when the cask will next want tending.
+            if (phase == BreTurnSystem.PhaseNone && nextFireAt > 0)
+            {
+                double inHours = nextFireAt - world.Calendar.TotalHours;
+                if (inHours > 0)
+                {
+                    string when = inHours >= hoursPerDay
+                        ? Lang.Get("almanactcm:bre-read-days", (int)Math.Ceiling(inHours / hoursPerDay))
+                        : Lang.Get("almanactcm:bre-read-hours", (int)Math.Ceiling(inHours));
+                    sb.AppendLine(Lang.Get("almanactcm:bre-turn-foresight", when));
+                }
+            }
 
             if (level < Rank.Journeyman)
             {

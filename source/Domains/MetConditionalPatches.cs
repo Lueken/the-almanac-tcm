@@ -472,9 +472,18 @@ public static class MetConditionalPatches
         }
     }
 
+
+    /// <summary>Smithing Plus ships under TWO modids: the original `smithingplus` and the
+    /// maintained continuation `smithingplusplus`, which is the same assembly, the same
+    /// `SmithingPlus.*` namespace and (verified against 1.10.3) the same types and members.
+    /// Only the manifest id differs, so every integration must test for both or the fork
+    /// silently loses the feature. Same shape as MIN's stonequarry fork test.</summary>
+    internal static bool SmithingPlusPresent(ICoreAPI api) =>
+        api.ModLoader.IsModEnabled("smithingplus") || api.ModLoader.IsModEnabled("smithingplusplus");
+
     private static void PatchSmithingPlusBits(ICoreAPI api, Harmony harmony)
     {
-        if (!api.ModLoader.IsModEnabled("smithingplus")) return;
+        if (!SmithingPlusPresent(api)) return;
         var method = AccessTools.Method(
             AccessTools.TypeByName("SmithingPlus.BitsRecovery.BitsRecoveryPatches"), "RecoverBitsFromWorkItem");
         if (method == null)

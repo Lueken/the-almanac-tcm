@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.5.10")]
+    Version = "0.5.11")]
 
 namespace AlmanacTcm;
 
@@ -101,7 +101,48 @@ public class AlmanacTcmModSystem : ModSystem
         if (harmony == null)
         {
             harmony = new HarmonyLib.Harmony("almanactcm");
-            harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
+
+            // PatchAll, but CLASS BY CLASS. This is what Harmony's own PatchAll does internally
+            // (GetTypesFromAssembly -> CreateClassProcessor(type).Patch()), except that the stock
+            // call is all-or-nothing: the FIRST annotated class that fails to resolve throws, Start
+            // aborts here, and the mod is left loaded-but-dead. No ledger, no Saves/AlmanacTcm
+            // folder, not one domain doing anything, and the only trace is a single exception in
+            // server-main.log. From the player's side that is indistinguishable from the mod not
+            // being installed, which is why it gets reported as "TCM isn't working at all" rather
+            // than as a crash. It killed 0.5.11-dev4 (one wrong parameter name on
+            // BlockEntityBarrel.FromTreeAttributes) and it is the same shape as the field report of
+            // 2026-09-15. The conditional patches below have been isolated since the 0.3.85 lesson;
+            // the 82 annotated classes never were. Now a bad seam costs its own class and no more.
+            int okClasses = 0, badClasses = 0;
+            System.Type[] patchTypes;
+            try { patchTypes = System.Reflection.Assembly.GetExecutingAssembly().GetTypes(); }
+            catch (System.Reflection.ReflectionTypeLoadException e)
+            {
+                patchTypes = System.Array.FindAll(e.Types, t => t != null)!;
+                TcmLog.Error(api, $"some TCM types failed to load ({e.Message}); patching what resolved");
+            }
+            foreach (var t in patchTypes)
+            {
+                // Same filter Harmony's own PatchAll applies before building a processor. Without
+                // it every non-patch type in the assembly gets one, and any that objected would be
+                // logged as a FAILED patch class it never was.
+                if (t.GetCustomAttributes(typeof(HarmonyLib.HarmonyAttribute), true).Length == 0) continue;
+                try
+                {
+                    var applied = harmony.CreateClassProcessor(t).Patch();
+                    if (applied != null && applied.Count > 0) okClasses++;
+                }
+                catch (System.Exception e)
+                {
+                    badClasses++;
+                    TcmLog.Error(api, $"annotated patch class '{t.FullName}' failed to apply "
+                        + $"({e.Message}); that seam is inactive, the rest of the mod loads");
+                }
+            }
+            if (badClasses > 0)
+                TcmLog.Error(api, $"{badClasses} annotated patch class(es) FAILED and were skipped; "
+                    + $"{okClasses} applied. The mod is running with gaps, not dead.");
+            else TcmLog.Info(api, $"annotated patches applied ({okClasses} class(es))");
 
             // Each conditional patch is isolated: a single bad mod-seam (an ambiguous match, a
             // renamed type) must WARN and skip its own domain, never abort Start and half-load

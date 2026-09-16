@@ -42,7 +42,9 @@ namespace AlmanacTcm.Domains;
 /// player their XP until 0.4.x side-split the ModSystem statics. The tier memo is deliberately
 /// NOT per side: it stores an anvil tier, an int that is identical on both sides.
 ///
-/// PINNED to: smithingplus 1.9.0-rc.1. Both seams are resolved by name and skip with a warning
+/// VERIFIED against smithingplus 1.9.0-rc.1 AND smithingplusplus 1.10.3 (2026-09-15). The only
+/// difference between them on these seams is this method's return type, IEnumerable<GridRecipe>
+/// against IReadOnlyList<GridRecipe>, handled above. Both seams are resolved by name and skip with a warning
 /// if renamed. Reported upstream with the fix offered as a PR (2026-08-02); when Smithing Plus
 /// fixes it at source these become redundant, not wrong — delete them then.
 ///
@@ -52,6 +54,9 @@ namespace AlmanacTcm.Domains;
 public static class MetSmithingPlusAnvilLag
 {
     /// <summary>One index per side. Keyed by EnumAppSide rather than shared, see class remarks.</summary>
+    /// <summary>The empty result, typed so it satisfies both signatures. See GridRecipeIndexPatch.</summary>
+    private static readonly List<GridRecipe> EmptyList = new();
+
     private sealed class SideIndex
     {
         public readonly object Lock = new();
@@ -67,9 +72,23 @@ public static class MetSmithingPlusAnvilLag
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
-        if (!api.ModLoader.IsModEnabled("smithingplus")) return;   // hard dep, but guard anyway
+        if (!MetConditionalPatches.SmithingPlusPresent(api)) return;   // hard dep, but guard anyway
 
-        var extClass = AccessTools.TypeByName("SmithingPlus.Util.CollectibleExtensions");
+        // STAND DOWN when the source is fixed. Smithing++ 1.10.3 replaced the LINQ scan with its
+        // own index (GetGridRecipesAsIngredient is now one line: GridRecipeIndex.RecipesAsIngredient),
+        // which is the fix reported upstream on 2026-08-02. Our prefix returns false and REPLACES
+        // the implementation, so left in place it would shadow a working index with a duplicate of
+        // our own: the same registry indexed twice, per side, for no gain, and our duplicate-
+        // preserving semantics imposed over whatever theirs are. Probing for the type is the honest
+        // test, not a version string: it asks whether the fix is THERE, so it also covers the
+        // original mod adopting it later. The tier memo below is unaffected and stays either way -
+        // GetRequiredAnvilTier is identical in both builds.
+        bool upstreamIndexed = AccessTools.TypeByName("SmithingPlus.Common.Metal.GridRecipeIndex") != null;
+        if (upstreamIndexed)
+            TcmLog.Info(api, "Smithing Plus indexes grid recipes itself (GridRecipeIndex present); "
+                + "MET grid-recipe seam stands down, the anvil-help fix is upstream now");
+
+        var extClass = upstreamIndexed ? null : AccessTools.TypeByName("SmithingPlus.Util.CollectibleExtensions");
         var castHead = AccessTools.TypeByName("SmithingPlus.CastingTweaks.CollectibleBehaviorCastToolHead");
         var mGrid = extClass == null ? null : AccessTools.DeclaredMethod(extClass, "GetGridRecipesAsIngredient");
         var mTier = castHead == null ? null : AccessTools.DeclaredMethod(castHead, "GetRequiredAnvilTier");
@@ -129,7 +148,15 @@ public static class MetSmithingPlusAnvilLag
                 }
             }
 
-            __result = index.TryGetValue(code, out var list) ? list : Enumerable.Empty<GridRecipe>();
+            // EmptyList, not Enumerable.Empty: Smithing Plus 1.9 returns IEnumerable<GridRecipe>
+            // here and the 1.10.3 fork returns IReadOnlyList<GridRecipe>. Harmony binds either way
+            // (its rule is __result's type must be ASSIGNABLE FROM the return type, and
+            // IEnumerable<T> is assignable from IReadOnlyList<T>), but the value is written BACK
+            // through a byref into a local typed as the real return type, so on the fork whatever
+            // we assign must itself be an IReadOnlyList<GridRecipe>. Every indexed value is a
+            // List<GridRecipe> and satisfies that; Enumerable.Empty<T>() promises no such thing.
+            // One empty List keeps the seam correct against both signatures from one build.
+            __result = index.TryGetValue(code, out var list) ? list : EmptyList;
             return false;
         }
 

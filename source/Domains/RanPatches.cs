@@ -127,7 +127,7 @@ public static class RanPatches
             if (entity == null) return;
             int level = RanDomain.ClientLevel();
             float steady = (float)RanDomain.ApprenticeAnchored(level,
-                RanDomain.Knob(RanDomain.SteadyAimUntrained, 0.50),
+                RanDomain.Knob(RanDomain.SteadyAimUntrained, 0.80),
                 RanDomain.Knob(RanDomain.SteadyAimGm, 1.35));
             entity.Stats.Set("steadyAim", "almanactcm", steady - 1f, false);
 

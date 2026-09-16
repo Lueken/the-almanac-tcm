@@ -26,9 +26,22 @@ public class DomainConfig
     /// Defaults are the §7 pacing table; every domain shares one table by design.
     /// ObjectCreationHandling.Replace on every collection here: without it Json.NET
     /// APPENDS file values onto these defaults on reload (the 10-entry-TierTotals
-    /// server crash of 2026-07-13).</summary>
+    /// server crash of 2026-07-13).
+    ///
+    /// PACING RULING 2026-09-14: doubled from {150, 500, 1400, 3200, 6500}. The ladder was
+    /// costed in "days" while a consolidation boundary is an in-game DAY — 48 real minutes at
+    /// the stock calendar — so a 3-hour session collected four daily caps and the iron age
+    /// arrived in about 11 real hours of play against an intent of real-world weeks. Doubling
+    /// puts a default singleplayer world (48-minute days) at ~22 hours to Journeyman I and
+    /// ~104 to Grandmaster: meaningful, and still a season's work rather than a second job.
+    /// A server slowing its calendar scales on top of this for free — The Quire at CSM 0.25
+    /// reads ~45 hours to iron off the same numbers.
+    ///
+    /// NOT part of the three-way config merge, so a booted server keeps whatever its
+    /// ModConfig/almanactcm/(DOMAIN).json already holds. Shipping this reaches new worlds
+    /// only; existing ones need the array written in by hand.</summary>
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
-    public List<double> TierTotals { get; set; } = new() { 150, 500, 1400, 3200, 6500 };
+    public List<double> TierTotals { get; set; } = new() { 300, 1000, 2800, 6400, 13000 };
 
     /// <summary>Adjacent domain codes for spillover (hand-authored matrix).</summary>
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]

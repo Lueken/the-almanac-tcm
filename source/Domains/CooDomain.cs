@@ -91,7 +91,11 @@ public static class CooDomain
         // for more of them. NOTE: TierTotals is not part of the three-way config merge (only
         // Techniques and Bonus are), so this reaches a server that has already booted ONLY by
         // editing its ModConfig/almanactcm/COO.json directly.
-        TierTotals = new() { 188, 625, 1750, 4000, 8125 },
+        // Doubled 2026-09-14 with the roster-wide pacing ruling (see DomainConfig.TierTotals),
+        // keeping COO's own 1.25x ratio over the default ladder: everyone eats, so cooking
+        // accrues for every class whether or not they chose the trade, and its rungs stand
+        // proportionally higher for it.
+        TierTotals = new() { 376, 1250, 3500, 8000, 16250 },
         Adjacency = new List<string> { "FAR", "FIS", "FOR" },
         Techniques = new Dictionary<string, TechniqueConfig>
         {

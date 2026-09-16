@@ -4,6 +4,151 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.11 (2026-09-16)
+
+Clayforming opens its hands, the dark calls you back, and the Almanac stops depending on
+anyone else's mod to load at all.
+
+**The wide clay strokes are open to everyone, and rank buys precision instead.** Until now
+the 2x2 and 3x3 clayforming strokes were refused outright below Apprentice I and
+Journeyman I. That gate is gone. Every stroke works at every rank, and what climbing buys
+has changed shape: an untrained wide stroke is blunt, filling its whole footprint the way
+vanilla always has, spilling clay into cells the piece never asked for. A practiced one is
+clean. From Apprentice I the 2x2, and from Journeyman I the 3x3, place only the voxels the
+recipe wants and skip the rest, so a wall stays a wall and a hollow stays hollow.
+
+**Removal learned the same manners.** A clean wide sweep lifts only what the piece does
+not want, clearing scattered clay without touching the shape underneath. A blunt one takes
+whatever sits in its path, exactly as before, and since removed clay is always returned to
+the count, a blunt sweep was never a real risk anyway, only more clicks. The 1x1 stroke is
+precise at every rank, as it always was, and the duplicate stroke keeps its existing
+ladder.
+
+**No potter is ever below vanilla at the wheel-less bench.** Blunt is vanilla, unchanged.
+The untrained penalty stays where it has always lived: in the vessel itself, which seals
+imperfectly until Novice, and in the slower duplicate stroke. Everything above Novice is
+now reward rather than restriction. This came out of player feedback that the old locks
+made early clayforming slower without making it more interesting, and the numbers agreed:
+on a hollow vessel's walls a wide stroke cannot be used safely at all, so the lock was
+withholding a tool that would then have had its mess picked back out voxel by voxel.
+
+Server keepers: the two config entries keep their names and defaults
+(`Place2x2GatePOTLevel` 5, `Place3x3GatePOTLevel` 9). Each now names the level where that
+stroke turns clean rather than the level where it stops being refused, and 0 makes the
+stroke clean from the start.
+
+**The Smelter's Yard and The Tall Fires follow Industrial Story now.** Both chapters
+document Industrial Story's machines, and both were visible to every reader whether or not
+that mod was installed, one of them as a shelf of section titles above a promise that
+could never fill. They now gate on industrialstory, the way Arcana has always gated on
+Rustbound Magic: present when the mod is, absent as a whole when it is not. Installs
+without Industrial Story keep the four chapters that describe the Almanac's own ground.
+
+---
+
+**Only a ferment can spoil now.** The Almanac adds a risk to fermentation that vanilla does
+not have, and until now it decided what counted as fermentation by exclusion: tanning, dye
+baths and reagent prep stepped aside, and every other sealed barrel was treated as brewing.
+On a modded world that net caught things no brewer would claim. Washing wool, rinsing offal,
+composting, aging planks, and a long tail of other sealed work all carried a ferment's chance
+of coming out as rot, steepest for the untrained, and composting could fail INTO the thing it
+is made from. The decision now runs the other way: a sealed recipe must be recognised as a
+real ferment, a cider, a wine, a pickle, a cheese and their kin, to carry ferment stakes at
+all. Everything else completes the way its own mod intended, every time. Dyeing got the same
+correction from the other side: a tannin or mordant bath on twine or cloth now counts as the
+dye work it is, instead of rolling a brewer's dice because its colorant was not named "dye".
+
+**Spelt is a grain, not a pelt.** A word-boundary slip had spelt cider and spelt wines paying
+the tanner's trade instead of the brewer's since the classifier was written. Brewers of spelt,
+your ledger works now.
+
+---
+
+**The ferment now asks for you, instead of failing in the dark.** Since the trades first
+shipped, a low-rank seal carried a hidden roll: the barrel worked for days or a season and
+could open as rot, with nothing to see coming and nothing to do about it. That roll is gone.
+In its place, a ferment can begin to TURN partway through the seal. The cask says so when you
+look at it, plainly, at any rank, and your answer is a real one: a beverage wants its film
+skimmed off with a bare hand, a preserve wants a hand of salt pressed in. Tend it in time and
+the batch is saved whole. Ignore it while you are there to hear it, and what comes out is rot,
+honestly earned. Time away costs nothing: the window only runs while the sealer is on the
+server, and a ferment that finishes still wanting a tend simply stands and waits, sealed,
+until someone sees to it. Nobody loses a season's barrel to an evening offline.
+
+How much a cask asks of you is the skill. Small batches ferment clean at every rank; the
+bigger the batch and the greener the hand, the more times the dark will call you back, and
+the narrower the moment to answer. A full barrel asks three visits of a novice and one of a
+journeyman, and from Master I it asks nothing at all: seal it and walk away. Every cask draws
+its own moments, so no two ferments knock at the same hour, and a trained eye can read a
+quiet cask and be told when it will next want a hand. Any hand may answer, not only the one
+that sealed: fermenting together is allowed to mean something.
+
+---
+
+**Mastery takes the time it was always meant to take.** The ladders for every trade have been
+doubled, cooking's along with them. The old numbers were written as though a day's practice
+came once a day; in fact the Almanac settles its accounts on the world's own calendar, and a
+world runs through a day every forty-eight minutes. An evening at the anvil was quietly banking
+four days of work, and the iron age was arriving in an afternoon. It now stands where it was
+always described: Journeyman is weeks of real work, Grandmaster is a season given to one trade
+and not the others. A world running a slower calendar stretches the same numbers further
+without changing a setting.
+
+Server keepers: `TierTotals` is not part of the config merge, so a world that has already
+booted keeps the ladder in its own `ModConfig/almanactcm` files. The new numbers reach new
+worlds only; an existing one needs them written in by hand, and doing so revalues every rank
+already earned, which makes it a job for a wipe rather than a patch.
+
+---
+
+**The Almanac no longer refuses to load because of somebody else's mod.** Until now this mod
+hard-required Smithing Plus. A hard requirement does not degrade, it refuses: Vintage Story
+resolves it before any mod code runs, so on a world without that exact mod id The Almanac never
+loaded, nothing ran, and no ledger was ever written. Players saw a mod that did nothing rather
+than an error, which is the worst way for a thing to fail. It reached anyone running **Smithing++**,
+the maintained continuation, because a fork keeps the code and changes the id. The requirement is
+gone. The Almanac now works with Smithing Plus, with Smithing++, or with neither, and every
+integration wakes or sleeps on its own. Going forward this mod will only ever require other
+Almanac mods.
+
+**Smithing++ is supported properly, not by accident.** All four integrations, bit-recovery
+scaling, the reforge strip, forge heating for bits and native nuggets, and the cast-tool anvil
+memo, test for either mod id and were verified member by member against both builds. One of them
+now steps aside entirely: the anvil-look freeze fix, reported upstream in August, has been adopted
+into Smithing++, which indexes grid recipes itself. Rather than shadow a working index with a
+duplicate, The Almanac detects the fix and stands down. The same applies if Smithing Plus adopts it.
+
+**One bad seam can no longer take the whole mod with it.** The Almanac applies eighty-odd patches
+at startup, and a single one failing to resolve used to abort the load: no ledger, no save folder,
+not one trade working, and a single line in the server log as the only evidence. Each patch is now
+isolated. A seam that cannot bind reports itself, that feature goes quiet, and everything else
+loads. The log says plainly whether the mod is running whole or running with gaps.
+
+**Fermentaria's clay fermenter joins the Almanac properly.** The seal grant for the pre-metal
+fermenter had never actually worked: it was wired to a class name that did not exist, and the only
+sign was a startup line claiming Fermentaria was absent while it sat plainly installed. It is
+wired now, and the Turn came with it, so a clay fermenter calls you back and can be tended exactly
+as a barrel is. Its thirty litres against a barrel's fifty are accounted for, so the same batch is
+a larger share of the smaller vessel and asks more of you.
+
+**The apprentice brewer answers as often as the novice, with longer to do it.** Half a barrel used
+to ferment unattended from Apprentice I. It is a quarter now, the same as Novice, and what the rung
+buys is time: eighteen in-game hours to answer a turn against the novice's twelve. The fraction
+holds; the leisure grows.
+
+**Ranged and pottery numbers come into line with play.** An untrained archer's steadiness is
+**0.80** of a common hand's rather than half, and clayforming and firing pay practice at the rates
+the trades have actually been running at. The ranged page no longer calls the penalty "halved",
+because a page should not hard-code a number that a server keeper can tune.
+
+**Pages caught up with their code.** The Brewing pages describe the Turn instead of the dice roll
+it replaced. Temporal Stability gained the two workings The Marginalia: Conjunction enables, the
+Anchorhold tether and wayfaring, and its Grandmaster resist is now marked as needing that mod.
+Hunting's trap lines are marked as needing Primitive Survival, which is the only thing that
+provides traps: without it an untrained player was reading a penalty that could never bite and a
+Grandmaster one that could never fire.
+
+
 ## 0.5.10 (2026-09-12)
 
 One change, to one domain.

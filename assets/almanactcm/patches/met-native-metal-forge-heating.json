@@ -11,20 +11,64 @@
   // Transform matches Smithing Plus's MakeForgeable() so pieces sit right in the coals.
   // The companion rule lives in MetForgeHeatingPatches.cs: heated NUGGETS only top up an
   // in-progress work item (no recipe prompt); bits keep Smithing Plus's full verbs.
+  // FORK NOTE (2026-09-15): each entry is duplicated for `smithingplusplus`, the
+  // maintained continuation. VS evaluates dependsOn as AND (ModJsonPatchLoader:
+  // flag = flag && (present ^ invert)), so there is no OR form and a second entry is
+  // the only way. If BOTH mods are somehow installed both entries apply, which is
+  // harmless: addmerge with identical values is idempotent.
   {
     "op": "addmerge",
     "path": "/attributes",
     "value": {
       "forgable": true,
       "inForgeTransform": {
-        "translation": { "x": 0, "y": -0.1, "z": 0.35 },
-        "rotation": { "x": 0, "y": 90, "z": 0 },
+        "translation": {
+          "x": 0,
+          "y": -0.1,
+          "z": 0.35
+        },
+        "rotation": {
+          "x": 0,
+          "y": 90,
+          "z": 0
+        },
         "scale": 0.7
       }
     },
     "file": "game:itemtypes/resource/metalbit.json",
     "side": "Server",
-    "dependsOn": [ { "modid": "smithingplus" } ]
+    "dependsOn": [
+      {
+        "modid": "smithingplus"
+      }
+    ]
+  },
+  {
+    "op": "addmerge",
+    "path": "/attributes",
+    "value": {
+      "forgable": true,
+      "inForgeTransform": {
+        "translation": {
+          "x": 0,
+          "y": -0.1,
+          "z": 0.35
+        },
+        "rotation": {
+          "x": 0,
+          "y": 90,
+          "z": 0
+        },
+        "scale": 0.7
+      }
+    },
+    "file": "game:itemtypes/resource/metalbit.json",
+    "side": "Server",
+    "dependsOn": [
+      {
+        "modid": "smithingplusplus"
+      }
+    ]
   },
   {
     "op": "addmerge",
@@ -33,14 +77,55 @@
       "@.*-(nativecopper|nativegold|nativesilver|nativeplatinum)": {
         "forgable": true,
         "inForgeTransform": {
-          "translation": { "x": 0, "y": -0.1, "z": 0.35 },
-          "rotation": { "x": 0, "y": 90, "z": 0 },
+          "translation": {
+            "x": 0,
+            "y": -0.1,
+            "z": 0.35
+          },
+          "rotation": {
+            "x": 0,
+            "y": 90,
+            "z": 0
+          },
           "scale": 0.7
         }
       }
     },
     "file": "game:itemtypes/resource/nugget.json",
     "side": "Server",
-    "dependsOn": [ { "modid": "smithingplus" } ]
+    "dependsOn": [
+      {
+        "modid": "smithingplus"
+      }
+    ]
+  },
+  {
+    "op": "addmerge",
+    "path": "/attributesByType",
+    "value": {
+      "@.*-(nativecopper|nativegold|nativesilver|nativeplatinum)": {
+        "forgable": true,
+        "inForgeTransform": {
+          "translation": {
+            "x": 0,
+            "y": -0.1,
+            "z": 0.35
+          },
+          "rotation": {
+            "x": 0,
+            "y": 90,
+            "z": 0
+          },
+          "scale": 0.7
+        }
+      }
+    },
+    "file": "game:itemtypes/resource/nugget.json",
+    "side": "Server",
+    "dependsOn": [
+      {
+        "modid": "smithingplusplus"
+      }
+    ]
   }
 ]

@@ -39,7 +39,7 @@ public static class MetForgeHeatingPatches
 
     public static void PatchConditional(ICoreAPI api, Harmony harmony)
     {
-        if (!api.ModLoader.IsModEnabled("smithingplus")) return;
+        if (!MetConditionalPatches.SmithingPlusPresent(api)) return;
 
         var behaviorType = AccessTools.TypeByName("SmithingPlus.SmithWithBits.CollectibleBehaviorWorkableNugget");
         var modeType = AccessTools.TypeByName("SmithingPlus.Common.AnvilPlacementMode");

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
+using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
@@ -98,20 +99,43 @@ public static class BrePatches
         else TcmLog.Warn(api, "BRE distillation seam not found (BlockEntityBoiler.OnInteract); distilling verb inactive");
 
         // Fermentaria clay fermenter (conditional): the pre-metal seal, same verb, its own BE.
-        var tf = AccessTools.TypeByName("Fermentaria.BESimpleFermentingContainer")
-              ?? AccessTools.TypeByName("FermentariaForked.BESimpleFermentingContainer");
+        // The namespaced name is load-bearing and was WRONG until 2026-09-15: the type is
+        // Fermentaria.BlockEntities.BESimpleFermentingContainer (verified by decompiling
+        // FermentariaForked.dll 1.0.4), not Fermentaria.BESimpleFermentingContainer. Harmony's
+        // TypeByName falls back to matching Type.Name against the WHOLE string, so a wrong
+        // namespace does not near-miss, it returns null - and the old else-branch then logged
+        // "fermentaria absent" with the mod plainly installed. Bare name kept as a fork fallback.
+        var tf = AccessTools.TypeByName("Fermentaria.BlockEntities.BESimpleFermentingContainer")
+              ?? AccessTools.TypeByName("FermentariaForked.BlockEntities.BESimpleFermentingContainer")
+              ?? AccessTools.TypeByName("BESimpleFermentingContainer");
         if (tf != null)
         {
             var pkt = AccessTools.DeclaredMethod(tf, "OnReceivedClientPacket");
-            var tick = AccessTools.DeclaredMethod(tf, "OnEvery3Second");
+            var tick = AccessTools.DeclaredMethod(tf, "OnEvery3Second");   // private; the 3s listener
             var fbrk = AccessTools.DeclaredMethod(tf, "OnBlockBroken");
+            var fto = AccessTools.DeclaredMethod(tf, "ToTreeAttributes");
+            var ffrom = AccessTools.DeclaredMethod(tf, "FromTreeAttributes");
             if (pkt != null) harmony.Patch(pkt, postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermenterSealPostfix))));
             if (tick != null) harmony.Patch(tick,
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermenterTickPrefix))),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermenterTickPostfix))));
             if (fbrk != null) harmony.Patch(fbrk, postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(VesselBrokenPostfix))));
-            TcmLog.Info(api, "BRE fermentaria clay-fermenter hooked (parallel seal grant + completion)");
+
+            // THE TURN on the clay fermenter (2026-09-15): same state, riding the same tree.
+            if (fto != null) harmony.Patch(fto, postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermenterToTreePostfix))));
+            if (ffrom != null) harmony.Patch(ffrom, postfix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermenterFromTreePostfix))));
+            var fblock = AccessTools.TypeByName("Fermentaria.Blocks.BSimpleClayFermenter");
+            var finteract = fblock == null ? null : AccessTools.DeclaredMethod(fblock, "OnBlockInteractStart");
+            if (finteract != null)
+                harmony.Patch(finteract, prefix: new HarmonyMethod(AccessTools.Method(typeof(BrePatches), nameof(FermenterTendPrefix))));
+            else TcmLog.Warn(api, "BRE clay fermenter found but its interact seam was not; the Turn cannot be TENDED on it");
+
+            TcmLog.Info(api, "BRE fermentaria clay-fermenter hooked (seal grant + completion + the Turn"
+                + (finteract != null ? " + tend)" : ", NO tend)"));
         }
+        else if (api.ModLoader.IsModEnabled("fermentariaforked") || api.ModLoader.IsModEnabled("fermentaria"))
+            TcmLog.Warn(api, "BRE fermentaria IS installed but BESimpleFermentingContainer was not found; "
+                + "clay-fermenter seal grant and the Turn are both inactive on it (barrel unaffected)");
         else TcmLog.Cat(api, TcmLog.Config, "BRE fermentaria absent; clay-fermenter variant inactive (barrel unaffected)");
         // The Brewer's Mark line is contributed to Engine.ProvenanceLine (see MarkLine below),
         // which owns the whole provenance block's order and spacing.
@@ -122,14 +146,28 @@ public static class BrePatches
     private static bool IsPreserve(string code) =>
         code.Contains("pickl") || code.Contains("brine") || code.Contains("cured")
         || code.Contains("vinegar") || code.Contains("rennet") || code.Contains("cheese")
-        || code.Contains("curd") || code.Contains("yogurt") || code.Contains("saltedmeat");
+        || code.Contains("curd") || code.Contains("yogurt") || code.Contains("saltedmeat")
+        || code.Contains("limeegg") || code.Contains("fermentedfish");
+
+    /// <summary>The beverage half of the ferment ALLOWLIST (the 2026-09-14 inversion): outputs
+    /// that are genuinely a fermented drink or culture. Built from the enumerated sealed-recipe
+    /// set of The Quire (495 distinct outputs), not guessed: vanilla and Biodiversity ciders and
+    /// mead all ship as ciderportion-*, Fermentaria's wines as neolithicwine-*, Expanded Foods'
+    /// wild yeast as yeastwaterportion. A ferment mod this misses shows up in the unclassified
+    /// log line below and gets added here; missing means inert, never punished.</summary>
+    private static bool IsFermentBeverage(string code) =>
+        code.Contains("ciderportion") || code.Contains("neolithicwine") || code.Contains("yeastwater");
 
     /// <summary>The leather-making barrel chain (hide -> soaked -> prepared -> leather -> dyed): a
     /// sealed barrel process, but NOT brewing. Folded to HUN 2026-07-22 (the leatherworking-domain
     /// question — the crafts that use leather are grant-less grid crafts, so tanning is the only
     /// earnable leather verb, and it is the end of HUN's carcass chain). May re-home when TAI ships.</summary>
+    // "pelt" must not match "spelt": ciderportion-spelt and the Fermentaria spelt wines were
+    // classifying as tanning and paying HUN for brewing (found 2026-09-14 by simulating the
+    // classifier over every sealed output on The Quire).
     private static bool IsTanning(string code) =>
-        code.Contains("leather") || code.Contains("hide") || code.Contains("pelt");
+        code.Contains("leather") || code.Contains("hide")
+        || (code.Contains("pelt") && !code.Contains("spelt"));
 
     /// <summary>Barrel recipes that earn nothing: reagent prep (lime slaking, tannin steeping) that
     /// FEEDS tanning but is not itself the transformation verb. Skipped by every domain.</summary>
@@ -137,23 +175,41 @@ public static class BrePatches
         code.Contains("limewater") || code.Contains("slakedlime") || code.Contains("tannin");
 
     /// <summary>A dye bath: any ingredient whose code path starts with "dye". Ingredient-keyed
-    /// rather than output-keyed so vanilla and wool-mod dye recipes both match unenumerated.</summary>
-    private static bool IsDyeing(BarrelRecipe recipe)
+    /// rather than output-keyed so vanilla and wool-mod dye recipes both match unenumerated.
+    ///
+    /// Extended 2026-09-14 (the MasterKjed report): the wool mod dyes its browns with tannin and
+    /// mordants with alum/cassiterite/chromite, none of which are named "dye", so a Tailor's brown
+    /// twine was classified as brewing and rolled the ferment dice. A tannin or mordant bath is a
+    /// dye bath when the thing in the barrel is textile. Output-guarded so tannin + hide stays
+    /// tanning (that branch also runs first). Washing and bleaching stay unmatched on purpose:
+    /// they are prep, they earn nothing, and under the allowlist they can no longer rot.</summary>
+    private static bool IsDyeing(BarrelRecipe recipe, string outputCode)
     {
         if (recipe.Ingredients == null) return false;
+        bool textileOut = outputCode.Contains("twine") || outputCode.Contains("cloth")
+            || outputCode.Contains("fiber") || outputCode.Contains("wool");
         foreach (var ing in recipe.Ingredients)
         {
             string? path = ing?.Code?.Path;
-            if (path != null && path.StartsWith("dye")) return true;
+            if (path == null) continue;
+            if (path.StartsWith("dye")) return true;
+            if (textileOut && (path.Contains("tanninportion") || path.Contains("dilutedalum")
+                || path.Contains("dilutedcassiterite") || path.Contains("dilutedchromite"))) return true;
         }
         return false;
     }
 
+    /// <summary>Sealed outputs already logged as unclassified, so the log line fires once per
+    /// code per session rather than once per barrel.</summary>
+    private static readonly HashSet<string> loggedUnclassified = new();
+
     /// <summary>The seal is the skilled act: grant BRE (output-classified) to the online sealer and
-    /// freeze their rank for the completion-time effects. Called from both barrel and fermenter.</summary>
-    private static void StoreAndGrantSeal(ICoreAPI api, BlockPos pos, IPlayer player, BarrelRecipe? recipe)
+    /// freeze their rank for the completion-time effects. Called from both barrel and fermenter.
+    /// Returns the ferment's preserve flag when it IS a ferment (the caller wires the turn
+    /// schedule off it), null for everything routed elsewhere or inert.</summary>
+    private static bool? StoreAndGrantSeal(ICoreAPI api, BlockPos pos, IPlayer player, BarrelRecipe? recipe)
     {
-        if (player == null || recipe?.Output?.ResolvedItemStack?.Collectible == null) return;
+        if (player == null || recipe?.Output?.ResolvedItemStack?.Collectible == null) return null;
         string code = recipe.Output.ResolvedItemStack.Collectible.Code?.ToString() ?? "ferment";
         int cx = HashCode.Combine("ferment", code, (serverWorld?.ElapsedMilliseconds ?? 0) / 60000);
 
@@ -162,23 +218,40 @@ public static class BrePatches
         {
             Core?.Ledger?.Log(player, HunDomain.Code, HunDomain.TechTanning, cx);
             TcmLog.Cat(api, "bre", $"seal at {pos}: leather tanning ({code}) -> HUN tanning for {player.PlayerName}");
-            return; // no BRE grant, no completion effects (tanning has no ruled spoilage/mark)
+            return null; // no BRE grant, no completion effects (tanning has no ruled spoilage/mark)
         }
         // Dyeing is a barrel seal, but it is TAI's verb (RULED 2026-08-08): cloth + dye in,
-        // dyed textile out. Detected by a dye ingredient, so it covers vanilla and the wool
-        // mod without enumerating outputs. Consumes real dye, so it is farm-resistant by cost.
-        if (IsDyeing(recipe))
+        // dyed textile out. Detected by a dye/tannin/mordant ingredient, so it covers vanilla
+        // and the wool mod without enumerating outputs. Consumes real dye, so it is
+        // farm-resistant by cost.
+        if (IsDyeing(recipe, code))
         {
             Core?.Ledger?.Log(player, TaiDomain.Code, TaiDomain.TechDye, cx);
             TcmLog.Cat(api, "bre", $"seal at {pos}: dye bath ({code}) -> TAI dye for {player.PlayerName}");
-            return; // no BRE grant, no completion effects
+            return null; // no BRE grant, no completion effects
         }
         if (IsNonEarning(code)) // lime/tannin reagent prep: feeds tanning, earns nothing
         {
             TcmLog.Cat(api, "bre", $"seal at {pos}: non-earning barrel prep ({code}); no grant");
-            return;
+            return null;
         }
+
+        // THE ALLOWLIST (2026-09-14 inversion, the Vinni_Pukh / MasterKjed reports). This used
+        // to be a denylist: everything not tanning, dye, or reagent prep fell through to "this
+        // is brewing" and took the BRE grant, the spoilage taper, and the Mark. Written against
+        // vanilla's recipe list, that fall-through swallowed 495 distinct sealed outputs on The
+        // Quire: composting, wool washing, offal rinsing, plank aging, hive parts, canopies,
+        // corroded copper, Conjunction draughts. Compost could spoil INTO rot. Now a seal must
+        // be positively recognised as a ferment to be one; everything else is inert, logged once
+        // per code so real ferments this misses can be enumerated. A denylist's misses punish
+        // players; an allowlist's misses merely under-pay, visibly.
         bool preserve = IsPreserve(code);
+        if (!preserve && !IsFermentBeverage(code))
+        {
+            if (loggedUnclassified.Add(code))
+                TcmLog.Cat(api, "bre", $"seal at {pos}: unclassified sealed recipe ({code}) -> inert; add to the ferment allowlist if it is one");
+            return null; // no grant, no sealOwners stamp, so no completion effects can ever touch it
+        }
 
         // Alcoholic = BRE 100; non-alcoholic preserve = COO 50 / BRE 50 (the ruled pickling split).
         Core?.Ledger?.Log(player, BreDomain.Code, BreDomain.TechFermenting, cx, preserve ? 0.5 : 1.0);
@@ -187,6 +260,7 @@ public static class BrePatches
 
         sealOwners[PosKey(pos)] = $"{player.PlayerUID}|{player.PlayerName}|{BreDomain.LevelOf(player)}";
         TcmLog.Cat(api, "bre", $"seal at {pos} by {player.PlayerName} -> {(preserve ? "preserve (COO/BRE split)" : "beverage (BRE)")}: {code}");
+        return preserve;
     }
 
     /// <summary>Completion-time effects, no ledger touch (works offline): the spoilage taper voids
@@ -203,14 +277,15 @@ public static class BrePatches
         string[] p = packed.Split('|');
         if (p.Length < 3 || !int.TryParse(p[2], out int tier)) return;
 
-        // The spoilage taper (the ruled exception): a bad-ratio ferment fails outright.
-        double spoil = BreDomain.SpoilChance(tier);
-        if (spoil > 0 && api.World.Rand.NextDouble() < spoil)
+        // THE TURN (2026-09-14, replacing the spoilage taper's blind roll): the batch fails
+        // only when a turn's window was burned through while the sealer was online to answer
+        // it. Deterministic, announced, and answerable; the roll is retired.
+        if (BreTurnSystem.ConsumeSpoiled(pos))
         {
             var rot = api.World.GetItem(new AssetLocation("game:rot"));
             outSlot!.Itemstack = rot != null ? new ItemStack(rot, Math.Max(1, stack.StackSize / 2)) : null;
             outSlot.MarkDirty();
-            TcmLog.Cat(api, "bre", $"seal at {pos} SPOILED (tier {tier}, chance {spoil:P0}) -> batch lost");
+            TcmLog.Cat(api, "bre", $"seal at {pos} went to rot: a turn went untended past its window");
             return;
         }
 
@@ -252,15 +327,21 @@ public static class BrePatches
     public static void BarrelSealPostfix(BlockEntity __instance, IPlayer player, int packetid)
     {
         if (packetid != 1337 || __instance is not BlockEntityBarrel be || be.Api?.Side != EnumAppSide.Server) return;
-        StoreAndGrantSeal(be.Api, be.Pos, player, be.CurrentRecipe);
+        bool? preserve = StoreAndGrantSeal(be.Api, be.Pos, player, be.CurrentRecipe);
+        if (preserve != null) BreTurnSystem.OnSealed(be, player, preserve.Value);
     }
 
-    public static void FermentPrefix(BlockEntity __instance, out string? __state)
+    public static bool FermentPrefix(BlockEntity __instance, out string? __state)
     {
         __state = null;
-        if (__instance is not BlockEntityBarrel be || be.Api?.Side != EnumAppSide.Server) return;
+        if (__instance is not BlockEntityBarrel be || be.Api?.Side != EnumAppSide.Server) return true;
         if (be.Sealed && be.CurrentRecipe?.Output?.ResolvedItemStack?.Collectible != null)
             __state = be.CurrentRecipe.Output.ResolvedItemStack.Collectible.Code?.ToString();
+
+        // THE TURN (2026-09-14): fire/burn/expire this cask's turns, and HOLD the craft
+        // (skip vanilla's tick) when it stands complete with a turn still untended.
+        if (BreTurnSystem.Tick(be)) { __state = null; return false; }
+        return true;
     }
 
     public static void FermentPostfix(BlockEntity __instance, string? __state)
@@ -279,6 +360,7 @@ public static class BrePatches
     public static void VesselBrokenPostfix(BlockEntity __instance)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        BreTurnSystem.Drop(__instance.Pos);
         if (sealOwners.Remove(PosKey(__instance.Pos)))
             TcmLog.Cat(__instance.Api, "bre", $"sealed vessel at {__instance.Pos} destroyed pre-completion; owner entry dropped (seal XP kept)");
     }
@@ -308,17 +390,32 @@ public static class BrePatches
     public static void FermenterSealPostfix(BlockEntity __instance, IPlayer player, int packetid)
     {
         if (packetid != 1337 || __instance?.Api?.Side != EnumAppSide.Server) return;
-        StoreAndGrantSeal(__instance.Api, __instance.Pos, player, ReadFermenter(__instance).recipe);
+        bool? preserve = StoreAndGrantSeal(__instance.Api, __instance.Pos, player, ReadFermenter(__instance).recipe);
+        if (preserve != null) BreTurnSystem.OnSealed(__instance, player, preserve.Value);
     }
 
-    public static void FermenterTickPrefix(BlockEntity __instance, out string? __state)
+    public static bool FermenterTickPrefix(BlockEntity __instance, out string? __state)
     {
         __state = null;
-        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+        if (__instance?.Api?.Side != EnumAppSide.Server) return true;
         var (s, r, _) = ReadFermenter(__instance);
         if (s && r?.Output?.ResolvedItemStack?.Collectible != null)
             __state = r.Output.ResolvedItemStack.Collectible.Code?.ToString();
+
+        // THE TURN: fire/burn/expire this vessel's turns, and HOLD the craft (skip the mod's own
+        // tick) when it stands complete with a turn still untended. Same contract as the barrel.
+        if (BreTurnSystem.Tick(__instance)) { __state = null; return false; }
+        return true;
     }
+
+    public static bool FermenterTendPrefix(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel, ref bool __result)
+        => BreTurnSystem.TryTend(world, byPlayer, blockSel, ref __result);
+
+    public static void FermenterToTreePostfix(BlockEntity __instance, ITreeAttribute tree)
+        => BreTurnSystem.WriteTree(__instance, tree);
+
+    public static void FermenterFromTreePostfix(BlockEntity __instance, ITreeAttribute tree, IWorldAccessor worldForResolving)
+        => BreTurnSystem.ReadTree(__instance, tree, worldForResolving);
 
     public static void FermenterTickPostfix(BlockEntity __instance, string? __state)
     {

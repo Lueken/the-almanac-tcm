@@ -104,7 +104,7 @@ public static class RanDomain
             // NOTE: under CO the steadyAim curve runs CLIENT-side off these compile defaults
             // (the client cannot read RAN.json); these two knobs govern only the vanilla
             // floor until a knob-sync ships.
-            [SteadyAimUntrained] = 0.50,
+            [SteadyAimUntrained] = 0.80,
             [SteadyAimGm] = 1.35,
             [ReloadUntrained] = 0.75,
             [ReloadGm] = 1.12,

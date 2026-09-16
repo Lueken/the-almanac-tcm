@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
   "schemaVersion": 1,
   "id": "almanactcm:tall-fires",
-  "gate": "almanactcm",
+  "gate": "industrialstory",
   "pinned": true,
   "order": 11,
   "revealedBy": "almanactcm:is-first-smelter",

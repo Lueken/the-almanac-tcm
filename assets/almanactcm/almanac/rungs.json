@@ -324,7 +324,7 @@
 					"bullets": [
 						{ "text": "Clumsy dressing wastes the carcass: hide and meat come off **{dressULessPct}%** short of the common hand." },
 						{ "text": "Game notices an Untrained hunter from **{seekUFartherPct}%** farther out; the woods empty ahead of them." },
-						{ "text": "An untrained trap fails its roll **{trapFailU}x** as often as a stock one, and a sprung miss stays sprung." }
+						{ "text": "An untrained trap fails its roll **{trapFailU}x** as often as a stock one, and a sprung miss stays sprung.", "with": "Primitive Survival" }
 					]
 				},
 				{
@@ -375,7 +375,7 @@
 					"bullets": [
 						{ "text": "The scan reaches its widest, **{eyeRangeGm}** blocks aimed and **{senseGm}** for the sense; the Grandmaster reads country the rest cannot see from where they crouch." },
 						{ "text": "The curves peak: **{dressGmPct}%** above vanilla on the field harvest, animals letting you come **{seekGmCloserPct}%** closer and never to invisibility, and a trail of **{bloodGm}x** the drops lasting as much longer, at its richest colour.", "with": "Blood Trail" },
-						{ "text": "A Grandmaster's traps fail only **{trapFailGm}x** as often as stock, and on a **{trapStaySetGm}%** roll a sprung trap resets itself, still set where you left it." }
+						{ "text": "A Grandmaster's traps fail only **{trapFailGm}x** as often as stock, and on a **{trapStaySetGm}%** roll a sprung trap resets itself, still set where you left it.", "with": "Primitive Survival" }
 					]
 				}
 			]
@@ -581,7 +581,8 @@
 					"grants": [
 						{
 							"name": "The Millwright's Mark",
-							"text": "Repair effectiveness tops out at **+{repairGmPct}%**, and a Grandmaster-serviced part decays at **{decayGm}x**, the slowest of any hand's, the contract holding until the next service overwrites it. It is the inverse of Metalworking's repair-gate; here you go back to the master because their work lasts longer.", "with": "Wear and Tear"
+							"text": "Repair effectiveness tops out at **+{repairGmPct}%**, and a Grandmaster-serviced part decays at **{decayGm}x**, the slowest of any hand's, the contract holding until the next service overwrites it. It is the inverse of Metalworking's repair-gate; here you go back to the master because their work lasts longer.",
+							"with": "Wear and Tear"
 						}
 					]
 				}
@@ -769,33 +770,35 @@
 			"rungs": [
 				{
 					"rank": "Untrained",
-					"summary": "Half the seals spoil, and the survivors come up short.",
+					"summary": "The dark calls you back, and a call unanswered costs the batch.",
 					"bullets": [
 						{ "text": "Your rank is frozen at the seal. The batch matures under the hand that closed it, across days, restarts, and any levels earned meanwhile." },
-						{ "text": "An unpracticed seal spoils half the time: a **{spoilU}%** chance at completion that the batch voids to rot, and the rot comes back at half the count you were owed. Spirits from the still never spoil-fail." },
-						{ "text": "A batch that survives still comes up short: **{portionULessPct}%** fewer portions from the same vessel." }
+						{ "text": "A ferment can turn partway through the seal. The cask says so the moment it does, and the answer is a real one: a beverage wants its film skimmed off with a bare hand, a preserve wants a handful of salt pressed in. Tend it in time and the batch is saved whole. Leave it while you are there to hear it, and what you open is rot." },
+						{ "text": "How often the dark calls depends on how much you sealed. Up to **{turnSafeUPct}%** of a barrel ferments clean, and every part beyond that is another visit owed: a full barrel asks **{turnsFullU}**. An unpracticed brewer is always called at least once, however small the batch, because the tending is the lesson." },
+						{ "text": "The window to answer is **{turnWindowU} hours**, and it only runs while you are on the server. Time away costs nothing, and a ferment that finishes still wanting a hand simply stands and waits, sealed, until someone sees to it." },
+						{ "text": "A batch that comes through still comes up short: **{portionULessPct}%** fewer portions from the same vessel. Spirits from the still never turn." }
 					]
 				},
 				{
 					"rank": "Novice",
-					"summary": "Full portions; spoilage tapers instead of clearing.",
+					"summary": "Full portions, and a longer moment to answer.",
 					"bullets": [
 						{ "text": "The portion dock clears outright at Novice I, and a barrel yields its full count from there on." },
-						{ "text": "Spoilage does not clear with it. It tapers every level instead, entering Novice I at **{spoilN1}%** and shedding about **{spoilStepPts}** points a level to a new floor of **{spoilN4}%** by Novice IV. This is the framework's one ruled exception, a penalty that fades rather than vanishes at Novice." }
+						{ "text": "The calls do not clear with it. **{turnSafeNPct}%** of a barrel still ferments clean and a full one still asks **{turnsFullN}**, but the window widens to **{turnWindowN} hours**. Small batches are the novice's road: seal a quarter and nothing calls at all." }
 					]
 				},
 				{
 					"rank": "Apprentice",
-					"summary": "The taper keeps running.",
+					"summary": "The same calls, with room to answer them.",
 					"bullets": [
-						{ "text": "The taper keeps running on the same step: **{spoilA1}%** entering Apprentice I, down to a new floor of **{spoilA4}%** by Apprentice IV." }
+						{ "text": "The fraction does not move at Apprentice: **{turnSafeAPct}%** still ferments clean, and a full barrel still asks **{turnsFullA}**. What the rung buys is time. The window stretches to **{turnWindowA} hours**, half again the novice's, which is the difference between a ferment that must be watched and one that can be left while you get on with other work." }
 					]
 				},
 				{
 					"rank": "Journeyman",
-					"summary": "Ferments never fail again; the Brewer's Mark opens.",
+					"summary": "Three quarters unattended; the Brewer's Mark opens.",
 					"bullets": [
-						{ "text": "Spoilage reaches zero at Journeyman I and stays there. From here a brewer's ferments never fail." }
+						{ "text": "**{turnSafeJPct}%** of a barrel ferments clean. Only a full vessel still asks anything of you, and only **{turnsFullJ}**, with **{turnWindowJ} hours** to answer it." }
 					],
 					"grants": [
 						{
@@ -806,9 +809,10 @@
 				},
 				{
 					"rank": "Master",
-					"summary": "Aged by.",
+					"summary": "Seal it and walk away. Aged by.",
 					"bullets": [
-						{ "text": "The taper is already spent, so the mark is what moves: \"Aged by\" replaces the Journeyman line from Master I." }
+						{ "text": "From Master I the dark keeps its own counsel. A brewer of this standing is called back by nothing, at any batch size: seal the vessel and it will be what you meant it to be." },
+						{ "text": "The mark moves with the rank: \"Aged by\" replaces the Journeyman line from Master I." }
 					]
 				},
 				{
@@ -1183,7 +1187,8 @@
 					"grants": [
 						{
 							"name": "The Duelist's Eye",
-							"text": "Opens at Apprentice I: crouch and look at a foe to read its condition, healthy, wounded, or near death.", "with": "Combat Overhaul"
+							"text": "Opens at Apprentice I: crouch and look at a foe to read its condition, healthy, wounded, or near death.",
+							"with": "Combat Overhaul"
 						}
 					]
 				},
@@ -1197,7 +1202,8 @@
 					"grants": [
 						{
 							"name": "The Perfect Parry",
-							"text": "Learned at Journeyman I: catching a blow within **{perfectWindow}** ms of the parry opening stamps armor-pierce onto the riposte for **{riposteWindow}** ms, cutting through the foe's resist. The window never widens with rank; only the cut deepens, **{pierceJ1}** tier at Journeyman I to **{pierceJ4}** by Journeyman IV, stepping rather than sliding.", "with": "Combat Overhaul"
+							"text": "Learned at Journeyman I: catching a blow within **{perfectWindow}** ms of the parry opening stamps armor-pierce onto the riposte for **{riposteWindow}** ms, cutting through the foe's resist. The window never widens with rank; only the cut deepens, **{pierceJ1}** tier at Journeyman I to **{pierceJ4}** by Journeyman IV, stepping rather than sliding.",
+							"with": "Combat Overhaul"
 						}
 					]
 				},
@@ -1228,7 +1234,7 @@
 					"rank": "Untrained",
 					"summary": "The aim shakes; the pan flashes.",
 					"bullets": [
-						{ "text": "The aim shakes at its worst, steadiness halved to **{steadyU}**. Under Combat Overhaul the wobble rides the engine's own sway floor; without it a **{vanAccULessPct}%** accuracy dock stands in, on a line that reaches **{vanAccGm}** at Grandmaster." },
+						{ "text": "The aim shakes at its worst, steadiness down to **{steadyU}** of a common hand's. Under Combat Overhaul the wobble rides the engine's own sway floor; without it a **{vanAccULessPct}%** accuracy dock stands in, on a line that reaches **{vanAccGm}** at Grandmaster." },
 						{ "text": "Nock, draw, and reload all run **{handleULessPct}%** slow, a handling factor of **{handleU}**." },
 						{ "text": "Loosed arrows keep only **{recovU}x** of their material's usual recovery chance, so they shatter more often than the material alone would say.", "with": "Combat Overhaul" },
 						{ "text": "Firearms: **{misfireU}%** of pulls flash in the pan, the piece stays primed and the pull is lost, and a clumsy pour spills an extra powder unit on **{spillU}%** of reloads.", "with": "the Firearms fork" }
@@ -1262,7 +1268,8 @@
 					"grants": [
 						{
 							"name": "The Marksman's Eye",
-							"text": "Opens at Journeyman I: while aiming, a small ring marks the drop-corrected hold on the target where it stands. It never moves your aim; you still align a drifting reticle and time the loose.", "with": "Combat Overhaul"
+							"text": "Opens at Journeyman I: while aiming, a small ring marks the drop-corrected hold on the target where it stands. It never moves your aim; you still align a drifting reticle and time the loose.",
+							"with": "Combat Overhaul"
 						}
 					]
 				},
@@ -1351,7 +1358,8 @@
 						{ "text": "Thin-skinned to time: ambient temporal stability drains **{stabUMorePct}%** faster, a **{stabU}x** multiplier. Deliberate spends, meditation and ritual costs, are exempt by construction; only the world's own pull bites harder.", "with": "SpecializedClasses" },
 						{ "text": "A beginner is wasteful mending a translocator: the gear cost of a repair runs **{gearCostU}x**." },
 						{ "text": "A temporal gear fed to a rift ward burns short, buying **{wardDaysU}** in-game days of warding where vanilla buys **21**." },
-						{ "text": "The storm finds you unannounced: below Novice there is no cue at all, and the sky simply breaks." }
+						{ "text": "The storm finds you unannounced: below Novice there is no cue at all, and the sky simply breaks." },
+						{ "text": "The trade is learned at the edge of itself. Practice in this domain counts for more the thinner you are when the work happens: a full meter earns what it always earned, an empty one earns **{frayEmptyMult}x** as much, and every state between sits on the line between them, read at the moment the practice lands. Standing safe behind a wall teaches less about instability than carrying some." }
 					]
 				},
 				{
@@ -1360,7 +1368,9 @@
 					"bullets": [
 						{ "text": "Novice I clears the docks: **21** days a ward, ambient drain at **1.00x**, the repair at its stock cost." },
 						{ "text": "The ladder IS the warning: Storm-Sense wakes at Novice I with about **{cueN1RealSec}** real seconds of notice, and every level adds roughly **{cueStepRealSec}** more. Vanilla's own broadcast no longer comes free; the cue is earned rank by rank." },
-						{ "text": "Repairing a translocator asks a practiced hand: the gate stands at **{repairGateRank}**, a server knob. Riding one is never gated." }
+						{ "text": "Repairing a translocator asks a practiced hand: the gate stands at **{repairGateRank}**, a server knob. Riding one is never gated." },
+						{ "text": "Your reach is your training. The Anchorhold tethers a traveller to the pools, and how far that hold carries is read from your standing in this trade, climbing with every rung. Where the Almanac is absent the pools hold everyone at the beginner's radius; where it is present, the ground you can cross is the ground you have earned.", "with": "The Marginalia: Conjunction" },
+						{ "text": "Wayfaring is the frontier's own lesson, and it pays only on the return: cross into the rings and come home alive, and the crossing banks practice scaled by how far out you went. Dying out there teaches nobody. One homecoming per excursion, which is a limit the walking imposes rather than the Almanac.", "with": "The Marginalia: Conjunction" }
 					]
 				},
 				{
@@ -1393,7 +1403,7 @@
 					"summary": "The storm felt a quarter hour out, weathered upright.",
 					"bullets": [
 						{ "text": "The curves reach their ends: one gear buys **{wardDaysGm}** in-game days of warding, ambient stability loss floors at **{stabGm}x**, the repair cost at **{gearCostGm}x**, and a gathering storm is felt about **{cueGmRealMin}** real minutes out, the notice everyone once got free." },
-						{ "text": "The manifest resist: a Grandmaster shrugs off a manifestation's grip on a **{manifestResistGm}%** roll, the Unquiet's one concession to a practiced hand." }
+						{ "text": "The manifest resist: a Grandmaster shrugs off a manifestation's grip on a **{manifestResistGm}%** roll, the Unquiet's one concession to a practiced hand.", "with": "The Marginalia: Conjunction" }
 					]
 				}
 			]

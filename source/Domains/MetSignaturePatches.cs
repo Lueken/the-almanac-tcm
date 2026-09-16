@@ -254,7 +254,7 @@ public static class MetSignaturePatches
 
     private static void PatchReforgeStrip(ICoreAPI api, Harmony harmony)
     {
-        if (!api.ModLoader.IsModEnabled("smithingplus")) return;   // hard dep, but guard anyway
+        if (!MetConditionalPatches.SmithingPlusPresent(api)) return;   // hard dep, but guard anyway
         var method = AccessTools.Method(
             AccessTools.TypeByName("SmithingPlus.ToolRecovery.ToolHeadRepairPatches"), "OnSmithingFinished");
         if (method == null)

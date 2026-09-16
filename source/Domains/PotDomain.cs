@@ -85,10 +85,10 @@ public static class PotDomain
         {
             // The staple per-piece verb: modest raw, K large enough that a pottery day banks steadily.
             // The wheel path co-grants this same row at a reduced raw (lower skill expression).
-            [TechClayforming] = new() { Raw = 1, K = 30 },
+            [TechClayforming] = new() { Raw = 3, K = 14 },
             // Per-session: one kiln burn banks most of its share regardless of batch size (the
             // contextHash keys on the firing session, not per-piece, so a big load never farms).
-            [TechFiring] = new() { Raw = 3, K = 12 },
+            [TechFiring] = new() { Raw = 5, K = 8 },
         },
         Bonus = new Dictionary<string, double>
         {

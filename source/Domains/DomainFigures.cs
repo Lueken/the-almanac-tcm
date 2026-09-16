@@ -564,23 +564,53 @@ public static class DomainFigures
 
     // ---------------------------------------------------------------- BRE
 
-    /// <summary>Brewing: the spoilage taper straight from BreDomain.SpoilChance (the ruled
-    /// exception that fades rather than clears), the rest off the knobs — including the
-    /// GM good-measure roll, which postdates the website transcription.</summary>
+    /// <summary>Brewing: THE TURN, off its own knobs (2026-09-15, replacing the spoilage
+    /// taper's figures — the taper was retired from gameplay on the 14th and the book kept
+    /// quoting it, which is how a page ends up describing a coin-flip that can no longer
+    /// happen). Safe fraction per band, the turn count a FULL barrel owes at that band, and
+    /// the tend window in in-game hours. Plus the portion dock and the GM good measure.
+    ///
+    /// The turn count is derived with the same arithmetic BreTurnSystem.OnSealed uses, so the
+    /// book and the cask can never disagree: one turn per safe-fraction beyond the first, and
+    /// an Untrained seal always owes at least the teaching turn.</summary>
     private static Dictionary<string, string> BreFigures()
     {
         double K(string k, double d) => BreDomain.Knob(k, d);
-        var f = new Dictionary<string, string>
+
+        double safeU = K(BreDomain.TurnSafeUntrained, 0.25);
+        double safeN = K(BreDomain.TurnSafeNovice, 0.25);
+        double safeA = K(BreDomain.TurnSafeApprentice, 0.25);
+        double safeJ = K(BreDomain.TurnSafeJourneyman, 0.75);
+
+        // Mirrors BreTurnSystem.OnSealed for a full barrel (fraction 1.0).
+        int TurnsOnFull(double safe, bool untrained)
         {
-            ["spoilU"] = F(BreDomain.SpoilChance(0) * 100, 0),
+            int n = System.Math.Max(0, (int)System.Math.Ceiling(1.0 / safe - 1e-9) - 1);
+            if (untrained && K(BreDomain.TurnTeachingUntrained, 1) > 0) n = System.Math.Max(n, 1);
+            return n;
+        }
+
+        return new Dictionary<string, string>
+        {
             ["portionULessPct"] = F((1 - K(BreDomain.PortionUntrained, 0.75)) * 100, 0),
-            ["spoilStepPts"] = F(BreDomain.SpoilChance(0) * 100 / Rank.Journeyman, 2),
             ["measureGm"] = F(K(BreDomain.MeasureChanceGm, 0.25) * 100, 0),
             ["measureBonusPct"] = F(K(BreDomain.MeasureBonusFraction, 0.10) * 100, 0),
+
+            ["turnSafeUPct"] = F(safeU * 100, 0),
+            ["turnSafeNPct"] = F(safeN * 100, 0),
+            ["turnSafeAPct"] = F(safeA * 100, 0),
+            ["turnSafeJPct"] = F(safeJ * 100, 0),
+
+            ["turnsFullU"] = TurnsOnFull(safeU, true).ToString(),
+            ["turnsFullN"] = TurnsOnFull(safeN, false).ToString(),
+            ["turnsFullA"] = TurnsOnFull(safeA, false).ToString(),
+            ["turnsFullJ"] = TurnsOnFull(safeJ, false).ToString(),
+
+            ["turnWindowU"] = F(K(BreDomain.TurnWindowUntrained, 6), 0),
+            ["turnWindowN"] = F(K(BreDomain.TurnWindowNovice, 12), 0),
+            ["turnWindowA"] = F(K(BreDomain.TurnWindowApprentice, 18), 0),
+            ["turnWindowJ"] = F(K(BreDomain.TurnWindowJourneyman, 24), 0),
         };
-        foreach (var (suf, lv) in new[] { ("N1", N1), ("N4", N4), ("A1", A1), ("A4", A4) })
-            f["spoil" + suf] = F(BreDomain.SpoilChance(lv) * 100, 1);
-        return f;
     }
 
     // ---------------------------------------------------------------- TAI
@@ -781,7 +811,7 @@ public static class DomainFigures
     private static Dictionary<string, string> RanFigures()
     {
         double K(string k, double d) => RanDomain.Knob(k, d);
-        double stU = K(RanDomain.SteadyAimUntrained, 0.50), stGm = K(RanDomain.SteadyAimGm, 1.35);
+        double stU = K(RanDomain.SteadyAimUntrained, 0.80), stGm = K(RanDomain.SteadyAimGm, 1.35);
         double reU = K(RanDomain.ReloadUntrained, 0.75), reGm = K(RanDomain.ReloadGm, 1.12);
         double rcU = K(RanDomain.RecoveryUntrained, 0.80), rcGm = K(RanDomain.RecoveryGm, 1.50);
 
@@ -874,6 +904,11 @@ public static class DomainFigures
             ["cueStepRealSec"] = F(cueStepRealSec, 0),
             ["cueGmRealMin"] = F(cueGmRealMin, 1),
             ["repairGateRank"] = repairGate > 0 ? Domain.RankName(repairGate) : "open to all",
+            // The fray bonus (0.5.10): LedgerSystem.Log scales TEM practice by
+            // 1 + (1 - stability) * temFrayXpBonus, so an EMPTY meter earns this multiple of
+            // a full one. Shipped default 1.0 gives 2.00x; a server that flattens the knob to
+            // 0 makes this read 1.00x and the page tells the truth either way.
+            ["frayEmptyMult"] = F(1.0 + TemDomain.Knob("temFrayXpBonus", 1.0), 2),
         };
         foreach (var (suf, lv) in new[] { ("A1", A1), ("A4", A4), ("J1", J1), ("J4", J4), ("M1", M1), ("M4", M4) })
         {

@@ -40,8 +40,30 @@ public static class BreDomain
     public const string TechDistilling = "distilling"; // BlockEntityBoiler -> Condenser.ReceiveDistillate
 
     // ---- Penalty + reliability (the spoilage taper, RULED exception) + Brewer's Mark knobs.
+    // ---- THE TURN (2026-09-14): the spoilage taper's replacement. Safe fraction of a barrel
+    // per rank band (a batch within it owes no turns; each safe-fraction beyond the first owes
+    // one), the tend window in in-game hours of SEALER-ONLINE time per rank band, and the
+    // Untrained teaching turn (every Untrained seal owes at least one; 0 disables). Master I
+    // and up seals and forgets. SpoilChance below is retired from gameplay (DomainFigures
+    // still reads it for guide figures until the prose is revised).
+    public const string TurnSafeUntrained = "turnSafeUntrained";
+    public const string TurnSafeNovice = "turnSafeNovice";
+    public const string TurnSafeApprentice = "turnSafeApprentice";
+    public const string TurnSafeJourneyman = "turnSafeJourneyman";
+    public const string TurnWindowUntrained = "turnWindowUntrained";
+    public const string TurnWindowNovice = "turnWindowNovice";
+    public const string TurnWindowApprentice = "turnWindowApprentice";
+    public const string TurnWindowJourneyman = "turnWindowJourneyman";
+    public const string TurnTeachingUntrained = "turnTeachingUntrained";
+    /// <summary>Ceiling on how much of a turn's window one tick may burn, in in-game hours.
+    /// The window measures real opportunity to answer, so it must not be consumed by calendar
+    /// JUMPS: an admin time-skip, or a chunk reloading after the sealer wandered off for days.
+    /// A barrel ticks every 3 seconds (~0.0125 in-game hours at CSM 0.25), so the shipped 0.25
+    /// never binds in normal play.</summary>
+    public const string TurnWindowMaxBurnPerTick = "turnWindowMaxBurnPerTick";
+
     /// <summary>Spoilage chance on an Untrained seal (bad ratios ruin the ferment): the batch voids
-    /// at completion. Tapers linearly to ZERO at Journeyman I (the ruled exception — NOT snap-at-
+    ///at completion. Tapers linearly to ZERO at Journeyman I (the ruled exception — NOT snap-at-
     /// Novice). Distillation is exempt (spirits do not spoil-fail).</summary>
     public const string SpoilUntrained = "spoilUntrained";
     /// <summary>Output portion multiplier while Untrained (a beginner's batch comes up short even
@@ -78,7 +100,12 @@ public static class BreDomain
         },
         Bonus = new Dictionary<string, double>
         {
-            [SpoilUntrained] = 0.50,   // full spoilage chance at tier 0, tapering to 0 at Journeyman
+            [SpoilUntrained] = 0.50,   // RETIRED from gameplay 2026-09-14 (kept for guide figures)
+            [TurnSafeUntrained] = 0.25, [TurnSafeNovice] = 0.25,
+            [TurnSafeApprentice] = 0.25, [TurnSafeJourneyman] = 0.75,
+            [TurnWindowUntrained] = 6, [TurnWindowNovice] = 12,
+            [TurnWindowApprentice] = 18, [TurnWindowJourneyman] = 24,
+            [TurnTeachingUntrained] = 1, [TurnWindowMaxBurnPerTick] = 0.25,
             [PortionUntrained] = 0.75, // 25% fewer portions while Untrained
             [MeasureChanceGm] = 0.25,  // one GM seal in four pays over the rating
             [MeasureBonusFraction] = 0.10, // by a tenth of the rated count, minimum one

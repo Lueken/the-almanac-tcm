@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/Lueken/the-almanac-illuminated/main/docs/guide-pack.schema.json",
   "schemaVersion": 1,
   "id": "almanactcm:smelters-yard",
-  "gate": "almanactcm",
+  "gate": "industrialstory",
   "pinned": true,
   "order": 10,
   "title": "The Smelter's Yard",
