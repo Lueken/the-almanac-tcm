@@ -9,6 +9,31 @@ The Almanac: Trades, Callings & Mastery.
 Clayforming opens its hands, the dark calls you back, and the Almanac stops depending on
 anyone else's mod to load at all.
 
+> ### Server keepers: delete `ModConfig/almanactcm/` before you start on this one.
+>
+> The shipped defaults changed in ways that **cannot reach an existing config**. Only
+> `Techniques` and `Bonus` take part in the three-way merge; `TierTotals`, `M`, the affinity grid
+> and the yield table do not, so a world that has booted once keeps its old copies of those
+> forever, and the headline change of this release simply never arrives.
+>
+> What is stale in an existing config:
+> - **the ladders**, which are doubled here, so mastery keeps its old pace
+> - **Tailoring's breadth**, which stays at 3 and keeps the wheel-and-loom ceiling this release
+>   exists to lift
+> - **Alchemy's technique count**, stuck at 2 against its three techniques
+> - **two affinity entries**, archivist/Arcana and florist/Beekeeping, which read zero
+>
+> **Your ranks are safe.** Progress stores the LEVEL you reached and the practice banked inside
+> it; the ladder length is only ever read to work out what the NEXT level costs. Nobody is demoted
+> by this, and nobody loses banked practice. The climb ahead of you lengthens, the climb behind
+> you does not change.
+>
+> **If you have hand-tuned anything**, the file tells you what: compare `Techniques` against
+> `ShippedTechniqueBaseline` and `Bonus` against `ShippedBonusBaseline` in each domain file, and
+> anything that differs is yours. Copy those values out, delete the folder, and put them back
+> after first boot. Tuned values in those two sections survive an ordinary update untouched, so
+> this only matters if you delete.
+
 **The wide clay strokes are open to everyone, and rank buys precision instead.** Until now
 the 2x2 and 3x3 clayforming strokes were refused outright below Apprentice I and
 Journeyman I. That gate is gone. Every stroke works at every rank, and what climbing buys

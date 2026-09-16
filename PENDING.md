@@ -676,6 +676,30 @@ NOT run in game.
   during `Start()` and never touches `MapLayers`; the same build had booted clean two hours
   earlier. It is the FastMap race already recorded in memory, and a vanilla robustness bug.
 
+- **The Quire config deletion: verified safe, nothing is lost (checked 2026-09-16).** Every file
+  in the live `ModConfig/almanactcm/` was diffed against what 0.5.11 would regenerate, including
+  the two that were left unchecked in the earlier pass:
+  - `global.json` - IDENTICAL, 46 keys, nothing tuned.
+  - `FAR-yields.json` - a pure generated default: all 46 crops carry the same single pattern
+    (`untrained 0.85`, every other rank `1.0`). Nothing hand-set.
+  - `affinity.json` - 2 differences, and both are the file being STALE rather than tuned: code
+    ships `archivist/ARC = 1` and `florist/BEE = 2`, the live file has zero for both. Deleting
+    FIXES them. (`LoadModConfig` deserialises what exists and re-stores it, so a default added
+    after the file was written never appears.)
+  - The three former hand-tunes (POT clayforming, POT firing, RAN steadyAimUntrained) were
+    promoted to shipped defaults earlier today, so regeneration reproduces them exactly.
+  - `TierTotals` (all 22, stale 1x), `ALC M` (2 vs 3) and `TAI M` (3 vs 2) are the things the
+    deletion is FOR.
+
+  **Player ranks survive.** `SavedPlayerDomain` persists `Level`, `Experience` and `Hidden` only.
+  `RequiredExperience` is never serialised; it is recomputed from the live `TierTotals` every time
+  `Level` is set. So doubling the ladder does not demote anyone and does not discard banked
+  practice inside the current level: only the cost of the NEXT level changes. Verified by reading
+  `PlayerDomain.Level`/`Experience` and the save shape, not assumed.
+
+  Order of operations agreed with Jeffrey: stop the server, delete `ModConfig/almanactcm/`, upload
+  the 0.5.11 zip, start. The ledger lives in `Saves/AlmanacTcm/` and is NOT touched by any of this.
+
 ## Not in the zip, needed at deploy time
 
 - **COO `TierTotals` does not propagate.** It is not part of the three-way config merge (only
