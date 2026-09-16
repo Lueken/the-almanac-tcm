@@ -384,8 +384,12 @@ NOT run in game.
   the other. All four new Harmony bind points were verified against decompiled metadata BEFORE
   building — `OnBlockInteractStart(world, byPlayer, blockSel)`, `ToTreeAttributes(tree)`,
   `FromTreeAttributes(tree, worldForResolving)`, `OnEvery3Second(float)` — which is the check
-  whose absence caused the 0.5.11 boot crash. **Untested in game**: wants a sealed clay
-  fermenter carried through a turn, a tend, a miss, and a chunk unload/reload.
+  whose absence caused the 0.5.11 boot crash.
+  **VERIFIED 2026-09-16 (boot, Ingenium-test against fermentaria-forked 1.0.4):** the type lookup
+  resolves and the log reads `BRE fermentaria clay-fermenter hooked (seal grant + completion + the
+  Turn + tend)`, which is the line that read "fermentaria absent" for the life of the bug.
+  **STILL UNVERIFIED IN PLAY:** a sealed clay fermenter carried through a turn, a tend, a miss,
+  and a chunk unload/reload. The hook firing at boot is not the same as the mechanic working.
 
 - **`TurnSafeApprentice` 0.50 -> 0.25** (ruled 2026-09-15), in all three places that carry the
   default: the knob, `BreTurnSystem.SafeFractionFor`, and `DomainFigures.BreFigures`. A full
@@ -639,6 +643,38 @@ NOT run in game.
   (`[150, 500, 1400, 3200, 6500]`), so its ranks already come twice as fast as a fresh 0.5.11
   install. A player finding TAI egregiously slow **on the halved ladder** is strong evidence that
   the m=3 ceiling was the binding constraint rather than the ladder length.
+
+- **What 0.5.11 has actually been tested for, as of 2026-09-16.** Recorded because "it built" and
+  "it works" are different claims and this release carried a lot of untested change.
+
+  **VERIFIED in Ingenium-test** (194 mods, smithingplusplus 1.10.3, fermentaria-forked 1.0.4):
+  - Boot: `annotated patches applied (80 class(es))`, no FAILED line. The per-class PatchAll
+    rewrite works, which was the riskiest change in the release.
+  - `Saves/AlmanacTcm/` written. The mod survives startup and reaches its ledger.
+  - Smithing++ end to end: bit-recovery, reforge-strip, Honed via Combat Overhaul, forge heating
+    (which proves the duplicated asset patch applied), and the cast-tool tier memo all hooked.
+  - The grid-recipe seam STANDS DOWN on the fork, as designed.
+  - Zero `[Error]` lines from any Almanac mod across 1,528 in the log; all belong to third parties.
+  - TAI bulk grid crafting pays the batch (Jeffrey, 2026-09-16).
+  - ALC remedy and MET grid-assembly batches likewise (Jeffrey, 2026-09-16).
+  - The clean stroke's PLACE half (Jeffrey, 2026-09-14).
+
+  **NOT verified, and should not be read as working:**
+  - The Turn on a clay fermenter, end to end. Only the hook is confirmed.
+  - The clean stroke's REMOVAL half, and the flat tool-mold case.
+  - The metal-armour negative: crafting armour must grant NO Tailoring. This is the false positive
+    fixed blind in `824d8b9` (vanilla armour is `Wearable` at every material, steel included), so
+    it is the single highest-value check left.
+  - `TurnSafeApprentice` at 0.25, and the RAN/POT promoted defaults, in play rather than on paper.
+  - The guide re-gating in a world WITHOUT Industrial Story.
+
+- **One crash seen, diagnosed, and not ours.** 2026-09-16 10:15, client-side:
+  `InvalidOperationException: Collection was modified` in
+  `WorldMapManager.<OnLvlFinalize>b__22_0` (VSEssentials line 214). That lambda walks
+  `MapLayers`, a plain unsynchronised `List<>`, in a tight loop on a background thread, so any mod
+  adding or removing a layer after level finalize throws. TCM registers into the TYPE registry
+  during `Start()` and never touches `MapLayers`; the same build had booted clean two hours
+  earlier. It is the FastMap race already recorded in memory, and a vanilla robustness bug.
 
 ## Not in the zip, needed at deploy time
 
