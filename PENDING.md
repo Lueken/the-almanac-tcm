@@ -587,6 +587,48 @@ NOT run in game.
   OTHER mod hard-depending on `smithingplus` will refuse to load (`TorchHolderSmithingPlus` is in
   the pack and wants checking), and Smithing Plus's own ModConfig may regenerate under a new name.
 
+## Staged in 0.5.12
+
+- **TAI small-m 3 -> 2 (ruled 2026-09-16, beta feedback: "egregiously slow").** The reporter
+  believed Tailoring only paid for loom, spinning wheel and dyeing. It actually has FIVE earning
+  techniques (spin, weave, knit, sew, dye), so part of the complaint was not knowing about `sew`
+  (vanilla clothing REPAIR, no station needed) and `knit` (needs the `Knitting` mod). But the
+  measured part was real. Every domain shares `Smax = 100`/day, so the ceiling is identical
+  everywhere; what differs is the work to reach it, and TAI needed **198 reps/day** to fill its
+  cap, 19th of 22 and exactly double MET's 99. At m=3 a technique caps at 33.3, so the natural
+  tailor loop of wheel + loom could never exceed **66.7 of a 100-point day** however hard it was
+  worked. That ceiling, not the curve, is what "egregiously slow" was describing.
+  At m=2 the two-station loop fills the day: **+50% banked for the same work** (55.7/day -> 83.5
+  at 48 reps each), with Journeyman I still near 50 in-game days of dedicated craft on the 0.5.11
+  ladder. Deliberately did NOT lower `spin`/`weave` K alongside: modelled, it moves the same case
+  by only **~6%**, because K governs the approach to the ceiling and a real session is already far
+  past it (x = 96 against K = 18). Lowering both would reach 94/day, which stops the domain feeling
+  constrained at all and probably overshoots. Reconsider only after the two fixes below land.
+
+- **STILL OPEN, both agreed 2026-09-16, neither implemented:**
+  1. **Crafting a new garment pays NOTHING.** `TaiMarkPatches.WearableCraftPatch` gates the `sew`
+     grant on `__instance.Name.Path.Contains("repair")`, so only repair recipes pay. The code
+     immediately above it stamps a new garment with the maker's Tailor's Mark, so the mod credits
+     you as the maker and pays you nothing for the making. The headline activity of the trade is
+     not an earning verb. Fixing it needs thought about the dedup key and whether every wearable
+     should count, so it is not the one-line change it looks like.
+  2. **The per-minute bucket on the two main techniques.** `weave` keys on
+     (loom position, real MINUTE) and wheel `spin` on (wheel position, real minute), so each pays
+     **at most once per real minute per station**. Weave needs 81 reps to fill its share of a day;
+     at one per minute that is 81 real minutes at one loom, against The Quire's 96 real minutes per
+     in-game day. A tailor with one wheel and one loom therefore CANNOT reach the cap regardless of
+     fibre. `knit` and `sew` bucket per real SECOND, so the throttle is specific to the two primary
+     verbs. Find out what it was guarding before loosening it: the loom already consumes twine per
+     operation, so cost may already be the limiter.
+
+- **The M change will NOT reach The Quire on its own.** `M` is not part of the three-way merge
+  (only `Techniques` and `Bonus` are), exactly like `TierTotals`, so the live `TAI.json` keeps
+  `M: 3` forever. It needs hand-editing or regenerating with the ladder fix.
+  Worth noting for calibration: The Quire also still runs the 1x `TierTotals`
+  (`[150, 500, 1400, 3200, 6500]`), so its ranks already come twice as fast as a fresh 0.5.11
+  install. A player finding TAI egregiously slow **on the halved ladder** is strong evidence that
+  the m=3 ceiling was the binding constraint rather than the ladder length.
+
 ## Not in the zip, needed at deploy time
 
 - **COO `TierTotals` does not propagate.** It is not part of the three-way config merge (only

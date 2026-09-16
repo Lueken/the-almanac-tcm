@@ -85,9 +85,18 @@ public static class TaiDomain
     {
         Code = Code,
         Smax = 100,
-        // small-m: 3 with the fibre mods (spin/weave/knit/sew, three bank full breadth); a pure-
-        // vanilla server has only sew/repair and reads as 1 (the available-technique clamp).
-        M = 3,
+        // small-m: 2 (ruled 2026-09-16, beta feedback). It was 3, on the reasoning that a tailor
+        // with the fibre mods runs spin/weave/knit/sew and three bank full breadth. The real loop
+        // is TWO, a wheel and a loom, because knit needs a mod that may be absent and sew only
+        // fires on repairs. At m=3 those two techniques cap at 33.3 each, so a working tailor
+        // could never exceed 66.7 of a 100 day however hard they worked, which is what "egregiously
+        // slow" was actually describing. At m=2 the natural loop fills the day: roughly +50% banked
+        // for the same work, and Journeyman I still lands near 50 in-game days of dedicated craft.
+        // Modelled against lowering spin/weave K instead, which moves the same case by only ~6%:
+        // K governs the approach to the ceiling and a real session is already far past it, so the
+        // CEILING was the binding constraint, not the curve. A pure-vanilla server has only
+        // sew/repair and still reads as 1 through the available-technique clamp.
+        M = 2,
         // Fibre neighbourhood: foraging (retted fibre), farming (flax), hunting (the leather sibling).
         Adjacency = new List<string> { "FOR", "FAR", "HUN" },
         Techniques = new Dictionary<string, TechniqueConfig>
