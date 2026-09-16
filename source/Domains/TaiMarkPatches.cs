@@ -155,6 +155,26 @@ public static class TaiMarkPatches
     [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
     public static class WearableCraftPatch
     {
+        /// <summary>Every grid craft is its own act, so every one carries its own context.
+        ///
+        /// The grid path deliberately does NOT take the stations' per-real-minute bucket, and the
+        /// reason is how people actually craft: nobody makes one flax twine at a time. They tip
+        /// their whole harvest into the grid and shift-click, which calls ConsumeInput once PER
+        /// CRAFT in a burst of milliseconds. Under a time bucket those fifty crafts hash
+        /// identically, the dedup ring collapses them, and the player is paid for ONE, which
+        /// punishes the normal way of working and rewards nobody. A counter makes each craft
+        /// distinct so the batch sums.
+        ///
+        /// Nothing is lost by dropping the bucket here, because the throttle already exists twice
+        /// over. Material is the real gate (fifty twine is two hundred flax fibres), and the
+        /// saturation curve is the mathematical one: banked = ceiling * x/(x+K), so a batch of
+        /// fifty earns most of the day's spinning and a second batch earns almost nothing. The
+        /// stations keep their bucket, because a crank can be held down and costs nothing to turn.
+        ///
+        /// Practice feedback is already coalesced upstream (LedgerSystem.QueueFeedback sums into
+        /// one message per window), so a fifty-craft batch reports once, not fifty times.</summary>
+        private static int gridSeq;
+
         /// <summary>What Tailoring recognises as its own material. Vanilla armour is `Wearable`
         /// at every material from linen to STEEL, so "the output is wearable" is not a test for
         /// tailoring: it would pay a smith TAI for a plate cuirass. The trade is defined by the
@@ -202,7 +222,6 @@ public static class TaiMarkPatches
             var coll = outStack?.Collectible;
             if (coll == null) return;
 
-            long ms = byPlayer.Entity.World.ElapsedMilliseconds;
             string path = coll.Code?.Path ?? "";
             var ledger = AlmanacTcmModSystem.ServerInstance?.Ledger;
             if (ledger == null) return;
@@ -220,7 +239,8 @@ public static class TaiMarkPatches
                 if (units <= 0) return;   // wearable, but no cloth or hide in it: not tailoring
                 double mult = GameMath.Clamp(units / 2.0, 0.5, 2.0);
                 ledger.Log(byPlayer, TaiDomain.Code, TaiDomain.TechSew,
-                    HashCode.Combine(repair ? "repair" : "garment", coll.Id, ms / 1000), mult);
+                    HashCode.Combine(repair ? "repair" : "garment", coll.Id,
+                        System.Threading.Interlocked.Increment(ref gridSeq)), mult);
                 return;
             }
 
@@ -232,7 +252,8 @@ public static class TaiMarkPatches
             if (verb == null) return;
 
             ledger.Log(byPlayer, TaiDomain.Code, verb,
-                HashCode.Combine("grid", verb, coll.Id, (int)(ms / 60000)));
+                HashCode.Combine("grid", verb, coll.Id,
+                    System.Threading.Interlocked.Increment(ref gridSeq)));
         }
     }
 

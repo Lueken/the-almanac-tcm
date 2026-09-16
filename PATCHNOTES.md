@@ -159,6 +159,12 @@ made it. Every step now pays. Spinning by hand pays spinning, weaving by hand pa
 finished garment pays sewing, the same verbs at the same rate as the stations, which keep their
 advantage where they always had it, in thrift of fibre rather than in practice.
 
+**And a batch counts as a batch.** Nobody spins one twine at a time: you tip the harvest into the
+grid and take the lot in a single pull. Every craft in that pull is counted, so a full basket is
+paid as a full basket. The work still answers to the same curve it always did, where the fiftieth
+twine of a day is worth a fraction of the first, and to the plainest limit of all, which is how
+much flax you grew.
+
 **A garment pays for what it took.** Sewing now scales with the material actually consumed, from
 half credit on the slightest piece to double on the heaviest, so a gambeson out of eight pieces is
 worth more than a cuff out of two. Tools handed back to you, the sewing kit among them, are not
