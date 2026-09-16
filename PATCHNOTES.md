@@ -165,6 +165,12 @@ paid as a full basket. The work still answers to the same curve it always did, w
 twine of a day is worth a fraction of the first, and to the plainest limit of all, which is how
 much flax you grew.
 
+**The same correction reaches the apothecary's bench and the toolmaker's.** Every grant in the
+Almanac was audited for this once it was found in the cloth chain. Two others counted a batch as
+a single act: a tray of poultices or salves taken in one pull paid for one of them, and so did a
+set of tool heads. Both now pay for the work that was done. Nothing else in the mod was affected;
+the rest of the trades are paced by acts that cannot be batched in the first place.
+
 **A garment pays for what it took.** Sewing now scales with the material actually consumed, from
 half credit on the slightest piece to double on the heaviest, so a gambeson out of eight pieces is
 worth more than a cuff out of two. Tools handed back to you, the sewing kit among them, are not

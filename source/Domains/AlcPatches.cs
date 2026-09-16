@@ -423,6 +423,14 @@ public static class AlcPatches
     [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
     public static class RemedyGrantPatch
     {
+        // Every craft is its own act. A shift-click take calls ConsumeInput once PER CRAFT in a
+        // burst of milliseconds, so a context bucketed on time hashes identically across the whole
+        // batch and the dedup ring pays exactly one of them: the normal way of crafting is punished
+        // and the one-at-a-time clicker rewarded. A counter keeps each craft distinct. Nothing is
+        // lost by it, because material is the real gate and saturation is the mathematical one
+        // (banked = ceiling * x/(x+K), so the second batch is worth a fraction of the first).
+        private static int seq;
+
         public static void Postfix(GridRecipe __instance, IPlayer byPlayer, bool __result)
         {
             if (!__result || byPlayer?.Entity?.World?.Side != EnumAppSide.Server) return;
@@ -430,7 +438,7 @@ public static class AlcPatches
 
             Core?.Ledger?.Log(byPlayer, AlcDomain.Code, AlcDomain.TechRemedy,
                 HashCode.Combine("remedy", __instance!.Output!.ResolvedItemStack.Collectible.Id,
-                    byPlayer.Entity.World.ElapsedMilliseconds / 1000));
+                    System.Threading.Interlocked.Increment(ref seq)));
         }
     }
 

@@ -895,6 +895,14 @@ public static class MetPatches
     [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
     public static class GridTakePatch
     {
+        // Every craft is its own act. A shift-click take calls ConsumeInput once PER CRAFT in a
+        // burst of milliseconds, so a context bucketed on time hashes identically across the whole
+        // batch and the dedup ring pays exactly one of them: the normal way of crafting is punished
+        // and the one-at-a-time clicker rewarded. A counter keeps each craft distinct. Nothing is
+        // lost by it, because material is the real gate and saturation is the mathematical one
+        // (banked = ceiling * x/(x+K), so the second batch is worth a fraction of the first).
+        private static int seq;
+
         public static void Postfix(GridRecipe __instance, IPlayer byPlayer, bool __result)
         {
             if (!__result || byPlayer == null) return;
@@ -905,7 +913,7 @@ public static class MetPatches
             if (output.Collectible.ToolTier < 2) return;
 
             Core?.Ledger?.Log(byPlayer, MetDomain.Code, MetDomain.TechAssembly,
-                HashCode.Combine(output.Collectible.Id, byPlayer.Entity.World.ElapsedMilliseconds / 1000));
+                HashCode.Combine(output.Collectible.Id, System.Threading.Interlocked.Increment(ref seq)));
         }
     }
 
