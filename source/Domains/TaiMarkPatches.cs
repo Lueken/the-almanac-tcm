@@ -155,9 +155,32 @@ public static class TaiMarkPatches
     [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
     public static class WearableCraftPatch
     {
-        /// <summary>Consumed material in a recipe: quantities of everything that is NOT a tool and
-        /// is NOT handed back. The sewing kit is a returnedStack, so it is correctly not counted as
-        /// cloth spent.</summary>
+        /// <summary>What Tailoring recognises as its own material. Vanilla armour is `Wearable`
+        /// at every material from linen to STEEL, so "the output is wearable" is not a test for
+        /// tailoring: it would pay a smith TAI for a plate cuirass. The trade is defined by the
+        /// material worked, not by the slot the result fills.</summary>
+        private static readonly string[] TextileMarkers =
+        {
+            "linen", "cloth", "flax", "twine", "yarn", "wool", "silk", "canvas", "felt",
+            "cotton", "hemp", "fabric", "thread", "leather", "hide", "pelt", "fur", "bolt",
+        };
+
+        private static bool IsTextile(CraftingRecipeIngredient ing)
+        {
+            // Wildcard recipes (vanilla clothes take code "*" with name "leather" and a variant
+            // list) carry nothing useful in Code, so read the resolved stack first and fall back
+            // to the ingredient's own name.
+            string a = ing.ResolvedItemStack?.Collectible?.Code?.Path ?? "";
+            string b = ing.Code?.Path ?? "";
+            string c = ing.Name ?? "";
+            foreach (var m in TextileMarkers)
+                if (a.Contains(m) || b.Contains(m) || c.Contains(m)) return true;
+            return false;
+        }
+
+        /// <summary>Consumed TEXTILE material: quantities of every ingredient that is cloth or hide,
+        /// is not a tool, and is not handed back. The sewing kit is a returnedStack, so it is
+        /// correctly not counted as cloth spent. Zero means this was not a tailoring craft.</summary>
         private static int ConsumedUnits(GridRecipe recipe)
         {
             var ings = recipe.ResolvedIngredients;
@@ -166,6 +189,7 @@ public static class TaiMarkPatches
             foreach (var ing in ings)
             {
                 if (ing == null || ing.IsTool || ing.ReturnedStack != null) continue;
+                if (!IsTextile(ing)) continue;
                 n += Math.Max(1, ing.Quantity);
             }
             return n;
@@ -192,7 +216,9 @@ public static class TaiMarkPatches
                 // baseline, clamped so neither a trivial craft nor a bulk recipe distorts the
                 // ledger. A repair consumes the patch material only, so it scales itself down
                 // honestly without needing a separate rule.
-                double mult = GameMath.Clamp(ConsumedUnits(__instance) / 2.0, 0.5, 2.0);
+                int units = ConsumedUnits(__instance);
+                if (units <= 0) return;   // wearable, but no cloth or hide in it: not tailoring
+                double mult = GameMath.Clamp(units / 2.0, 0.5, 2.0);
                 ledger.Log(byPlayer, TaiDomain.Code, TaiDomain.TechSew,
                     HashCode.Combine(repair ? "repair" : "garment", coll.Id, ms / 1000), mult);
                 return;
