@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using Vintagestory.API.Common;
+using Vintagestory.API.MathTools;
 using Vintagestory.API.Config;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
@@ -133,21 +134,79 @@ public static class TaiMarkPatches
         }
     }
 
-    /// <summary>The sew verb pays at the REAL take (ConsumeInput never runs for a preview): a
-    /// clothing-repair recipe grants TAI sewing. Recipe and output are read off the consumed
-    /// recipe itself, so no state is carried between the preview and the take.</summary>
+    /// <summary>The grid half of Tailoring, at the REAL take (ConsumeInput never runs for a
+    /// preview). Until 0.5.12 this paid for clothing REPAIR only, which left the trade's entire
+    /// vanilla chain unpaid: flax fibres become twine, twine becomes linen, linen becomes cloth
+    /// and cloth becomes a garment, and every one of those is a GRID recipe. The three station
+    /// verbs all live behind the Spinning Wheel mod, so a vanilla player earned TAI from nothing
+    /// but repairs and dye baths, and nobody on any install was ever paid for making the garment
+    /// itself: the mod stamped their Tailor's Mark on a piece and granted them no practice for
+    /// having made it. Same seam ALC uses for remedies and MET for grid assembly.
+    ///
+    /// The hand path pays the SAME verbs at the SAME rate as the stations on purpose. The wheel
+    /// and loom already earn their keep in material economy (fibre thrift, the steady fibre
+    /// economy), so they do not also need an XP edge, and giving the hand path its own techniques
+    /// would inflate the technique count that small-m is measured against.
+    ///
+    /// Spin and weave carry the stations' per-real-minute bucket, because that bucket is the
+    /// anti-grind guard and the hand path must not be the way around it. Garments bucket per
+    /// SECOND instead: a garment is singular and expensive, so its material cost is the limiter.
+    /// </summary>
     [HarmonyPatch(typeof(GridRecipe), nameof(GridRecipe.ConsumeInput))]
     public static class WearableCraftPatch
     {
+        /// <summary>Consumed material in a recipe: quantities of everything that is NOT a tool and
+        /// is NOT handed back. The sewing kit is a returnedStack, so it is correctly not counted as
+        /// cloth spent.</summary>
+        private static int ConsumedUnits(GridRecipe recipe)
+        {
+            var ings = recipe.ResolvedIngredients;
+            if (ings == null) return 0;
+            int n = 0;
+            foreach (var ing in ings)
+            {
+                if (ing == null || ing.IsTool || ing.ReturnedStack != null) continue;
+                n += Math.Max(1, ing.Quantity);
+            }
+            return n;
+        }
+
         public static void Postfix(GridRecipe __instance, IPlayer byPlayer, bool __result)
         {
             if (!__result || byPlayer?.Entity?.World?.Side != EnumAppSide.Server) return;
-            if (!(__instance?.Name?.Path?.Contains("repair") ?? false)) return;
             var outStack = __instance?.Output?.ResolvedItemStack;
-            if (outStack?.Collectible?.HasBehavior<CollectibleBehaviorWearable>() != true) return;
+            var coll = outStack?.Collectible;
+            if (coll == null) return;
 
-            AlmanacTcmModSystem.ServerInstance?.Ledger?.Log(byPlayer, TaiDomain.Code, TaiDomain.TechSew,
-                HashCode.Combine("repair", outStack.Collectible.Id, byPlayer.Entity.World.ElapsedMilliseconds / 1000));
+            long ms = byPlayer.Entity.World.ElapsedMilliseconds;
+            string path = coll.Code?.Path ?? "";
+            var ledger = AlmanacTcmModSystem.ServerInstance?.Ledger;
+            if (ledger == null) return;
+
+            // --- the garment itself: making and mending are the same verb.
+            if (coll.HasBehavior<CollectibleBehaviorWearable>())
+            {
+                bool repair = __instance!.Name?.Path?.Contains("repair") ?? false;
+                // Material scaling (ruled 2026-09-16): a gambeson out of eight pieces is more
+                // tailoring than a cuff out of two. Linear in consumed units against a two-unit
+                // baseline, clamped so neither a trivial craft nor a bulk recipe distorts the
+                // ledger. A repair consumes the patch material only, so it scales itself down
+                // honestly without needing a separate rule.
+                double mult = GameMath.Clamp(ConsumedUnits(__instance) / 2.0, 0.5, 2.0);
+                ledger.Log(byPlayer, TaiDomain.Code, TaiDomain.TechSew,
+                    HashCode.Combine(repair ? "repair" : "garment", coll.Id, ms / 1000), mult);
+                return;
+            }
+
+            // --- the cloth chain. Vanilla: 4 flaxfibers -> flaxtwine -> 4 twine -> linen -> cloth.
+            string? verb =
+                path.Contains("twine") ? TaiDomain.TechSpin
+                : (path.StartsWith("linen") || path.StartsWith("cloth")) ? TaiDomain.TechWeave
+                : null;
+            if (verb == null) return;
+
+            ledger.Log(byPlayer, TaiDomain.Code, verb,
+                HashCode.Combine("grid", verb, coll.Id, (int)(ms / 60000)));
         }
     }
 

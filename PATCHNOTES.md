@@ -149,6 +149,29 @@ provides traps: without it an untrained player was reading a penalty that could 
 Grandmaster one that could never fire.
 
 
+**Tailoring pays for tailoring.** The trade's whole vanilla chain was unpaid. Flax fibres become
+twine, twine becomes linen, linen becomes cloth and cloth becomes a garment, and every one of
+those is a grid recipe, while all three of Tailoring's station verbs sat behind the Spinning Wheel
+mod. A player without that mod earned Tailoring from nothing but mending and dye baths. Worse, on
+every install alike, **making a garment paid nothing at all**: the Almanac would stamp your
+Tailor's Mark on a piece and credit you as its maker while granting you no practice for having
+made it. Every step now pays. Spinning by hand pays spinning, weaving by hand pays weaving, and a
+finished garment pays sewing, the same verbs at the same rate as the stations, which keep their
+advantage where they always had it, in thrift of fibre rather than in practice.
+
+**A garment pays for what it took.** Sewing now scales with the material actually consumed, from
+half credit on the slightest piece to double on the heaviest, so a gambeson out of eight pieces is
+worth more than a cuff out of two. Tools handed back to you, the sewing kit among them, are not
+counted as cloth spent. A mend consumes only its patch and is paid accordingly, which is why
+making and mending can share one verb without either flattering the other.
+
+**And a tailor at a wheel and a loom can now fill a day.** The breadth requirement was three
+techniques, which meant the natural two-station loop could never bank more than two thirds of a
+day's practice however long it was worked. It is two now. Together with the chain above, a
+Tailoring day costs about 117 practices where it used to cost 198, which puts the trade beside
+Metalworking and Cooking rather than out past Fishing.
+
+
 ## 0.5.10 (2026-09-12)
 
 One change, to one domain.

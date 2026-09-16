@@ -587,7 +587,7 @@ NOT run in game.
   OTHER mod hard-depending on `smithingplus` will refuse to load (`TorchHolderSmithingPlus` is in
   the pack and wants checking), and Smithing Plus's own ModConfig may regenerate under a new name.
 
-## Staged in 0.5.12
+## Staged in 0.5.11 (Tailoring pass, folded in 2026-09-16)
 
 - **TAI small-m 3 -> 2 (ruled 2026-09-16, beta feedback: "egregiously slow").** The reporter
   believed Tailoring only paid for loom, spinning wheel and dyeing. It actually has FIVE earning
@@ -605,14 +605,25 @@ NOT run in game.
   past it (x = 96 against K = 18). Lowering both would reach 94/day, which stops the domain feeling
   constrained at all and probably overshoots. Reconsider only after the two fixes below land.
 
-- **STILL OPEN, both agreed 2026-09-16, neither implemented:**
-  1. **Crafting a new garment pays NOTHING.** `TaiMarkPatches.WearableCraftPatch` gates the `sew`
+- **The grid chain now pays, and the garment with it (built 2026-09-16).** See PATCHNOTES.
+  What was open and is now CLOSED:
+  1. **Crafting a new garment paid NOTHING.** `TaiMarkPatches.WearableCraftPatch` gates the `sew`
      grant on `__instance.Name.Path.Contains("repair")`, so only repair recipes pay. The code
      immediately above it stamps a new garment with the maker's Tailor's Mark, so the mod credits
      you as the maker and pays you nothing for the making. The headline activity of the trade is
      not an earning verb. Fixing it needs thought about the dedup key and whether every wearable
-     should count, so it is not the one-line change it looks like.
-  2. **The per-minute bucket on the two main techniques.** `weave` keys on
+     should count, so it is not the one-line change it looks like. FIXED: `WearableCraftPatch`
+     is now a router. Making and mending share `sew`, and the grant scales with CONSUMED material
+     (0.5x-2.0x against a two-unit baseline; tools and returned stacks excluded, so the sewing kit
+     is not counted as cloth). A repair consumes only its patch material and so scales itself down.
+  2. **The per-minute bucket on the two main techniques.** RULED: it is the anti-grind guard and
+     STAYS. The new grid `spin`/`weave` grants carry the same per-real-minute bucket so the hand
+     path cannot be used to dodge it. Garments bucket per SECOND instead, because material cost is
+     their limiter; that makes bulky garments the cheapest route to the cap (32 reps at the 2.0
+     multiplier against weave's 81), accepted on the grounds that 32 bulky garments is several
+     hundred flax fibres of farming. If that ever reads wrong, the lever is one character:
+     `ms / 1000` to `ms / 60000` in the garment branch.
+  OLD TEXT, for the record: `weave` keys on
      (loom position, real MINUTE) and wheel `spin` on (wheel position, real minute), so each pays
      **at most once per real minute per station**. Weave needs 81 reps to fill its share of a day;
      at one per minute that is 81 real minutes at one loom, against The Quire's 96 real minutes per
