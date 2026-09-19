@@ -1,4 +1,9 @@
-﻿# PENDING: almanactcm 0.5.9 (unreleased)
+﻿# PENDING: almanactcm 0.5.12 (unreleased)
+
+Heading corrected 2026-09-19: it had said 0.5.9 while the file carried 0.5.10 and 0.5.11 sections
+too. The shipped sections are deliberately left in place rather than emptied, because the deploy
+notes under them (the 0.5.11 config-deletion audit especially) are still the only record of what
+was checked and why.
 
 Everything staged for the next release, and nothing else. **Read this before building a zip or
 deploying.** The tree may hold work you did not put there, put in by a session you cannot see.
