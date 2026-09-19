@@ -1,4 +1,4 @@
-# PENDING: almanactcm 0.5.9 (unreleased)
+﻿# PENDING: almanactcm 0.5.9 (unreleased)
 
 Everything staged for the next release, and nothing else. **Read this before building a zip or
 deploying.** The tree may hold work you did not put there, put in by a session you cannot see.
@@ -699,6 +699,70 @@ NOT run in game.
 
   Order of operations agreed with Jeffrey: stop the server, delete `ModConfig/almanactcm/`, upload
   the 0.5.11 zip, start. The ledger lives in `Saves/AlmanacTcm/` and is NOT touched by any of this.
+
+## Staged in 0.5.12
+
+- **POT pays for the work, not the click count (RULED 2026-09-19).** Both POT verbs used to
+  grant a flat amount per act, and beta players on Thalius' Frostbound server found both holes
+  in it (reported by yaro, 0.5.10). Neither is fixed by 0.5.11: `PotPatches.cs` had not changed
+  since before 0.5.10, and the 0.5.11 POT work was all in `PotModeGate.cs` and the two
+  `PotDomain` technique rows.
+
+  - **Clayforming is priced by filled voxels.** `FormPrefix` now captures the recipe's voxel
+    count alongside its output (the recipe is gone by the postfix, so it has to be read there),
+    and `FormPostfix` passes `PotDomain.ClayformVoxelMult(voxels)` into the ledger's existing
+    `rawMultiplier` seam. Scaling is LINEAR in voxels and that is the whole point, not a
+    convenience: vanilla's four-at-once patterns are each exactly 4x their single (bowl 41 /
+    fourbowls 164, claypot 161 / fourclaypots 644, crock 99 / fourcrock 396, flowerpot 156 /
+    fourflowerpot 624), so linear is the only curve under which batching is neither punished
+    nor rewarded. Any concave curve keeps paying a premium for splitting. Counted from the
+    resolved `LayeredVoxelRecipe.Voxels` array, not re-parsed from `Pattern`, and cached per
+    `RecipeId`. The pottery wheel rides the same multiplier under its existing 0.35 factor; its
+    recipe is reached reflectively, so the cast is soft and an unreadable one prices at the
+    reference rate, which is the flat grant it had before.
+  - **Firing is credited per converted piece.** `FiredPostfix` already walked the four ware
+    slots to carry the Potter's Mark across the conversion; that loop now counts as it goes and
+    the count becomes the multiplier. The old flat per-session grant was written to stop a big
+    load farming and it did, but the inverse was worse: four kilns of one beat one kiln of four
+    by 1.9x, so the efficient play was to fire ware one piece at a time. A kiln holds four and K
+    still owns the daily ceiling, so counting slots farms nothing.
+
+  Measured against the shipped Raw/K (clayforming 3/14, firing 5/8), share of the daily cap:
+
+  | act | 0.5.11 | 0.5.12 |
+  |---|---|---|
+  | 10 oil lamps (47 voxels each) | 68.2% | 39.9% |
+  | 1 storage vessel (924 voxels) | 17.6% | 51.7% |
+  | 1 claypot, the reference piece (161) | 17.6% | 18.7% |
+  | 4 bowls via fourbowls, 1 act | 17.6% | 18.9% |
+  | 4 bowls one at a time, 4 acts | 46.2% | 18.8% |
+  | 1 kiln of 4 | 38.5% | 71.4% |
+  | 4 kilns of 1 | 71.4% | 71.4% |
+
+  Both exploits land exactly neutral, and a reference-size piece pays what it paid yesterday.
+  Jeffrey's call: ship the structural rework on the current numbers and tune afterwards, because
+  a number is cheap to move and this shape is not.
+
+- **Three new `Bonus` knobs, all POT:** `clayformVoxelReference` (150, near a claypot at 161, the
+  piece that pays the configured raw unchanged), `clayformVoxelMin` (0.25) and
+  `clayformVoxelMax` (5.0). Server-disk only per the BALANCE-knob rule, not ConfigLib. `Bonus`
+  IS part of the three-way merge, so these reach a booted server without deleting anything.
+  Nothing in vanilla touches the floor; the ceiling binds on storagevessel (6.16 raw), clayoven
+  (11.65) and anvilmold (exactly 5.0), and it costs them almost nothing because K has already
+  saturated by then.
+
+- **Unchanged on purpose.** The `onitemclayformed` fallback listener still grants a flat 1.0: it
+  has an itemstack and no recipe, so there is no voxel count to read, and it only fires for
+  modded ware that skips ground storage. `fourcrucible` (388) is cheaper than four crucibles
+  (452) in vanilla's own pattern, so batching wins there by 1.16x. That is the pattern being
+  genuinely cheaper, not the grant being wrong, and it is left alone.
+
+Files: `source/Domains/PotPatches.cs`, `source/Domains/PotDomain.cs`. Branch: none, on `main`.
+
+Builds clean against 1.22.7 (0 errors, 40 pre-existing warnings, none in POT). The new code was
+verified present in the Release DLL by string scan, not by trusting the build.
+
+NOT run in game.
 
 ## Not in the zip, needed at deploy time
 

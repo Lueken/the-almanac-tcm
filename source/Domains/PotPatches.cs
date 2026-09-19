@@ -60,6 +60,41 @@ public static class PotPatches
 
     private static string PosKey(BlockPos pos) => $"{pos.X}/{pos.Y}/{pos.Z}";
 
+    /// <summary>What the prefix hands the postfix: the recipe's output (the completion signal and
+    /// the dedup key) and the filled-voxel count that prices the act.</summary>
+    public sealed class FormState
+    {
+        public ItemStack? Output;
+        public int Voxels;
+    }
+
+    /// <summary>Filled-voxel count per recipe id. The pattern is fixed at load, so this is computed
+    /// once per recipe and never invalidated; main-thread only, like kilnOwners.</summary>
+    private static readonly Dictionary<int, int> voxelCounts = new();
+
+    /// <summary>Count the voxels a recipe actually asks the potter to place. Reads the resolved
+    /// Voxels array rather than re-parsing Pattern, so it sees exactly what the clay form does.
+    /// Returns 0 when the recipe cannot be read, which PotDomain.ClayformVoxelMult treats as
+    /// "price it at the reference rate" so an unreadable modded recipe degrades to the old flat
+    /// grant instead of to nothing.</summary>
+    internal static int FilledVoxels(LayeredVoxelRecipe? recipe)
+    {
+        var v = recipe?.Voxels;
+        if (v == null) return 0;
+
+        int id = recipe!.RecipeId;
+        if (id != 0 && voxelCounts.TryGetValue(id, out int cached)) return cached;
+
+        int count = 0;
+        for (int x = 0; x < v.GetLength(0); x++)
+            for (int y = 0; y < v.GetLength(1); y++)
+                for (int z = 0; z < v.GetLength(2); z++)
+                    if (v[x, y, z]) count++;
+
+        if (id != 0) voxelCounts[id] = count;
+        return count;
+    }
+
     public static void RegisterServer(ICoreServerAPI api)
     {
         sapi = api;
@@ -140,12 +175,18 @@ public static class PotPatches
 
     /// <summary>CheckIfFinished returns void and nulls SelectedRecipe on completion, so capture the
     /// recipe's output before the call; a non-null capture that comes back with SelectedRecipe null
-    /// is the completion signal (the same shape the pottery-wheel variant already uses).</summary>
-    public static void FormPrefix(BlockEntity __instance, out ItemStack? __state)
+    /// is the completion signal (the same shape the pottery-wheel variant already uses). The voxel
+    /// count has to be read here too, for the same reason: the recipe is gone by the postfix.</summary>
+    public static void FormPrefix(BlockEntity __instance, out FormState? __state)
     {
-        __state = __instance?.Api?.Side != EnumAppSide.Server
-            ? null
-            : (__instance as BlockEntityClayForm)?.SelectedRecipe?.Output?.ResolvedItemstack;
+        __state = null;
+        if (__instance?.Api?.Side != EnumAppSide.Server) return;
+
+        var recipe = (__instance as BlockEntityClayForm)?.SelectedRecipe;
+        var stack = recipe?.Output?.ResolvedItemstack;
+        if (stack == null) return; // unresolvable output: no grant, exactly as before
+
+        __state = new FormState { Output = stack, Voxels = FilledVoxels(recipe) };
     }
 
     /// <summary>The completed piece: grant the verb to the shaper and stamp their Potter's Mark on
@@ -153,12 +194,13 @@ public static class PotPatches
     /// position, so that is where the stamp goes; the drop path is OnClayFormed's (it holds the
     /// stack before it is handed over) and the single-block SetBlock path leaves no stack at
     /// all.</summary>
-    public static void FormPostfix(BlockEntity __instance, IPlayer byPlayer, ItemStack? __state)
+    public static void FormPostfix(BlockEntity __instance, IPlayer byPlayer, FormState? __state)
     {
         if (__state == null || byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
         if (__instance is not BlockEntityClayForm form || form.SelectedRecipe != null) return; // unfinished
 
-        CreditClayform(byPlayer, __state.Collectible?.Code?.ToString() ?? "clay", 1.0);
+        double effort = PotDomain.ClayformVoxelMult(__state.Voxels);
+        CreditClayform(byPlayer, __state.Output?.Collectible?.Code?.ToString() ?? "clay", effort);
 
         if (__instance.Api.World.BlockAccessor.GetBlockEntity<BlockEntityGroundStorage>(__instance.Pos)
             is not BlockEntityGroundStorage store) return;
@@ -172,7 +214,7 @@ public static class PotPatches
         }
         if (!stamped) return;
         store.MarkDirty(true);
-        TcmLog.Cat(__instance.Api, "pot", $"{byPlayer.PlayerName} (POT {PotDomain.LevelOf(byPlayer)}) formed {__state.Collectible?.Code}; Potter's Mark stamped at {__instance.Pos}");
+        TcmLog.Cat(__instance.Api, "pot", $"{byPlayer.PlayerName} (POT {PotDomain.LevelOf(byPlayer)}) formed {__state.Output?.Collectible?.Code} ({__state.Voxels} voxels, x{effort:0.00}); Potter's Mark stamped at {__instance.Pos}");
     }
 
     /// <summary>Stamp one raw piece with its former's mark, if the mark will ever mean anything on
@@ -224,9 +266,15 @@ public static class PotPatches
             CreditClayform(ep.Player, stack?.Collectible?.Code?.ToString() ?? "clay", 1.0);
     }
 
-    /// <summary>One completion is the staple grant (K is the ceiling); the contextHash keys on the
-    /// output + a 1s bucket, so a four-piece recipe banks once rather than four times, and a
-    /// genuine double-fire dedups.</summary>
+    /// <summary>One completion is one grant, priced by the work it took (K is still the ceiling).
+    /// The contextHash keys on the output + a 1s bucket, which dedups a genuine double-fire.
+    ///
+    /// The multi-output recipes used to lose by it: vanilla's fourbowls banked ONCE for the same
+    /// 164 voxels four single bowls banked four times for, so the efficient play was the tedious
+    /// one. Voxel pricing fixes that without a special case, because those patterns are each
+    /// exactly 4x their single (bowl 41/fourbowls 164, claypot 161/fourclaypots 644, flowerpot
+    /// 156/fourflowerpot 624). Linear scaling is what makes batching exactly neutral; any concave
+    /// curve would still pay a premium for splitting.</summary>
     private static void CreditClayform(IPlayer byPlayer, string outputCode, double mult)
     {
         if (serverWorld == null || byPlayer == null) return;
@@ -237,18 +285,26 @@ public static class PotPatches
     // ------------------------------------------------------------ pottery-wheel variant
 
     /// <summary>The wheel completion is void and early-returns when unfinished, so capture whether
-    /// a recipe was selected BEFORE the call; the postfix grants only if it cleared (completed).</summary>
-    public static void WheelPrefix(BlockEntity __instance, out bool __state)
+    /// a recipe was selected BEFORE the call; the postfix grants only if it cleared (completed).
+    /// The wheel's recipe is reached reflectively and is not guaranteed to be a LayeredVoxelRecipe,
+    /// so the cast is a soft one: a wheel that does not expose voxels prices at the reference rate,
+    /// which is the flat grant it had before.</summary>
+    public static void WheelPrefix(BlockEntity __instance, out FormState? __state)
     {
-        __state = __instance != null && Traverse.Create(__instance).Property("SelectedRecipe").GetValue() != null;
+        __state = null;
+        if (__instance == null) return;
+        object? recipe = Traverse.Create(__instance).Property("SelectedRecipe").GetValue();
+        if (recipe == null) return;
+        __state = new FormState { Voxels = FilledVoxels(recipe as LayeredVoxelRecipe) };
     }
 
-    public static void WheelPostfix(BlockEntity __instance, IPlayer byPlayer, bool __state)
+    public static void WheelPostfix(BlockEntity __instance, IPlayer byPlayer, FormState? __state)
     {
-        if (!__state || __instance?.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
+        if (__state == null || __instance?.Api?.Side != EnumAppSide.Server || byPlayer == null) return;
         // Completed iff the selected recipe was consumed (ResetClayWheel nulls it on completion).
         if (Traverse.Create(__instance).Property("SelectedRecipe").GetValue() != null) return;
-        CreditClayform(byPlayer, "wheel", PotConst.WheelRawFactor); // lower skill expression, reduced raw
+        // Lower skill expression, reduced raw, but still priced by the size of the piece.
+        CreditClayform(byPlayer, "wheel", PotConst.WheelRawFactor * PotDomain.ClayformVoxelMult(__state.Voxels));
     }
 
     // ------------------------------------------------------------ pit firing
@@ -287,7 +343,13 @@ public static class PotPatches
     /// <summary>Unattended completion. Vanilla only converts ware when IsValidPitKiln held, so if
     /// nothing fired we bank nothing (success gate for free). Two separate things happen here and
     /// they no longer share an owner: the FORMER's mark rides across the conversion, and the
-    /// IGNITER is credited the firing verb.</summary>
+    /// IGNITER is credited the firing verb, once per piece that actually converted.
+    ///
+    /// PER PIECE, not per session (RULED 2026-09-19, Frostbound beta feedback via yaro). The flat
+    /// per-session grant was written to stop a big load farming, and it did, but it made four kilns
+    /// of one beat one kiln of four by 1.9x, so the efficient play was to fire ware one piece at a
+    /// time. Counting converted slots makes those two paths identical, and nothing is farmed by it:
+    /// a kiln holds at most four, and K still owns the daily ceiling.</summary>
     public static void FiredPostfix(BlockEntity __instance, (CollectibleObject? Raw, string? Mark)[]? __state)
     {
         if (__state == null || __instance?.Api?.Side != EnumAppSide.Server) return;
@@ -295,7 +357,7 @@ public static class PotPatches
         // A slot converted iff its collectible changed. The mark travels with the ware regardless
         // of who lit the kiln (RULED 2026-08-13), so this runs before the igniter is even looked up.
         var inv = Traverse.Create(__instance).Field("inventory").GetValue() as IInventory;
-        bool converted = false;
+        int convertedPieces = 0;
         if (inv != null)
         {
             for (int i = 0; i < __state.Length && i < inv.Count; i++)
@@ -303,17 +365,19 @@ public static class PotPatches
                 var stack = inv[i]?.Itemstack;
                 if (stack?.Collectible == null || __state[i].Raw == null) continue;
                 if (stack.Collectible == __state[i].Raw) continue; // still raw: this slot did not fire
-                converted = true;
+                // Count the SLOT, not the stack size: vanilla fires one piece per slot, and a
+                // stacked slot is still one firing's worth of attention.
+                convertedPieces++;
                 if (__state[i].Mark is string mark) PotBonusPatches.ApplyPacked(stack, mark);
             }
-            if (converted) __instance.MarkDirty(true);
+            if (convertedPieces > 0) __instance.MarkDirty(true);
         }
 
         string key = PosKey(__instance.Pos);
         kilnOwners.TryGetValue(key, out string? packed);
         kilnOwners.Remove(key);
 
-        if (!converted)
+        if (convertedPieces == 0)
         {
             TcmLog.Cat(__instance.Api, "pot", $"kiln at {__instance.Pos} produced no fired ware (invalid/rained-out); nothing banked");
             return;
@@ -331,8 +395,9 @@ public static class PotPatches
         }
         Core?.Ledger?.Log(owner, PotDomain.Code, PotDomain.TechFiring,
             HashCode.Combine("firing", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
-                (int)((serverWorld?.ElapsedMilliseconds ?? 0) / 600000)));
-        TcmLog.Cat(__instance.Api, "pot", $"kiln fired at {__instance.Pos} -> firing credit for {owner.PlayerName}; formed marks carried");
+                (int)((serverWorld?.ElapsedMilliseconds ?? 0) / 600000)),
+            convertedPieces);
+        TcmLog.Cat(__instance.Api, "pot", $"kiln fired at {__instance.Pos}: {convertedPieces} piece(s) converted -> firing credit x{convertedPieces} for {owner.PlayerName}; formed marks carried");
     }
 }
 

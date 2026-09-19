@@ -1,6 +1,45 @@
-# Patch notes
+﻿# Patch notes
 
 The Almanac: Trades, Callings & Mastery.
+
+---
+
+## 0.5.12 (2026-09-19)
+
+The potter is paid for the pot.
+
+**A big piece is worth a big piece.** Until now every finished clay form banked the same
+practice. An oil lamp is 47 voxels of work; a storage vessel is 924. Both paid exactly the
+same, so the fastest way to learn pottery was to make the smallest thing you could think of,
+over and over, and never build anything. Clayforming practice now scales with the voxels the
+recipe actually asks you to place. A claypot, the reference piece, pays what it paid
+yesterday. A lamp pays less than that. A storage vessel pays about five times it.
+
+**And four bowls are four bowls.** Vanilla ships recipes that make four of a thing at once,
+and they used to be a trap: the four-bowl pattern is exactly the four single-bowl patterns
+laid end to end, same clay, same clicks, and it paid a quarter as much. Anyone who noticed
+went back to making them one at a time. Because the new scaling is straight-line rather than
+curved, the two paths now come out identical to the decimal. Make them however you like.
+
+**One kiln of four is one kiln of four.** Pit firing granted once per burn no matter what was
+in it, which was meant to stop a full load farming practice, and instead quietly taught the
+opposite lesson: four kilns holding one piece each paid nearly twice what one kiln holding
+four paid. People were building rows of single-piece kilns, and they were right to. Firing is
+now credited per piece that actually came out fired. Splitting a load buys you nothing, and a
+full kiln finally banks what the split used to.
+
+Nobody who was playing straight loses anything here. The four-at-once recipes and the full
+kiln both go up. What goes down is the reward for doing the tedious thing, which is the only
+thing this release is trying to take away.
+
+Thanks to yaro for the report and to Thalius' Frostbound server for finding both holes.
+
+Server keepers: three new POT `Bonus` knobs, `clayformVoxelReference` (150),
+`clayformVoxelMin` (0.25) and `clayformVoxelMax` (5.0). The reference is the voxel count that
+pays the configured raw unchanged; raise it to make pottery slower across the board, lower it
+to make it faster, and the two clamps catch modded recipes at the extremes. `Bonus` takes part
+in the three-way merge, so these arrive on their own. No config deletion is needed for this
+release, and if you skipped the 0.5.11 deletion its notice below still stands.
 
 ---
 

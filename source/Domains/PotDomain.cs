@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
@@ -16,8 +16,8 @@ namespace AlmanacTcm.Domains;
 /// (POT has the best reachability in the whole map, which is exactly why it needs no
 /// gate). Clayforming rides the vanilla `onitemclayformed` event bus (one listener,
 /// no patch); the pottery-wheel variant is a conditional reduced-raw postfix. Pit
-/// firing grants once per kiln burn, success-gated on `IsValidPitKiln` actually
-/// converting (a rained-out or breached firing banks nothing), owner-at-ignite.
+/// firing grants once per piece that converted, success-gated on `IsValidPitKiln`
+/// actually converting (a rained-out or breached firing banks nothing), owner-at-ignite.
 ///
 /// Phase 3 — the Potter's Mark (Axis 6, the domain's one axis with real depth): a
 /// per-instance preservation quality stamped on fired keep-vessels by the firer's
@@ -53,6 +53,34 @@ public static class PotDomain
     /// powered wheel, config-tuned pack-side, is the mass-production path past it).</summary>
     public const string CopyVoxelsMaster = "copyVoxelsMaster";
 
+    // ---- Effort scaling (RULED 2026-09-19, from Frostbound beta feedback via yaro). Both verbs
+    // used to pay a flat grant per act, which made the efficient play the smallest possible act:
+    // an oil lamp (47 filled voxels) paid exactly what a storage vessel (924) paid, and vanilla's
+    // own four-at-once recipes paid once for the clay four singles paid four times for. The grant
+    // now rides the work actually done. See PotPatches.FormPostfix and FiredPostfix.
+
+    /// <summary>Filled voxels that pay exactly the configured clayforming raw. Scaling is LINEAR
+    /// in voxels on purpose, not concave: vanilla's fourbowls/fourclaypots/fourflowerpot patterns
+    /// are each exactly 4x their single, so linear is the only curve under which batching is
+    /// neither punished nor rewarded. The default sits near a claypot (161).</summary>
+    public const string ClayformVoxelReference = "clayformVoxelReference";
+    /// <summary>Floor on the voxel multiplier, so the smallest ware still pays something.</summary>
+    public const string ClayformVoxelMin = "clayformVoxelMin";
+    /// <summary>Ceiling on the voxel multiplier. Binds only on the outliers a potter builds once
+    /// (clayoven at 1748 voxels); saturation K still owns the daily cap above it.</summary>
+    public const string ClayformVoxelMax = "clayformVoxelMax";
+
+    /// <summary>The per-piece effort multiplier: filled voxels over the reference, clamped. A
+    /// recipe whose voxel count could not be read pays the reference rate (1.0) rather than
+    /// nothing, so an unreadable modded recipe degrades to the old flat behaviour.</summary>
+    public static double ClayformVoxelMult(int filledVoxels)
+    {
+        if (filledVoxels <= 0) return 1.0;
+        double reference = System.Math.Max(1.0, Knob(ClayformVoxelReference, 150));
+        double mult = filledVoxels / reference;
+        return System.Math.Clamp(mult, Knob(ClayformVoxelMin, 0.25), Knob(ClayformVoxelMax, 5.0));
+    }
+
     /// <summary>The copy-stroke ladder: Untrained works below vanilla's 4, Novice I restores
     /// exactly 4, then a linear climb to the Master ceiling at Master I, flat after.</summary>
     public static int CopyVoxelsFor(int level)
@@ -85,9 +113,14 @@ public static class PotDomain
         {
             // The staple per-piece verb: modest raw, K large enough that a pottery day banks steadily.
             // The wheel path co-grants this same row at a reduced raw (lower skill expression).
+            // Since 2026-09-19 the per-act raw is scaled by the piece's filled voxels, so this
+            // number now prices the REFERENCE piece (see ClayformVoxelReference) rather than
+            // every piece alike.
             [TechClayforming] = new() { Raw = 3, K = 14 },
-            // Per-session: one kiln burn banks most of its share regardless of batch size (the
-            // contextHash keys on the firing session, not per-piece, so a big load never farms).
+            // Per PIECE fired, not per kiln (2026-09-19). Raw and K are unchanged from the
+            // per-session tuning on purpose: a full four-slot kiln now banks what four
+            // single-piece kilns bank, which is what the old numbers already priced a
+            // dedicated firing day at. Tune here if that lands hot.
             [TechFiring] = new() { Raw = 5, K = 8 },
         },
         Bonus = new Dictionary<string, double>
@@ -98,6 +131,10 @@ public static class PotDomain
             // Vanilla is a flat 4; Untrained works below it, Novice I restores it, Master
             // reaches the ruled ceiling and holds it (the powered wheel is the mass path).
             [CopyVoxelsUntrained] = 2, [CopyVoxelsMaster] = 6,
+            // Effort scaling (2026-09-19). Reference sits near a claypot (161 filled voxels), so
+            // a mid-size piece pays the configured raw unchanged and the ends move around it:
+            // an oil lamp (47) pays x0.31, a storage vessel (924) x5.0 at the clamp.
+            [ClayformVoxelReference] = 150, [ClayformVoxelMin] = 0.25, [ClayformVoxelMax] = 5.0,
         },
     };
 
