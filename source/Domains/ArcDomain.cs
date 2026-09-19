@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
@@ -38,6 +38,7 @@ public static class ArcDomain
     public const string TechMeditation = "meditation";       // the practice trickle (meditation-active_rm)
     public const string TechLaboratory = "laboratory";        // station rituals: Spellforge research, world rituals, oculus, foundry
     public const string TechInscription = "inscription";      // scroll scribing (the market verb)
+    public const string TechArcaneKill = "arcanekill";        // RBM-mob kills, 50% co-grant beside MEL/RAN (ruled 2026-09-19)
 
     // RBM watched-attribute keys the re-root reads/writes (verified RBM 3.2.5).
     public const string AttrPlayerMaxMana = "entitybehavior-resource-playermaxmana_rm";       // the base pool (ARC re-roots this)
@@ -52,7 +53,9 @@ public static class ArcDomain
     {
         Code = Code,
         Smax = 100,
-        // m = 5 of 8 (attunement cores force one-school-at-a-time; the map respects, not duplicates, it).
+        // m = 5 of 9 (attunement cores force one-school-at-a-time; the map respects, not duplicates, it).
+        // Held at 5 when arcanekill was added: m is a ruled breadth target, not techniqueCount, and
+        // raising it would silently lengthen every existing ARC player's day.
         M = 5,
         // Temporal + alchemical + rift-mining kinship (the occult neighbourhood).
         Adjacency = new List<string> { "TEM", "ALC", "MIN" },
@@ -69,6 +72,12 @@ public static class ArcDomain
             // Chunky per station act (Spellforge research, a world ritual, an oculus/foundry product).
             [TechLaboratory] = new() { Raw = 4, K = 10 },
             [TechInscription] = new() { Raw = 3, K = 14 },
+            // The arcane-kill co-grant (2026-09-19), the ARC mirror of TEM's temporalkill: killing
+            // what RBM put in the world teaches the school that studies it. Sized between a school
+            // cast (K 22) and an inscription (K 14); at the ruled 50% co-grant that is ~13 lesser
+            // kills or ~7 greater ones to half this technique's share, so elementals contribute to
+            // Arcana and cannot carry it.
+            [TechArcaneKill] = new() { Raw = 3, K = 20 },
         },
         Bonus = new Dictionary<string, double>
         {
@@ -78,6 +87,10 @@ public static class ArcDomain
             [SchoolDiscountGm] = 0.15,  // -15% school mana cost at GM (floor-1 protected by RBM)
             [BackfireGmResidual] = 0.025,  // ~2.5% residual on the 450 ultimates even at GM
             [BackfireDrainPerTier] = 0.08, // temporal-stability drain per tier over your rank
+            // Arcane-kill difficulty band. RBM's own health numbers split its hostiles cleanly:
+            // ravager 10, sentry 14, watcher 14, drone 16, then colossus 100, titan 100 and the
+            // sentinel at 500. One knob, one band, so the small ones are not the efficient kill.
+            [ArcaneKillGreaterMul] = 2.0,
             [SchoolMasteryChannel] = 40000, // cumulative mana channeled to Master a school (the pace knob)
             [MeditationTranceRaw] = 25.0,   // raw a FULL empty->full trance banks (vs meditation K=40)
             [MemoryCrystalManaFrac] = 0.25, // fraction of the pool a crystallized memory restores
@@ -119,6 +132,19 @@ public static class ArcDomain
     public const string BackfireGmResidual = "backfireGmResidual";
     /// <summary>Temporal-stability drain per tier over your rank when an over-tier cast backfires.</summary>
     public const string BackfireDrainPerTier = "backfireDrainPerTier";
+
+    /// <summary>Raw multiplier for the greater RBM hostiles (colossus, titan, sentinel) on the
+    /// arcane-kill co-grant. Lesser ones sit at 1.0 implicitly. ARC-side only: it never touches
+    /// what MEL or RAN pay for the same corpse.</summary>
+    public const string ArcaneKillGreaterMul = "arcaneKillGreaterMul";
+
+    /// <summary>The arcane-kill band for an RBM hostile, by first code part. Two bands rather than
+    /// a per-species table on purpose: RBM's health spread is 10-16 against 100-500, so one cut
+    /// carries it, and a new RBM creature lands in the lesser band rather than in an exception.</summary>
+    public static double ArcaneKillMult(string first) =>
+        first == "elementalcolossus" || first == "elementaltitan" || first == "elementalsentinel"
+            ? Knob(ArcaneKillGreaterMul, 2.0)
+            : 1.0;
     /// <summary>Raw practice a FULL empty-to-full meditation trance banks — the OUTCOME-normalized
     /// trance payoff (§4). The old drip paid a flat 0.6/real-minute, which against K=40 was a number
     /// nobody could feel; this pays for the mana actually restored, as a fraction of the pool. Because

@@ -757,12 +757,63 @@ NOT run in game.
   (452) in vanilla's own pattern, so batching wins there by 1.16x. That is the pattern being
   genuinely cheaper, not the grant being wrong, and it is left alone.
 
-Files: `source/Domains/PotPatches.cs`, `source/Domains/PotDomain.cs`. Branch: none, on `main`.
+- **RBM mobs teach Arcana (RULED 2026-09-19).** The ARC mirror of TEM's temporal-kill co-grant,
+  same shape and same ruled 50%: killing what Rustbound Magic put in the world pays the method
+  its full MEL or RAN practice and ARC half beside it, sharing `ctx` so the two credits dedup in
+  step. New technique `ARC/arcanekill`, `Raw 3, K 20`, sized between a school cast (K 22) and an
+  inscription (K 14). At 50% that is about 13 lesser kills or 7 greater ones to half the
+  technique's share, so elementals contribute to Arcana and cannot carry it.
 
-Builds clean against 1.22.7 (0 errors, 40 pre-existing warnings, none in POT). The new code was
-verified present in the Release DLL by string scan, not by trusting the build.
+  `ArcDomain.M` stays at **5**, now "5 of 9". It is a ruled breadth target, not `techniqueCount`,
+  and raising it would silently lengthen every existing ARC player's day.
 
-NOT run in game.
+  **The bestiary is an allowlist, and domain-scoped**, verified against the live RBM 4.0.4 pulled
+  from the server rather than from the 3.2.5 mirror. Seven creatures carry both `spawnconditions`
+  and `"group": "hostile"`: `elementalcolossus`, `elementaldrone`, `elementalravager`,
+  `elementalsentinel`, `elementalsentry`, `elementaltitan`, `entitywatcher`. Two reasons it is not
+  a name prefix test. RBM also ships things that die and must never pay: twelve companion variants
+  (all sharing code `companion`), the wisp familiar, and `polymorphedentity`, which is an ordinary
+  creature wearing a spell rather than a creature of RBM's own. And `FirstCodePart()` drops the
+  domain, so a bare name test would hand ARC practice to any other mod that names something
+  `elementaldrone`. No mod-present gate is needed: nothing carries a `rustboundmagic:` code unless
+  RBM is loaded, so the predicate is false by construction without it.
+
+  **A difficulty band, ARC-side only.** RBM's own health numbers split its hostiles cleanly at one
+  cut: ravager 10, sentry 14, watcher 14, drone 16, then colossus 100, titan 100 and the sentinel
+  at 500. `ArcDomain.ArcaneKillMult` pays the three greater ones `arcaneKillGreaterMul` (2.0,
+  a `Bonus` knob, so it merges) and everything else 1.0. Deliberately NOT `DifficultyMult`, which
+  MEL and RAN also read: a titan should be worth more Arcana than a ravager without changing what
+  a sword swing earns for either. A new RBM creature lands in the lesser band rather than in an
+  exception.
+
+- **Found while wiring it: killing your own summon banked combat practice.** `IsCombatExcluded`
+  tested `domesticated`, `ownedby`, `owner` and `generation >= 2`, and RBM keeps ownership under
+  neither of the vanilla keys. Read out of RBM 4.0.4's own assembly: `companionownerplayeruid_rm`
+  for the twelve companions, `entity-watchedattribute-petowner-id_rm` for the familiar. So a
+  player could summon a skeleton warrior, kill it, and bank MEL or RAN, today, before any of this.
+  Both keys are now on that fence. A minion is somebody's, exactly like a tamed animal, so it
+  belongs on the existing fence rather than a new one, and putting it there closes the hole for
+  every ledger that reads this death: HUN reuses the same predicate.
+
+  This is a pre-existing bug fixed in passing, not something the ARC grant introduced. It would
+  have become a real farm the moment ARC started paying for the same corpse.
+
+Files: `source/Domains/PotPatches.cs`, `source/Domains/PotDomain.cs`,
+`source/Domains/MelRanKillPatches.cs`, `source/Domains/ArcDomain.cs`. Branch: none, on `main`.
+
+Builds clean against 1.22.7 (0 errors; the warning list is unchanged and none of it is in POT,
+ARC or MelRanKillPatches).
+
+Zip `Releases/almanactcm_0.5.12.zip`, sha256 `c497574b9bef681e`, 25 entries, identical entry list
+to 0.5.11 (code-only release). Built with python zipfile, so no backslash entries. Staged in
+`~/Downloads` for the ModDB upload, which is Jeffrey's to post.
+
+Every new string was verified present in the Release DLL by exact UTF-16 byte search, not by
+trusting the build. Worth recording how that check goes wrong: decoding the whole DLL with
+`errors='ignore'` and substring-matching loses alignment and reports real strings as missing. Six
+of eight read MISSING that way while all eight were actually present.
+
+NOT run in game. NOT deployed.
 
 ## Not in the zip, needed at deploy time
 

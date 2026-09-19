@@ -34,6 +34,27 @@ thing this release is trying to take away.
 
 Thanks to yaro for the report and to Thalius' Frostbound server for finding both holes.
 
+**What Rustbound Magic put in the world now teaches the school that studies it.** Elementals and
+rust watchers paid a swordsman and paid an archer, and taught a mage nothing, which was strange
+for the one kind of creature in the world that is made of the thing Arcana is about. They now pay
+Arcana too, half beside your full melee or ranged practice, exactly the way a drifter has always
+paid Temporal Attunement. Seven creatures carry it: the six elementals and the watcher. The
+greater three, the colossus, the titan and that sentinel, are worth double, because a sentinel has
+five hundred hit points and a ravager has ten and it would be silly to pay them the same.
+
+Your own summons are not quarry. They never should have been.
+
+Server keepers: new technique `ARC/arcanekill` (`Raw 3, K 20`) and one `Bonus` knob,
+`arcaneKillGreaterMul` (2.0). Both merge on their own, no config deletion. Arcana's breadth target
+stays at 5, so the extra technique does not lengthen anyone's day.
+
+**Fixed: you could kill your own summoned companion for combat practice.** The ownership fence
+checked the four vanilla markers, and Rustbound Magic records its companions and familiars under
+its own, so a summoned skeleton warrior read as a wild hostile all the way to the ledger. It
+reads as somebody's minion now, which also means the Hunting ledger stops counting it. This bug
+predates the Arcana work; it was found while wiring it, and it would have turned into a genuine
+farm the moment Arcana started paying for the same corpse.
+
 Server keepers: three new POT `Bonus` knobs, `clayformVoxelReference` (150),
 `clayformVoxelMin` (0.25) and `clayformVoxelMax` (5.0). The reference is the voxel count that
 pays the configured raw unchanged; raise it to make pottery slower across the board, lower it

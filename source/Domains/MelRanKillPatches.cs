@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using ProtoBuf;
@@ -215,6 +215,21 @@ public static class MelRanKillPatches
         // the TARGET, and CoGrants fans per technique, blind to what died.
         if (IsTemporalCreature(species))
             Core?.Ledger?.Log(player, TemDomain.Code, TemDomain.TechTemporalKill, ctx, mult * 0.5);
+
+        // The arcane-kill co-grant (ruled 2026-09-19), the same shape one domain over: what
+        // Rustbound Magic put in the world teaches the school that studies it, at TEM's ruled 50%
+        // beside the method's full practice, sharing ctx so the two credits dedup in step. The
+        // band multiplier is ARC's own (ArcaneKillMult), NOT DifficultyMult: a titan should be
+        // worth more Arcana than a ravager without changing what a sword swing earns either of
+        // them. No mod-present gate is needed here - nothing carries an rustboundmagic: code
+        // unless RBM is loaded, so the predicate is false by construction without it.
+        if (IsArcaneCreature(entity))
+        {
+            double band = ArcDomain.ArcaneKillMult(species);
+            Core?.Ledger?.Log(player, ArcDomain.Code, ArcDomain.TechArcaneKill, ctx, mult * 0.5 * band);
+            TcmLog.Cat(sapi, "combat", $"arcane kill: {species} -> {player.PlayerName} " +
+                $"ARC/arcanekill x{mult * 0.5 * band:0.00} (band x{band:0.0})");
+        }
     }
 
     /// <summary>The temporal bestiary, by first code part: the set DifficultyMult tiers plus
@@ -223,6 +238,27 @@ public static class MelRanKillPatches
     private static bool IsTemporalCreature(string first) =>
         first == "drifter" || first.StartsWith("shiver") || first.StartsWith("bowtorn")
         || first.StartsWith("bell") || first.StartsWith("locust");
+
+    /// <summary>The arcane bestiary: the seven Rustbound Magic creatures that spawn hostile in the
+    /// world, verified against RBM 4.0.4's own assets (all seven carry spawnconditions and
+    /// "group": "hostile"; health runs ravager 10, sentry 14, watcher 14, drone 16, colossus 100,
+    /// titan 100, sentinel 500).
+    ///
+    /// An ALLOWLIST, and domain-scoped, for two reasons. RBM also ships things that die and must
+    /// never pay: twelve companion variants (all sharing code "companion"), the wisp familiar, and
+    /// polymorphedentity, which is an ordinary creature wearing a spell rather than a creature of
+    /// RBM's own. And FirstCodePart() drops the domain, so a bare name test would hand ARC practice
+    /// to any other mod that happens to name something "elementaldrone".</summary>
+    private static bool IsArcaneCreature(Entity entity)
+    {
+        var code = entity.Code;
+        if (code?.Domain != "rustboundmagic") return false;
+        string first = code.FirstCodePart();
+        return first == "elementalcolossus" || first == "elementaldrone"
+            || first == "elementalravager" || first == "elementalsentinel"
+            || first == "elementalsentry" || first == "elementaltitan"
+            || first == "entitywatcher";
+    }
 
     // ------------------------------------------------------------ ruled fences
 
@@ -253,6 +289,14 @@ public static class MelRanKillPatches
         var wa = entity.WatchedAttributes;
         if (wa == null) return false;
         if (wa.GetBool("domesticated") || wa.HasAttribute("ownedby") || wa.HasAttribute("owner")) return true;
+        // Rustbound Magic keeps ownership under its own keys, so the vanilla three never saw it
+        // (found 2026-09-19 while wiring the arcane-kill grant, by reading RBM 4.0.4's assembly:
+        // "companionownerplayeruid_rm" and "entity-watchedattribute-petowner-id_rm"). Until now a
+        // player could kill their own summoned skeleton and bank MEL or RAN for it. A minion is
+        // somebody's, exactly like a tamed animal, so it belongs on this fence rather than on a
+        // new one, and putting it here closes the hole for every ledger that reads this death.
+        if (wa.HasAttribute("companionownerplayeruid_rm")
+            || wa.HasAttribute("entity-watchedattribute-petowner-id_rm")) return true;
         return wa.GetInt("generation", 0) >= 2;
     }
 
