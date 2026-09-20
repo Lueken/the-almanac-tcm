@@ -885,6 +885,24 @@ of eight read MISSING that way while all eight were actually present.
 
 NOT run in game. NOT deployed.
 
+**DEPLOYED to The Quire 2026-09-19, not yet live.** Server `data/Mods` carries
+`almanactcm_0.5.12.zip`, sha256 readback verified identical to the repo zip (`7097de9f58a8a4a9`);
+0.5.11 renamed aside to `almanactcm_0.5.11.zip.pre0512-bak`. It loads at the next restart, and
+0.5.11 is live until then. **No config deletion is needed for this release** (everything added
+lives in `Bonus`, which merges), so there is no forced stop.
+
+Jeffrey's client profile synced the same way: `Installations/The-Quire-Live-Server/Mods/` now
+carries 0.5.12 (hash verified), with 0.5.10 renamed to `.pre0512-bak`.
+
+Also cleaned while there: his `ModsByServer/162.245.190.86-25576/almanactcm_0.5.11.zip` was renamed
+`.stale`, matching the `almanactcm_0.5.3.zip.stale` already beside it. The profile was carrying
+0.5.10 in `Mods/` AND 0.5.11 in `ModsByServer/` at the same time, which is the duplicate-assembly
+setup recorded in memory as causing "Assembly already loaded" that survives cleanups of `Mods/`
+alone. VS re-downloads from the server on connect, so nothing is lost by staling it.
+
+Pushed: `Lueken/the-almanac-tcm` `main` at `5fd1b55`. ModDB upload is Jeffrey's to post, from the
+`7097de9f58a8a4a9` zip staged in `~/Downloads`.
+
 ## Not in the zip, needed at deploy time
 
 - **COO `TierTotals` does not propagate.** It is not part of the three-way config merge (only
