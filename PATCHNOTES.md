@@ -48,6 +48,27 @@ Server keepers: new technique `ARC/arcanekill` (`Raw 3, K 20`) and one `Bonus` k
 `arcaneKillGreaterMul` (2.0). Both merge on their own, no config deletion. Arcana's breadth target
 stays at 5, so the extra technique does not lengthen anyone's day.
 
+**Fixed: ingots would not stack, and neither would nails, rods or plate.** The Maker's Mark
+writes its maker, its rank and its quality onto the piece, and in Vintage Story those are part of
+what makes one stack the same as another, so a marked ingot and a plain one sit in two slots
+forever. Nothing was checking what it marked. The game has two smithing recipes that produce an
+ingot, iron from a bloom and steel from blister steel, so any smith at Journeyman or above has
+been quietly making ingots that refuse their own kind. It looked random because finishing one
+also marked every matching stack in your bag.
+
+The mark now lands only on things that can hold it: something with a durability pool, or a part
+that becomes something with one. A head, a blade, a tool, a weapon, a piece of armour, all marked
+exactly as before, including on servers with no Toolsmith and no Smithing Plus. An ingot is not a
+piece, it is the bar everyone makes, and it stacks again.
+
+Two exceptions worth knowing about, because they will look inconsistent otherwise: shield hoops
+and shield bosses keep their mark, since a shield is a real thing that wears out and its maker's
+hand is genuinely in those. They stack in eights, so if you forge hoops for buckets you will still
+see them separate.
+
+Thanks to **Elitephoenix** for the report, and for noticing it was the stacking rather than the
+bonus that was the problem.
+
 **Fixed: you could kill your own summoned companion for combat practice.** The ownership fence
 checked the four vanilla markers, and Rustbound Magic records its companions and familiars under
 its own, so a summoned skeleton warrior read as a wild hostile all the way to the ledger. It

@@ -803,13 +803,78 @@ NOT run in game.
   This is a pre-existing bug fixed in passing, not something the ARC grant introduced. It would
   have become a real farm the moment ARC started paying for the same corpse.
 
+- **The Maker's Mark stops landing on things that only lose their stacking by it (RULED
+  2026-09-19, Jeffrey picked option b).** Reported by Elitephoenix: ingots that would not stack,
+  "because 1 is normal and 1 has the bonus."
+
+  `ApplyMark` writes four attributes plus the GM signature, attributes are part of stack identity,
+  and nothing tested WHAT was being marked. Vanilla ships two smithing recipes whose output is an
+  ingot (`ingot.json` -> ingot-iron, `steel.json` -> ingot-steel, maxstacksize 16, not damageable),
+  so this reproduces with no mods at all. Every stackable non-tool output was hit the same way:
+  nails, rod, plate, scale, chain, bracket, arrowhead.
+
+  Two sweeps made it look random. `StampCompletedOutput` (150ms) and `MakersMarkPatch`'s re-stamp
+  (500ms) both walk the smith's hotbar and backpack and mark every unmarked stack whose
+  `Collectible.Id` matches the output, not just the piece that was made, so smithing one steel
+  ingot marked every unmarked steel ingot in the bag. Those sweeps stay: they exist because
+  Smithing+ and Toolsmith rebuild the output stack and discard the marked instance.
+
+  The gate is `MetPatches.CarriesMakersMark`, called from inside `ApplyMark`, which is already the
+  single chokepoint for all four callers (forge-immediate, forge-rescan, forge-restamp, cast).
+  `ApplyMark` now returns bool and every caller reports honestly, so the stamp counters and the
+  re-stamp sweeps no longer claim work they did not do.
+
+  **Test 1: it has a durability pool.** `Durability > 1` first, which never throws and answers for
+  every vanilla tool, weapon and armour piece because `durabilitybytype` resolves into that field;
+  then a guarded `GetMaxDurability(stack) > 1` for Toolsmith and Smithing+ heads. `> 1` and not
+  `> 0`: `CollectibleObject.Durability` DEFAULTS to 1. This is vanilla's own damageable test
+  (`Collectible.cs:3211`, `ItemSlotTrade.cs:82`).
+
+  **Test 2: it is consumed by a grid recipe whose output has one.** Built lazily from live recipes
+  into a `HashSet<(EnumItemClass, int)>` and cleared in `Dispose`. This is what keeps a vanilla
+  head marked on a server running NEITHER Toolsmith nor Smithing+, where a bare axehead has
+  durability 1 and the head-marks-the-tool lineage (RULED 2026-07-13) would otherwise go quiet.
+  Keyed on (class, id) because block ids and item ids are separate ranges, so an int alone is not
+  unique. Wildcard ingredients are collected as patterns and matched in ONE pass over the
+  collectible list, not a pass per recipe. `Regex` and `TagsOnly` ingredients cannot be expanded by
+  `WildcardUtil`, so they are counted and named in the boot log rather than dropped silently.
+
+  Simulated against the vanilla recipe set before shipping (26 grid recipes have a damageable
+  output, 41 distinct ingredient base codes):
+
+  | item | durable | tool part | verdict |
+  |---|---|---|---|
+  | ingot, nails, rod, plate, scale, chain, bracket, arrowhead | no | no | **not marked, stacks again** |
+  | axehead, pickaxehead, shovelhead, hoehead, scythehead, hammerhead, knifeblade, sawblade | no | yes | marked |
+  | blade | yes | yes | marked |
+  | hoop, boss | no | yes | marked (see below) |
+
+  **Known residue, deliberately accepted.** `hoop` and `boss` are shield parts: `roundshield.json`
+  consumes `hoop-*` and `boss-*` and outputs the damageable `shield-woodmetal`. They stack (8) and
+  are also used for non-damageable things like buckets, so a smith forging hoops for buckets still
+  gets split stacks. They are genuinely parts, the mark genuinely rides into the shield, and they
+  are the only two stackable SMITHABLE materials in vanilla that land this way. Recorded rather
+  than special-cased.
+
+  Note the part index is a permission list, not an action: planks and sticks are in it too, and
+  nothing ever presents them to `ApplyMark`, because only anvil and mold outputs reach it.
+
+  The same reasoning already lived twelve lines below the mark, in the first-work capstone, which
+  has excluded ingot outputs since 2026-07-27 ("hammering a bloom into an ingot is refinement, not
+  a piece"). That ruling simply never reached the mark.
+
+  **STILL OPEN: ingots already marked.** The gate stops new ones; it does not unstick what is
+  already sitting in chests. A load-time sweep or an admin command would, and neither is in this
+  build. Jeffrey's call.
+
 Files: `source/Domains/PotPatches.cs`, `source/Domains/PotDomain.cs`,
-`source/Domains/MelRanKillPatches.cs`, `source/Domains/ArcDomain.cs`. Branch: none, on `main`.
+`source/Domains/MelRanKillPatches.cs`, `source/Domains/ArcDomain.cs`,
+`source/Domains/MetPatches.cs`, `source/AlmanacTcmModSystem.cs`. Branch: none, on `main`.
 
 Builds clean against 1.22.7 (0 errors; the warning list is unchanged and none of it is in POT,
 ARC or MelRanKillPatches).
 
-Zip `Releases/almanactcm_0.5.12.zip`, sha256 `c497574b9bef681e`, 25 entries, identical entry list
+Zip `Releases/almanactcm_0.5.12.zip`, sha256 `7097de9f58a8a4a9`, 25 entries, identical entry list
 to 0.5.11 (code-only release). Built with python zipfile, so no backslash entries. Staged in
 `~/Downloads` for the ModDB upload, which is Jeffrey's to post.
 

@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using AlmanacTcm.Leveling;
 using HarmonyLib;
 using Vintagestory.API.Common;
+using Vintagestory.API.Util;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
@@ -205,19 +206,159 @@ public static class MetPatches
         _ => 1.0,
     };
 
+    // ---------------------------------------------- what may carry a mark (RULED 2026-09-19)
+
+    /// <summary>Collectibles CONSUMED by a grid recipe whose output is damageable: heads, blades
+    /// and every other part that becomes a tool. Built once, lazily, and cleared on Dispose.
+    /// Keyed on (class, id) rather than id alone because block ids and item ids are separate
+    /// ranges, so an int on its own is not unique across the two.</summary>
+    private static HashSet<(EnumItemClass, int)>? toolPartIds;
+
+    /// <summary>Drop the lazily-built part index. Called from the ModSystem's Dispose for the
+    /// reason the anvil-lag index is cleared there: a second world in the same singleplayer
+    /// process reassigns collectible ids, and a set built against the previous one would mark
+    /// whatever now happens to sit at those numbers.</summary>
+    internal static void ClearCaches() => toolPartIds = null;
+
+    /// <summary>Does this stack own a durability pool the maker's bonus can land in? The vanilla
+    /// test, which is `GetMaxDurability > 1` (Collectible.cs:3211, ItemSlotTrade.cs:82), with the
+    /// cheap static field tried first: `Durability` resolves `durabilitybytype` at load, so every
+    /// vanilla tool, weapon and armour piece answers without entering another mod's postfix.
+    /// The threshold is 1, not 0: `CollectibleObject.Durability` DEFAULTS to 1.</summary>
+    private static bool IsDamageable(ItemStack? stack)
+    {
+        var coll = stack?.Collectible;
+        if (coll == null) return false;
+        if (coll.Durability > 1) return true;
+        // Guarded for the reason RefreshHeadDurability is guarded: this runs other mods'
+        // postfixes and Toolsmith's can NRE on a bare head. A throw means "cannot tell", and
+        // the part index below is the second chance, so failing false here costs nothing.
+        try { return coll.GetMaxDurability(stack) > 1; }
+        catch { return false; }
+    }
+
+    /// <summary>THE gate on the Maker's Mark (RULED 2026-09-19, from Elitephoenix's report of
+    /// ingots that would not stack).
+    ///
+    /// The mark writes four attributes plus the GM signature, and attributes are part of stack
+    /// identity, so a marked stack never merges with an unmarked one. Until now nothing tested
+    /// WHAT was being marked, and vanilla ships two smithing recipes whose output is an ingot
+    /// (`ingot.json` -> ingot-iron, `steel.json` -> ingot-steel, both maxstacksize 16 and neither
+    /// damageable). Every stackable non-tool output was hit the same way: nails, rod, hoop,
+    /// bracket, boss, plate, scale, chain, arrowhead. POT has carried the equivalent gate since
+    /// the beginning and its comment names the hazard exactly; MET never got one.
+    ///
+    /// Two tests, because neither alone covers the roster:
+    ///   1. It has a durability pool. Tools, weapons, armour, and under Toolsmith or Smithing+
+    ///      the heads and parts too.
+    ///   2. It is consumed by a grid recipe whose output has one. This is what keeps a vanilla
+    ///      head marked on a server running NEITHER of those mods, where a bare axehead has
+    ///      durability 1 and the head-marks-the-tool lineage (RULED 2026-07-13) would otherwise
+    ///      go quiet. Computed from live recipes rather than from a name list, so it follows
+    ///      whatever parts a mod adds without being told about them.
+    ///
+    /// An ingot is an input to no damageable recipe output, so it fails both and stacks again.
+    /// The same reasoning already lives twelve lines below in the first-work capstone, which has
+    /// excluded ingot outputs since 2026-07-27: hammering a bloom into an ingot is refinement,
+    /// not a piece. That ruling simply never reached the mark.</summary>
+    internal static bool CarriesMakersMark(ItemStack? stack, ICoreAPI? api)
+    {
+        var coll = stack?.Collectible;
+        if (coll == null) return false;
+        if (IsDamageable(stack)) return true;
+        if (api == null) return false;
+        toolPartIds ??= BuildToolPartIds(api);
+        return toolPartIds.Contains((coll.ItemClass, coll.Id));
+    }
+
+    /// <summary>Walk every grid recipe once; for each whose output is damageable, remember what it
+    /// eats. Wildcard ingredients are collected as patterns and matched in ONE pass over the
+    /// collectible list at the end rather than a pass per recipe, which is the difference between
+    /// thousands of Match calls and millions.</summary>
+    private static HashSet<(EnumItemClass, int)> BuildToolPartIds(ICoreAPI api)
+    {
+        var ids = new HashSet<(EnumItemClass, int)>();
+        var patterns = new List<(AssetLocation Code, EnumItemClass Type)>();
+        int unexpandable = 0;
+
+        foreach (var recipe in api.World.GridRecipes)
+        {
+            if (!IsDamageable(recipe?.Output?.ResolvedItemStack)) continue;
+            var ingredients = recipe!.ResolvedIngredients;
+            if (ingredients == null) continue;
+
+            foreach (var ing in ingredients)
+            {
+                if (ing?.Code == null) continue;
+                switch (ing.MatchingType)
+                {
+                    case EnumRecipeMatchType.Exact:
+                        var c = ing.ResolvedItemStack?.Collectible;
+                        if (c != null) ids.Add((c.ItemClass, c.Id));
+                        break;
+                    case EnumRecipeMatchType.Wildcard:
+                    case EnumRecipeMatchType.NamedWildcard:
+                    case EnumRecipeMatchType.AdvancedWildcard:
+                        patterns.Add((ing.Code, ing.Type));
+                        break;
+                    default:
+                        // Regex and TagsOnly cannot be expanded by WildcardUtil, so they are
+                        // counted and named rather than silently dropped: an ingredient missed
+                        // here is a part that loses its mark, and that must not be invisible.
+                        unexpandable++;
+                        break;
+                }
+            }
+        }
+
+        if (patterns.Count > 0)
+        {
+            foreach (var coll in api.World.Collectibles)
+            {
+                if (coll?.Code == null) continue;
+                var key = (coll.ItemClass, coll.Id);
+                if (ids.Contains(key)) continue;
+                foreach (var (code, type) in patterns)
+                {
+                    if (coll.ItemClass != type) continue;
+                    if (WildcardUtil.Match(code, coll.Code)) { ids.Add(key); break; }
+                }
+            }
+        }
+
+        TcmLog.Cat(api, TcmLog.Config,
+            $"MET mark gate: {ids.Count} collectible(s) are parts of a damageable grid output " +
+            $"({patterns.Count} wildcard ingredient pattern(s) expanded" +
+            (unexpandable > 0 ? $", {unexpandable} regex/tag ingredient(s) NOT expanded" : "") + ")");
+        return ids;
+    }
+
     /// <summary>Apply the full Maker's Mark to a freshly-made stack: provenance, frozen level,
     /// the Smithing+ quality stamp, the durability top-up, and the GM signature. One body, four
     /// callers (forge-immediate, forge-rescan, forge-restamp, cast). They were four copies of
     /// this until 2026-08-12, which is what let the level conversion have four places to go
     /// wrong.</summary>
-    private static void ApplyMark(ItemStack stack, (string uid, string name, int level) maker, ICoreAPI? api)
+    private static bool ApplyMark(ItemStack stack, (string uid, string name, int level) maker, ICoreAPI? api)
     {
+        // The gate, in the one place all four callers pass through (CarriesMakersMark explains it).
+        // Say WHY when it refuses: a silent false here is what made the POT version of this cost a
+        // play-test round trip, and a mark that quietly stops appearing reads as broken.
+        if (!CarriesMakersMark(stack, api))
+        {
+            if (api != null)
+                TcmLog.Cat(api, TcmLog.Hooks, $"no maker's mark on {stack.Collectible?.Code}: " +
+                    "no durability pool and not a part of any damageable grid output, so a mark " +
+                    "would only cost it its stacking");
+            return false;
+        }
+
         stack.Attributes.SetString(MakerAttr, maker.uid);
         stack.Attributes.SetString(MakerNameAttr, maker.name);
         stack.Attributes.SetInt(MakerLevelAttr, maker.level);
         stack.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.level));
         RefreshHeadDurability(stack, api);
         MetSignature.Assign(stack, maker.level);
+        return true;
     }
 
     /// <summary>Top the head durability off to its NEW max after the quality buff raises it.
@@ -507,8 +648,7 @@ public static class MetPatches
     private static bool StampIfMatch(ICoreAPI api, ItemStack? s, int collId, (string uid, string name, int level) maker)
     {
         if (s?.Collectible?.Id != collId || s.Attributes.HasAttribute(MakerAttr)) return false;
-        ApplyMark(s, maker, api);
-        return true;
+        return ApplyMark(s, maker, api);
     }
 
     /// <summary>Maker's Mark v1: vanilla hands the EXACT finished stack to
@@ -528,7 +668,9 @@ public static class MetPatches
             if (maker.level < Rank.Journeyman) return;   // Journeyman+ only: lesser work carries no mark
             // ApplyMark also assigns the GM signature: a directly-forged weapon/tool is
             // classifiable here; a bare Toolsmith head is not and takes its edge at assembly.
-            ApplyMark(stack, maker, byEntity?.Api);
+            // Refused (an ingot, a rod, a handful of nails) means there is nothing to re-stamp
+            // either, so the whole sweep below is skipped with it.
+            if (!ApplyMark(stack, maker, byEntity?.Api)) return;
             if (byEntity?.Api == null) return;
             TcmLog.Cat(byEntity.Api, TcmLog.Hooks,
                 $"maker's mark applied to {stack.Collectible?.Code} for {maker.name}");
@@ -561,7 +703,7 @@ public static class MetPatches
             ItemStack? s = slot?.Itemstack;
             if (s?.Collectible?.Id != collectibleId) return;
             if (s.Attributes.HasAttribute(MakerAttr)) return;
-            ApplyMark(s, maker, api);
+            if (!ApplyMark(s, maker, api)) return;
             slot!.MarkDirty();
             TcmLog.Cat(api, TcmLog.Hooks, $"maker's mark re-stamped on surviving {s.Collectible.Code}");
         }

@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using AlmanacTcm.Leveling;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -624,6 +624,9 @@ public class AlmanacTcmModSystem : ModSystem
         // singleplayer process can carry an identical recipe count, so the staleness check
         // alone would not catch it.
         Domains.MetSmithingPlusAnvilLag.ClearCaches();
+        // Same hazard, same scope: MetPatches' maker's-mark gate caches a set of collectible ids
+        // built from THIS world's grid recipes, and a second world reassigns those ids.
+        Domains.MetPatches.ClearCaches();
         Toasts?.Dispose();
         Toasts = null;
         // The two parchment surfaces unregister their own Ortho renderers; without this they
