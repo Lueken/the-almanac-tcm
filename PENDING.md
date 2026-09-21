@@ -1,4 +1,4 @@
-﻿# PENDING: almanactcm 0.5.12 (unreleased)
+﻿# PENDING: almanactcm 0.5.13 (unreleased)
 
 Heading corrected 2026-09-19: it had said 0.5.9 while the file carried 0.5.10 and 0.5.11 sections
 too. The shipped sections are deliberately left in place rather than emptied, because the deploy
@@ -902,6 +902,54 @@ alone. VS re-downloads from the server on connect, so nothing is lost by staling
 
 Pushed: `Lueken/the-almanac-tcm` `main` at `5fd1b55`. ModDB upload is Jeffrey's to post, from the
 `7097de9f58a8a4a9` zip staged in `~/Downloads`.
+
+## Staged in 0.5.13
+
+- **The wash whisper (RULED 2026-09-21, from ComitatensSaxoni's moon-runes question).** Placer
+  Tracing worked and could not be felt: a wavering x1.2-1.5 on drop chances below Master is
+  statistically invisible (copper, the strongest ore drop at 0.15 avg, moves from ~4.5 to ~5.5
+  nuggets over 30 washes at Apprentice I), so "the pan stops being blind" was a rung the player
+  could never experience. Comitatens read the rungs and assumed there must be a chunk reading,
+  because the copy promised perception the numbers could not deliver.
+
+  The whisper makes the trace legible instead of stronger: when the trace fires, occasionally one
+  chat line, "The wash carries a trace of {ore}." Gated with the trace itself (Apprentice I),
+  since the whisper IS the trace becoming perceptible. Implementation rides the factors
+  `PlacerTracePatch` already computes per wash (`SampleOreFactors`), so no new sampling; one lang
+  line and a throttled `SendMessage` in the borehole's own pattern (`Lang.GetL` + `ore-` prefix).
+
+  **Honesty rules, and they are the design:** the whisper never fabricates. Every ore it can name
+  comes from the same ore-map read that biases the drops. Below Master it is noisy two ways, both
+  riding EXISTING signals rather than new dice: a wash whose waver roll came through under 0.5
+  says nothing, and 15% of spoken whispers name the second-strongest presence instead of the
+  first, a lesser truth, never a lie, so nobody is sent to a phantom lode. Master and up always
+  names the strongest.
+
+  Throttle: 25% chance per eligible wash (`panWhisperChance`, Bonus knob) under a 20s per-player
+  cooldown (const), with a minimum ore factor of 0.05 (`panWhisperMinFactor`, Bonus knob) so
+  trace-irrelevant ground stays silent. Both knobs merge; no config deletion.
+
+- **The hauled-sand question, ruled framed-not-fenced (same discussion).** Nothing stops a player
+  carrying sand to an ore-rich spot and panning it there: `SampleOreFactors` keys on the panner's
+  position and origin is never consulted. Walked the numbers and it is self-limiting: at the same
+  coordinates mining beats panning by an order of magnitude for anything a pick reaches, the trace
+  gates at Apprentice I which outlasts the pre-pick window, the treasure tail is rank-based not
+  location-based, and the Panning Machine's rankless entity already sees the stock table. So the
+  fiction was set instead of a fence: the trace reads the GROUND beneath the wash, not the
+  material in the pan, and hauled gravel legitimately pans the ground it stands on. That sentence
+  now lives in the rungs copy (Apprentice grant), which also names the whisper and its below-Master
+  vagueness; the Master rung notes the whisper reads true from there. Fence options recorded for
+  future-self if live play ever proves abuse: origin-stamping is dead on arrival (stack identity,
+  the 0.5.12 bug), natural-block tracking is heavy infra for a thin threat, and the cheap middle
+  is a terrain-height check on the panned block, one comparison, not shipped preemptively.
+
+Files: `source/Domains/PanPatches.cs`, `source/Domains/PanDomain.cs`,
+`assets/almanactcm/lang/en.json`, `assets/almanactcm/almanac/rungs.json`. Branch: none, on `main`.
+
+Builds clean against 1.22.7 (0 errors, no warnings in the changed files). Strings verified in the
+Release DLL by exact byte search (literals utf-16, metadata and attribute blobs utf-8).
+
+NOT run in game. NOT deployed. 0.5.12 is still the deployed-awaiting-restart version below.
 
 ## Not in the zip, needed at deploy time
 

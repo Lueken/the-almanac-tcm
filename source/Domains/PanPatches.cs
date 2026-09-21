@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
@@ -209,8 +209,17 @@ public static class PanPatches
             var factors = SampleOreFactors(sapi, byEntity.Pos.AsBlockPos);
             if (factors == null || factors.Count == 0) return;
 
-            // Below Master the signal wavers: the trace term rolls 30-100% each wash.
-            if (level < PanSurveyor.MasterLevel) strength *= 0.3 + sapi.World.Rand.NextDouble() * 0.7;
+            // Below Master the signal wavers: the trace term rolls 30-100% each wash. The roll
+            // is kept because the whisper reads it too: a wash where the signal barely came
+            // through says nothing.
+            double waverRoll = 1.0;
+            if (level < PanSurveyor.MasterLevel)
+            {
+                waverRoll = 0.3 + sapi.World.Rand.NextDouble() * 0.7;
+                strength *= waverRoll;
+            }
+
+            MaybeWhisper(player, level, factors, waverRoll);
 
             var table = panDropsRef(__instance);
             if (table == null) return;
@@ -241,6 +250,58 @@ public static class PanPatches
             foreach (var (drop, orig) in mutated) drop.Chance.avg = orig;
             mutated = null;
         }
+    }
+
+    // ------------------------------------------------------------ the wash whisper (0.5.13)
+
+    /// <summary>Per-player throttle so a riverbank session reads as an occasional remark, not a
+    /// ticker. Server-lifetime, tiny, and deliberately not persisted.</summary>
+    private static readonly Dictionary<string, long> lastWhisperMs = new();
+    private const long WhisperCooldownMs = 20_000;
+
+    /// <summary>The wash whisper (RULED 2026-09-21): when the placer trace fires, occasionally
+    /// say so in chat, naming an ore it feels. This is the trace made legible, and it is also
+    /// the FRAMING made explicit: the whisper reads the ground beneath the wash, never the
+    /// material in the pan, so hauled gravel legitimately pans the ground it stands on.
+    ///
+    /// Honesty rules: it never fabricates. Every ore it can name comes from the same
+    /// SampleOreFactors read the trace itself biases drops by. Below Master it is noisy two
+    /// ways, both riding existing signals rather than new dice: a wash whose waver roll came
+    /// through weak says nothing, and a spoken whisper sometimes names the SECOND-strongest
+    /// presence instead of the first. A lesser truth, never a lie: nobody is sent to a
+    /// phantom lode. Master and up always names the strongest.</summary>
+    private static void MaybeWhisper(IPlayer? player, int level, Dictionary<string, double> factors, double waverRoll)
+    {
+        if (sapi == null || player is not IServerPlayer splr) return;
+        if (level < PanSurveyor.MasterLevel && waverRoll < 0.5) return;
+
+        double minFactor = PanDomain.Knob(PanDomain.PanWhisperMinFactor, 0.05);
+        string? best = null, second = null;
+        double bestV = 0, secondV = 0;
+        foreach (var (code, v) in factors)
+        {
+            if (v > bestV) { second = best; secondV = bestV; best = code; bestV = v; }
+            else if (v > secondV) { second = code; secondV = v; }
+        }
+        if (best == null || bestV < minFactor) return;
+
+        if (sapi.World.Rand.NextDouble() > PanDomain.Knob(PanDomain.PanWhisperChance, 0.25)) return;
+
+        long now = sapi.World.ElapsedMilliseconds;
+        if (lastWhisperMs.TryGetValue(player.PlayerUID, out long last) && now - last < WhisperCooldownMs) return;
+        lastWhisperMs[player.PlayerUID] = now;
+
+        string spoken = best;
+        if (level < PanSurveyor.MasterLevel && second != null && secondV >= minFactor
+            && sapi.World.Rand.NextDouble() < 0.15)
+        {
+            spoken = second;
+        }
+
+        splr.SendMessage(GlobalConstants.InfoLogChatGroup,
+            Lang.GetL(splr.LanguageCode, "almanactcm:pan-whisper",
+                Lang.GetL(splr.LanguageCode, "ore-" + spoken)),
+            EnumChatType.Notification);
     }
 
     // ------------------------------------------------------------ BP search modes (conditional)

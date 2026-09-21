@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
@@ -46,6 +46,18 @@ public static class PanDomain
     public const string TraceStrengthApprentice = "traceStrengthApprentice";
     public const string TraceStrengthGm = "traceStrengthGm";
 
+    // ---- The wash whisper (RULED 2026-09-21, from ComitatensSaxoni's moon-runes question).
+    // Placer-tracing worked and could not be FELT: a noisy x1.2-1.5 on drop chances below
+    // Master is statistically invisible, so "the pan stops being blind" was a rung the player
+    // could never experience. The whisper makes the trace legible: an occasional chat line
+    // naming an ore the trace genuinely feels below. It reads the same factors the trace
+    // reads, so it costs nothing new, and it NEVER fabricates: below Master it is sometimes
+    // vague about ranking (names a lesser ore that is really present), never false.
+    /// <summary>Chance per trace-eligible wash that the whisper speaks (cooldown still applies).</summary>
+    public const string PanWhisperChance = "panWhisperChance";
+    /// <summary>Minimum propick-style ore factor before an ore is worth whispering about.</summary>
+    public const string PanWhisperMinFactor = "panWhisperMinFactor";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -73,6 +85,10 @@ public static class PanDomain
             [TreasureChanceThreshold] = 0.01,
             [TreasureBiasMaster] = 1.3,
             [TreasureBiasGm] = 2.0,
+            // The wash whisper: ~one line per 20-30s of continuous panning at the default
+            // wash length, on top of the 20s per-player cooldown in PanPatches.
+            [PanWhisperChance] = 0.25,
+            [PanWhisperMinFactor] = 0.05,
         }
     };
 

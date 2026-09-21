@@ -2,7 +2,7 @@
   "type": "code",
   "name": "The Almanac: Trades, Callings & Mastery",
   "modid": "almanactcm",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "description": "Identity-first trade progression for the modded world. Twenty-two domains, ranks from Novice to Grandmaster, earned by practice and never by grind: the day's work settles into your hands at rest. Requires The Almanac: Illuminated (0.1.4 or newer). Integrates with Smithing Plus or Smithing++ when either is installed, and runs without them. Part of The Almanac line.",
   "authors": [
     "Venah"

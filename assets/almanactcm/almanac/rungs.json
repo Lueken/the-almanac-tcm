@@ -1,4 +1,4 @@
-{
+﻿{
 	"_comment": "Rung copy for the Callings book's climb pages. PROSE ONLY — every quoted number is a {token} resolved client-side from the FiguresPacket the server computes through its live DomainConfig (DomainFigures.cs). Never write a literal figure here: it will lie the moment a knob is tuned. Prose is currently the third-person ModDB transcription; the 21-calling voice pass (Jeffrey's, Woodcutting-model tall-fires register) edits ONLY this file. A bullet's optional 'with' names the companion mod its aside credits. 'grants' are the named grants that take the lore frame.",
 	"characterLabels": [
 		"Below the baseline",
@@ -1053,7 +1053,7 @@
 					"grants": [
 						{
 							"name": "Placer Tracing",
-							"text": "Unlocks at Apprentice I: the wash samples the real ore maps under the pan and lifts the chance of what actually lies below by up to **{traceA1}%** there, climbing every level to a new ceiling of **{traceA4}%** by Apprentice IV, so you can walk a valley and feel the copper strengthen as you near the lode."
+							"text": "Unlocks at Apprentice I: the wash samples the real ore maps under the pan and lifts the chance of what actually lies below by up to **{traceA1}%** there, climbing every level to a new ceiling of **{traceA4}%** by Apprentice IV, so you can walk a valley and feel the copper strengthen as you near the lode. From the same rung the wash sometimes says so aloud, naming an ore it feels beneath you. The trace is read from the ground beneath the wash, never from the material in the pan, so gravel carried from elsewhere pans the ground it stands on. Below Master the voice is faint and sometimes names a lesser presence; it never invents one."
 						}
 					]
 				},
@@ -1069,7 +1069,7 @@
 					"rank": "Master",
 					"summary": "The trace reads clean; the grave-sifter and the borehole.",
 					"bullets": [
-						{ "text": "Master I reads the placer trace clean, the wavering roll drops away, and a rich deposit lifts its own drop chance by a full **{traceM1}%**, climbing to a new ceiling of **{traceM4}%** by Master IV." },
+						{ "text": "Master I reads the placer trace clean, the wavering roll drops away, and a rich deposit lifts its own drop chance by a full **{traceM1}%**, climbing to a new ceiling of **{traceM4}%** by Master IV. The whisper names the strongest presence every time." },
 						{ "text": "The grave-sifter: from Master I the pan table's treasure tail, every entry at or below a **{treasThresholdPct}%** base chance such as lore books, temporal gears, jewelry and gems, takes an extra **{treasM1}x** on top of pan yield, climbing to **{treasM4}x** by Master IV for **{treasNetM4}x** net." },
 						{ "text": "From Master I the borehole speaks depth: after a bore the drilled column is rescanned and chat lists the ores struck, each reported at a coarse depth and never exactly.", "with": "Betterer Prospecting" },
 						{ "text": "Pan yield enters at **+{yieldM1}%** and reaches a new ceiling of **{yieldM4}%** by Master IV." }

@@ -4,6 +4,35 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.13 (2026-09-21)
+
+The pan finds its voice.
+
+**The wash speaks.** Since 0.5, a practiced panner's washes have quietly favoured the ores that
+actually lie beneath them. That was the design, and it had a flaw a sharp reader found in the
+Almanac's own pages: below Master the effect is subtle enough that you could not feel it working.
+The rung said the pan stops being blind, and nothing you could see ever changed.
+
+Now the wash tells you. From Apprentice I, panning above ground that carries ore will sometimes
+say so in one line: the wash carries a trace of copper. No numbers, no chunk readout, no
+direction; measuring stays the prospecting pick's work. The whisper never invents anything. Every
+ore it names is genuinely in the ground below you. Below Master the voice is faint and sometimes
+names a lesser presence instead of the strongest, which is the same wavering signal the trace
+itself has always had, made audible. A Master hears it plain.
+
+**And the ground is what it reads.** The trace, and the whisper with it, are read from the ground
+beneath the wash, never from the material in the pan. Gravel hauled from elsewhere pans the ground
+it stands on. That has always been how it worked; now the Almanac says so, so nobody has to guess.
+
+Thanks to **ComitatensSaxoni** for reading the moon runes closely enough to catch the gap between
+what they promised and what the pan delivered.
+
+Server keepers: two new PAN `Bonus` knobs, `panWhisperChance` (0.25, chance per trace-eligible
+wash under a fixed 20-second per-player cooldown) and `panWhisperMinFactor` (0.05, how much ore
+the ground must carry before it is worth a word). Both merge on their own; no config deletion.
+
+---
+
 ## 0.5.12 (2026-09-19)
 
 The potter is paid for the pot.
