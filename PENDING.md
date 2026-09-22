@@ -976,8 +976,67 @@ Pushed: `Lueken/the-almanac-tcm` `main` at `5fd1b55`. ModDB upload is Jeffrey's 
   Two new FOR `Bonus` knobs, both merge: `gatherRepeatFree` (4), `gatherRepeatDecay` (0.1).
   Harvesting, tapping and sap are untouched: regrowth clocks already pace them.
 
+- **The say-nay curve generalized (2026-09-22, yaro's follow-up report from Frostbound).** The
+  gathering decay's counter, day roll and rationale moved to `Engine/RepeatDecay.cs`, one shared
+  store keyed (player, scope, in-game day), cleared on Dispose. FOR scopes per SPECIES (rotating
+  plants is legitimate ranging); the two new consumers scope per TECHNIQUE, because rotating
+  outputs is exactly their exploit.
+
+  - **MIN knapping** ("the main source for mining XP has been to knap a multitude of various
+    useless items on a daily basis... then usually thrown out"). The context hash is the OUTPUT
+    id, so recipe rotation sidestepped the 90s ring entirely. Now `knapRepeatFree` (8, a real
+    day-one kit) then `knapRepeatDecay`^n (0.1). RESIDUAL, deliberately left for tuning rather
+    than ruled here: 8 free knaps still bank ~22 pts (67% of knapping's breadth share) for free
+    flint, about what 20 ore blocks pay mining. The decay caps the TIME grind (the all-day sit
+    becomes a two-minute daily ration); if the ratio itself offends, the tune is knapping's Raw
+    (5) or K (20), both in `Techniques`, which merges.
+  - **MET assembly** ("grinding metalworking XP through crafting and uncrafting of stone tools on
+    the toolsmith's workbench"). Disassembly returns the parts, so assembly was a free loop; the
+    grid path's per-craft seq counter (the bulk-craft fix) made every cycle a fresh context on
+    purpose, and the bench path's 1s bucket rolled every ~10s cycle. One scope across all three
+    seams (grid, bench, held), `assemblyRepeatFree` (4) then decay 0.1, so switching seams buys
+    nothing and the loop nets at most 4 paid cycles a day (~16 pts, was ~32) then nothing. The
+    stone-tier asymmetry noted in passing: grid and held paths gate on `ToolTier >= 2`, the bench
+    path never did. Left ungated: the decay makes the gate mostly moot, and a bench tier gate
+    needs output access the seam does not currently expose.
+  - yaro's third item, the sapling loop, was already dead: saplings are FOR gathering, and the
+    species-scoped decay shipped yesterday covers them.
+
+  Four new `Bonus` knobs, all merge: `knapRepeatFree` 8, `knapRepeatDecay` 0.1,
+  `assemblyRepeatFree` 4, `assemblyRepeatDecay` 0.1.
+
+- **Wilderlands Stonebound wired (2026-09-22, designed with Thalius on Discord 09-21, verified
+  against a decompile of WStonebound 1.1.6 from Jeffrey's Downloads).** Stonebound's flow:
+  stone/ore breaks convert to a four-layer rubble block; each layer worked down (pick or shovel)
+  is a rare loot roll off a per-rock table; spoil pans for more. Only the first break paid, and
+  structurally so: all three layered rubble classes (`WStonebound.RockRubbleClass`,
+  `BlockOreRubbleGraded`, `BlockOreRubbleUngraded`) OVERRIDE `OnBlockBroken` without calling
+  base, and a Harmony patch on the base method never sees an override, so TCM's mining seam was
+  blind to them. `BlockRubbleBituCoal` deliberately unpatched: it calls base, so the ore seam
+  already pays it.
+
+  Per Jeffrey's Discord ruling: a layer worked down = MIN mining at `rubbleLayerFraction` (0.25,
+  MIN Bonus knob; four layers make the block whole), and a loot PROC = PAN prospecting co-grant
+  at the ruled 0.5 co-grant fraction, because a proc is the ground answering. Proc detection is a
+  before/after count of item entities within 2 blocks (their table spawns entities directly, no
+  GetDrops path to read); a player could mask or fake a proc with dropped items, and both cost
+  more than the co-grant pays. Contexts are per-layer (each layer is its own block id), so the
+  90s ring still kills place-and-rebreak.
+
+  **Spoil panning needed no wiring at all**, and this is worth telling Thalius: Stonebound patches
+  its spoil into the vanilla pan's own drop table, and TCM's wash grant, pan-yield stat,
+  grave-sifter and placer trace are all source-agnostic, so the whole PAN kit has been live on
+  spoil since both mods first loaded together. His "panning spoil gives nothing" is CONFIRMED
+  false in code for practice; what he was missing was the layering step, which is what this
+  wires. New file `source/Domains/MinStoneboundPatches.cs`, conditional on `wstonebound`,
+  registered beside the other PatchConditional calls.
+
 Files: `source/Domains/PanPatches.cs`, `source/Domains/PanDomain.cs`,
 `source/Domains/ForPatches.cs`, `source/Domains/ForDomain.cs`,
+`source/Domains/MinPatches.cs`, `source/Domains/MinDomain.cs`,
+`source/Domains/MetPatches.cs`, `source/Domains/MetDomain.cs`,
+`source/Domains/MetConditionalPatches.cs`, `source/Domains/MinStoneboundPatches.cs` (new),
+`source/Engine/RepeatDecay.cs` (new), `source/AlmanacTcmModSystem.cs`,
 `assets/almanactcm/lang/en.json`, `assets/almanactcm/almanac/rungs.json`. Branch: none, on `main`.
 
 Builds clean against 1.22.7 (0 errors, no warnings in the changed files). Strings verified in the

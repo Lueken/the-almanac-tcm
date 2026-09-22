@@ -1054,8 +1054,14 @@ public static class MetPatches
             if (output?.Collectible?.Tool == null) return;
             if (output.Collectible.ToolTier < 2) return;
 
+            // The say-nay curve (2026-09-22) rides ON TOP of the seq counter: seq keeps every
+            // craft in a shift-click batch a distinct context (the bulk-craft fix), the curve
+            // makes the day's fifth assembly and beyond decay, so craft-and-uncraft stops paying.
+            double mult = Engine.RepeatDecay.Mult(byPlayer.PlayerUID, "MET:assembly",
+                (int)byPlayer.Entity.World.Calendar.TotalDays,
+                (int)Knob(MetDomain.AssemblyRepeatFree, 4), Knob(MetDomain.AssemblyRepeatDecay, 0.1));
             Core?.Ledger?.Log(byPlayer, MetDomain.Code, MetDomain.TechAssembly,
-                HashCode.Combine(output.Collectible.Id, System.Threading.Interlocked.Increment(ref seq)));
+                HashCode.Combine(output.Collectible.Id, System.Threading.Interlocked.Increment(ref seq)), mult);
         }
     }
 

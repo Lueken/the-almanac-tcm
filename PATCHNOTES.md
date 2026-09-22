@@ -46,6 +46,30 @@ spot doing the same thing three hundred times, and that was never foraging.
 Thanks to **Thalius** of the Frostbound server, whose habit of watching how players game a system
 is worth more than any test suite.
 
+**The flint says nay too.** The same watchers found miners who never mined: knap a parade of
+items nobody wants, every day, straight into the trash, and Mining climbs. Rotating what you
+knapped dodged the repeat guard entirely. Knapping now follows the same rule as gathering: the
+first eight pieces a day pay in full, a genuine day-one kit's worth, and past that the curve
+falls away to nothing. Tomorrow your hands are fresh.
+
+**And the workbench.** Craft a stone tool, take it apart, craft it again: the parts come back,
+the practice kept coming. Assembly now tires the same way across the grid, the bench and the
+in-hand fitting alike, four tools a day at full and then the nay, so swapping where you do the
+looping buys nothing. Nobody outfitting themselves or a friend will ever notice; nobody
+assembling the same axe forty times was learning anything.
+
+**Wilderlands Stonebound, wired.** For servers running Thalius' Stonebound: working a rubble
+layer down with pick or shovel now pays Mining, a quarter of a clean block's swing per layer, so
+the four layers make the block whole. When a layer's loot roll actually turns something up, that
+is the ground answering, and reading the answer pays a Prospecting bonus on top. And a note for
+spoil panners: the pan never cared what was in it, so panning spoil has been paying Panning
+practice all along, placer trace, grave-sifter and all. Now the whole chain pays end to end.
+
+Server keepers: five more `Bonus` knobs, all self-merging: `knapRepeatFree` (8),
+`knapRepeatDecay` (0.1), `assemblyRepeatFree` (4), `assemblyRepeatDecay` (0.1) under their
+domains, and `rubbleLayerFraction` (0.25) under Mining. The Stonebound wiring activates only
+when `wstonebound` is loaded and costs nothing when it is not.
+
 Server keepers: two new Foraging `Bonus` knobs, `gatherRepeatFree` (4, full-pay breaks per
 species per day) and `gatherRepeatDecay` (0.1, the per-break multiplier past it). Both merge on
 their own. Harvesting, tapping and sap collection are untouched; their regrowth clocks already

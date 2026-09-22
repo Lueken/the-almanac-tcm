@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using AlmanacTcm.Leveling;
 using HarmonyLib;
@@ -364,8 +364,15 @@ public static class MetConditionalPatches
             if (world.Side != EnumAppSide.Server) return;
             // Covers both the fresh craft and the reforge-merge branch: both produce
             // a finished usable tool on the bench.
+            // Say-nay (2026-09-22): the bench is where the reported stone craft-and-uncraft
+            // loop lived. Same day-scope as the grid and held paths, so switching seams buys
+            // nothing.
+            double mult = Engine.RepeatDecay.Mult(byPlayer.PlayerUID, "MET:assembly",
+                (int)world.Calendar.TotalDays,
+                (int)MetPatches.Knob(MetDomain.AssemblyRepeatFree, 4),
+                MetPatches.Knob(MetDomain.AssemblyRepeatDecay, 0.1));
             Core?.Ledger?.Log(byPlayer, MetDomain.Code, MetDomain.TechAssembly,
-                HashCode.Combine("workbench", world.ElapsedMilliseconds / 1000));
+                HashCode.Combine("workbench", world.ElapsedMilliseconds / 1000), mult);
         }
     }
 
@@ -403,8 +410,12 @@ public static class MetConditionalPatches
             if (player == null || stack?.Collectible?.Tool == null) return;
             if (stack.Collectible.ToolTier < 2) return;
 
+            double mult = Engine.RepeatDecay.Mult(player.PlayerUID, "MET:assembly",
+                (int)byEntity.World.Calendar.TotalDays,
+                (int)MetPatches.Knob(MetDomain.AssemblyRepeatFree, 4),
+                MetPatches.Knob(MetDomain.AssemblyRepeatDecay, 0.1));
             Core?.Ledger?.Log(player, MetDomain.Code, MetDomain.TechAssembly,
-                HashCode.Combine(stack.Collectible.Id, byEntity.World.ElapsedMilliseconds / 1000));
+                HashCode.Combine(stack.Collectible.Id, byEntity.World.ElapsedMilliseconds / 1000), mult);
         }
     }
 

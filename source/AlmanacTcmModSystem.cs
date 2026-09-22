@@ -176,6 +176,7 @@ public class AlmanacTcmModSystem : ModSystem
             Try("FIS-ps", () => Domains.FisPsPatches.PatchConditional(api, harmony));
             Try("FIS-trap", () => Domains.FisTrapPatches.PatchConditional(api, harmony));
             Try("FIS-ecology", () => Domains.FisEcologyPatches.PatchConditional(api, harmony));
+            Try("MIN-stonebound", () => Domains.MinStoneboundPatches.PatchConditional(api, harmony));
             Try("FIS-gate", () => Domains.FisGearGate.PatchConditional(api, harmony));
             Try("PAN", () => Domains.PanPatches.PatchConditional(api, harmony));
             Try("PAN-surveyor", () => Domains.PanSurveyor.PatchConditional(api, harmony));
@@ -627,9 +628,9 @@ public class AlmanacTcmModSystem : ModSystem
         // Same hazard, same scope: MetPatches' maker's-mark gate caches a set of collectible ids
         // built from THIS world's grid recipes, and a second world reassigns those ids.
         Domains.MetPatches.ClearCaches();
-        // And FOR's gather-repeat counters, which carry in-game day numbers that mean nothing
-        // in the next world's calendar.
-        Domains.ForPatches.ClearCaches();
+        // And the say-nay repeat counters (FOR gathering, MIN knapping, MET assembly), which
+        // carry in-game day numbers that mean nothing in the next world's calendar.
+        Engine.RepeatDecay.ClearCaches();
         Toasts?.Dispose();
         Toasts = null;
         // The two parchment surfaces unregister their own Ortho renderers; without this they

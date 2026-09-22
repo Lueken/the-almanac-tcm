@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -80,7 +80,13 @@ public static class MinPatches
         if (player == null) return;
 
         ItemStack? stack = tree.GetItemstack("itemstack");
-        Core?.Ledger?.Log(player, MinDomain.Code, MinDomain.TechKnapping, stack?.Id ?? 0);
+        // The say-nay curve (2026-09-22): the context hash is the output id, so a grinder
+        // rotating "various useless items" never met the dedup ring. The day's knaps are ONE
+        // scope whatever was knapped, because rotating outputs is exactly this verb's exploit.
+        double mult = Engine.RepeatDecay.Mult(player.PlayerUID, "MIN:knapping",
+            (int)serverWorld.Calendar.TotalDays,
+            (int)Knob(MinDomain.KnapRepeatFree, 8), Knob(MinDomain.KnapRepeatDecay, 0.1));
+        Core?.Ledger?.Log(player, MinDomain.Code, MinDomain.TechKnapping, stack?.Id ?? 0, mult);
     }
 
     /// <summary>Stone breaks (plain Block, Stone material): a tiny flat value on the

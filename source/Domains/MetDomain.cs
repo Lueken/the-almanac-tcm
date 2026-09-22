@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System.Collections.Generic;
 
 namespace AlmanacTcm.Domains;
@@ -17,6 +17,15 @@ public static class MetDomain
     public const string TechSmelting = "smelting";
     public const string TechAlloying = "alloying";
     public const string TechAssembly = "assembly";
+
+    // ---- Assembly repeat decay (RULED 2026-09-22, yaro's Frostbound report: "grinding
+    // metalworking XP through crafting and uncrafting of stone tools on the toolsmith's
+    // workbench"). Disassembly returns the parts, so assembly was a free loop; the grid path's
+    // per-craft seq counter (the bulk-craft fix) made every cycle a fresh context on purpose.
+    // The say-nay curve counts the day's assemblies as one scope across all three seams (grid,
+    // bench, held), so craft-and-uncraft dies whatever the tier of the tool.
+    public const string AssemblyRepeatFree = "assemblyRepeatFree";
+    public const string AssemblyRepeatDecay = "assemblyRepeatDecay";
 
     // Bonus knob keys (DomainConfig.Bonus)
     // Axis 1 reworked 0.4.10 (RULED 2026-07-27): the ruin roll is GONE, and the
@@ -68,6 +77,9 @@ public static class MetDomain
         },
         Bonus = new Dictionary<string, double>
         {
+            // Say-nay on assembly: 4 tools a day at full, then the curve.
+            [AssemblyRepeatFree] = 4,
+            [AssemblyRepeatDecay] = 0.1,
             [OverStrikeChance] = 0.15,
             [MoveSlipChance] = 0.05,
             [FocusCooldownSeconds] = 5,

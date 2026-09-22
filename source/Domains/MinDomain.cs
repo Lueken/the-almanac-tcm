@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
@@ -38,6 +38,21 @@ public static class MinDomain
     public const string MiningDepthCoeff = "miningDepthCoeff";
     public const string MiningRarityCoeff = "miningRarityCoeff";
     public const string MiningStoneFraction = "miningStoneFraction";
+
+    // ---- Knapping repeat decay (RULED 2026-09-22, from yaro's and Thalius' Frostbound reports:
+    // "the main source for mining XP has been to knap a multitude of various useless items on a
+    // daily basis... then usually thrown out"). Knapping's context hash is the OUTPUT id, so
+    // rotating recipes sidestepped the 90s ring entirely; the say-nay curve counts the day's
+    // knaps as one scope regardless of what was knapped. The free count is a real day-one kit
+    // (axe, knife, two spears, a shovel, a hoe, a couple of arrowhead batches), not a tax on
+    // the stone age.
+    public const string KnapRepeatFree = "knapRepeatFree";
+    public const string KnapRepeatDecay = "knapRepeatDecay";
+
+    // ---- Stonebound rubble (RULED 2026-09-22, wired for Thalius' Frostbound server; the
+    // conditional seams live in MinStoneboundPatches). Working a rubble layer down is detail
+    // work at a fraction of a clean block's swing; four layers make the block whole.
+    public const string RubbleLayerFraction = "rubbleLayerFraction";
 
     public static DomainConfig Defaults() => new()
     {
@@ -79,6 +94,11 @@ public static class MinDomain
             [MiningDepthCoeff] = 0.5,
             [MiningRarityCoeff] = 0.5,
             [MiningStoneFraction] = 0.2,
+            // Say-nay on knapping: 8 pieces a day at full, then the curve.
+            [KnapRepeatFree] = 8,
+            [KnapRepeatDecay] = 0.1,
+            // A Stonebound rubble layer pays this fraction of the mining raw.
+            [RubbleLayerFraction] = 0.25,
         }
     };
 
