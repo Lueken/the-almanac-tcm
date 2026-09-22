@@ -71,8 +71,12 @@ public static class MinDomain
             // Per hammer-strike but contextHash-capped to the plug network, so one quarry
             // banks a bounded amount however many strikes it takes.
             [TechQuarrying] = new() { Raw = 8, K = 30 },
-            // The day-one stone-age verb; per completed piece.
-            [TechKnapping] = new() { Raw = 5, K = 20 },
+            // The day-one stone-age verb; per completed piece. Raw quartered 5 -> 1.25
+            // (RULED 2026-09-22, with the say-nay curve): the decay capped the TIME grind but
+            // 8 free knaps of gratis flint still banked what 20 ore blocks paid, so the RATIO
+            // moved too. A full free-count day now banks ~11 pts against mining's ~22 for a
+            // real session at the face: knapping starts the ladder, mining climbs it.
+            [TechKnapping] = new() { Raw = 1.25, K = 20 },
         },
         Bonus = new Dictionary<string, double>
         {

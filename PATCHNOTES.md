@@ -52,6 +52,11 @@ knapped dodged the repeat guard entirely. Knapping now follows the same rule as 
 first eight pieces a day pay in full, a genuine day-one kit's worth, and past that the curve
 falls away to nothing. Tomorrow your hands are fresh.
 
+And each piece is worth a quarter of what it was. Flint is free and ore is not, and the numbers
+had those backwards: a two-minute knapping ration used to bank what twenty ore blocks banked. A
+day's knapping is now worth about half a real session at the face, which is what a day-one craft
+should be next to the thing it exists to bootstrap. Knapping starts the ladder; mining climbs it.
+
 **And the workbench.** Craft a stone tool, take it apart, craft it again: the parts come back,
 the practice kept coming. Assembly now tires the same way across the grid, the bench and the
 in-hand fitting alike, four tools a day at full and then the nay, so swapping where you do the

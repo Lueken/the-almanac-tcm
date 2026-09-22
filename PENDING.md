@@ -985,11 +985,11 @@ Pushed: `Lueken/the-almanac-tcm` `main` at `5fd1b55`. ModDB upload is Jeffrey's 
   - **MIN knapping** ("the main source for mining XP has been to knap a multitude of various
     useless items on a daily basis... then usually thrown out"). The context hash is the OUTPUT
     id, so recipe rotation sidestepped the 90s ring entirely. Now `knapRepeatFree` (8, a real
-    day-one kit) then `knapRepeatDecay`^n (0.1). RESIDUAL, deliberately left for tuning rather
-    than ruled here: 8 free knaps still bank ~22 pts (67% of knapping's breadth share) for free
-    flint, about what 20 ore blocks pay mining. The decay caps the TIME grind (the all-day sit
-    becomes a two-minute daily ration); if the ratio itself offends, the tune is knapping's Raw
-    (5) or K (20), both in `Techniques`, which merges.
+    day-one kit) then `knapRepeatDecay`^n (0.1). The decay capped the TIME grind (the all-day
+    sit becomes a two-minute daily ration); the RATIO was then ruled down the same day: knapping
+    Raw quartered 5 -> 1.25, so a full free-count day banks ~11 pts against mining's ~22 for
+    twenty ore blocks. Knapping starts the ladder, mining climbs it. `Techniques` merges, and the
+    baseline comparison preserves any server's hand-tuned value.
   - **MET assembly** ("grinding metalworking XP through crafting and uncrafting of stone tools on
     the toolsmith's workbench"). Disassembly returns the parts, so assembly was a free loop; the
     grid path's per-craft seq counter (the bulk-craft fix) made every cycle a fresh context on
