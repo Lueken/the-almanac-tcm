@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using HarmonyLib;
@@ -40,6 +40,46 @@ public static class ForPatches
     private static IServerWorldAccessor? serverWorld;
 
     private static double Knob(string key, double fallback) => ForDomain.Knob(key, fallback);
+
+    // ------------------------------------------------------------ repeat decay (0.5.13)
+
+    /// <summary>Per player, per species, per in-game day: how many times gathering has already
+    /// paid for this plant today. Transient by design (a restart forgives at most one extra free
+    /// count per species) and cleared on Dispose, because a second world in the same process has
+    /// its own calendar. Stale-day entries are overwritten in place on next touch, so the dict
+    /// only ever holds one entry per (player, species) pair.</summary>
+    private static readonly Dictionary<(string uid, string species), (int day, int count)> gatherRepeats = new();
+
+    internal static void ClearCaches() => gatherRepeats.Clear();
+
+    /// <summary>The repeat multiplier (RULED 2026-09-22, Jeffrey, from Thalius' report of a
+    /// plant-a-field-of-saplings-and-break-them farm netting 30 FOR points a day). The first
+    /// `gatherRepeatFree` breaks of a species each day pay full raw; every break past that pays
+    /// decay^n, which at the 0.1 default reaches one millionth by the tenth. Repetition is what
+    /// stops paying, whatever the plant, so the fix does not care whether the next farm is
+    /// saplings, tulips or cattails.
+    ///
+    /// Chosen over the two alternatives on the table: excluding saplings would only move the
+    /// farm to the next self-dropping plant, and per-cell ground memory was more machinery than
+    /// the problem deserved. Deliberate consequences, accepted with the ruling: a mixed
+    /// sapling field still pays its free count per WOOD TYPE per day (small, and it decays like
+    /// everything else), and a legitimate bulk gather of one species, fifty cattails for
+    /// thatch, trickles after the fourth. That last one is the design speaking, not a bug: the
+    /// fiftieth identical reed teaches nothing, and the novel-find multiplier already says
+    /// variety is what teaches.
+    ///
+    /// The counter advances even when the ledger's 90s ring dedups the credit, which is the
+    /// cheaper honesty: a cluster picked fast still counts as picked.</summary>
+    private static double RepeatMult(IPlayer player, string species, int day)
+    {
+        var key = (player.PlayerUID, species);
+        int count = gatherRepeats.TryGetValue(key, out var e) && e.day == day ? e.count : 0;
+        gatherRepeats[key] = (day, count + 1);
+
+        int free = (int)Knob(ForDomain.GatherRepeatFree, 4);
+        if (count < free) return 1.0;
+        return Math.Pow(Knob(ForDomain.GatherRepeatDecay, 0.1), count - free + 1);
+    }
 
     // ============================================================ persisted side-state
 
@@ -374,7 +414,10 @@ public static class ForPatches
             if (!IsWildGather(__instance, world, pos)) return;
 
             string species = __instance.Code?.ToString() ?? "unknown";
-            double mult = IsNovel(byPlayer, species) ? Knob(ForDomain.NovelFindMultiplier, 4.0) : 1.0;
+            // The repeat counter runs FIRST so the novel break is counted as break one of its
+            // day; IsNovel has a side effect (it records the species as seen), so order matters.
+            double repeat = RepeatMult(byPlayer, species, (int)world.Calendar.TotalDays);
+            double mult = IsNovel(byPlayer, species) ? Knob(ForDomain.NovelFindMultiplier, 4.0) : repeat;
 
             Core?.Ledger?.Log(byPlayer, ForDomain.Code, ForDomain.TechGathering,
                 HashCode.Combine(pos.X >> 3, pos.Y >> 3, pos.Z >> 3), mult);

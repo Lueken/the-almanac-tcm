@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
@@ -39,6 +39,15 @@ public static class ForDomain
     /// <summary>Raw multiplier for the FIRST harvest of a species this player has ever taken
     /// (novel-finds ruling). Later harvests of a known species earn base raw.</summary>
     public const string NovelFindMultiplier = "novelFindMultiplier";
+
+    // ---- Repeat decay on gathering (RULED 2026-09-22, Jeffrey, from Thalius' sapling-farm
+    // report). The chosen shape over a sapling exclusion or per-cell ground memory: repetition
+    // itself stops paying, steeply, whatever the plant. "I saw what you did, and say nay."
+    /// <summary>Breaks of the SAME species that pay full raw each in-game day, per player.</summary>
+    public const string GatherRepeatFree = "gatherRepeatFree";
+    /// <summary>Per-break multiplier past the free count: decay^n. At the 0.1 default the 5th
+    /// break of a species pays x0.1, the 7th x0.001, the 10th x0.000001.</summary>
+    public const string GatherRepeatDecay = "gatherRepeatDecay";
     /// <summary>Patch Stewardship (the state-WRITE half, re-ruled 2026-07-16): the skill IS the
     /// hands. No separate verb — the HARVEST itself stewards. A ranked pick (Apprentice I+)
     /// leaves the network intact, advancing the regrow clock by this many days (Apprentice ->
@@ -91,6 +100,10 @@ public static class ForDomain
             [WildcropYieldGm] = 1.15,
             // First-ever harvest of a species pays x4 raw (ruled 2026-07-16).
             [NovelFindMultiplier] = 4.0,
+            // Repeat decay: variety is what teaches. Four of a species pay full each day,
+            // then the curve says nay.
+            [GatherRepeatFree] = 4,
+            [GatherRepeatDecay] = 0.1,
             // Patch Stewardship: tend boost scales Apprentice 1.0d -> GM 2.5d against regrow
             // clocks of 10-20 days; the Untrained wound costs 1.5 days; Untrained taplines run
             // at roughly two-thirds speed. Nothing in this set ever destroys a source.

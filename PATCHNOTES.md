@@ -27,6 +27,30 @@ it stands on. That has always been how it worked; now the Almanac says so, so no
 Thanks to **ComitatensSaxoni** for reading the moon runes closely enough to catch the gap between
 what they promised and what the pan delivered.
 
+**The ground says nay.** One server found a forager who never foraged: plant a field of tree
+seeds, break the saplings as they sprout, collect the saplings the breaking drops, plant them
+again. Thirty points a day, and never once out of sight of his own fence. A broken sapling was
+being counted as a wild find, and since breaking one hands the sapling back, the loop cost
+nothing but patience.
+
+Gathering now tires of repetition. The first four of a species each day pay in full, exactly as
+before. The fifth pays a tenth. The seventh, a thousandth. By the tenth the day's takings from
+that plant are one millionth of a point, which is the Almanac's way of saying it saw what you
+did. Tomorrow the plant pays fresh again.
+
+Nobody ranging is touched by this. Finding a species for the first time still pays its full
+four-fold bonus, a real circuit through varied country earns what it always earned, and picking a
+handful of anything is free of the decay entirely. The only play that dies is standing in one
+spot doing the same thing three hundred times, and that was never foraging.
+
+Thanks to **Thalius** of the Frostbound server, whose habit of watching how players game a system
+is worth more than any test suite.
+
+Server keepers: two new Foraging `Bonus` knobs, `gatherRepeatFree` (4, full-pay breaks per
+species per day) and `gatherRepeatDecay` (0.1, the per-break multiplier past it). Both merge on
+their own. Harvesting, tapping and sap collection are untouched; their regrowth clocks already
+pace them.
+
 Server keepers: two new PAN `Bonus` knobs, `panWhisperChance` (0.25, chance per trace-eligible
 wash under a fixed 20-second per-player cooldown) and `panWhisperMinFactor` (0.05, how much ore
 the ground must carry before it is worth a word). Both merge on their own; no config deletion.

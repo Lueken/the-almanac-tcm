@@ -943,7 +943,41 @@ Pushed: `Lueken/the-almanac-tcm` `main` at `5fd1b55`. ModDB upload is Jeffrey's 
   the 0.5.12 bug), natural-block tracking is heavy infra for a thin threat, and the cheap middle
   is a terrain-height check on the panned block, one comparison, not shipped preemptively.
 
+- **Gathering repeat decay (RULED 2026-09-22 by Jeffrey, from Thalius' Frostbound report).** A
+  player was planting fields of tree seeds and breaking the saplings at sprout for 30 FOR points a
+  day. The hole: `BlockSapling : BlockPlant`, so a broken sapling passed `IsWildGather` and paid
+  the gathering verb, and a broken sapling drops ITSELF (`plaintreesapling.json`), so after the
+  first planting the loop consumed nothing. The only throttle was the 90s dedup ring on an
+  8-block cell, which a field trivially outruns. Sapling growth time never mattered to the loop.
+
+  Three fixes were on the table: exclude saplings (moves the farm to the next self-dropping
+  plant, tulips are one placement away), per-cell ground memory (more machinery than the problem
+  deserved, Jeffrey's call), and a steep per-repeat decay. **Jeffrey ruled for the decay**: the
+  first `gatherRepeatFree` (4) breaks of a species each in-game day pay full raw, every one past
+  that pays `gatherRepeatDecay`^n (0.1), so the 5th is x0.1 and the 10th is x0.000001. His
+  framing verbatim: "I saw what you did, and say nay." Repetition itself stops paying, whatever
+  the plant, so the fix does not care what the next farm crop would have been.
+
+  Novel finds bypass the decay (the x4 first-ever-of-a-species multiplier is untouched, and the
+  novel break still advances the day's counter). The counter is per player, per full species
+  code, per in-game day, held in a transient dict cleared on Dispose; a restart forgives at most
+  one extra free count per species.
+
+  **Deliberate consequences, accepted with the ruling, recorded so nobody reports them as bugs:**
+  - A mixed sapling field still pays its free 4 per WOOD TYPE per day before decaying. Small, and
+    the one-line sapling exclusion stays in the back pocket if live play proves otherwise.
+  - A legitimate bulk gather of one species, fifty cattails for thatch, trickles after the
+    fourth. That is the design speaking: the fiftieth identical reed teaches nothing, and the
+    novel-find multiplier already says variety is what teaches. Expect a player question about
+    this eventually; the answer is in the RepeatMult doc comment.
+  - Snow/free block variants count as separate species (full code string, consistent with
+    IsNovel). A leak of a few extra free counts, not worth a normalizer.
+
+  Two new FOR `Bonus` knobs, both merge: `gatherRepeatFree` (4), `gatherRepeatDecay` (0.1).
+  Harvesting, tapping and sap are untouched: regrowth clocks already pace them.
+
 Files: `source/Domains/PanPatches.cs`, `source/Domains/PanDomain.cs`,
+`source/Domains/ForPatches.cs`, `source/Domains/ForDomain.cs`,
 `assets/almanactcm/lang/en.json`, `assets/almanactcm/almanac/rungs.json`. Branch: none, on `main`.
 
 Builds clean against 1.22.7 (0 errors, no warnings in the changed files). Strings verified in the

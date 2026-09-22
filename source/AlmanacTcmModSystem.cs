@@ -627,6 +627,9 @@ public class AlmanacTcmModSystem : ModSystem
         // Same hazard, same scope: MetPatches' maker's-mark gate caches a set of collectible ids
         // built from THIS world's grid recipes, and a second world reassigns those ids.
         Domains.MetPatches.ClearCaches();
+        // And FOR's gather-repeat counters, which carry in-game day numbers that mean nothing
+        // in the next world's calendar.
+        Domains.ForPatches.ClearCaches();
         Toasts?.Dispose();
         Toasts = null;
         // The two parchment surfaces unregister their own Ortho renderers; without this they
