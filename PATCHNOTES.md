@@ -70,6 +70,14 @@ is the ground answering, and reading the answer pays a Prospecting bonus on top.
 spoil panners: the pan never cared what was in it, so panning spoil has been paying Panning
 practice all along, placer trace, grave-sifter and all. Now the whole chain pays end to end.
 
+**Logging back in no longer looks like it ate your day.** Reported from a server that kicks
+idlers: get kicked, log back in, and the day's practice appears to be gone. It never was. The
+day's work is kept on the server and settles at the boundary exactly as if you had never left.
+But the bars the Callings book shows you were replayed without the day's pencil wash on every
+relog, so the progress LOOKED wiped until your next act of practice repainted it. The wash now
+comes back the moment you do. If you ever saw this and shrugged, check your ranks: the morning
+after, the practice was always there.
+
 Server keepers: five more `Bonus` knobs, all self-merging: `knapRepeatFree` (8),
 `knapRepeatDecay` (0.1), `assemblyRepeatFree` (4), `assemblyRepeatDecay` (0.1) under their
 domains, and `rubbleLayerFraction` (0.25) under Mining. The Stonebound wiring activates only

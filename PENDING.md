@@ -1031,12 +1031,32 @@ Pushed: `Lueken/the-almanac-tcm` `main` at `5fd1b55`. ModDB upload is Jeffrey's 
   wires. New file `source/Domains/MinStoneboundPatches.cs`, conditional on `wstonebound`,
   registered beside the other PatchConditional calls.
 
+- **A relog no longer looks like it ate the day (Thalius' Frostbound report, 2026-09-23:
+  "if a player gets kicked by the AFK guard, all their skill gain for the day is lost on
+  logging back in").** Diagnosis first, because the report says "lost" and nothing was:
+  accumulators live server-side keyed by UID, survive any disconnect including a kick, and
+  bank at the boundary regardless. What was lost was the SIGHT of them. `SyncAll`'s join
+  replay sends every `PlayerDomainPacket` with `pendingBanked` defaulting to zero, and nothing
+  re-sent the pending projection until the player's next practice act, so ANY relog blanked
+  the day's pencil wash on the client. An AFK-kicked player is precisely the player who logs
+  straight back in and stares at the empty bar. Ordinary logouts never surfaced it because
+  nobody compares the wash across a night's sleep.
+
+  Fix: `LedgerSystem` subscribes `DomainSetReady` (fires after `FromSavedSet` restores ranks)
+  and force-sends `MaybeSyncPending`. Either handler order lands correct: if the login
+  consolidation follows (boundary passed while offline), it collapses the wash itself, exactly
+  as it does at a live boundary. No knobs, no data change, display-only.
+
+  Worth saying to Thalius either way: no practice was ever destroyed by his AFK guard, and his
+  closet-sitters were never earning any TCM practice by idling anyway; the tether leveling is
+  Spawnbound's own clock.
+
 Files: `source/Domains/PanPatches.cs`, `source/Domains/PanDomain.cs`,
 `source/Domains/ForPatches.cs`, `source/Domains/ForDomain.cs`,
 `source/Domains/MinPatches.cs`, `source/Domains/MinDomain.cs`,
 `source/Domains/MetPatches.cs`, `source/Domains/MetDomain.cs`,
 `source/Domains/MetConditionalPatches.cs`, `source/Domains/MinStoneboundPatches.cs` (new),
-`source/Engine/RepeatDecay.cs` (new), `source/AlmanacTcmModSystem.cs`,
+`source/Engine/RepeatDecay.cs` (new), `source/Engine/LedgerSystem.cs`, `source/AlmanacTcmModSystem.cs`,
 `assets/almanactcm/lang/en.json`, `assets/almanactcm/almanac/rungs.json`. Branch: none, on `main`.
 
 Builds clean against 1.22.7 (0 errors, no warnings in the changed files). Strings verified in the

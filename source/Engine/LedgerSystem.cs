@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -71,6 +71,19 @@ public class LedgerSystem
 
         sapi.Event.PlayerNowPlaying += OnPlayerNowPlaying;
         sapi.Event.PlayerDeath += OnPlayerDeath;
+        // The pencil wash survives a relog (Thalius' Frostbound report, 2026-09-23: "if a
+        // player gets kicked by the AFK guard, all their skill gain for the day is lost on
+        // logging back in"). Nothing was ever lost: the accumulators live server-side keyed
+        // by UID and bank at the boundary regardless of how the session ended. What was lost
+        // was the SIGHT of them: SyncAll's join replay sends every PlayerDomainPacket with
+        // pendingBanked defaulting to zero, and nothing re-sent the projection until the
+        // next practice act, so ANY relog blanked the day's wash on the client. An AFK-kicked
+        // player is precisely the player who logs straight back in and stares at the empty
+        // bar. DomainSetReady fires after FromSavedSet restores the ranks, so the projection
+        // is computed against real levels; if a login consolidation follows (boundary passed
+        // while offline), it collapses the wash itself and the display stays honest.
+        leveling.DomainSetReady += (byPlayer, domainSet) =>
+            MaybeSyncPending(byPlayer, domainSet, LedgerFor(byPlayer), force: true);
         sapi.Event.GameWorldSave += SaveLedgers;
         sapi.Event.RegisterGameTickListener(OnEngineTick, 5000);
         // Fast, cheap tick: flushes the tail of a coalesced feedback burst. No-ops instantly
