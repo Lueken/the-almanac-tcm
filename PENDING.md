@@ -1062,7 +1062,17 @@ Files: `source/Domains/PanPatches.cs`, `source/Domains/PanDomain.cs`,
 Builds clean against 1.22.7 (0 errors, no warnings in the changed files). Strings verified in the
 Release DLL by exact byte search (literals utf-16, metadata and attribute blobs utf-8).
 
-NOT run in game. NOT deployed. 0.5.12 is still the deployed-awaiting-restart version below.
+**DEPLOYED to The Quire 2026-09-24, not yet live.** Server `data/Mods` carries
+`almanactcm_0.5.13.zip`, sha256 readback verified identical to the repo zip (`e4dec1dc56bb2f32`);
+0.5.12, which never booted, renamed aside to `almanactcm_0.5.12.zip.pre0513-bak`. So the next
+restart jumps 0.5.11 straight to 0.5.13, delivering both releases in one boot. No config deletion
+is needed for either. Jeffrey's client profile synced the same way (hash verified; 0.5.12 renamed
+`.pre0513-bak`).
+
+Pushed to GitHub at `7a5b124`; ModDB changelogs written for both 0.5.12 and 0.5.13 (both zips
+staged in `~/Downloads`, uploads are Jeffrey's to post). Linear LGD-72/73/77 annotated Done.
+
+NOT run in game. NOT restarted.
 
 ## Not in the zip, needed at deploy time
 
