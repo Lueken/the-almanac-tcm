@@ -21,6 +21,7 @@
   "almanactcm:masterwork-by-raw": "A masterwork vessel by {0}, once it is fired.",
   "almanactcm:practice-gain": "{0}: {1} +{2}, {3:0.#} settling today",
   "almanactcm:practice-repeat": "{0}: {1} repeated, nothing new learned",
+  "almanactcm:technique-settled": "{0}: today's {1} is settled, tomorrow will teach more",
   "almanactcm:gate-blocked": "Your hands don't yet know how to work {0}. That takes {1} Metalworking.",
   "almanactcm:gate-wasted": "You force the unfamiliar {0} and ruin it. {1} Metalworking would have known better.",
   "almanactcm:honed-mark": "Honed. Its edge finds the gaps in armour.",

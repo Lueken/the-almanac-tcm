@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
@@ -65,8 +65,13 @@ public static class MasDomain
             [TechMortar] = new() { Raw = 3, K = 14 },
             // Per dressed slab / per rubble conversion: the recurring stonecraft, medium.
             [TechDress] = new() { Raw = 2, K = 18 },
-            // Freeform voxel carving, no completion: tiny raw, high K (so babysitting one block dedups out).
-            [TechChisel] = new() { Raw = 1, K = 24 },
+            // Freeform voxel carving, no completion: small raw, high K (so babysitting one block
+            // dedups out). Raw 1 -> 2 (LGD-75, Silas 2026-09-22): a chisel-builder's grants come
+            // one per block per real minute, and at raw 1 the toasts read 0.3-1.0 per block-minute
+            // against a miner's ~2 per swing. Doubling the raw halves the felt gap; the per-pos
+            // per-minute dedup still bounds the tap-a-prepared-row rate, and the 50-point cap
+            // share bounds the day.
+            [TechChisel] = new() { Raw = 2, K = 24 },
         },
         Bonus = new Dictionary<string, double>
         {

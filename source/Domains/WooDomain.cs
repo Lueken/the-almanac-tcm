@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
@@ -147,6 +147,18 @@ public static class WooDomain
             // practice in one swing (a WOO technique saturates against Smax/m = 33.3).
             [FellLogKnee] = 12,
             [FellLogCap] = 24,
+            // Station-verb tail floors (LGD-80, Silas via Frostbound/Quire 2026-09-23, RULED
+            // 0.5/act 2026-09-25). The saturation tail paid ~0.19 a log by the 28th log of an
+            // in-game day, and a plank build saws far past that. Each floor is 0.5 banked per
+            // ACT expressed per RAW unit (saw/hew/pound raw 4 -> 0.125; chop raw 3 -> 1/6), so
+            // the curve follows MM to ~log 15, pays a flat 0.5 to the cap at ~log 37, then the
+            // ledger says the day is settled instead of trailing into homeopathy. Felling and
+            // planting keep pure MM: felling is per-block with its own knee/cap, and planting
+            // is seed-limited.
+            [TechSawing + Config.DomainConfig.FloorKnobSuffix] = 0.125,
+            [TechHewing + Config.DomainConfig.FloorKnobSuffix] = 0.125,
+            [TechPounding + Config.DomainConfig.FloorKnobSuffix] = 0.125,
+            [TechChopping + Config.DomainConfig.FloorKnobSuffix] = 0.5 / 3,
         }
     };
 

@@ -26,8 +26,35 @@ day: the straw has nothing left to teach you.
 
 Credit to yaro and LauCaRo for framing it as a feature instead of an exploit.
 
-Thanks to **Silas** for asking whether it was the 3am tick or a bug. It was both: the growth
-really does land at the boundary, and the message really was a bug.
+**Steady work now pays a steady wage.** Sawing, chopping, hewing and pounding pay generously at
+the start of a day and less for each repeat — that is the Almanac working as intended — but on a
+real build day the numbers trailed into homeopathy: by the thirtieth log a saw cut paid a fifth
+of a point, and a slab build saws far past thirty. The falling curve now stops falling at half a
+point. From about the fifteenth log the work pays a flat 0.5 until the day's sawing is full, and
+then the Almanac says so, once — today's sawing is settled, tomorrow will teach more — instead of
+counting ever-smaller slivers at you. The full day lands around the 37th log and is slightly
+larger than before, because the floor actually reaches the ceiling the old curve only crept
+toward. Felling and planting are untouched; their pacing was never the complaint.
+
+**Masonry pays like the trade it is.** Two changes for the mason. Chisel work banks double per
+block: carving pays once per block per minute, the slowest practice in the book, and at the old
+rate a detailed carve read like no practice at all. And slab dressing was quietly eating most of
+a working dresser's grants — pull ten granite bricks from a slab inside a minute and nine paid
+nothing. Dressing now pays per slab and per output at a working pace, about what a miner earns at
+the face. What did not change: placing stone still pays nothing. Building-as-practice was
+masonry's first design and it was dropped on purpose, because place-and-break is the sapling farm
+in stone. The mason's verbs are the quarry, the mortar and the chisel.
+
+Thanks to **Silas** for all three reports this release: the phantom mana message, the sawyer's
+falling numbers, and the mason's thin ledger — and for asking whether the mana was the 3am tick
+or a bug. It was both: the growth really does land at the boundary, and the message really was
+wrong.
+
+**Server keepers:** four new WOO `Bonus` knobs (`sawingFloorPerRaw`, `hewingFloorPerRaw`,
+`poundingFloorPerRaw` at 0.125; `choppingFloorPerRaw` at 0.1667 — the floor is banked-per-raw, so
+each works out to 0.5 per act at shipped raws; 0 disables and restores the old curve, and the
+same suffix works on any technique in any domain). MAS `chisel` raw goes 1 to 2 in `Techniques`.
+All of it self-merges; hand-tuned rows are preserved; no config deletion.
 
 ---
 

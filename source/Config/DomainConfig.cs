@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace AlmanacTcm.Config;
@@ -82,6 +82,15 @@ public class DomainConfig
     /// <summary>Bonus knob → value as SHIPPED at the last write. Same contract as above.</summary>
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, double> ShippedBonusBaseline { get; set; } = new();
+
+    /// <summary>Suffix for the per-technique tail-floor Bonus knob (LGD-80): the key
+    /// "{technique}FloorPerRaw" (e.g. "sawingFloorPerRaw") sets the minimum banked per raw unit
+    /// once the saturation curve's marginal value falls below it. The floored curve pays the
+    /// floor until the technique's cap, REACHES the cap, then pays zero — the wall the ledger
+    /// announces once per day. Lives in Bonus because Bonus takes part in the three-way merge;
+    /// a TechniqueConfig field would never reach an existing server (fingerprint is "raw|k").
+    /// 0 or absent = pure Michaelis-Menten, unchanged.</summary>
+    public const string FloorKnobSuffix = "FloorPerRaw";
 
     /// <summary>The fingerprint format the baseline stores. Invariant culture on purpose: a
     /// server on a comma-decimal locale must still match a baseline written elsewhere.</summary>

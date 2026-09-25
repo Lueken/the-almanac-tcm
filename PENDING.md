@@ -1104,9 +1104,46 @@ NOT run in game. NOT restarted.
   Dummy detection is vanilla-only by code (`strawdummy`); a modded dummy earns the list by
   review, not by name. Knobs live in MEL `Bonus`, RAN reads them via `MelDomain.Knob`.
 
+- **The station-verb tail floor (LGD-80, Silas, ruled 0.5/act 2026-09-25).** The saturation
+  tail paid ~0.19 a log by the 28th log of a day and kept falling; the request was a floor.
+  Built honestly, wall included: `SaturationMath.BankedFloored` follows the MM curve while its
+  marginal value per raw exceeds the floor, then pays exactly the floor until the technique cap
+  — the segments meet where MM's slope equals the floor (x* = sqrt(smax·K/floor) − K), so there
+  is no mid-day sag and no snap-back, and the curve REACHES the cap instead of approaching it.
+  Past the cap every act pays exactly zero, which pure MM never does, so zero-earned-with-floor
+  IS the wall signal: the ledger says "today's sawing is settled, tomorrow will teach more" once
+  per technique per day (`FeedbackEntry.SettledBoundary`) and suppresses the +0 toasts. Floors
+  live in `Bonus` as `{technique}FloorPerRaw` because `Techniques` merges by "raw|k" fingerprint
+  — a new TechniqueConfig field would never reach an existing server. Shipped on the four WOO
+  station verbs at 0.5/act (saw/hew/pound raw 4 → 0.125, chop raw 3 → 1/6). Sawing: floor from
+  log 15, day full at log 38 with the whole 33.3 (was ~29 at 45 logs). Chopping: floor from act
+  17, full at 53. Depth-phase off-dominant scales the floored curve whole (floor becomes
+  0.25×), deliberately. Felling/planting floorless (per-block knee/cap and seed-limited); the
+  say-nay decay techniques are floorless too and must stay so — but the two compose safely
+  anyway, since the floor is per RAW and decayed acts carry almost none. Verified numerically:
+  monotone, continuous at x*, wall where predicted.
+
+- **Masonry retune (LGD-75, Silas; option ruled 2026-09-25).** All four MAS seams confirmed
+  hooked on the live 0.5.13 server first (StoneQuarryRepacked 3.6.3 keeps the stock
+  `StoneQuarry.*` type names — checked in the DLL, then in the boot log). Two changes: `chisel`
+  raw 1 → 2 (`Techniques` fingerprint merge delivers it unless the row was hand-tuned), and the
+  dress dedup loosened from per-output-type-per-minute to per-slab-pos + output type + 10s
+  bucket — `StoneSlabInventory` sets `InventoryBase.Pos`, and Harmony accepts the base-typed
+  `__instance`, so no reflection and no hard reference. Pull ten bricks in a minute: nine used
+  to pay nothing, now the pace is ~12 raw/min, about a miner's. Null `Pos` (the inventory's
+  static serialization path) falls back to the old minute bucket. The building verb (grant on
+  placing stone) is explicitly NOT added: it was masonry's original design and was dropped for
+  the place/break loop; Jeffrey reconfirmed the drop 2026-09-25.
+
 Files: `source/Domains/ArcPatches.cs`, `source/Domains/MelRanKillPatches.cs`,
-`source/Domains/MelDomain.cs`, `assets/almanactcm/lang/en.json`. Branch: none, on `main`.
-Builds clean, 0 errors.
+`source/Domains/MelDomain.cs`, `source/Engine/SaturationMath.cs`, `source/Engine/LedgerSystem.cs`,
+`source/Config/DomainConfig.cs`, `source/Domains/WooDomain.cs`, `source/Domains/MasDomain.cs`,
+`source/Domains/MasPatches.cs`, `assets/almanactcm/lang/en.json`. Branch: none, on `main`.
+Builds clean, 0 errors, no warnings in the changed files.
+
+Zip `Releases/almanactcm_0.5.14.zip` built, sha256 `557f9fedce47e15b`, 25 entries (identical
+entry list to 0.5.13), new strings verified in the Release DLL by exact byte search, copy staged
+in `~/Downloads`.
 
 NOT run in game. NOT deployed.
 

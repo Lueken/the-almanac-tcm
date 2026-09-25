@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.CompilerServices;
 using System.Text;
 using HarmonyLib;
@@ -99,14 +99,24 @@ public static class MasPatches
     /// <summary>Slab dressing produces a stack via GetContent (server-side, on a successful dress). Grant
     /// the dress verb to the mason AND apply the Axis-4 yield lever: scale the dressed stack by MAS rank,
     /// the fractional part rolling as a chance of an extra unit (a master gets more bricks per slab).</summary>
-    public static void DressContentPostfix(IPlayer byPlayer, ItemStack __result)
+    public static void DressContentPostfix(InventoryBase __instance, IPlayer byPlayer, ItemStack __result)
     {
         if (__result == null || byPlayer is not IServerPlayer sp) return;
         var world = sp.Entity?.World;
         if (world == null) return;
 
-        Core?.Ledger?.Log(byPlayer, MasDomain.Code, MasDomain.TechDress,
-            HashCode.Combine("dress", __result.Collectible?.Id ?? 0, (int)(world.ElapsedMilliseconds / 60000)));
+        // Dedup loosened per-type-per-minute -> per-slab-pos-per-type-per-10s (LGD-75, ruled
+        // 2026-09-25): the minute bucket ate most of a working dresser's grants — pull ten
+        // granite bricks in a minute and nine paid nothing. StoneSlabInventory sets
+        // InventoryBase.Pos to its slab, so each slab now pays per output type every 10s
+        // (~12 raw/min flat out, the pace a miner earns at the face). Pos is null on the
+        // inventory's static serialization path; fall back to the old minute bucket there.
+        var pos = __instance?.Pos;
+        int ctx = pos != null
+            ? HashCode.Combine("dress", pos.X, pos.Y, pos.Z, __result.Collectible?.Id ?? 0,
+                (int)(world.ElapsedMilliseconds / 10000))
+            : HashCode.Combine("dress", __result.Collectible?.Id ?? 0, (int)(world.ElapsedMilliseconds / 60000));
+        Core?.Ledger?.Log(byPlayer, MasDomain.Code, MasDomain.TechDress, ctx);
 
         double mult = MasDomain.DressYield(MasDomain.LevelOf(byPlayer));
         if (mult == 1.0) return;

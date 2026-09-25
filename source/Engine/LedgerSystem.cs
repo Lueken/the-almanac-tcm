@@ -34,7 +34,7 @@ public class LedgerSystem
 
     /// <summary>Effective per-technique raw values with ifModPresent scaling pre-applied
     /// (mod presence is static per session).</summary>
-    private readonly Dictionary<string, Dictionary<string, (double raw, double k)>> effective = new();
+    private readonly Dictionary<string, Dictionary<string, (double raw, double k, double floor)>> effective = new();
 
     /// <summary>All known ledgers, keyed by player UID (kept across relogs).</summary>
     private readonly Dictionary<string, PracticeLedger> ledgers = new();
@@ -264,7 +264,7 @@ public class LedgerSystem
                 TcmLog.Error(sapi, $"{domain.Code} TierTotals invalid ({e.Message}), using built-in defaults");
             }
 
-            var effectiveTechs = new Dictionary<string, (double raw, double k)>();
+            var effectiveTechs = new Dictionary<string, (double raw, double k, double floor)>();
             foreach (var (name, tech) in domainConfig.Techniques)
             {
                 double raw = tech.Raw;
@@ -272,7 +272,8 @@ public class LedgerSystem
                 {
                     raw *= tech.RawScale;
                 }
-                effectiveTechs[name] = (raw, tech.K);
+                domainConfig.Bonus.TryGetValue(name + DomainConfig.FloorKnobSuffix, out double floor);
+                effectiveTechs[name] = (raw, tech.K, floor);
             }
             effective[domain.Code] = effectiveTechs;
 
@@ -324,7 +325,7 @@ public class LedgerSystem
         double raw = 1.0, k = 50.0;
         if (effective.TryGetValue(domainCode, out var techs) && techs.TryGetValue(technique, out var e))
         {
-            (raw, k) = e;
+            (raw, k) = (e.raw, e.k);
         }
         else
         {
@@ -388,6 +389,9 @@ public class LedgerSystem
         public double Raw;
         public long LastSentMs;
         public bool Pending;
+        /// <summary>Boundary index at which this technique's settled-for-today line was sent,
+        /// so the wall speaks once per day and never again until tomorrow.</summary>
+        public long SettledBoundary = long.MinValue;
     }
 
     /// <summary>Coalesced practice feedback, keyed uid|domain|technique.
@@ -469,6 +473,21 @@ public class LedgerSystem
         double earned = EarnedDelta(player, domain, entry.Technique, raw, x);
         double settlingToday = BankedSoFar(player, domain, entry.Technique, x);
 
+        // Under a tail floor the curve genuinely reaches its cap, and past it every act pays
+        // exactly zero. Pure MM never gets there, so zero earned with a floor configured IS
+        // the wall: say the day is settled, once, instead of toasting +0 forever (LGD-80).
+        if (earned <= 0 && FloorOf(domain.Code, entry.Technique) > 0)
+        {
+            long settledBoundary = CurrentBoundary();
+            if (entry.SettledBoundary != settledBoundary)
+            {
+                entry.SettledBoundary = settledBoundary;
+                SendInfoLine(player, "almanactcm:technique-settled",
+                    domain.DisplayName, entry.Technique);
+            }
+            return;
+        }
+
         if (config.PracticeGainMessages)
         {
             SendInfoLine(player, "almanactcm:practice-gain",
@@ -495,13 +514,19 @@ public class LedgerSystem
         string? dominant = depthPhase
             ? LedgerFor(player).DominantTechnique(domain.Code, CurrentBoundary(), config.DominantWindowDays)
             : null;
-        double k = effective.TryGetValue(domain.Code, out var techs)
-                   && techs.TryGetValue(technique, out var e) ? e.k : 50.0;
+        (double k, double floor) = effective.TryGetValue(domain.Code, out var techs)
+                   && techs.TryGetValue(technique, out var e) ? (e.k, e.floor) : (50.0, 0.0);
         double smax = dc.Smax * SmaxScaleProvider(player, domain);
 
         return SaturationMath.TechniqueBanked(x, k, smax, dc.M,
-            depthPhase, technique == dominant, config.DepthOffTechniqueWeight);
+            depthPhase, technique == dominant, config.DepthOffTechniqueWeight, floor);
     }
+
+    /// <summary>The configured tail floor for a technique (Bonus knob "{technique}FloorPerRaw"),
+    /// 0 when absent — and 0 means pure Michaelis-Menten, no wall.</summary>
+    private double FloorOf(string domainCode, string technique)
+        => effective.TryGetValue(domainCode, out var techs)
+           && techs.TryGetValue(technique, out var e) ? e.floor : 0;
 
     /// <summary>The marginal value of the practice just logged: what the accumulator is worth
     /// now, less what it was worth before. This is the honest "you earned this much" figure,
@@ -682,11 +707,13 @@ public class LedgerSystem
                 : null;
             System.Func<string, double> kOf = t =>
                 effective[domain.Code].TryGetValue(t, out var e) ? e.k : 50.0;
+            System.Func<string, double> floorOf = t =>
+                effective[domain.Code].TryGetValue(t, out var e) ? e.floor : 0.0;
 
             double smax = dc.Smax * SmaxScaleProvider(player, domain);
             double banked = depthPhase
-                ? SaturationMath.DepthBanked(accs, kOf, smax, dominant, config.DepthOffTechniqueWeight)
-                : SaturationMath.BreadthBanked(accs, kOf, smax, dc.M);
+                ? SaturationMath.DepthBanked(accs, kOf, floorOf, smax, dominant, config.DepthOffTechniqueWeight)
+                : SaturationMath.BreadthBanked(accs, kOf, floorOf, smax, dc.M);
 
             primaryBanked[domain.Code] = banked;
             totals.TryGetValue(domain.Code, out double t0);
@@ -698,7 +725,7 @@ public class LedgerSystem
             {
                 double techBanked = SaturationMath.TechniqueBanked(
                     x, kOf(technique), smax, dc.M, depthPhase, technique == dominant,
-                    config.DepthOffTechniqueWeight);
+                    config.DepthOffTechniqueWeight, floorOf(technique));
                 ledger.RecordHistory(domain.Code, technique, boundary, techBanked);
 
                 if (dc.Techniques.TryGetValue(technique, out TechniqueConfig? tc))
@@ -834,11 +861,13 @@ public class LedgerSystem
                 : null;
             System.Func<string, double> kOf = t =>
                 effective[domain.Code].TryGetValue(t, out var e) ? e.k : 50.0;
+            System.Func<string, double> floorOf = t =>
+                effective[domain.Code].TryGetValue(t, out var e) ? e.floor : 0.0;
 
             double smax = dc.Smax * SmaxScaleProvider(player, domain);
             double banked = depthPhase
-                ? SaturationMath.DepthBanked(accs, kOf, smax, dominant, config.DepthOffTechniqueWeight)
-                : SaturationMath.BreadthBanked(accs, kOf, smax, dc.M);
+                ? SaturationMath.DepthBanked(accs, kOf, floorOf, smax, dominant, config.DepthOffTechniqueWeight)
+                : SaturationMath.BreadthBanked(accs, kOf, floorOf, smax, dc.M);
 
             primaryBanked[domain.Code] = banked;
             totals.TryGetValue(domain.Code, out double t0);
@@ -850,7 +879,7 @@ public class LedgerSystem
                 if (tc.CoGrants.Count == 0) continue;
                 double techBanked = SaturationMath.TechniqueBanked(
                     x, kOf(technique), smax, dc.M, depthPhase, technique == dominant,
-                    config.DepthOffTechniqueWeight);
+                    config.DepthOffTechniqueWeight, floorOf(technique));
                 foreach (var (targetCode, share) in tc.CoGrants)
                 {
                     totals.TryGetValue(targetCode, out double prev);
