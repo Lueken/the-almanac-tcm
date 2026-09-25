@@ -1,4 +1,4 @@
-using AlmanacTcm.Config;
+﻿using AlmanacTcm.Config;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 
@@ -29,6 +29,15 @@ public static class MelDomain
 
     /// <summary>The swing verb: a melee kill (blade/spear/blunt are pool, ruled).</summary>
     public const string TechFighting = "fighting";
+
+    // ---- Straw-dummy training (RULED 2026-09-25, LGD-86, all five axes accepted). The dummy
+    // is the Untrained-to-Novice on-ramp: hits pay, kills never do, and the value fades to zero
+    // at Apprentice I because straw cannot teach what a live opponent teaches. One set of knobs
+    // for both callings (RAN reads these via MelDomain.Knob); the FADE runs on each calling's
+    // own rank, and the say-nay pools are separate scopes so an archer and a swordsman each get
+    // a full drill.
+    public const string DummyTrainMul = "dummyTrainMul";   // raw multiplier per hit at Untrained
+    public const string DummyTrainFree = "dummyTrainFree"; // full-pay hits per day per calling
     /// <summary>The defensive verb (ADOPTED by ruling: "this will help promote the use of
     /// it"): a successful block or parry of a hostile blow.</summary>
     public const string TechBlocking = "blocking";
@@ -92,6 +101,9 @@ public static class MelDomain
         },
         Bonus = new Dictionary<string, double>
         {
+            // Straw-dummy training: ~30 drilled hits a morning at half raw while Untrained.
+            [DummyTrainMul] = 0.5,
+            [DummyTrainFree] = 30,
             [RawParryMul] = 1.5,
             [DamageUntrained] = 0.85,
             [ArmorUntrained] = 0.30,
@@ -164,6 +176,10 @@ public static class MelDomain
     }
 
     /// <summary>A Bonus knob, falling back to the shipped default if the server dropped it.</summary>
+    /// <summary>The training fade: 1.0 at Untrained, linear to zero at Apprentice I (level 5).
+    /// The moment real opponents teach you, straw stops.</summary>
+    public static double DummyFade(int level) => level >= 5 ? 0.0 : 1.0 - level / 5.0;
+
     public static double Knob(string key, double fallback)
     {
         var configs = AlmanacTcmModSystem.ServerInstance?.Ledger?.DomainConfigs;

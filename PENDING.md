@@ -1087,7 +1087,26 @@ NOT run in game. NOT restarted.
   moves. The real answer to Silas' question is also true: the pool DOES rise at the 3am
   boundary, when Arcana ranks up; that path is untouched.
 
-Files: `source/Domains/ArcPatches.cs`. Branch: none, on `main`. Builds clean, 0 errors.
+- **The training yard (LGD-86, ruled 2026-09-25, all five axes accepted by Jeffrey).** The straw
+  dummy was paying the full MEL/RAN kill grant on death (it is an EntityAgent that walks every
+  fence), so "training" meant beating equipment to death and rebuilding it. Inverted:
+  - **Hits pay, kills never do.** Each landed hit routes to `TrainingHit` BEFORE bleed
+    attribution and engagement (no combat music on a dummy), paying the calling's staple verb at
+    `dummyTrainMul` (0.5) x the training fade x the say-nay curve. Context is per-hit by elapsed
+    ms, deliberately: a drill IS repetition, the day pool is the governor
+    (`dummyTrainFree` 30, decay 0.1, separate scopes `MEL:dummy` / `RAN:dummy`).
+  - **The fade** (`MelDomain.DummyFade`): 1.0 Untrained, linear to zero at Apprentice I, run on
+    the hitting calling's own rank. Straw cannot teach what a live opponent teaches.
+  - **The kill fence:** `strawdummy` excluded from the death grant; breaking it is pure loss.
+  - **Vanilla HP untouched** (100), per the ruling: with per-hit pay the death is now a cost.
+  - **The graduation line**, once per day per calling once the fade ends: "The straw has nothing
+    left to teach you."
+  Dummy detection is vanilla-only by code (`strawdummy`); a modded dummy earns the list by
+  review, not by name. Knobs live in MEL `Bonus`, RAN reads them via `MelDomain.Knob`.
+
+Files: `source/Domains/ArcPatches.cs`, `source/Domains/MelRanKillPatches.cs`,
+`source/Domains/MelDomain.cs`, `assets/almanactcm/lang/en.json`. Branch: none, on `main`.
+Builds clean, 0 errors.
 
 NOT run in game. NOT deployed.
 

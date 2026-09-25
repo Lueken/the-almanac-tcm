@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using HarmonyLib;
 using ProtoBuf;
 using Vintagestory.API.Common;
+using Vintagestory.API.Config;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Server;
 
@@ -121,8 +122,18 @@ public static class MelRanKillPatches
             if (__instance is not EntityAgent) return;
             if (cause is not EntityPlayer attacker || attacker.PlayerUID == null) return;
 
-            // Player -> mob: record the wound (bleed attribution) AND engage the hitter.
             bool ranged = damageSource!.SourceEntity != null && damageSource.SourceEntity != cause;
+
+            // The training yard (RULED 2026-09-25, LGD-86): a straw dummy is equipment, not an
+            // opponent, so a hit on one is a drill, never a wound. Routed BEFORE attribution and
+            // engagement on purpose: no bleed credit, no combat-music engage, no kill setup.
+            if (IsTrainingDummy(__instance))
+            {
+                TrainingHit(attacker.Player, ranged);
+                return;
+            }
+
+            // Player -> mob: record the wound (bleed attribution) AND engage the hitter.
             lastAttacker[__instance.EntityId] =
                 new LastHit(attacker.PlayerUID, ranged, __instance.World.ElapsedMilliseconds);
             SendEngaged(attacker.Player, __instance.EntityId);
@@ -150,6 +161,7 @@ public static class MelRanKillPatches
         if (entity is EntityPlayer) return;          // PvP zero, by construction (ruling 4)
         if (entity is not EntityAgent) return;       // falling blocks, item stacks: not combat
         if (IsCombatExcluded(entity)) return;        // livestock predicate (ruling 5)
+        if (IsTrainingDummy(entity)) return;         // equipment, not quarry (LGD-86): hits paid the drill; the death is pure loss
 
         IPlayer? player = null;
         bool ranged = false;
@@ -238,6 +250,51 @@ public static class MelRanKillPatches
     private static bool IsTemporalCreature(string first) =>
         first == "drifter" || first.StartsWith("shiver") || first.StartsWith("bowtorn")
         || first.StartsWith("bell") || first.StartsWith("locust");
+
+    // ------------------------------------------------------------ the training yard (LGD-86)
+
+    /// <summary>Vanilla's straw dummy, by code. Deliberately vanilla-only for now: a modded
+    /// "dummy" earns its way onto this list by being reviewed, not by its name.</summary>
+    private static bool IsTrainingDummy(Entity entity) =>
+        entity?.Code?.FirstCodePart() == "strawdummy";
+
+    /// <summary>Once-per-day-per-calling throttle for the graduation line.</summary>
+    private static readonly Dictionary<string, int> dummyNothingSaid = new();
+
+    /// <summary>The drill: each landed hit pays the calling's staple verb at
+    /// dummyTrainMul x the training fade x the say-nay curve. Fade runs on the HITTING
+    /// calling's own rank (a Novice archer still drills even if her sword arm is Master), and
+    /// the say-nay scopes are separate pools per calling. Context is per-hit by elapsed ms:
+    /// a drill IS repetition, so the 90s ring must not eat it; the day pool is the governor.
+    /// When the fade has ended and the player keeps swinging, the Almanac says why, once a
+    /// day: the straw has nothing left to teach.</summary>
+    private static void TrainingHit(IPlayer? player, bool ranged)
+    {
+        if (player == null || sapi == null) return;
+        string domain = ranged ? RanDomain.Code : MelDomain.Code;
+        int level = ranged ? RanDomain.LevelOf(player) : MelDomain.LevelOf(player);
+        double fade = MelDomain.DummyFade(level);
+        int day = (int)sapi.World.Calendar.TotalDays;
+
+        if (fade <= 0)
+        {
+            string key = player.PlayerUID + "|" + domain;
+            if (dummyNothingSaid.TryGetValue(key, out int last) && last == day) return;
+            dummyNothingSaid[key] = day;
+            (player as IServerPlayer)?.SendMessage(GlobalConstants.InfoLogChatGroup,
+                Lang.GetL((player as IServerPlayer)?.LanguageCode ?? "en", "almanactcm:dummy-nothing-left"),
+                EnumChatType.Notification);
+            return;
+        }
+
+        double mult = MelDomain.Knob(MelDomain.DummyTrainMul, 0.5) * fade
+            * Engine.RepeatDecay.Mult(player.PlayerUID, domain + ":dummy", day,
+                (int)MelDomain.Knob(MelDomain.DummyTrainFree, 30), 0.1);
+
+        Core?.Ledger?.Log(player, domain,
+            ranged ? RanDomain.TechShooting : MelDomain.TechFighting,
+            HashCode.Combine("dummy", sapi.World.ElapsedMilliseconds), mult, announceRepeat: false);
+    }
 
     /// <summary>The arcane bestiary: the seven Rustbound Magic creatures that spawn hostile in the
     /// world, verified against RBM 4.0.4's own assets (all seven carry spawnconditions and

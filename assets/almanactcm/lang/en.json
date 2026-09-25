@@ -56,6 +56,7 @@
   "almanactcm:bore-exact": "{0}: first at {1} down, runs to {2}.",
   "almanactcm:bore-near": "{0}: first struck near {1} down.",
   "almanactcm:pan-whisper": "The wash carries a trace of {0}.",
+  "almanactcm:dummy-nothing-left": "The straw has nothing left to teach you.",
   "almanactcm:cfg-sep-hunter": "Hunter's Eye",
   "almanactcm:cfg-focus-delay": "Focus delay (seconds)",
   "almanactcm:cfg-focus-delay-c": "How long you must hold a crouched look before the tracker's read resolves. 0 shows it instantly.",

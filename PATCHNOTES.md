@@ -14,6 +14,18 @@ cast in bursts at a small pool, you heard that message a lot, and the bar never 
 the message was wrong, not the bar. The false level-up no longer fires at all. Your pool still
 grows the real way: rank up Arcana, wake up larger.
 
+**The straw dummy is a training dummy now, on purpose.** Players found that beating a straw
+dummy to death paid combat practice like killing a wolf, so training meant destroying your own
+equipment and building another. Inverted, and made a real mechanic: every landed hit on a dummy
+now pays melee or ranged practice, at half rate while Untrained and fading to nothing by
+Apprentice, because straw teaches a beginner footwork and cannot teach what a live opponent
+teaches. About thirty drilled hits a morning pay in full, then the day's drill is done. Killing
+the dummy pays nothing at all anymore; keep it standing and the training yard becomes something a
+settlement builds once. When you have outgrown it and swing anyway, the Almanac tells you, once a
+day: the straw has nothing left to teach you.
+
+Credit to yaro and LauCaRo for framing it as a feature instead of an exploit.
+
 Thanks to **Silas** for asking whether it was the 3am tick or a bug. It was both: the growth
 really does land at the boundary, and the message really was a bug.
 
