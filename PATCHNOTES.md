@@ -4,6 +4,21 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.14 (unreleased)
+
+**"Your maximum mana has increased." No it hadn't.** With Arcana installed, mana growth comes
+from your Arcana rank, settling at the boundary like every other calling. But Rustbound Magic's
+own casting-experience counter could still trip its level-up in the moment between two of the
+Almanac's bookkeeping passes, announce the increase, and have it immediately taken back. If you
+cast in bursts at a small pool, you heard that message a lot, and the bar never moved, because
+the message was wrong, not the bar. The false level-up no longer fires at all. Your pool still
+grows the real way: rank up Arcana, wake up larger.
+
+Thanks to **Silas** for asking whether it was the 3am tick or a bug. It was both: the growth
+really does land at the boundary, and the message really was a bug.
+
+---
+
 ## 0.5.13 (2026-09-21)
 
 The pan finds its voice.

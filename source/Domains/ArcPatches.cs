@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -331,6 +331,26 @@ public static class ArcPatches
             TcmLog.Info(api, "ARC inscription grant hooked (scroll scribing -> inscription verb)");
         }
         else TcmLog.Cat(api, TcmLog.Config, "ARC inscription seam absent (rustboundmagic); inscription grant inactive");
+
+        // The phantom mana level-up (LGD-79, Silas on The Quire 2026-09-23: "seeing mana gain
+        // messages in chat but mana bar does not increase"). The re-root freezes RBM's casting
+        // XP every 2s reconcile, but a burst of casts inside one window can still cross the
+        // level threshold, which is CHEAP at low pools (maxExp = pool^~1.35, so ~22 XP at pool
+        // 10). RBM then increments PlayerMaxMana and announces "Your maximum mana has
+        // increased." — and the next reconcile clamps the pool straight back to the ARC-rank
+        // floor. The player hears growth, repeatedly, and sees none. Mana growth is re-rooted
+        // to ARC rank BY DESIGN, so this level-up must never fire at all: skipping it at the
+        // source kills the phantom message and the two-second pool flicker together. The
+        // answer to "does it apply at the 3am rest tick": yes — the pool rises when Arcana
+        // ranks up at consolidation, and that path is untouched here.
+        var knowledge = AccessTools.TypeByName("rustboundmagic.src.common.entitybehavior.EntityBehaviorMagicKnowledgeRM");
+        var levelUp = knowledge == null ? null : AccessTools.DeclaredMethod(knowledge, "IncreasePlayerMaxManaByOne");
+        if (levelUp != null)
+        {
+            harmony.Patch(levelUp, prefix: new HarmonyMethod(AccessTools.Method(typeof(ArcPatches), nameof(SkipManaLevelUpPrefix))));
+            TcmLog.Info(api, "ARC phantom mana level-up suppressed (IncreasePlayerMaxManaByOne skipped; pool growth rides ARC rank)");
+        }
+        else TcmLog.Cat(api, TcmLog.Config, "ARC mana level-up seam absent (rustboundmagic); the phantom max-mana message may still appear");
 
         // Stage 2b — the LABORATORY verb (§5): station ritual work. The one clean, real-gameplay ritual is
         // the Spellforge spell-DISCOVERY (the 90/75/50 research bench). Grant on the ATTEMPT — the labor IS
@@ -783,6 +803,11 @@ public static class ArcPatches
     /// <summary>Grant ARC at a real cast (not a scroll). __instance is the SpellBase being cast — read its
     /// School (string) + Tier off it directly. The school picks the verb, the tier weights the grant. Also
     /// re-wipe the cast's XP add so nothing accumulates toward an RBM level-up between reconciles.</summary>
+    /// <summary>Skips RBM's casting-XP mana level-up entirely while the re-root owns the pool
+    /// (LGD-79). Returning false suppresses the original: no PlayerMaxMana++, no "Your maximum
+    /// mana has increased." message the reconcile would immediately give the lie to.</summary>
+    public static bool SkipManaLevelUpPrefix() => false;
+
     public static void CastPostfix(object __instance, EntityPlayer byPlayer, bool isspellscrollIn)
     {
         if (isspellscrollIn || byPlayer?.World?.Side != EnumAppSide.Server) return;

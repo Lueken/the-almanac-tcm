@@ -1,4 +1,4 @@
-﻿# PENDING: almanactcm 0.5.13 (unreleased)
+﻿# PENDING: almanactcm 0.5.14 (unreleased)
 
 Heading corrected 2026-09-19: it had said 0.5.9 while the file carried 0.5.10 and 0.5.11 sections
 too. The shipped sections are deliberately left in place rather than emptied, because the deploy
@@ -1073,6 +1073,23 @@ Pushed to GitHub at `7a5b124`; ModDB changelogs written for both 0.5.12 and 0.5.
 staged in `~/Downloads`, uploads are Jeffrey's to post). Linear LGD-72/73/77 annotated Done.
 
 NOT run in game. NOT restarted.
+
+## Staged in 0.5.14
+
+- **The phantom mana level-up suppressed (LGD-79, Silas on The Quire).** Root cause read from a
+  decompile of RBM 4.0.4: `EntityBehaviorMagicKnowledgeRM.IncreasePlayerMaxManaByOne` fires when
+  casting XP crosses `pool^~1.35` (about 22 XP at pool 10), increments `PlayerMaxMana` and sends
+  "Your maximum mana has increased." The ARC re-root freezes that XP every 2s reconcile, but a
+  burst of casts inside one window still crosses the threshold at low pools; the next reconcile
+  clamps the pool back to the ARC-rank floor. So the player hears growth repeatedly and sees
+  none. Fixed at the source: a conditional Harmony prefix skips the method entirely while the
+  re-root owns the pool (no increment, no message, no 2s flicker). Warns-and-skips if the seam
+  moves. The real answer to Silas' question is also true: the pool DOES rise at the 3am
+  boundary, when Arcana ranks up; that path is untouched.
+
+Files: `source/Domains/ArcPatches.cs`. Branch: none, on `main`. Builds clean, 0 errors.
+
+NOT run in game. NOT deployed.
 
 ## Not in the zip, needed at deploy time
 
