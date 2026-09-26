@@ -1147,6 +1147,14 @@ in `~/Downloads`.
 
 NOT run in game. NOT deployed.
 
+## Deployed
+
+**0.5.14 DEPLOYED to The Quire 2026-09-26, loads at next restart.**
+`Releases/almanactcm_0.5.14.zip`, sha256 557f9fedce47e15b, server readback verified identical;
+0.5.13 renamed aside to `.stale`. Jeffrey's client profile synced (hash-verified). Deployed in
+one restart-batch with themarginaliaconjunction 0.3.14 and thequire 0.1.49. ModDB upload is
+Jeffrey's to post from the same zip (copy in ~/Downloads).
+
 ## Not in the zip, needed at deploy time
 
 - **COO `TierTotals` does not propagate.** It is not part of the three-way config merge (only

@@ -4,7 +4,7 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
-## 0.5.14 (unreleased)
+## 0.5.14 (2026-09-26)
 
 **"Your maximum mana has increased." No it hadn't.** With Arcana installed, mana growth comes
 from your Arcana rank, settling at the boundary like every other calling. But Rustbound Magic's
