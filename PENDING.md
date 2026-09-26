@@ -1162,11 +1162,20 @@ NOT run in game. NOT deployed.
   no XP; and COO quern/mixing seams where the actor is present by construction. Unrecorded
   igniters (auto-relight on load) still pay nobody.
 
+- **Stonebound proc detector made blind to routine drops (yaro, Frostbound, 2026-09-26;
+  wrapped into 0.5.14 pre-restart).** The 0.5.13 before/after item-entity count fired on every
+  layer because every layer drops routine stone + spoil as item entities — yaro saw prospecting
+  outpace mining from plain rubble digging. Verified against 1.1.6's rubbledroptable.json + the
+  GeoAddons patch: always-drop entries are exclusively stone-*/spoil-*, every chance-gated entry
+  is ore-*. `IsProcWorthy` now filters the count to non-stone/non-spoil items. Data-shaped, not
+  law: a future table adding a different always-drop family would over-pay again (noted in the
+  file header).
+
 ## Deployed
 
 **0.5.14 DEPLOYED to The Quire 2026-09-26, loads at next restart.**
-`Releases/almanactcm_0.5.14.zip`, sha256 2ebd888db9cad79e (REBUILT pre-restart with the offline
-escrow, superseding 557f9fedce47e15b), server readback verified identical, client profile and
+`Releases/almanactcm_0.5.14.zip`, sha256 1b5cd5354ef1679c (REBUILT pre-restart twice: the offline escrow superseding
+557f9fedce47e15b, then the Stonebound proc filter superseding 2ebd888db9cad79e), server readback verified identical, client profile and
 TAI-test resynced and hash-verified;
 0.5.13 renamed aside to `.stale`. Jeffrey's client profile synced (hash-verified). Deployed in
 one restart-batch with themarginaliaconjunction 0.3.14 and thequire 0.1.49. ModDB upload is

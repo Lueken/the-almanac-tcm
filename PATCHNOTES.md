@@ -46,6 +46,15 @@ exactly as if you had been standing there. Five verbs carried the fault and all 
 pit-kiln firing, charcoal-pit burning, animal births, the alchemist's cauldron and reaction
 vessel, and the foundry.
 
+**Stonebound rubble no longer pays prospecting for plain digging.** 0.5.13 promised a
+prospecting bonus only when a rubble layer's loot roll actually turned up a mineral, and paid it
+on essentially every layer instead: the proc detector counted every dropped item, and every layer
+drops its routine stone and spoil as items. Verified against Stonebound's own drop tables, the
+routine drops are exclusively the stone and spoil families and every chance-gated entry is an
+ore, so the detector now ignores stone and spoil and prospecting fires only when the ground
+genuinely answered. Plain rubble digging pays mining alone, as ruled. Thanks to yaro for catching
+the gap between the patch note and the numbers, again.
+
 **Masonry pays like the trade it is.** Two changes for the mason. Chisel work banks double per
 block: carving pays once per block per minute, the slowest practice in the book, and at the old
 rate a detailed carve read like no practice at all. And slab dressing was quietly eating most of
