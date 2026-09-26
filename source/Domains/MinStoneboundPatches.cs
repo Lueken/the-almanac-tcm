@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -31,6 +31,15 @@ namespace AlmanacTcm.Domains;
 /// path to read), so counting the world is the only seam that does not re-implement their
 /// table. A player standing in a pile of dropped items could in principle mask a proc or fake
 /// one by throwing something mid-swing; both cost more than the co-grant pays.
+///
+/// THE COUNT IS BLIND TO ROUTINE DROPS (fixed 2026-09-26, yaro's Frostbound report: more
+/// prospecting than mining from plain rubble digging). The 0.5.13 build counted EVERY item
+/// entity, and every layer drops its routine stone + spoil as item entities, so the "rare"
+/// proc fired on essentially every layer. Verified against 1.1.6's rubbledroptable.json and
+/// the GeoAddons patch: the always-drop entries are exclusively the stone-* and spoil-*
+/// families, and every chance-gated entry is an ore-* item — so the counter now ignores
+/// stone/spoil and a proc is a new item of any OTHER family. A future table that adds a
+/// different always-drop family would over-pay again; the filter is data-shaped, not law.
 /// </summary>
 public static class MinStoneboundPatches
 {
@@ -80,7 +89,17 @@ public static class MinStoneboundPatches
 
         private static int NearbyItems(IWorldAccessor world, BlockPos pos) =>
             world.GetEntitiesAround(pos.ToVec3d().Add(0.5, 0.5, 0.5), 2f, 2f,
-                e => e is EntityItem).Length;
+                e => e is EntityItem item && IsProcWorthy(item)).Length;
+
+        /// <summary>True for item entities that could only have come from a loot PROC: the
+        /// routine layer drops (stone-*, spoil-*) never count, so plain rubble digging pays
+        /// mining alone and prospecting fires only when the ground actually answered.</summary>
+        private static bool IsProcWorthy(EntityItem item)
+        {
+            string? path = item.Itemstack?.Collectible?.Code?.Path;
+            if (path == null) return false;
+            return !path.StartsWith("stone-") && !path.StartsWith("spoil-");
+        }
 
         public static void Prefix(IWorldAccessor world, BlockPos pos, out State __state)
         {
