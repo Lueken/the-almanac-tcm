@@ -757,7 +757,14 @@ public static class ArcPatches
             return;
         }
         IPlayer? owner = worldIn.PlayerByUid(uid);
-        if (owner == null) return;  // owner offline; this product's credit is lost, the stamp survives
+        if (owner == null)
+        {
+            // Offline owner: escrowed, banks at next login (LGD-96). The stamp survives as before.
+            Core?.Ledger?.LogOffline(uid, "foundry owner " + uid, ArcDomain.Code, ArcDomain.TechLaboratory,
+                HashCode.Combine("labfoundry", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
+                    (int)(worldIn.ElapsedMilliseconds / 10000)));
+            return;
+        }
         TcmLog.Cat(__instance.Api, "arc", $"foundry at {__instance.Pos} minted a product -> laboratory credit for {owner.PlayerName}");
         Core?.Ledger?.Log(owner, ArcDomain.Code, ArcDomain.TechLaboratory,
             HashCode.Combine("labfoundry", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,

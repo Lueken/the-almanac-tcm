@@ -390,7 +390,22 @@ public static class PotPatches
         IPlayer? owner = p.Length >= 3 ? sapi?.World.PlayerByUid(p[0]) : null;
         if (owner == null)
         {
-            TcmLog.Cat(__instance.Api, "pot", $"kiln fired at {__instance.Pos}: igniter {(p.Length >= 2 ? p[1] : "unknown")} offline or unrecorded; firing credit lost (marks carried)");
+            // Offline igniter: the credit escrows to their ledger and banks at next login
+            // (LGD-96, Brick's ModDB report — a burn is long enough that finishing offline
+            // is the NORMAL case on a server, and nobody should set kitchen timers for what
+            // they already earned). An unrecorded igniter (auto-relight on load) stays lost.
+            if (p.Length >= 3)
+            {
+                Core?.Ledger?.LogOffline(p[0], p[1], PotDomain.Code, PotDomain.TechFiring,
+                    HashCode.Combine("firing", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
+                        (int)((serverWorld?.ElapsedMilliseconds ?? 0) / 600000)),
+                    convertedPieces);
+                TcmLog.Cat(__instance.Api, "pot", $"kiln fired at {__instance.Pos}: {convertedPieces} piece(s) converted; igniter {p[1]} offline -> firing credit escrowed (marks carried)");
+            }
+            else
+            {
+                TcmLog.Cat(__instance.Api, "pot", $"kiln fired at {__instance.Pos}: igniter unrecorded; firing credit lost (marks carried)");
+            }
             return;
         }
         Core?.Ledger?.Log(owner, PotDomain.Code, PotDomain.TechFiring,

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
@@ -37,6 +37,7 @@ public static class WooColliderPatches
     // MinConditionalPatches: a finalizer rewraps a method's exception handling and cost us the
     // 0.3.43 stamina regression).
     [ThreadStatic] private static IPlayer? collier;
+    [ThreadStatic] private static string? collierUid;
     [ThreadStatic] private static int scaledBlocks;
     [ThreadStatic] private static BlockPos? pitPos;
 
@@ -65,6 +66,7 @@ public static class WooColliderPatches
         public static void Prefix(BlockEntityCharcoalPit __instance)
         {
             collier = null;
+            collierUid = null;
             scaledBlocks = 0;
             pitPos = null;
             if (__instance?.Api?.Side != EnumAppSide.Server) return;
@@ -75,6 +77,7 @@ public static class WooColliderPatches
             if (string.IsNullOrEmpty(uid)) return; // pit lit by fire spread, no owner — leave vanilla
 
             collier = __instance.Api.World.PlayerByUid(uid);
+            collierUid = uid;
             pitPos = __instance.Pos?.Copy();
         }
 
@@ -83,11 +86,22 @@ public static class WooColliderPatches
             // ConvertPit early-returns when WalkPit fails (a broken pit converts nothing) and a
             // postfix cannot see that. scaledBlocks is the honest witness: it only ticks from
             // inside the WalkPit callback, so >0 means the pit really converted.
-            if (collier != null && scaledBlocks > 0 && pitPos != null)
+            if (scaledBlocks > 0 && pitPos != null)
             {
-                Core?.Ledger?.Log(collier, WooDomain.Code, WooDomain.TechBurning, pitPos.GetHashCode());
+                if (collier != null)
+                {
+                    Core?.Ledger?.Log(collier, WooDomain.Code, WooDomain.TechBurning, pitPos.GetHashCode());
+                }
+                else if (collierUid != null)
+                {
+                    // Offline collier: a pit burns for hours, and hours is exactly when people
+                    // log off. Escrowed to their ledger; banks at next login (LGD-96).
+                    Core?.Ledger?.LogOffline(collierUid, "collier " + collierUid, WooDomain.Code,
+                        WooDomain.TechBurning, pitPos.GetHashCode());
+                }
             }
             collier = null;
+            collierUid = null;
             scaledBlocks = 0;
             pitPos = null;
         }

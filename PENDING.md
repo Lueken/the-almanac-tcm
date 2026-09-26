@@ -1147,10 +1147,27 @@ in `~/Downloads`.
 
 NOT run in game. NOT deployed.
 
+- **Offline completions escrow their credit (LGD-96, Brick via ModDB, ruled into 0.5.14
+  pre-restart).** Every completion seam that resolved its earner via PlayerByUid dropped the
+  grant when they were offline — deliberately, per the old unattended-birth posture, and wrong
+  at scale (burns are long; offline completion is the common case). New
+  `LedgerSystem.LogOffline(uid, name, domain, technique, ctx, rawMult)`: writes raw straight to
+  the UID-keyed accumulator (persisted in the ledger file), dedup ring still applies, and the
+  at-login consolidation banks it at the boundary that passed. Skips what needs a live player
+  (maxed guard — ClampToCeiling still rules; first-knowledge; reveal; feedback), all of which
+  self-correct at next online practice. Converted seams: POT firing (with convertedPieces
+  multiplier), WOO burning, ANI gen-raising births (with GenRaiseMult), ALC potion cook +
+  reaction vessel, ARC foundry. Left alone on purpose: level-read LEVERS (ALC stove fuel
+  economy, ANI litter proc, breeder-level genetics context) — they need a live level and lose
+  no XP; and COO quern/mixing seams where the actor is present by construction. Unrecorded
+  igniters (auto-relight on load) still pay nobody.
+
 ## Deployed
 
 **0.5.14 DEPLOYED to The Quire 2026-09-26, loads at next restart.**
-`Releases/almanactcm_0.5.14.zip`, sha256 557f9fedce47e15b, server readback verified identical;
+`Releases/almanactcm_0.5.14.zip`, sha256 2ebd888db9cad79e (REBUILT pre-restart with the offline
+escrow, superseding 557f9fedce47e15b), server readback verified identical, client profile and
+TAI-test resynced and hash-verified;
 0.5.13 renamed aside to `.stale`. Jeffrey's client profile synced (hash-verified). Deployed in
 one restart-batch with themarginaliaconjunction 0.3.14 and thequire 0.1.49. ModDB upload is
 Jeffrey's to post from the same zip (copy in ~/Downloads).

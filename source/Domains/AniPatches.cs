@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -297,7 +297,13 @@ public static class AniPatches
         IPlayer? owner = dam.World.PlayerByUid(uid);
         if (owner == null)
         {
-            TcmLog.Cat(dam.World.Api, "ani", $"birth: {dam.Code?.FirstCodePart()} dam #{dam.EntityId} raisedBy {uid} who is OFFLINE; this birth's credit is lost");
+            // Offline breeder: births come when they come. Escrowed to their ledger;
+            // banks at next login (LGD-96).
+            int genOffline = dam.WatchedAttributes!.GetInt("generation", 0) + 1;
+            Core?.Ledger?.LogOffline(uid, "breeder " + uid, AniDomain.Code, AniDomain.TechGenRaising,
+                HashCode.Combine("birth", dam.EntityId, dam.World.ElapsedMilliseconds / 1000),
+                AniDomain.GenRaiseMult(genOffline));
+            TcmLog.Cat(dam.World.Api, "ani", $"birth: {dam.Code?.FirstCodePart()} dam #{dam.EntityId} raisedBy {uid} who is OFFLINE; gen-raising credit escrowed");
             return;
         }
         TcmLog.Cat(dam.World.Api, "ani", $"birth: {dam.Code?.FirstCodePart()} dam #{dam.EntityId} -> gen-raising credit for {owner.PlayerName}");

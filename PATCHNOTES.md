@@ -36,6 +36,16 @@ counting ever-smaller slivers at you. The full day lands around the 37th log and
 larger than before, because the floor actually reaches the ceiling the old curve only crept
 toward. Felling and planting are untouched; their pacing was never the complaint.
 
+**What finishes while you sleep still pays.** Reported from ModDB by Brick, precisely: three pit
+kilns lit before logging out, finished overnight, paid nothing — because the credit was handed to
+the igniter at burn completion, and an offline player has no hands. That was a deliberate early
+design, and it was wrong at scale: kilns and charcoal pits are long burns, finishing offline is
+the normal case on a server, and nobody should set kitchen timers to collect what they already
+earned. Now the credit is written into your ledger anyway and settles the moment you next log in,
+exactly as if you had been standing there. Five verbs carried the fault and all five are fixed:
+pit-kiln firing, charcoal-pit burning, animal births, the alchemist's cauldron and reaction
+vessel, and the foundry.
+
 **Masonry pays like the trade it is.** Two changes for the mason. Chisel work banks double per
 block: carving pays once per block per minute, the slowest practice in the book, and at the old
 rate a detailed carve read like no practice at all. And slab dressing was quietly eating most of

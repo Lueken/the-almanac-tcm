@@ -616,16 +616,57 @@ public class LedgerSystem
         return duplicate;
     }
 
-    public PracticeLedger LedgerFor(IPlayer player)
+    public PracticeLedger LedgerFor(IPlayer player) => LedgerForUid(player.PlayerUID);
+
+    public PracticeLedger LedgerForUid(string playerUid)
     {
-        if (!ledgers.TryGetValue(player.PlayerUID, out PracticeLedger? ledger))
+        if (!ledgers.TryGetValue(playerUid, out PracticeLedger? ledger))
         {
             // A brand-new ledger anchors to the current boundary: no phantom
             // back-consolidations for first-time players.
             ledger = new PracticeLedger { LastConsolidatedBoundary = CurrentBoundary() };
-            ledgers[player.PlayerUID] = ledger;
+            ledgers[playerUid] = ledger;
         }
         return ledger;
+    }
+
+    /// <summary>The offline half of Log (LGD-96, from Brick's ModDB report: three pit kilns
+    /// finished overnight and paid nothing). A completion seam whose earner has logged off
+    /// writes its raw straight to the earner's UID-keyed accumulator — which already persists
+    /// in the ledger file and survives disconnects — and the at-login consolidation then banks
+    /// it at the boundary that passed, exactly as if they had been standing there when the burn
+    /// finished. Deliberately skipped, because each needs a live player and self-corrects at
+    /// their next online practice: the maxed-out guard (ClampToCeiling still rules at
+    /// consolidation), the first-knowledge write, the hidden-domain reveal, the TEM fray
+    /// scaling (no escrowed verb is TEM's), and all feedback. The dedup ring still applies —
+    /// it lives on the ledger, not the player.</summary>
+    public void LogOffline(string? playerUid, string playerName, string domainCode,
+        string technique, int contextHash, double rawMultiplier = 1.0)
+    {
+        if (string.IsNullOrEmpty(playerUid)) return;
+        Domain? domain = template.FindDomain(domainCode);
+        if (domain == null || !domain.Enabled) return;
+
+        double raw = 1.0;
+        if (effective.TryGetValue(domainCode, out var techs) && techs.TryGetValue(technique, out var e))
+        {
+            raw = e.raw;
+        }
+        else
+        {
+            TcmLog.Warn(sapi, $"unconfigured technique {domainCode}/{technique} (offline escrow), using raw=1");
+        }
+        if (rawMultiplier != 1.0) raw = System.Math.Max(0, raw * rawMultiplier);
+        if (raw <= 0) return;
+
+        PracticeLedger ledger = LedgerForUid(playerUid!);
+        if (IsDuplicateContext(ledger, domainCode, technique, contextHash)) return;
+
+        var accs = ledger.AccumulatorsFor(domainCode);
+        accs.TryGetValue(technique, out double x);
+        accs[technique] = x + raw;
+        TcmLog.Cat(sapi, TcmLog.Ledger,
+            $"{playerName} (offline) {domainCode}/{technique} +{raw:0.##} -> x={accs[technique]:0.##} escrowed; banks at their next login");
     }
 
     private long CurrentBoundary()

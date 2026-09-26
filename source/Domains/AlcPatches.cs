@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -214,7 +214,12 @@ public static class AlcPatches
         IPlayer? owner = sapi?.World.PlayerByUid(p[0]);
         if (owner == null)
         {
-            TcmLog.Cat(fp.Api, "alc", $"potion cooked at {fp.Pos}: {p[1]} offline; ALC credit lost (Brand stamped, {(potent ? "Potent" : "Lasting")})");
+            // Offline tender: the simmer outlasting the session is normal, not negligence.
+            // Escrowed to their ledger; banks at next login (LGD-96).
+            Core?.Ledger?.LogOffline(p[0], p[1], AlcDomain.Code, AlcDomain.TechRemedy,
+                HashCode.Combine("potioncook", outStack.Collectible.Code.Path,
+                    (int)((serverWorld?.ElapsedMilliseconds ?? 0) / 60000)));
+            TcmLog.Cat(fp.Api, "alc", $"potion cooked at {fp.Pos}: {p[1]} offline; ALC credit escrowed (Brand stamped, {(potent ? "Potent" : "Lasting")})");
             return;
         }
         Core?.Ledger?.Log(owner, AlcDomain.Code, AlcDomain.TechRemedy,
@@ -249,7 +254,14 @@ public static class AlcPatches
         string[] p = packed.Split('|');
         if (p.Length < 1) return;
         IPlayer? owner = sapi?.World.PlayerByUid(p[0]);
-        if (owner == null) return; // offline: chemistry credit lost (unattended completion)
+        if (owner == null)
+        {
+            // Offline charger: escrowed, banks at next login (LGD-96).
+            Core?.Ledger?.LogOffline(p[0], p.Length >= 2 ? p[1] : p[0], AlcDomain.Code, AlcDomain.TechChemistry,
+                HashCode.Combine("reaction", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
+                    (int)((serverWorld?.ElapsedMilliseconds ?? 0) / 60000)));
+            return;
+        }
         Core?.Ledger?.Log(owner, AlcDomain.Code, AlcDomain.TechChemistry,
             HashCode.Combine("reaction", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
                 (int)((serverWorld?.ElapsedMilliseconds ?? 0) / 60000)));
