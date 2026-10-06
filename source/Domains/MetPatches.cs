@@ -572,7 +572,7 @@ public static class MetPatches
     [HarmonyPatch(typeof(BlockEntityAnvil), nameof(BlockEntityAnvil.CheckIfFinished))]
     public static class AnvilFinishPatch
     {
-        public static void Prefix(BlockEntityAnvil __instance, out int __state)
+        public static void Prefix(BlockEntityAnvil __instance, IPlayer byPlayer, out int __state)
         {
             __state = __instance.SelectedRecipeId;
             string? uid = __instance.WorkItemStack?.Attributes.GetString(SmithAttr);
@@ -581,7 +581,14 @@ public static class MetPatches
             pendingOutputId = __instance.SelectedRecipe?.Output?.ResolvedItemstack?.Collectible?.Id ?? 0;
             pendingOutputCode = __instance.SelectedRecipe?.Output?.ResolvedItemstack?.Collectible?.Code?.Path;
 
-            if (__instance.Api?.Side == EnumAppSide.Server && __state != -1)
+            // byPlayer != null is the helve-hammer guard (0.5.16). Vanilla calls
+            // CheckIfFinished from three places and one of them is onHelveHitSuccess
+            // (BlockEntityAnvil:547 in 1.22.7), which passes null on EVERY automated
+            // hit. A powered helve therefore emitted one line per strike, several a
+            // second, and the Postfix below discards exactly those calls because it
+            // early-returns on a null player. The log was recording work that was
+            // then thrown away. A real player's strike still traces.
+            if (__instance.Api?.Side == EnumAppSide.Server && __state != -1 && byPlayer != null)
             {
                 TcmLog.Cat(__instance.Api, TcmLog.Hooks,
                     $"anvil finish prefix: recipe={__state}, workitem={(__instance.WorkItemStack == null ? "null" : "present")}, stamp={(uid ?? "NONE")}");

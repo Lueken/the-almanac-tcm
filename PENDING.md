@@ -1,4 +1,9 @@
-﻿# PENDING: almanactcm 0.5.15 (unreleased)
+﻿# PENDING: almanactcm 0.5.16 (unreleased)
+
+Heading bumped 2026-10-06 (second time that day): 0.5.15 shipped to The Quire in the evening, so
+the next accumulating version is 0.5.16. **0.5.16 is deliberately being held to collect more work
+before a deploy**, because TCM is `requiredOnClient` and every release costs every player a client
+update. Do not ship it for the one log fix alone.
 
 Heading bumped 2026-10-06: it still said 0.5.14, which `## Deployed` records as shipped to The
 Quire on 2026-09-26. Anything appended under a stale heading reads as staged for a release that
@@ -1180,6 +1185,46 @@ NOT run in game. NOT deployed.
   is ore-*. `IsProcWorthy` now filters the count to non-stone/non-spoil items. Data-shaped, not
   law: a future table adding a different always-drop family would over-pay again (noted in the
   file header).
+
+## Staged in 0.5.16
+
+**HELD. Not built, not deployed.** Collecting work before a release, because TCM is
+`requiredOnClient` and a version costs every player an update. Version already bumped in both
+places (`modinfo.json`, `source/AlmanacTcmModSystem.cs:11`) so a build from this tree cannot
+mislabel itself as 0.5.15.
+
+### 1. The helve hammer stops spamming the anvil hook log
+
+Reported by Jeffrey from the live log, 2026-10-06 21:12, repeating:
+
+```
+[almanac:tcm:hooks] anvil finish prefix: recipe=18, workitem=present, stamp=KaLuYWwxIkUh2KuRnK5AUV44
+```
+
+Not a 0.5.15 regression. `git log -S` puts the line in `36f5eef`, "/tcm inspect + mark-chain
+diagnostics (0.2.5-dev)", so it has been there for thirteen releases. What makes it spam is the
+caller: vanilla calls `BlockEntityAnvil.CheckIfFinished` from three sites, and one of them is
+`onHelveHitSuccess` (`BlockEntityAnvil:547` in 1.22.7) which passes **null** on every automated
+hit. A powered helve therefore emits a line per strike, several a second.
+
+The sharp part: `AnvilFinishPatch.Postfix` early-returns on `byPlayer == null`, so every one of
+those logged calls was discarded immediately. The line was recording work that was then thrown
+away.
+
+Fix: the Prefix now takes `IPlayer byPlayer` (Harmony binds it by name from the original
+signature, which already had it) and logs only when it is non-null. Helve noise gone, a real
+smith's strike still traces.
+
+**Why not just turn verbose off.** `TcmLog.Cat` gates on one global `Verbose` flag with no
+per-category filter, so `VerboseDebugLogging: false` would silence ledger, consolidation,
+affinity, config and soil along with hooks. Verbose-on-by-default is the Almanac convention and
+should not be traded away for one noisy line.
+
+Worth considering before this ships: the line is still per-strike for a human smith, which is
+bounded but not quiet. It was written to debug the mark chain in 0.2.5-dev and that session is
+long over. Moving it to the Postfix, where completion is actually known, would make it one line
+per finished piece. Left as-is for now because it is a real diagnostic and the spam complaint is
+specifically the helve.
 
 ## Staged in 0.5.15
 
