@@ -1325,6 +1325,31 @@ that LGD-239 (knapping rank expression) may make unnecessary.
 
 ## Deployed
 
+**0.5.15 DEPLOYED to The Quire 2026-10-06, loads at next restart.**
+`Releases/almanactcm_0.5.15.zip`, sha256
+`b88732fe1598a40343bde8f669131f2188854c12af22934d86c1ecacb4ba1218`, 399,098 bytes.
+Readback from `data/Mods` is **byte-identical** (sha compared, not file size), the on-server
+`modinfo.json` reads 0.5.15, 25 entries, 0 backslash entries, and the dll decompresses.
+`almanactcm_0.5.14.zip` renamed aside to `.stale` in the same SFTP batch, so two zips of one
+modid never coexisted. Client profiles `The-Quire-Live-Server` and `TAI-test` both synced and
+hash-verified against the same zip, each with its 0.5.14 parked as `.stale`.
+
+Pushed to GitHub as `69e2f95`, `eea10cf`, `41243db` on `main`.
+
+**Deliberately NOT touched:** the `conjunction-test` and `Ingenium-test` client profiles still
+carry 0.5.11. They are pinned for other work and are not part of the Quire deploy path; bumping
+them silently could break whatever those tests hold constant.
+
+**The config half of this release was already live.** The Quire's `ModConfig/almanactcm/*.json`
+received the fourteen floors, the FOR gather knobs, the HUN hunting K and PAN `M: 2` by hand on
+2026-10-06, before the zip existed. At boot those keys will come back `AlreadyCurrent` (the merge
+tests `live == shipped` before the null-baseline branch), so the hand-set values survive and the
+baselines simply advance. Nothing in this deploy re-tunes them.
+
+**Not run in game yet.** Being exercised live from the next restart. What to watch on boot:
+`almanactcm 0.5.15` loads, zero fatals, every domain configured, and the config log reports no
+unexpected `keeping server-tuned` lines for the fourteen floor knobs.
+
 **0.5.14 DEPLOYED to The Quire 2026-09-26, loads at next restart.**
 `Releases/almanactcm_0.5.14.zip`, sha256 1b5cd5354ef1679c (REBUILT pre-restart twice: the offline escrow superseding
 557f9fedce47e15b, then the Stonebound proc filter superseding 2ebd888db9cad79e), server readback verified identical, client profile and
