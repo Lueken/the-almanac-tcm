@@ -71,6 +71,31 @@ public static class TaiDomain
     public const string FiberEconomyUntrained = "fiberEconomyUntrained";
     public const string FiberEconomyGm = "fiberEconomyGm";
 
+    /// <summary>Attended-machine discount (0.5.15, LGD-238): the raw multiplier on an ATTENDED
+    /// station cycle (the mounted wheel, the mounted loom) against the same verb done by hand.
+    /// The hand spindle and the grid stay at 1.0.
+    ///
+    /// Why a discount and not a blackout. Before this, the wheel and loom contexts bucketed on
+    /// `ElapsedMilliseconds / 60000`, so a machine cycling faster than a minute paid once a
+    /// minute and every other cycle hit the 90s dedup and banked exactly zero. Sixteen messages
+    /// in LGD-234 are that behaviour: "the chat logs XP only about 1 in 10, the rest say repeat
+    /// action". Lowering `DedupWindowSeconds` cannot fix it (the ring is enqueued on every call
+    /// including duplicates, so a running machine refreshes its own timestamp and the only escape
+    /// is the bucket rollover), and the one window short enough to help is shorter than any
+    /// machine's cadence and would void the place-and-rebreak guard globally.
+    ///
+    /// So the machine now registers EVERY cycle and pays this fraction of the hand rate, which is
+    /// the rule the server has been telling players all along ("you choose convenience for less
+    /// xp") and the one the code never implemented. The saturation curve, not a blackout, is the
+    /// daily governor.
+    ///
+    /// Precedent, both halves already in the tree: COO's quern pays nothing at all while
+    /// `automated` (an UNATTENDED machine earns no practice), and its per-grind bucket was cut
+    /// from 30s to 4s in 0.3.136 for exactly this reason, because "a 30s bucket collapsed a
+    /// 5-grain session into one credit, which under-read a per-action verb". Attended machine:
+    /// discounted. Unattended machine: zero. This knob is the first half.</summary>
+    public const string StationRawMult = "stationRawMult";
+
     /// <summary>Provenance tiers (a mark means something from Journeyman up): the TAI taiBy tag.
     /// Sewn by (J) -> Tailored by (M) -> Master-tailored by (GM). Level thresholds.</summary>
     // Rank thresholds moved to Leveling/Rank.cs (2026-08-12): this was one of ten identical
@@ -120,6 +145,8 @@ public static class TaiDomain
             [EmphasisBonus] = 0.08,
             // Fibre economy (Axis 2): a master draws more per fibre, an Untrained less.
             [FiberEconomyUntrained] = 0.90, [FiberEconomyGm] = 1.15,
+            // Attended station cycles pay half the hand rate, every cycle (LGD-238).
+            [StationRawMult] = 0.5,
         },
     };
 

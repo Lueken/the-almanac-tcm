@@ -112,11 +112,12 @@ public static class TaiPatches
     }
 
     /// <summary>Drawing twine off a full handheld spindle grants the spin verb (the economy is applied in
-    /// the prefix above). Deduped per player per minute of world time.</summary>
+    /// the prefix above). Every draw registers at the FULL hand rate: the spindle is a held tool, not a
+    /// station, and it shared GrantSpin's per-minute bucket only by accident (0.5.15, LGD-238).</summary>
     public static void SpindleExtractPostfix(IPlayer player)
     {
         if (player?.Entity?.World?.Side != EnumAppSide.Server) return;
-        GrantSpin(player, "spindle", player.Entity.EntityId);
+        GrantSpin(player, "spindle", player.Entity.EntityId, 1.0);
     }
 
     /// <summary>Each wheel output cycle grants the mounted tailor the spin verb, plus the fibre-economy
@@ -128,14 +129,22 @@ public static class TaiPatches
         if (__instance?.Api?.Side != EnumAppSide.Server) return;
         IPlayer? player = MountedPlayer(__instance);
         if (player == null) return;
-        GrantSpin(player, "wheel", HashCode.Combine(__instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z));
+        GrantSpin(player, "wheel", HashCode.Combine(__instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z),
+            TaiDomain.Knob(TaiDomain.StationRawMult, 0.5));
         EconomyBonusToSlot(player, OutputSlotOf(__instance));
     }
 
-    private static void GrantSpin(IPlayer player, string src, long saltA)
+    /// <summary>Monotonic salt for station grants (0.5.15, LGD-238). The context must be UNIQUE per
+    /// cycle so the 90s dedup ring cannot swallow a batch; the per-minute bucket it replaces was the
+    /// cause of "the chat logs XP only about 1 in 10, the rest say repeat action". Volume is governed
+    /// by the saturation curve and, for a station, by <see cref="TaiDomain.StationRawMult"/>.
+    /// Interlocked because loom and wheel block entities tick off the main thread.</summary>
+    private static int stationSeq;
+
+    private static void GrantSpin(IPlayer player, string src, long saltA, double mult)
     {
         Core?.Ledger?.Log(player, TaiDomain.Code, TaiDomain.TechSpin,
-            HashCode.Combine(src, saltA, (int)(player.Entity.World.ElapsedMilliseconds / 60000)));
+            HashCode.Combine(src, saltA, System.Threading.Interlocked.Increment(ref stationSeq)), mult);
     }
 
     // ------------------------------------------------------------ weaving
@@ -149,7 +158,8 @@ public static class TaiPatches
         if (player == null) return;
         Core?.Ledger?.Log(player, TaiDomain.Code, TaiDomain.TechWeave,
             HashCode.Combine("loom", __instance.Pos.X, __instance.Pos.Y, __instance.Pos.Z,
-                (int)(player.Entity.World.ElapsedMilliseconds / 60000)));
+                System.Threading.Interlocked.Increment(ref stationSeq)),
+            TaiDomain.Knob(TaiDomain.StationRawMult, 0.5));
         EconomyBonusToSlot(player, OutputSlotOf(__instance));
     }
 

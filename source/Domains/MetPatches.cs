@@ -561,6 +561,14 @@ public static class MetPatches
     /// bloom into an INGOT is not a finished work, only an actual smithed piece is.</summary>
     private static string? pendingOutputCode;
 
+    /// <summary>Monotonic salt for the two MET completion grants, smithing and casting (0.5.15,
+    /// LGD-238). Both contexts previously keyed on position alone (plus the recipe id for smithing),
+    /// so repeating the same piece at the same anvil or the same mold inside the 90s dedup window
+    /// banked zero. Both grants are edge-triggered on completion, so one increment is one finished
+    /// piece. Shared by the two nested patch classes; Interlocked because block entities tick off
+    /// the main thread.</summary>
+    private static int metActSeq;
+
     [HarmonyPatch(typeof(BlockEntityAnvil), nameof(BlockEntityAnvil.CheckIfFinished))]
     public static class AnvilFinishPatch
     {
@@ -586,8 +594,15 @@ public static class MetPatches
             // Completion = a recipe was selected going in and vanilla reset it (output taken).
             if (__state == -1 || __instance.SelectedRecipeId != -1) return;
 
+            // Context UNIQUE per finished piece (0.5.15, LGD-238). It was (recipeId, anvilPos), so a
+            // second knife at the same anvil inside the 90s dedup window banked exactly zero, which is
+            // Chanka's report verbatim: "forged shears between two knives but didn't get XP for that
+            // second knife. went too fast." An anvil is not a machine and a second knife is real work,
+            // so this pays at the full rate; the daily curve and the metal cost are the governors.
+            // Safe to make unique because this postfix is edge-triggered on COMPLETION (a recipe was
+            // selected going in and vanilla reset it), so it fires once per piece, never per strike.
             Core?.Ledger?.Log(byPlayer, MetDomain.Code, MetDomain.TechSmithing,
-                HashCode.Combine(__state, __instance.Pos));
+                HashCode.Combine(__state, __instance.Pos, System.Threading.Interlocked.Increment(ref metActSeq)));
 
             // First finished work of the player's OWN beginning: the workpiece stamp
             // (written at their first strike) matches the finisher. Bought, gifted, or
@@ -950,8 +965,12 @@ public static class MetPatches
             moldCasters[__instance.Pos.ToString()] =
                 (pouringPlayer.PlayerUID, pouringPlayer.PlayerName, MakerLevelOf(__instance.Api, pouringPlayer.PlayerUID));
 
+            // Context UNIQUE per completed cast (0.5.15, LGD-238). It was the mold position ALONE, so a
+            // second pour into the same mold inside the 90s window banked zero whatever the metal and
+            // whatever the tool. Edge-triggered on the not-full to full transition, so one grant per
+            // fill; the smelt cost and the daily curve are the governors.
             Core?.Ledger?.Log(pouringPlayer, MetDomain.Code, MetDomain.TechCasting,
-                HashCode.Combine(__instance.Pos));
+                HashCode.Combine(__instance.Pos, System.Threading.Interlocked.Increment(ref metActSeq)));
         }
     }
 
