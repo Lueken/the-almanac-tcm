@@ -4,6 +4,83 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.15 (2026-10-06)
+
+**"Repeated, nothing new learned." It had not been repeated.** Forge two knives back to back and
+the second paid nothing. Spin twenty thread on the wheel and the chat logged one in ten. Pour
+twice into the same mold and the second pour was free work. None of that was the daily curve
+doing its job, and I want to be plain about it: it was a guard I wrote to stop place-and-break
+farming, keyed too coarsely, catching honest batch production instead. The anvil's context was
+the recipe and the anvil, with no sense of time at all, so a second knife inside ninety seconds
+looked identical to the first one. The mold's context was the mold position alone, so a second
+pour read as the same pour whatever the metal. The wheel and loom bucketed by the minute, so a
+machine cycling faster than a minute could only ever earn once a minute and every cycle in
+between banked exactly zero.
+
+Every one of those now registers. The anvil and the mold pay in full, every finished piece,
+because an anvil is not a machine and a second knife is real work; the metal cost and the daily
+curve were always governor enough. The wheel and the loom pay for every cycle at half the hand
+rate, which is the rule people have been telling each other on the server for weeks and the rule
+the code never actually implemented. You choose convenience for less practice, not for none.
+
+The held spindle was caught in the same net and I had not noticed. Drawing twine off a spindle in
+your hand shared the wheel's per-minute throttle purely by accident of how the code was
+organised. A spindle is a tool, not a station. It pays in full now.
+
+Two machines people asked about, answered rather than changed. The panning machine earns nothing
+because it has never been wired for practice at all, which is a decision still to make and not a
+bug. And the quern was already right: a windmill-driven quern earns nothing on purpose, because
+nobody is attending it. That is the rule the rest of this follows. An attended machine is a
+discount. An unattended machine is zero.
+
+Thanks to **Pun** for the spinning-wheel log that started this, **Silas** for stating the
+intended rule long before the code agreed with him, **ComitatensSaxoni** for the loom and the
+batch-processing argument, and **The.Lord.Chanka** for the knives and for putting it better than I
+did: fear not the person who does 10,000 actions once, but one action 10,000 times.
+
+**Steady work pays a steady wage in nine more trades.** 0.5.14 put a floor under the sawyer. The
+same fading tail was under mining, quarrying, panning, prospecting, hunting, butchery, tanning,
+stone dressing, melee, blocking, remedies, clayforming, foraging and angling, and I only fixed
+the one that got reported. The sixtieth stone block of a day paid 0.14. It pays half a point now,
+and keeps paying half a point until the day's mining is genuinely full, and then the Almanac says
+so once instead of counting slivers at you. Sixty blocks used to bank 18.2 and now banks 30.6. A
+hundred blocks banks the day's whole value, where two hundred blocks used to fall short of it.
+You end up with more for less swinging, which was the point.
+
+Farming, cooking and tailoring keep the old curve deliberately. They were never the complaint.
+
+**Panning and prospecting could not fill a day.** Not slowly. Could not. A domain's daily value
+splits across the kinds of work in it, and panning was set to split three ways while owning only
+two verbs, so a panner who panned and prospected perfectly from dawn to dark was capped at two
+thirds of a day and the last third was unreachable by any route. My arithmetic, live since the
+domain shipped. Both verbs now saturate against half a day each, which fills the day and also
+widens the window before the curve bites, so a riverbank session reads like a session instead of
+two blocks of gravel and a shrug.
+
+Server operators: this one is a config value the updater cannot reach, same as the cooking
+ladder in 0.5.8. A new install gets it right. An existing server needs `"M": 2` written into
+`ModConfig/almanactcm/PAN.json` by hand, or panning stays capped.
+
+**Foraging stopped punishing you for picking more than four of a plant.** Four of a species a day
+paid in full and the fifth fell off a cliff, which meant filling a day's foraging took about
+twenty different species, which is not foraging, it is shopping. Twelve now, with a far gentler
+slope after. The curve exists to kill the plant-and-break sapling loop, and it still does, because
+that loop is one species. Picking a patch of mushrooms is not that and should never have been
+priced like it.
+
+**The first animal of the day matters again.** Hunting paid out so flatly that filling a day meant
+emptying a valley. The curve front-loads properly now: the first animal pays 8.3 where it paid
+3.9, and four to six animals is most of a day's hunting, which is a hunting trip. yaro raised the
+worry that the old pacing rewarded clearing the map, and he was right, and this is the shape he,
+**Pun** and **RazorTank** all independently asked for.
+
+Everything in this release came out of reading every XP comment on The Quire back to July
+alongside the reports from Thalius' Frostbound, and checking the engine against them instead of
+against my memory of it. Most of the reports were right. Twice they were right about something I
+had wrong.
+
+---
+
 ## 0.5.14 (2026-09-26)
 
 **"Your maximum mana has increased." No it hadn't.** With Arcana installed, mana growth comes

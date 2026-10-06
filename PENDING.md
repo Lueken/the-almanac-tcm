@@ -1,9 +1,19 @@
-﻿# PENDING: almanactcm 0.5.14 (unreleased)
+﻿# PENDING: almanactcm 0.5.15 (unreleased)
+
+Heading bumped 2026-10-06: it still said 0.5.14, which `## Deployed` records as shipped to The
+Quire on 2026-09-26. Anything appended under a stale heading reads as staged for a release that
+already went out, which is the exact failure this file exists to prevent.
 
 Heading corrected 2026-09-19: it had said 0.5.9 while the file carried 0.5.10 and 0.5.11 sections
 too. The shipped sections are deliberately left in place rather than emptied, because the deploy
 notes under them (the 0.5.11 config-deletion audit especially) are still the only record of what
 was checked and why.
+
+**Unresolved, for Jeffrey.** `## Last shipped` still reads 0.5.8 / 2026-09-10 while `## Deployed`
+reads 0.5.14 / 2026-09-26. Either "shipped" means the ModDB post and "deployed" means The Quire,
+in which case 0.5.9 through 0.5.14 never reached ModDB, or one of the two is simply stale. Left
+alone rather than guessed at, because this file is a record and the convention above is to append
+rather than rewrite.
 
 Everything staged for the next release, and nothing else. **Read this before building a zip or
 deploying.** The tree may hold work you did not put there, put in by a session you cannot see.
@@ -1171,6 +1181,148 @@ NOT run in game. NOT deployed.
   law: a future table adding a different always-drop family would over-pay again (noted in the
   file header).
 
+## Staged in 0.5.15
+
+Source: the LGD-234 XP rate pass (198 Discord messages, 2026-10-06). Analysis and arithmetic in
+`agentic-os/projects/briefs/vs-quire-server/2026-10-06_lgd-234-xp-rate-review.md`. Rollout tracker
+is LGD-240.
+
+**BUILT 2026-10-06, NOT DEPLOYED.** `Releases/almanactcm_0.5.15.zip`, sha256
+`b88732fe1598a40343bde8f669131f2188854c12af22934d86c1ecacb4ba1218`, 399,098 bytes, 25 entries,
+the same file set as 0.5.14 with zero added or removed. Packed with python `zipfile` and explicit
+forward-slash arcnames, verified 0 backslash entries and the in-zip `modinfo.json` reads 0.5.15.
+Build clean: 0 errors, 40 warnings all pre-existing in files this release does not touch.
+
+Version bumped in both places: `modinfo.json` and `source/AlmanacTcmModSystem.cs:11`.
+
+Not run in game yet. Items 1 and 2 below are what is in the zip; item 3 is deliberately absent.
+
+### 1. The station dedup blackout (LGD-238), the reason 0.5.15 exists
+
+The 90s context dedup (`LedgerSystem.IsDuplicateContext`) pays **exactly zero** on a repeat, and
+for the station verbs its context is coarse enough to catch honest batch production:
+
+| path | context today | effect |
+|---|---|---|
+| TAI wheel / loom | `(src, pos, ElapsedMs / 60000)` | at most one grant per minute per machine |
+| MET smithing | `(recipeId, anvilPos)` | second knife at one anvil inside 90s pays 0 |
+| MET casting | `(moldPos)` alone | second pour into one mold pays 0, any metal |
+| TAI hand grid | `(..., Interlocked.Increment(ref gridSeq))` | unique per call, never dedups, every craft pays |
+
+The hand grid is the only path where the saturation curve runs unobstructed, and it is the one
+path players describe as feeling right. **It is the reference behaviour; the stations are the
+defect.** This reverses the direction of LGD-219, which proposed adding a bucket to the grid.
+
+What shipped in the zip:
+
+- `TaiDomain.StationRawMult` (`stationRawMult`), new Bonus knob, default **0.5**
+- `TaiPatches.stationSeq`, an Interlocked monotonic salt. Wheel and loom contexts now carry it
+  instead of the minute bucket, so every cycle registers; both pass the knob as their `mult`
+- **`MetPatches.metActSeq`**, the same for the two MET completion grants. Smithing was
+  `(recipeId, anvilPos)` and casting was `(moldPos)` ALONE, both with no time term at all, so
+  repeating a piece at one anvil or one mold inside 90s banked zero. Both now carry the salt and
+  both stay at mult **1.0**: an anvil is not a machine and a second knife is real work. Safe to
+  make unique because both postfixes are edge-triggered on completion (smithing fires when a
+  selected recipe is reset; casting on the not-full to full transition), so one increment is one
+  finished piece, never one per strike
+
+**The handheld spindle was collateral and is fixed too.** `SpindleExtractPostfix` shared
+`GrantSpin` with the wheel, so drawing twine off a held spindle was ALSO throttled to one credit
+a minute. It now passes mult **1.0** explicitly: a spindle is a held tool, not a station, and it
+was never meant to carry the machine throttle. This is the same defect class as the wheel and it
+would have survived a narrower fix.
+
+Audit of the two machines players named, both resolved without code:
+
+- **The panning machine has no grant site at all.** The only reference in `PanPatches` is a
+  comment ("the Panning Machine's entity has no rank"). So "Panning machine gives zero xp" is
+  accurate and is not a dedup bug; wiring it is a feature decision, not a 0.5.15 fix.
+- **The quern is already correct, and is the precedent for this whole change.** `CooPatches:700`
+  returns early while `automated` is true, so a windmill-driven quern earns nothing by design,
+  and its per-grind bucket was already cut from 30s to 4s in 0.3.136 because "a 30s bucket
+  collapsed a 5-grain session into one credit, which under-read a per-action verb". That is the
+  same reasoning applied here. The resulting rule, stated: **attended machine, discounted;
+  unattended machine, zero.** The quern had the second half; this release adds the first.
+
+Resulting shape at spin Raw 2, K 20, slot 50: hand pays 16.7 / 25.0 / 33.3 / 40.0 at 5 / 10 / 20 /
+40 thread; the wheel at 0.5x pays 10.0 / 16.7 / 25.0 / 33.3. The hand stays better, the machine
+still pays, nothing returns a silent zero.
+
+**Config alone cannot do this, and it was checked rather than assumed.** `DedupWindowSeconds` is a
+cliff, not a dial: the ring is Enqueued on every call including dups, so a running machine keeps
+refreshing its own timestamp and the only escape is the minute-bucket rollover. A faithful replay
+of the algorithm over 100 spins at a 3s cadence pays 5 times at any window from 90s down to 5s,
+and 100 times at 2s. The one value that works is below every machine's cadence and would gut the
+place-and-rebreak guard globally, for saplings and chisel-undo too.
+
+### 2. Fold the wave 1 config numbers into source `Defaults()`
+
+These are **live on The Quire already**, applied by hand to `ModConfig/almanactcm/*.json` on
+2026-10-06 (see `## Not in the zip` below). They are not in source, so Frostbound, any other
+server and single-player still run the old curve. Compute each floor as `0.5 / Raw`, which is the
+convention both existing WOO floors already follow.
+
+Fourteen new `{technique}FloorPerRaw` Bonus knobs:
+
+```
+MinDomain   miningFloorPerRaw        0.4167   (0.5 / 1.2, anchored on the stone outcome)
+MinDomain   quarryingFloorPerRaw     0.0625
+PanDomain   panningFloorPerRaw       0.1667
+PanDomain   prospectingFloorPerRaw   0.1667
+HunDomain   huntingFloorPerRaw       0.125
+HunDomain   butcheryFloorPerRaw      0.5
+HunDomain   tanningFloorPerRaw       0.25
+MasDomain   dressFloorPerRaw         0.25
+MelDomain   fightingFloorPerRaw      0.125
+MelDomain   blockingFloorPerRaw      0.25
+AlcDomain   remedyFloorPerRaw        0.25
+PotDomain   clayformingFloorPerRaw   0.1667
+ForDomain   harvestingFloorPerRaw    0.25
+FisDomain   anglingFloorPerRaw       0.125
+```
+
+Plus:
+
+```
+ForDomain   gatherRepeatFree    4  -> 12
+ForDomain   gatherRepeatDecay  0.1 -> 0.5
+HunDomain   Techniques["hunting"].K   30 -> 12
+```
+
+Two traps, both load-bearing:
+
+- **Do NOT floor MIN knapping.** `RepeatDecay.Mult` scales raw UPSTREAM of the curve, so the
+  knapping accumulator freezes at x = 10.14 after eight knaps and banks 11.2 however long you
+  knap. Floors for curve-governed verbs, `free`/`decay` for decay-governed verbs, never both on
+  one technique expecting them to compose.
+- **Leave FAR, COO and TAI on pure MM.** A floor makes a day *completable*, which is worth roughly
+  +10 to 15% of realistic daily total, and those three are the domains already reported too fast.
+
+Verified before deploy: xStar > 0 on all fourteen, so no technique collapses to a flat wage from
+act zero. Three of the values in LGD-236 were wrong (`dress` 0.139, `remedy` 0.167, `angling`
+0.167) because they were retyped rather than computed; the table above is the corrected set and is
+what is live.
+
+### 3. PAN `M` 3 to 2 in the shipped default
+
+The wave 1 defect fix, now also the source default so a NEW install is not born broken. `M` is
+outside the merge, so this reaches new installs ONLY and every already-booted server still needs
+`"M": 2` hand-written into `ModConfig/almanactcm/PAN.json`. The Quire was done 2026-10-06.
+
+Caught late: the first 0.5.15 build folded the floors and the FOR/HUN values but left
+`PanDomain.M = 3`, so a fresh install would have shipped the defect the release claims to fix.
+Rebuilt and repacked.
+
+### 4. Explicitly NOT staged: the rest of the wave 2 `M` retune
+
+`MIN 3->2, ALC 3->2, ARC 5->4, TAI 2->3, COO 3->4, FAR 3->5` is held for Jeffrey's review
+(LGD-237, proposed 2026-10-13). PAN `M 3->2` already went out in wave 1 because it is a defect,
+not a tuning preference: two techniques against M=3 capped a panner at 66.7 of a 100 `Smax`, so a
+full day was impossible.
+
+Do not fold any wave 2 value into source until it is ruled. MIN's `M=2` in particular is a stopgap
+that LGD-239 (knapping rank expression) may make unnecessary.
+
 ## Deployed
 
 **0.5.14 DEPLOYED to The Quire 2026-09-26, loads at next restart.**
@@ -1187,6 +1339,35 @@ Jeffrey's to post from the same zip (copy in ~/Downloads).
   `Techniques` and `Bonus` are), so an already-booted server keeps its old ladder no matter what
   ships. Any server other than The Quire still needs the 0.5.8 array written into its
   `ModConfig/almanactcm/COO.json` by hand.
+
+- **`M` does not propagate either, same reason** (generalising the note above, confirmed
+  2026-10-06 at `LedgerSystem` 179-230: the merge walks `Techniques` and `Bonus`, `Adjacency` is
+  replaced wholesale at 248, and `M` / `Smax` / `TierTotals` are never written once a file
+  exists). So **PAN `M = 2` must be hand-written into every server's `PAN.json`.** It is not a
+  preference: two techniques against `M = 3` caps a panner at 66.7 of a 100 `Smax` and makes a
+  full day impossible. The Quire was done 2026-10-06. Frostbound and every other TCM server are
+  still broken until someone edits the file.
+
+- **The Quire already carries the wave 1 numbers by hand**, applied 2026-10-06 before 0.5.15
+  existed. Pre-change backup `.server-sync/pull/w1-before/`, applied set `w1-after/`, readback
+  `w1-verify/`. Consequence for this release: `gatherRepeatFree`, `gatherRepeatDecay` and
+  `hunting.K` were **existing** keys, so editing them pinned those three as server-tuned
+  (`live != baseline` means `KeepTuned` forever). If 0.5.15 ships different values for any of the
+  three, The Quire will keep its hand-set values and needs a manual edit. The fourteen
+  `FloorPerRaw` keys are clean: no baseline exists for them, so `Decide` returns
+  `KeepUnprovable` and the live value persists either way.
+
+- **Verified, no longer an assumption:** the merge DOES deliver brand-new `Bonus` keys to a live
+  server. The four WOO floors shipped in 0.5.14 are present in The Quire's `WOO.json`
+  (`sawingFloorPerRaw` 0.125, `hewingFloorPerRaw` 0.125, `poundingFloorPerRaw` 0.125,
+  `choppingFloorPerRaw` 0.1667). This is what makes item 2 above safe to ship as source defaults.
+
+- **Client update required.** `modinfo.json` is `side: universal` with `requiredOnClient: true`,
+  so 0.5.15 is not a server-only drop: ModDB page, website zip and Translocator all need it.
+  Bundle accordingly rather than spending a client update on one fix.
+
+- **Version lives in two places.** `modinfo.json` and `source/AlmanacTcmModSystem.cs:11`
+  (`Version = "0.5.14"`). Bump both.
 
 ## Last shipped
 
