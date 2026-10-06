@@ -101,6 +101,12 @@ public static class AlcDomain
         },
         Bonus = new Dictionary<string, double>
         {
+            // Tail floors, 0.5 XP per act (0.5.15, LGD-236/LGD-240). Same convention as
+            // WOO's shipped floors: floor = 0.5 / Raw, so the saturation tail pays a
+            // visible half-point an act instead of fading to 0.14, and the day REACHES its
+            // cap and says so once. Deployed by hand to The Quire 2026-10-06; these are
+            // those exact values, read back from the live config rather than retyped.
+            [TechRemedy + Config.DomainConfig.FloorKnobSuffix] = 0.25,
             // The Alchemist's Brand ladder (MET/COO numeric posture, playtest-tuned).
             [PotencyUntrained] = 0.85, [PotencyGm] = 1.15,
             [DurationUntrained] = 0.85, [DurationGm] = 1.15,

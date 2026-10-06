@@ -62,7 +62,18 @@ public static class PanDomain
     {
         Code = Code,
         Smax = 100,
-        M = 3,
+        // m = 2, not 3 (FIXED 0.5.15, LGD-237). PAN has exactly TWO techniques, and breadth phase
+        // caps each at Smax/m, so m = 3 capped a panner's theoretical maximum day at 2 x 33.33 =
+        // 66.67 of a 100 Smax. A player who panned and prospected perfectly, all day, every day,
+        // could not complete a day: there was no third verb to open. It also halved the slot the
+        // curve saturates against, which is the "panning is maxed out at like, 2 blocks of gravel"
+        // report. m must equal the verbs a practitioner can REACH, and here that is all of them.
+        //
+        // NOTE: m is NOT part of the three-way config merge (LedgerSystem 179-230 walks Techniques
+        // and Bonus only), so this default reaches NEW installs only. Every already-booted server
+        // needs 2 written into ModConfig/almanactcm/PAN.json by hand. The Quire was done
+        // 2026-10-06; see PENDING.md "Not in the zip, needed at deploy time".
+        M = 2,
         // The underground pairing (spelunker anchors both); MIN reciprocates in its own list.
         Adjacency = new List<string> { "MIN" },
         Techniques = new Dictionary<string, TechniqueConfig>
@@ -76,6 +87,13 @@ public static class PanDomain
         },
         Bonus = new Dictionary<string, double>
         {
+            // Tail floors, 0.5 XP per act (0.5.15, LGD-236/LGD-240). Same convention as
+            // WOO's shipped floors: floor = 0.5 / Raw, so the saturation tail pays a
+            // visible half-point an act instead of fading to 0.14, and the day REACHES its
+            // cap and says so once. Deployed by hand to The Quire 2026-10-06; these are
+            // those exact values, read back from the live config rather than retyped.
+            [TechPanning + Config.DomainConfig.FloorKnobSuffix] = 0.1667,
+            [TechProspecting + Config.DomainConfig.FloorKnobSuffix] = 0.1667,
             [PanYieldUntrained] = 0.85,
             [PanYieldGm] = 1.25,
             [TraceStrengthApprentice] = 0.35,

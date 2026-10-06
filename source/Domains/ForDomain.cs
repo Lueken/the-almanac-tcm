@@ -91,6 +91,12 @@ public static class ForDomain
         },
         Bonus = new Dictionary<string, double>
         {
+            // Tail floors, 0.5 XP per act (0.5.15, LGD-236/LGD-240). Same convention as
+            // WOO's shipped floors: floor = 0.5 / Raw, so the saturation tail pays a
+            // visible half-point an act instead of fading to 0.14, and the day REACHES its
+            // cap and says so once. Deployed by hand to The Quire 2026-10-06; these are
+            // those exact values, read back from the live config rather than retyped.
+            [TechHarvesting + Config.DomainConfig.FloorKnobSuffix] = 0.25,
             // Axis 4 / Axis 1: both vanilla stats, penalty below 1.0 at Untrained, GM ≈ x1.15
             // (the fractional part rolls as a CHANCE of a bonus unit, never doubling — vanilla
             // rounds these stats itself).
@@ -102,8 +108,8 @@ public static class ForDomain
             [NovelFindMultiplier] = 4.0,
             // Repeat decay: variety is what teaches. Four of a species pay full each day,
             // then the curve says nay.
-            [GatherRepeatFree] = 4,
-            [GatherRepeatDecay] = 0.1,
+            [GatherRepeatFree] = 12,
+            [GatherRepeatDecay] = 0.5,
             // Patch Stewardship: tend boost scales Apprentice 1.0d -> GM 2.5d against regrow
             // clocks of 10-20 days; the Untrained wound costs 1.5 days; Untrained taplines run
             // at roughly two-thirds speed. Nothing in this set ever destroys a source.

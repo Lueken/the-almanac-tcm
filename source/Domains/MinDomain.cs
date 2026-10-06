@@ -80,6 +80,13 @@ public static class MinDomain
         },
         Bonus = new Dictionary<string, double>
         {
+            // Tail floors, 0.5 XP per act (0.5.15, LGD-236/LGD-240). Same convention as
+            // WOO's shipped floors: floor = 0.5 / Raw, so the saturation tail pays a
+            // visible half-point an act instead of fading to 0.14, and the day REACHES its
+            // cap and says so once. Deployed by hand to The Quire 2026-10-06; these are
+            // those exact values, read back from the live config rather than retyped.
+            [TechMining + Config.DomainConfig.FloorKnobSuffix] = 0.4167,
+            [TechQuarrying + Config.DomainConfig.FloorKnobSuffix] = 0.0625,
             // Axis 2 (tuned live on The Quire 2026-07-15): Untrained tires fast, GM endurance
             // floor. Widened from ±0.15 to ±0.30 so a Grandmaster works ~1.9x longer at the
             // face than an Untrained miner — the felt Deep-Delver signature.

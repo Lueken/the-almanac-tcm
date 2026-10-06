@@ -65,7 +65,7 @@ public static class HunDomain
         Techniques = new Dictionary<string, TechniqueConfig>
         {
             // The marquee verb; species+second bucketed so a pack kill credits once.
-            [TechHunting] = new() { Raw = 4, K = 30 },
+            [TechHunting] = new() { Raw = 4, K = 12 },
             // Per-carcass; the dedup window absorbs double-fires, K caps the day.
             [TechDressing] = new() { Raw = 2, K = 30 },
             // Per-session trapline shape, small K (one sweep is most of the bank).
@@ -78,6 +78,14 @@ public static class HunDomain
         },
         Bonus = new Dictionary<string, double>
         {
+            // Tail floors, 0.5 XP per act (0.5.15, LGD-236/LGD-240). Same convention as
+            // WOO's shipped floors: floor = 0.5 / Raw, so the saturation tail pays a
+            // visible half-point an act instead of fading to 0.14, and the day REACHES its
+            // cap and says so once. Deployed by hand to The Quire 2026-10-06; these are
+            // those exact values, read back from the live config rather than retyped.
+            [TechHunting + Config.DomainConfig.FloorKnobSuffix] = 0.125,
+            [TechButchery + Config.DomainConfig.FloorKnobSuffix] = 0.5,
+            [TechTanning + Config.DomainConfig.FloorKnobSuffix] = 0.25,
             // Ruled 2026-07-17: Untrained widened to 0.70 (from 0.9) — Butchering's own drop
             // formula stacks stationTier (0.8-1.2) x animalWeight x THIS stat, so a green hand
             // needs a real penalty to feel it against a weight-inflated haul. GM stays a modest
