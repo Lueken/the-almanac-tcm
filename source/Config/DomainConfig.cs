@@ -11,6 +11,32 @@ namespace AlmanacTcm.Config;
 /// </summary>
 public class DomainConfig
 {
+    // ---------------------------------------------------------------- the generated help block
+    //
+    // ADDED 2026-10-07 jl, out of Thalius' panning question. Two hundred and forty-eight Bonus
+    // knobs ship across twenty-two domains with their only explanation in C# doc comments, so
+    // the honest answer to "what does this number do" was "read the source" and the practical
+    // one was "ask Venah". `_readme` here and the two help maps below `Bonus` put the answer in
+    // the file the operator is actually editing.
+    //
+    // WHY MODEL PROPERTIES AND NOT JSON COMMENTS. Newtonsoft tolerates // comments on READ, but
+    // StoreModConfig re-serialises this object graph on every write, and a write happens on any
+    // merge: a new knob, an adopted default, a seeded baseline. Comments would therefore survive
+    // until the next mod update and then silently vanish, which is worse than never having had
+    // them. Help that is part of the model round-trips, and because it is rebuilt from KnobDocs
+    // on every load it cannot drift from the code and self-heals if an operator deletes it.
+    //
+    // NOT A TUNING SURFACE. These three are generated: edits to them are overwritten on the next
+    // boot, by design. Declaration order is the serialised order (no JsonProperty.Order anywhere
+    // in this class, deliberately), which is why `_readme` is declared here and the help maps sit
+    // directly under the maps they describe.
+
+    /// <summary>Generated orientation for whoever opens this file: what it is, what each
+    /// structural field means, and how edits survive an upgrade. Rebuilt every load from
+    /// <see cref="KnobDocs"/>; editing it accomplishes nothing.</summary>
+    [JsonProperty("_readme", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public List<string> Readme { get; set; } = new();
+
     /// <summary>Three-letter domain code (MET, COO, …). Matches the filename.</summary>
     public string Code { get; set; } = "";
 
@@ -50,11 +76,22 @@ public class DomainConfig
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, TechniqueConfig> Techniques { get; set; } = new();
 
+    /// <summary>GENERATED, not a tuning surface. One line per <see cref="Techniques"/> entry:
+    /// the act that earns the credit. Rebuilt every load from <see cref="KnobDocs"/>.</summary>
+    [JsonProperty("_techniqueHelp", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public Dictionary<string, string> TechniqueHelp { get; set; } = new();
+
     /// <summary>Per-domain bonus-axis knobs (over-strike chance, shatter factors,
     /// fuel-economy curve points…). Server-side only like everything here — these
     /// are exactly the numbers a server may want to quietly diverge on.</summary>
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, double> Bonus { get; set; } = new();
+
+    /// <summary>GENERATED, not a tuning surface. One line per <see cref="Bonus"/> knob: what it
+    /// does, the units it is in, and the value that switches it off where one exists. Rebuilt
+    /// every load from <see cref="KnobDocs"/>.</summary>
+    [JsonProperty("_bonusHelp", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public Dictionary<string, string> BonusHelp { get; set; } = new();
 
     // ---------------------------------------------------------------- merge baselines
     //

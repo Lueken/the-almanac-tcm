@@ -196,8 +196,28 @@ public static class MelRanKillPatches
 
         double mult = DifficultyMult(entity);
         string species = entity.Code?.FirstCodePart() ?? "unknown";
-        int ctx = HashCode.Combine(species,
-            (int)(entity.ServerPos.X / 64), (int)(entity.ServerPos.Z / 64));
+
+        // ONE CORPSE, ONE CONTEXT; THE DAY POOL IS THE GOVERNOR (0.5.16, LGD-249). The context
+        // was (species, 64-block cell) with no time term at all, so the 90s dedup ring swallowed
+        // every same-species kill near the last one: clearing a room in a temporal storm paid
+        // the first drifter of each kind and then zero for the rest of the fight, which players
+        // read — correctly — as "duplicate creature types pay nothing". The same blackout class
+        // 0.5.15 fixed for the stations (LGD-238), wearing a combat coat.
+        //
+        // EntityId salts the context: unique per creature, so a wave registers every corpse, and
+        // stable for that corpse, so a double-fired death event still dedups. Repetition is now
+        // governed where the ruled instrument for it lives, the say-nay curve (RepeatDecay, the
+        // straw dummy two methods down): the first killRepeatFree kills of a species each day
+        // pay full, each after that pays killRepeatDecay^n. One pool per species regardless of
+        // weapon — switching sword for bow on the same prey is not new practice — and the decay
+        // rides mult, so the TEM/ARC co-grants below taper in step with the method that earned
+        // them. FOR's retuned 12 / 0.5 gather curve is the default shape [TUNE]: a normal room
+        // clear pays in full, an all-day wildlife wipeout quiets on its own.
+        mult *= Engine.RepeatDecay.Mult(player.PlayerUID, "combat:kill:" + species,
+            (int)sapi.World.Calendar.TotalDays,
+            (int)MelDomain.Knob(MelDomain.KillRepeatFree, 12),
+            MelDomain.Knob(MelDomain.KillRepeatDecay, 0.5));
+        int ctx = HashCode.Combine("kill", species, entity.EntityId);
 
         // BRACES ARE LOAD-BEARING. Adding the counters below to an unbraced if/else silently
         // reparsed this whole block: the else bound to the inner distance test, so every melee

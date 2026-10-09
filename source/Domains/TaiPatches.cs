@@ -42,6 +42,9 @@ public static class TaiPatches
     private static CollectibleObject? pendingKnitOutput;
     private static int pendingKnitLevel;
     private static int pendingKnitEmphasis;
+    /// <summary>The twine stack as the Stop began: the collectible and how many (LGD-92).</summary>
+    private static CollectibleObject? pendingKnitInput;
+    private static int pendingKnitTwineBefore;
 
     public static void RegisterServer(ICoreServerAPI api) => sapi = api;
 
@@ -186,6 +189,8 @@ public static class TaiPatches
         pendingKnitOutput = map[input] as CollectibleObject;
         pendingKnitLevel = TaiDomain.LevelOf(player);
         pendingKnitEmphasis = TaiEmphasis.EmphasisOf(player);
+        pendingKnitInput = input;
+        pendingKnitTwineBefore = byEntity.LeftHandItemSlot?.Itemstack?.StackSize ?? 0;
     }
 
     /// <summary>After the knit completes, grant the knit verb and stamp the Tailor's Mark on the freshly
@@ -193,10 +198,31 @@ public static class TaiPatches
     public static void KnitStopPostfix(float secondsUsed, EntityAgent byEntity)
     {
         var output = pendingKnitOutput;
+        var input = pendingKnitInput;
+        int twineBefore = pendingKnitTwineBefore;
         pendingKnitOutput = null;
+        pendingKnitInput = null;
         if (output == null || byEntity?.World?.Side != EnumAppSide.Server) return;
         var player = (byEntity as EntityPlayer)?.Player;
         if (player == null) return;
+
+        // PAY FOR THE CLOTH, NOT THE RELEASE (LGD-92: releasing the needles before the knit
+        // finished still granted full TAI, with the twine kept — a repeatable farm on any twine).
+        //
+        // The mod's own OnHeldInteractStop opens with `if (secondsUsed < GetKnitTime) return`
+        // (decompiled from knitting 2.0.3), and a Harmony postfix runs after that early return
+        // just the same, so this grant fired on every release of the mouse button. The design
+        // ruling is explicit the other way (rank-bonus-design.md: "partial work banks nothing").
+        //
+        // A completed knit is the one path that takes twine out of the left hand (TakeOut(4)),
+        // so the hand is asked instead of the clock: the stack shrank, changed or emptied — a
+        // garment exists and the grant stands. Untouched twine means the mod refused (released
+        // early, twine fell short, no mapped output), and nothing banks. Mirroring the time test
+        // would also have worked, but it reads a private config through reflection and pays for
+        // one case the mod itself refuses (twine dropped below four mid-hold).
+        var hand = byEntity.LeftHandItemSlot?.Itemstack;
+        bool consumed = hand == null || hand.Collectible != input || hand.StackSize < twineBefore;
+        if (!consumed) return; // released early: no cloth was made, nothing to pay or stamp
 
         Core?.Ledger?.Log(player, TaiDomain.Code, TaiDomain.TechKnit,
             HashCode.Combine("knit", output.Id, (int)(byEntity.World.ElapsedMilliseconds / 1000)));
@@ -218,11 +244,21 @@ public static class TaiPatches
         return (mounted as EntityPlayer)?.Player;
     }
 
-    /// <summary>The station's output slot (inventory slot 1 on both the wheel and the loom).</summary>
+    /// <summary>The station's output slot, read off the BE's own public <c>OutputSlot</c> property.
+    ///
+    /// This hardcoded slot 1 "on both the wheel and the loom" until 0.5.16, which was true of the
+    /// wheel and never of the loom: the fly-shuttle loom's inventory is slots 0-2 weaving inputs,
+    /// 3 THE OUTPUT, 4-7 pattern inputs (InventoryFlyshuttleLoom, decompiled from 1.2.12, the live
+    /// version; the BE's own property reads `inventory?[3]`). So the Master+ fibre-thrift proc on
+    /// the loom was adding its bonus unit to a weaving INPUT slot — free twine, the economy paid in
+    /// raw material instead of cloth — or doing nothing when slot 1 sat empty. Found under LGD-119.
+    /// Both BEs declare `public ItemSlot OutputSlot`, so asking the mod beats asserting an index,
+    /// and a future restructure degrades to a skipped proc instead of a wrong slot.</summary>
     private static ItemSlot? OutputSlotOf(BlockEntity be)
     {
-        var inv = (be as BlockEntityContainer)?.Inventory;
-        return inv != null && inv.Count > 1 ? inv[1] : null;
+        if (be == null) return null;
+        try { return Traverse.Create(be).Property("OutputSlot").GetValue() as ItemSlot; }
+        catch { return null; }
     }
 
     /// <summary>Apply the positive part of the fibre economy as a per-cycle proc: with probability equal

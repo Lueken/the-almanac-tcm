@@ -244,6 +244,25 @@ public static class TaiMarkPatches
                 return;
             }
 
+            // --- bags and packs (RULED 2026-10-08, LGD-159): a sewn container is tailoring the
+            // same way a garment is. Bags carry no CollectibleBehaviorWearable, so the branch
+            // above never saw them and a modular backpack paid nothing. IHeldBag is the
+            // mod-agnostic test — vanilla baskets and packs, Immersive Modular Backpacks
+            // (ItemImmersiveBag implements it, decompiled 1.6.1) and specialized backpacks all
+            // declare it. The SAME textile gate applies: consumed cloth/hide units scale the
+            // credit, and a bag with no textile in it (a reed basket) is not tailoring and pays
+            // nothing — the leathercraft half of the report rides the leather/hide markers.
+            if (coll.GetCollectibleInterface<IHeldBag>() != null)
+            {
+                int bagUnits = ConsumedUnits(__instance!);
+                if (bagUnits <= 0) return;   // woven reed, metal-framed: not the tailor's craft
+                double bagMult = GameMath.Clamp(bagUnits / 2.0, 0.5, 2.0);
+                ledger.Log(byPlayer, TaiDomain.Code, TaiDomain.TechSew,
+                    HashCode.Combine("bag", coll.Id,
+                        System.Threading.Interlocked.Increment(ref gridSeq)), bagMult);
+                return;
+            }
+
             // --- the cloth chain. Vanilla: 4 flaxfibers -> flaxtwine -> 4 twine -> linen -> cloth.
             string? verb =
                 path.Contains("twine") ? TaiDomain.TechSpin

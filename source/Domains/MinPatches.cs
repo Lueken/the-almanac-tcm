@@ -129,6 +129,23 @@ public static class MinPatches
         {
             if (world.Side != EnumAppSide.Server || byPlayer == null) return;
 
+            // What Rustbound Magic put in the world teaches the school that studies it (the
+            // arcane-kill shape, one seam over — RULED 2026-10-08, LGD-141: monolith harvest is
+            // 100% ARC, no MIN split). RBM's ancient monolith is a BlockOre subclass whose
+            // override calls base, which is how a pickaxe swing at an arcane station was
+            // reading as mining practice. Domain test rather than a path list: everything RBM
+            // builds as "ore" is arcane matter today (the monolith is a magicstation); if RBM
+            // ever ships a mundane ore deposit this routing should be revisited. Pays the
+            // laboratory verb — the station row — at flat raw: the depth coefficient is a
+            // MINER's lever, and where the monolith stands says nothing about the arcanist.
+            if (__instance.Code?.Domain == "rustboundmagic")
+            {
+                Core?.Ledger?.Log(byPlayer, ArcDomain.Code, ArcDomain.TechLaboratory, pos.GetHashCode());
+                TcmLog.Cat(world.Api, "arc",
+                    $"arcane structure harvest ({__instance.Code.Path}) at {pos} -> ARC laboratory for {byPlayer.PlayerName}, MIN abstains");
+                return;
+            }
+
             double depth = DepthProxy(world, pos);
             double mult = 1.0 + depth * Knob(MinDomain.MiningDepthCoeff, 0.5);
             Core?.Ledger?.Log(byPlayer, MinDomain.Code, MinDomain.TechMining, pos.GetHashCode(), mult);

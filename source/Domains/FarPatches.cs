@@ -1244,20 +1244,26 @@ public static class FarPatches
             HashCode.Combine("fgchive", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 30000));
     }
 
-    /// <summary>An animal eats a portion: bank FAR feeding to the trough's owner AND stamp the
-    /// animal with `raisedBy` = that owner, the durable attribution the unattended ANI birth reads.</summary>
+    /// <summary>An animal eats a portion: bank ANI feeding to the trough's owner AND stamp the
+    /// animal with `raisedBy` = that owner, the durable attribution the unattended ANI birth reads.
+    ///
+    /// ANI'S VERB SINCE 0.5.16 (RULED 2026-10-08, LGD-122, superseding the 2026-07-09 husbandry
+    /// split): feeding an animal is the handler's act, 100% Animal Handling — the reporter's
+    /// "feeding grants Farming &amp; Husbandry, not Animal Handling" is answered by moving the
+    /// verb, its Raw/K, and the feed-economy lever to ANI whole. The hook stays in this file
+    /// because the trough spine (fill stamp, raisedBy write, feed economy) is one mechanism.</summary>
     public static void TroughConsumePostfix(BlockEntity __instance, Entity entity, ref float __result)
     {
         if (__instance?.Api?.Side != EnumAppSide.Server || entity == null) return;
         // Phase 2 feed economy (the MET fuel analog): the satiety an animal draws per portion
-        // scales with the FILLER's rank, so a master's trough feeds to the same satiety on
-        // fewer portions and an Untrained hand's feed partly goes to waste.
+        // scales with the FILLER's ANI rank, so a master handler's trough feeds to the same
+        // satiety on fewer portions and an Untrained hand's feed partly goes to waste.
         if (troughOwners.TryGetValue(PosKey(__instance.Pos), out string? feedUid) && feedUid != null)
         {
             IPlayer? filler = __instance.Api.World.PlayerByUid(feedUid);
             if (filler != null)
-                __result *= (float)FarDomain.RankLinear(FarDomain.LevelOf(filler),
-                    FarDomain.Knob(FarDomain.FeedUntrained, 0.90), FarDomain.Knob(FarDomain.FeedGm, 1.25));
+                __result *= (float)AniDomain.RankLinear(AniDomain.LevelOf(filler),
+                    AniDomain.Knob(AniDomain.FeedUntrained, 0.90), AniDomain.Knob(AniDomain.FeedGm, 1.25));
         }
         if (!troughOwners.TryGetValue(PosKey(__instance.Pos), out string? uid) || uid == null)
         {
@@ -1271,8 +1277,8 @@ public static class FarPatches
         IPlayer? owner = __instance.Api.World.PlayerByUid(uid);
         if (owner == null) return; // owner offline; the stamp still landed but this portion's credit is lost
         AniDomain.StampProvenance(entity, owner); // the Master's Line mark, upgrade-only by the tender's ANI tier
-        TcmLog.Cat(__instance.Api, "far", $"trough portion eaten by {entity.Code?.FirstCodePart()} #{entity.EntityId} -> feeding credit + raisedBy stamp for {owner.PlayerName}");
-        Core?.Ledger?.Log(owner, FarDomain.Code, FarDomain.TechFeeding,
+        TcmLog.Cat(__instance.Api, "far", $"trough portion eaten by {entity.Code?.FirstCodePart()} #{entity.EntityId} -> ANI feeding credit + raisedBy stamp for {owner.PlayerName}");
+        Core?.Ledger?.Log(owner, AniDomain.Code, AniDomain.TechFeeding,
             HashCode.Combine("feed", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 60000));
     }
 

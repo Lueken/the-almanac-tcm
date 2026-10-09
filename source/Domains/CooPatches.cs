@@ -47,6 +47,12 @@ public static class CooPatches
     /// In-memory: the durable record is the banked practice itself.</summary>
     private static readonly Dictionary<string, string> lastCook = new();
 
+    /// <summary>Press pos -> litres of juice that press has already been paid for (LGD-109).
+    /// In-memory on purpose: the durable record is the banked practice itself, and the mash
+    /// carries its own running total, so the only thing lost on restart is the high-water mark.
+    /// Entries are dropped when the press empties, which bounds this to presses holding mash.</summary>
+    private static readonly Dictionary<string, double> pressPaidLitres = new();
+
     private static string PosKey(BlockPos pos) => $"{pos.X}/{pos.Y}/{pos.Z}";
 
     public static void RegisterServer(ICoreServerAPI api)
@@ -217,16 +223,45 @@ public static class CooPatches
 
     /// <summary>Right-clicking a firepit (opening it to load, adding fuel) marks the player as
     /// the pit's cook. Keyed by the firepit BE's position — the same pos InventorySmelting
-    /// carries into DoSmelt, so the completion lookup matches.</summary>
+    /// carries into DoSmelt, so the completion lookup matches.
+    ///
+    /// A COOK IN PROGRESS KEEPS ITS COOK (0.5.16, LGD-99). The stamp transferred on EVERY
+    /// interact, and "peeking" a pot is an interact, so anyone opening a burning firepit while
+    /// a meal cooked became the cook of record and collected the credit at completion — the
+    /// reported stolen-XP overnight pots. The pit itself knows when work is mid-flight: it is
+    /// burning and its input is still cookable (a raw meal pot or a direct-heat item — the same
+    /// classification SmeltPrefix uses). In that state the stamp is locked to its holder; the
+    /// cook's own clicks still re-stamp harmlessly, and everything else about the stamp is
+    /// unchanged on a cold or empty pit, so handing a dead firepit to the next cook (swap the
+    /// pots, light it, claim it) works exactly as before. A peeker is told nothing: the quiet
+    /// refusal is the fix, the log line is the trace.</summary>
     public static void FirepitInteractPostfix(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
     {
         if (byPlayer == null || blockSel == null || world?.Side != EnumAppSide.Server) return;
         if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is not BlockEntityFirepit be) return;
         string key = PosKey(be.Pos);
         bool changed = !lastCook.TryGetValue(key, out string? prev) || prev != byPlayer.PlayerUID;
+
+        if (changed && prev != null && be.IsBurning && MidCook(be.inputStack))
+        {
+            TcmLog.Cat(world.Api, "coo",
+                $"firepit at {be.Pos}: {byPlayer.PlayerName} interacted mid-cook; stamp stays with the cook of record");
+            return;
+        }
+
         lastCook[key] = byPlayer.PlayerUID;
         if (changed) // one line per cook change, not one per click
             TcmLog.Cat(world.Api, "coo", $"firepit cook stamp: {be.Pos} -> {byPlayer.PlayerName}");
+    }
+
+    /// <summary>Is this input stack work still on its way to done — a raw meal pot, or a
+    /// direct-heat cookable? The same two shapes DoSmelt completes and the credits pay.</summary>
+    private static bool MidCook(ItemStack? input)
+    {
+        if (input == null) return false;
+        if (input.Collectible is BlockCookingContainer) return true; // raw meal pot
+        var props = input.Collectible?.CombustibleProps;
+        return props != null && (props.SmeltingType == EnumSmeltType.Cook || props.SmeltingType == EnumSmeltType.Bake);
     }
 
     // ------------------------------------------------------------ oven baking (credit at pickup)
@@ -247,7 +282,10 @@ public static class CooPatches
             __state[i] = new OvenSlotSnapshot(
                 stack?.Collectible?.Code?.Path,
                 snapWorld == null ? OvenStage.NotBakeware : StageOf(snapWorld, stack),
-                IsLargeBake(stack?.Collectible));
+                IsLargeBake(stack?.Collectible),
+                // Read BEFORE the stamping pass below, which is the whole point: this has to say
+                // what the stack carried on the way IN, not what this interact signed onto it.
+                stack?.Attributes?.HasAttribute(CooBonusPatches.CookTierAttr) == true);
         }
 
         // Stamp the finished loaves HERE, before the interaction can carry one off. The postfix
@@ -353,6 +391,35 @@ public static class CooPatches
             switch (__state[i].Stage)
             {
                 case OvenStage.Finished:
+                    // PAY FOR THE BAKE ONCE (LGD-107: a cooked pie put back in the oven and taken
+                    // straight out again granted Cooking a second time, a repeatable farm — and
+                    // at DOUBLE rate, since a pie is a Large bake and takes the ×2 below).
+                    //
+                    // The stage classifier answers "where on its own baking chain does this stack
+                    // sit", which is the right question for telling dough from bread from char. It
+                    // cannot answer "did this oven just do that work", and a finished good is
+                    // finished whether it was baked here a moment ago or carried in from a chest.
+                    // So every re-insertion read as a fresh finished pickup. Same shape as the
+                    // fuel hole closed in 0.5.8: the filter described the item, not the labour.
+                    //
+                    // The cook's signature is the record that the work was already paid for. The
+                    // prefix signs a finished good as it leaves and skips anything already signed,
+                    // so "it arrived signed" means some earlier pickup banked it. Persisted on the
+                    // stack, so it survives the chest, the trip and the restart.
+                    //
+                    // Narrow and deliberate: this only ever WITHHOLDS credit from a stack that was
+                    // already signed, so no legitimate first bake loses anything. A finished bake
+                    // the prefix cannot sign (neither directly edible nor a BlockPie — no vanilla
+                    // or pack item is known to qualify, since bakingProperties in practice means
+                    // food) keeps today's behaviour and stays theoretically re-farmable. Left that
+                    // way on purpose rather than refusing credit to anything unsigned, which would
+                    // silently stop paying for a modded baked good instead of double-paying.
+                    if (__state[i].AlreadySigned)
+                    {
+                        TcmLog.Cat(__instance.Api, "coo",
+                            $"re-bake pickup at {__instance.Pos} slot {i}: {before} already signed, no practice");
+                        break;
+                    }
                     // CREDIT THE OVEN LOAD, NOT THE CLICK (2026-09-10). Baking pays once per
                     // finished good taken, which is right for loaves and quietly wrong for a
                     // pie: a pie is a LargeItem, so it takes the whole oven (BEClayOven.cs:98
@@ -385,12 +452,16 @@ public static class CooPatches
         public readonly OvenStage Stage;
         /// <summary>This stack monopolised the whole oven while it baked (a pie).</summary>
         public readonly bool Large;
+        /// <summary>It already carried a cook's signature when this interact began, so an
+        /// earlier pickup has already been paid for it (LGD-107).</summary>
+        public readonly bool AlreadySigned;
 
-        public OvenSlotSnapshot(string? path, OvenStage stage, bool large)
+        public OvenSlotSnapshot(string? path, OvenStage stage, bool large, bool alreadySigned = false)
         {
             Path = path;
             Stage = stage;
             Large = large;
+            AlreadySigned = alreadySigned;
         }
     }
 
@@ -521,28 +592,46 @@ public static class CooPatches
 
     // ------------------------------------------------------------ smelt completion (pot + direct)
 
-    public readonly record struct SmeltState(BlockPos? Pos, int InId, int InSize, int OutId, int OutSize, bool Cookable);
+    public readonly record struct SmeltState(BlockPos? Pos, int InId, int InSize, int OutId, int OutSize, bool Cookable,
+        int Cs0Id = -1, int Cs0Size = 0);
 
     /// <summary>Shared DoSmelt prefix. The provider the firepit passes is its INVENTORY, not the
     /// BE (smeltItems :58732 hands over InventorySmelting — the 0.3.136 null-pos bug), so the pos
     /// comes from InventorySmelting.pos (:106652), with the BE cast kept for providers that do
     /// pass a block entity. Both slots are captured: the normal meal lands in the OUTPUT slot
-    /// (:142621) but the CooksInto path returns it in the INPUT slot (:142612).</summary>
+    /// (:142621) but the CooksInto path returns it in the INPUT slot (:142612).
+    ///
+    /// COOKING SLOT 0 IS CAPTURED TOO (0.5.16, LGD-168). The cooksInto path parks its PRODUCT
+    /// there, and the vessel conversion in the input slot is the only other trace it leaves. A
+    /// pot whose dirtied form is ITSELF — Conjunction's rust-touched pot, the bloom's dedicated
+    /// vessel, or any vanilla pot that is already dirty — converts to the same collectible, so
+    /// the input slot reads unchanged and the old two-slot gate called the cook a no-op. First
+    /// bloom fix in a clean pot paid (the pot visibly converted, which is why the 2026-08-17
+    /// playtest banked); every one after it, in the pot the bloom had claimed, paid nothing.</summary>
     public static void SmeltPrefix(ISlotProvider cookingSlotsProvider, ItemSlot inputSlot, ItemSlot outputSlot, out SmeltState __state)
     {
         var props = inputSlot?.Itemstack?.Collectible?.CombustibleProps;
         bool cookable = props != null && (props.SmeltingType == EnumSmeltType.Cook || props.SmeltingType == EnumSmeltType.Bake);
         BlockPos? pos = (cookingSlotsProvider as BlockEntity)?.Pos ?? (cookingSlotsProvider as InventorySmelting)?.pos;
+        ItemStack? cs0 = cookingSlotsProvider?.Slots is { Length: > 0 } cs ? cs[0]?.Itemstack : null;
         __state = new SmeltState(pos,
             inputSlot?.Itemstack?.Collectible?.Id ?? -1, inputSlot?.Itemstack?.StackSize ?? 0,
-            outputSlot?.Itemstack?.Collectible?.Id ?? -1, outputSlot?.Itemstack?.StackSize ?? 0, cookable);
+            outputSlot?.Itemstack?.Collectible?.Id ?? -1, outputSlot?.Itemstack?.StackSize ?? 0, cookable,
+            cs0?.Collectible?.Id ?? -1, cs0?.StackSize ?? 0);
     }
 
     /// <summary>Meal pot: the recipe path returns early on a null/burned/invalid match leaving the
     /// slots untouched, so a slot transform IS the success gate (ruled: burned banks nothing).</summary>
     public static void MealPotPostfix(IWorldAccessor world, ISlotProvider cookingSlotsProvider, ItemSlot inputSlot, ItemSlot outputSlot, SmeltState __state)
     {
-        if (world?.Side != EnumAppSide.Server || !Changed(inputSlot, outputSlot, __state)) return;
+        if (world?.Side != EnumAppSide.Server) return;
+        // Success = any slot the two paths write to transformed: input/output (normal meals,
+        // first-time vessel conversions) OR cooking slot 0 (the cooksInto product — the only
+        // trace left when the vessel's dirtied form is itself; see the prefix note, LGD-168).
+        ItemStack? cs0After = cookingSlotsProvider?.Slots is { Length: > 0 } csa ? csa[0]?.Itemstack : null;
+        bool cs0Changed = (cs0After?.Collectible?.Id ?? -1) != __state.Cs0Id
+            || (cs0After?.StackSize ?? 0) != __state.Cs0Size;
+        if (!Changed(inputSlot, outputSlot, __state) && !cs0Changed) return;
         IPlayer? cook = CookAt(world, __state.Pos);
         if (cook == null)
         {
@@ -697,6 +786,24 @@ public static class CooPatches
             MarkSpilledGrind(__instance, __state.input);
         }
 
+        // PAY FOR THE GRIND, NOT THE CYCLE (0.5.16, LGD-90). Vanilla's grindInput has a no-op
+        // path: when the output slot refuses the merge (a potency-mismatched riftbloom pile, or
+        // simply a full flour stack) it tries to eject out a side face, and when THAT face is
+        // blocked it returns BEFORE InputSlot.TakeOut(1) — nothing consumed, nothing produced
+        // (BEQuern.cs grindInput, the `Replaceable < 6000` return). This postfix paid anyway,
+        // so a walled-in quern with a mismatched output stack banked ALC reagentwork every
+        // cycle off the same unconsumed bloom, forever. The input is asked instead: no shrink,
+        // no grind, no credit. The real eject path consumes and still pays.
+        {
+            var invNow = (__instance as BlockEntityContainer)?.Inventory;
+            ItemStack? inputNow = invNow != null && invNow.Count > 0 ? invNow[0]?.Itemstack : null;
+            bool consumed = __state.input != null
+                && (inputNow == null
+                    || inputNow.Collectible != __state.input.Collectible
+                    || inputNow.StackSize < __state.input.StackSize);
+            if (!consumed) return;
+        }
+
         if (Traverse.Create(__instance).Field("automated").GetValue<bool>()) return;
         if (Traverse.Create(__instance).Field("playersGrinding").GetValue() is not Dictionary<string, long> grinding
             || grinding.Count == 0) return;
@@ -711,6 +818,16 @@ public static class CooPatches
         // attribute survives on any stack of it.
         bool alcGrind = IsAlcMatter(__state.input);
 
+        // Lime is the mason's grind (RULED 2026-10-08, LGD-140: limestone -> 100% MAS, zero
+        // COO/FAR — "grinding limestone grants both Farming and Cooking XP" was the food split
+        // applying to stone). Routed by the OUTPUT, not the input name: vanilla grinds
+        // limestone, chalk and marble all to `lime`, the same mason's work in three coats, and
+        // an output test catches all three without enumerating them. Halite -> salt stays on
+        // the food split: salt is the kitchen's matter. Pays the dress verb, MAS's recurring
+        // stonecraft row [TUNE].
+        bool limeGrind = !alcGrind && __state.input?.Collectible?.GrindingProps?
+            .GroundStack?.ResolvedItemstack?.Collectible?.Code?.Path == "lime";
+
         foreach (string uid in grinding.Keys)
         {
             IPlayer? player = __instance.Api.World.PlayerByUid(uid);
@@ -720,18 +837,26 @@ public static class CooPatches
                 Core?.Ledger?.Log(player, AlcDomain.Code, AlcDomain.TechReagentWork, ctx);
                 continue;
             }
+            if (limeGrind)
+            {
+                Core?.Ledger?.Log(player, MasDomain.Code, MasDomain.TechDress, ctx);
+                continue;
+            }
             Core?.Ledger?.Log(player, CooDomain.Code, CooDomain.TechMilling, ctx, 0.5);
             Core?.Ledger?.Log(player, FarDomain.Code, FarDomain.TechMilling, ctx, 0.5);
         }
         if (alcGrind && grinding.Count > 0)
             TcmLog.Cat(__instance.Api, "coo", $"alchemical matter at the quern ({__state.input?.Collectible?.Code?.Path}) -> ALC reagentwork, COO/FAR abstain");
+        if (limeGrind && grinding.Count > 0)
+            TcmLog.Cat(__instance.Api, "coo", $"lime ground at the quern ({__state.input?.Collectible?.Code?.Path}) -> MAS dress, COO/FAR abstain");
     }
 
     /// <summary>The soft-integration signal (RULED 2026-08-17): item types may declare
     /// attributes.tcmCraftDomain = "ALC" (Conjunction's reagents do) and their processing
     /// then feeds ALC and abstains from COO/FAR. Collectible attributes, so it holds for
-    /// every stack of the item and costs nothing when TCM is absent.</summary>
-    private static bool IsAlcMatter(ItemStack? stack)
+    /// every stack of the item and costs nothing when TCM is absent. Internal since 0.5.16:
+    /// the barrel seal routes ALC matter too (LGD-91).</summary>
+    internal static bool IsAlcMatter(ItemStack? stack)
         => stack?.Collectible?.Attributes?["tcmCraftDomain"]?.AsString() == "ALC";
 
 
@@ -779,10 +904,50 @@ public static class CooPatches
     public static void JuicePostfix(BlockEntity __instance, IPlayer byPlayer)
     {
         if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+
+        // CREDIT THE JUICE, NOT THE CLICK (LGD-109: an empty bucket set under the press paid, and
+        // so did screwing the press down with nothing in it; both repeatable).
+        //
+        // This is a postfix on OnBlockInteractStop, and vanilla's own first act there is
+        // `if (!CompressAnimActive) return` (BEFruitpress.cs:599) — but a Harmony postfix runs
+        // after the original whether or not the original early-returned, so every right-click
+        // release on the press reached the grant. With no mash the code path read `mash == ""`,
+        // which matches no honeycomb test and fell straight through to the COO/BRE pair.
+        //
+        // The press keeps its own running total of juice drawn off this mash, as a plain stack
+        // attribute that vanilla's tick listener advances by `actuallyTransfered` (:309). That is
+        // the one number that only moves when work happened, so it is the one to pay against: we
+        // remember what we have already paid for and credit the difference. A release that drew
+        // no juice — an empty press, a bucket swap, a bare click — leaves it unchanged and pays
+        // nothing, and the "which interaction was it" question stops mattering.
+        //
+        // A fresh mash restarts its total at zero, so a DECREASE means the press was reloaded and
+        // the mark resets with it. Known edge, left documented rather than solved: a part-pressed
+        // mash sitting in a press across a server restart loses its mark, so the first release on
+        // it can pay once for juice drawn before the restart. One credit, behind a 20s bucket,
+        // against the current every-click.
+        var press = __instance as Vintagestory.GameContent.BlockEntityFruitPress;
+        ItemStack? mashStack = press?.MashSlot?.Itemstack;
+        string pressKey = PosKey(__instance.Pos);
+        if (mashStack == null)
+        {
+            pressPaidLitres.Remove(pressKey); // nothing in the press: no mash, no juice, no credit
+            return;
+        }
+
+        double litres = mashStack.Attributes?.GetDouble("juiceableLitresTransfered") ?? 0;
+        double paid = pressPaidLitres.TryGetValue(pressKey, out double p) ? p : 0;
+        if (litres < paid) paid = 0; // reloaded with a fresh mash
+        if (litres <= paid + 0.01)
+        {
+            pressPaidLitres[pressKey] = litres;
+            return; // the screw turned, but no juice came out of it
+        }
+        pressPaidLitres[pressKey] = litres;
+
         int cx = HashCode.Combine("juice", __instance.Pos.X, __instance.Pos.Z, __instance.Api.World.ElapsedMilliseconds / 20000);
 
-        string mash = (__instance as Vintagestory.GameContent.BlockEntityFruitPress)?
-            .MashSlot?.Itemstack?.Collectible?.Code?.Path ?? "";
+        string mash = mashStack.Collectible?.Code?.Path ?? "";
         if (mash.Contains("honeycomb"))
         {
             if (BeePatches.Active)

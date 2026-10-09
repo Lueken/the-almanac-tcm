@@ -224,7 +224,7 @@ public static class DomainFigures
     private static Dictionary<string, string> FarFigures()
     {
         double K(string k, double d) => FarDomain.Knob(k, d);
-        double feedU = K(FarDomain.FeedUntrained, 0.90), feedGm = K(FarDomain.FeedGm, 1.25);
+        // feed figures moved to AniFigures with the verb and its economy (LGD-122).
         double thriftGm = K(FarDomain.FertThriftGm, 0.20);
         double graftGm = K(FarDomain.GraftRetryGm, 0.50);
         double procGm = K(FarDomain.HarvestProcGm, 0.20);
@@ -233,9 +233,6 @@ public static class DomainFigures
         {
             ["harvestDockU"] = F(K(FarDomain.HarvestDockUntrained, 0.85) * 100, 0),
             ["shearScratchU"] = F(K(FarDomain.ShearScratchUntrained, 1.5), 2),
-            ["feedULessPct"] = F((1 - feedU) * 100, 1),
-            ["feedStepPct"] = F((feedGm - 1) * 100 / (GM - 1), 2),
-            ["feedGmX"] = F(feedGm, 2),
             ["heirloomYield"] = F(K(FarDomain.HeirloomYield, 0.25) * 100, 0),
             ["heirloomGens"] = F(K(FarDomain.HeirloomGenerations, 3), 0),
             ["spoilGrownGm"] = F(K(FarDomain.SpoilGrownGm, 0.70), 2),
@@ -245,7 +242,6 @@ public static class DomainFigures
         };
         foreach (var (suf, lv) in new[] { ("N4", N4), ("A1", A1), ("A4", A4), ("J1", J1), ("J4", J4), ("M1", M1), ("M4", M4) })
         {
-            f["feed" + suf] = F((RankLinear(lv, feedU, feedGm) - 1) * 100, 2);
             f["thrift" + suf] = F(thriftGm * BonusT(lv) * 100, 2);
             f["graft" + suf] = F(graftGm * BonusT(lv) * 100, 2);
             f["proc" + suf] = F(procGm * BonusT(lv) * 100, 2);
@@ -262,6 +258,8 @@ public static class DomainFigures
     {
         double K(string k, double d) => AniDomain.Knob(k, d);
         double treatU = K(AniDomain.TreatUntrained, 0.90), treatGm = K(AniDomain.TreatGm, 1.40);
+        // The feed economy's figures, moved here with the verb (LGD-122).
+        double feedU = K(AniDomain.FeedUntrained, 0.90), feedGm = K(AniDomain.FeedGm, 1.25);
         double purgeGm = K(AniDomain.PurgeBonusGm, 0.30);
         double litterGm = K(AniDomain.LitterProcGm, 0.35);
         double throwGm = K(AniDomain.ThrowHealGm, 0.70);
@@ -272,6 +270,9 @@ public static class DomainFigures
             ["treatU"] = F(treatU, 2),
             ["treatStepPct"] = F((treatGm - 1) * 100 / (GM - 1), 2),
             ["treatGmX"] = F(treatGm, 2),
+            ["feedULessPct"] = F((1 - feedU) * 100, 1),
+            ["feedStepPct"] = F((feedGm - 1) * 100 / (GM - 1), 2),
+            ["feedGmX"] = F(feedGm, 2),
             ["gateFox"] = F(K(AniDomain.GateFox, 5), 0),
             ["gateWolf"] = F(K(AniDomain.GateWolf, 9), 0),
             ["throwGm"] = F(throwGm * 100, 1),
@@ -282,6 +283,7 @@ public static class DomainFigures
         foreach (var (suf, lv) in new[] { ("N4", N4), ("A1", A1), ("A4", A4), ("J1", J1), ("J4", J4), ("M1", M1), ("M4", M4) })
         {
             f["treat" + suf] = F(RankLinear(lv, treatU, treatGm), 3);
+            f["feed" + suf] = F((RankLinear(lv, feedU, feedGm) - 1) * 100, 2);
             f["throw" + suf] = F(throwGm * BonusT(lv) * 100, 2);
             f["purge" + suf] = F(PurgeBase + purgeGm * BonusT(lv), 3);
             f["litter" + suf] = F(litterGm * BonusT(lv) * 100, 2);

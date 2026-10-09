@@ -131,6 +131,7 @@ public class LedgerSystem
                     ? factory()
                     : new DomainConfig { Code = domain.Code };
                 SeedBaselineFromSelf(domainConfig);
+                KnobDocs.Stamp(domainConfig);
                 sapi.StoreModConfig(domainConfig, path);
             }
             else if (DefaultFactories.TryGetValue(domain.Code, out var factory))
@@ -250,6 +251,11 @@ public class LedgerSystem
                         TcmLog.Cat(sapi, TcmLog.Config, $"{domain.Code}: adjacency [{string.Join(",", defaults.Adjacency)}] adopted from defaults");
                     }
                 }
+                // The generated help block is rebuilt from KnobDocs on every load, so it tracks
+                // the code, self-heals when an operator deletes it, and a reworded line is a
+                // real reason to rewrite the file. Last, so a scaffold replacement above cannot
+                // leave a stale block behind.
+                if (KnobDocs.Stamp(domainConfig)) changed = true;
                 if (changed) sapi.StoreModConfig(domainConfig, path);
             }
             DomainConfigs[domain.Code] = domainConfig;
@@ -281,6 +287,12 @@ public class LedgerSystem
                 $"domain {domain.Code}: {domainConfig.Techniques.Count} techniques, m={domainConfig.M}, " +
                 $"adjacency=[{string.Join(",", domainConfig.Adjacency)}]");
         }
+
+        // Count the documentation gaps once, loudly (CONVENTIONS.md section 5). A knob with no
+        // KnobDocs entry still ships and still works; it just arrives in the operator's file
+        // carrying a placeholder, and this is the line that says so instead of letting it pass.
+        string? gaps = KnobDocs.UndocumentedReport(DomainConfigs.Values);
+        if (gaps != null) TcmLog.Warn(sapi, gaps);
     }
 
     // ------------------------------------------------------------------ logging

@@ -531,10 +531,9 @@ public class CallingsTab : IAlmanacBookTab
         // The trade web anchors to the page FOOT, the way the mock sets it — the
         // identity prose ends where it ends and the partners wait at the bottom
         // margin, so the page never trails off into blank paper mid-column.
+        // Pinned below, onto the LAST identity column, once the prose has been paged.
         var tradeWebFoot = new List<RichTextComponentBase>();
         AppendTradeWeb(capi, tradeWebFoot, code, domainRungs?.tradeWeb, subhead, body, muted);
-        if (tradeWebFoot.Count > 0)
-            AppendPinnedFoot(capi, comps, columnWidth, columnHeight, tradeWebFoot);
 
         int curRank = atCeiling ? 5 : (level <= 0 ? 0 : Domain.TierOf(level) + 1);
         int barredRanks = Barred(id);
@@ -542,13 +541,29 @@ public class CallingsTab : IAlmanacBookTab
         string distance = atCeiling ? "The height of the art"
             : ProgressCaption(level, experience, required, pending).TrimEnd('\n');
 
-        var columns = new List<RichTextComponentBase[]> { comps.ToArray() };
+        // THE IDENTITY PAGE IS PAGED LIKE EVERY OTHER (LGD-93, Pun 2026-09-25: the foraging
+        // page ran off the bottom). It was the one column in the book shipped unmeasured: the
+        // rungs are trial-measured and split, the ladder is built to fit, and this one was
+        // assembled and handed over at whatever height it came to. Eight of the twenty-two
+        // trades carry two blocks the other fourteen do not ("The work" and the tip), which
+        // roughly doubles the page, and FOR is third-heaviest of those with the longest tip in
+        // the file. The chrome above the prose (pips, the progress bar, its caption, the
+        // affinity line) is reader-state sized too, so whether it fit depended on who was
+        // reading and at what rank.
+        var identityCols = SplitIdentityColumns(capi, comps, columnWidth, columnHeight, tradeWebFoot);
+        var columns = new List<RichTextComponentBase[]>();
+        foreach (var col in identityCols) columns.Add(col.ToArray());
+
+        // What precedes the rungs: the identity pages, however many, plus the ladder recto.
+        // The rung chrome keys its verso/recto parity and its spread map off this, so it can
+        // no longer assume the identity was exactly one page.
+        int leadColumns = identityCols.Count + 1;
 
         List<RichTextComponentBase[]> rungCols = new();
         if (domainRungs?.rungs is { Count: > 0 })
         {
             rungCols = BuildRungColumns(capi, code, display, domainRungs, figures, curRank,
-                barredRanks, standing, distance, columnWidth, columnHeight, out rungSpreadMap);
+                barredRanks, standing, distance, columnWidth, columnHeight, leadColumns, out rungSpreadMap);
         }
         else rungSpreadMap = new();
 
@@ -902,6 +917,63 @@ public class CallingsTab : IAlmanacBookTab
         return col;
     }
 
+    /// <summary>
+    /// Pack the identity prose onto page-height columns, then pin the foot block to the
+    /// last of them (LGD-93). Returns at least one column, so a trade whose page already
+    /// fit behaves exactly as it did before: one column, foot pinned, nothing moved.
+    ///
+    /// Component-granular, which is the only granularity available here: unlike a rung,
+    /// which SplitRung can rebuild from its own bullets, this column is a flat run of
+    /// finished components (heading, pips, bar, prose, callouts, emphasis stamps). So it
+    /// packs greedily and breaks where the next component would overflow, the shape
+    /// ChapterRenderer's own paginator uses.
+    ///
+    /// Two details that are the difference between a page break and a blemish. A spacer
+    /// that lands at the top of a fresh column is dropped, because its whole job is to
+    /// separate it from something that is now on the previous page. And a foot that will
+    /// not fit under the final column takes a column of its own rather than being appended
+    /// past the bottom margin, which is precisely the overflow being fixed.
+    /// </summary>
+    private static List<List<RichTextComponentBase>> SplitIdentityColumns(ICoreClientAPI capi,
+        List<RichTextComponentBase> comps, double columnWidth, double columnHeight,
+        List<RichTextComponentBase> foot)
+    {
+        double scale = RuntimeEnv.GUIScale <= 0 ? 1 : RuntimeEnv.GUIScale;
+        double availH = columnHeight * scale;
+
+        var cols = new List<List<RichTextComponentBase>>();
+        var current = new List<RichTextComponentBase>();
+
+        foreach (var c in comps)
+        {
+            // A spacer is never worth opening a column for.
+            if (current.Count == 0 && c is ClearFloatTextComponent) continue;
+
+            var trial = new List<RichTextComponentBase>(current) { c };
+            if (current.Count > 0 && Measure(capi, trial, columnWidth) > availH)
+            {
+                cols.Add(current);
+                current = c is ClearFloatTextComponent
+                    ? new List<RichTextComponentBase>()
+                    : new List<RichTextComponentBase> { c };
+                continue;
+            }
+            current = trial;
+        }
+        if (current.Count > 0 || cols.Count == 0) cols.Add(current);
+
+        if (foot.Count > 0)
+        {
+            var last = cols[cols.Count - 1];
+            double footH = Measure(capi, foot, columnWidth);
+            if (last.Count > 0 && Measure(capi, last, columnWidth) + footH > availH)
+                cols.Add(new List<RichTextComponentBase>());   // the foot gets its own leaf
+            AppendPinnedFoot(capi, cols[cols.Count - 1], columnWidth, columnHeight, foot);
+        }
+
+        return cols;
+    }
+
     /// <summary>Pin a foot block to the bottom of a column by padding the measured
     /// remainder. Skips the pad (foot follows content directly) when the column is
     /// already too full to pin cleanly.</summary>
@@ -937,7 +1009,7 @@ public class CallingsTab : IAlmanacBookTab
     private List<RichTextComponentBase[]> BuildRungColumns(ICoreClientAPI capi, string code,
         string display, RungLibrary.DomainRungs domainRungs, Dictionary<string, string>? figures,
         int curRank, int barredRanks, string standing, string distance,
-        double columnWidth, double columnHeight, out Dictionary<int, int> rungSpread)
+        double columnWidth, double columnHeight, int leadColumns, out Dictionary<int, int> rungSpread)
     {
         double scale = RuntimeEnv.GUIScale <= 0 ? 1 : RuntimeEnv.GUIScale;
         const float HeadReserveUn = 40, FootReserveUn = 48, ChunkGapUn = 16;
@@ -992,7 +1064,10 @@ public class CallingsTab : IAlmanacBookTab
         Flush();
 
         // 3. Chrome per column: running head, and the verso foot. Absolute column
-        // index = 2 + local (identity 0, ladder 1); verso = even.
+        // index = leadColumns + local, where leadColumns counts the identity pages plus
+        // the ladder recto (so 2 whenever the identity fits one page, which is the usual
+        // case); verso = even. Passed in rather than assumed since LGD-93: the identity
+        // pages its own prose now and can be more than one.
         var caps = CairoFont.WhiteSmallText().WithFont(FontRegistry.DisplaySans)
             .WithColor(Muted).WithFontSize(14.5f);
         var linkMuted = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody).WithColor(Muted).WithFontSize(17f);
@@ -1000,7 +1075,7 @@ public class CallingsTab : IAlmanacBookTab
         var final = new List<RichTextComponentBase[]>();
         for (int c = 0; c < cols.Count; c++)
         {
-            int absolute = 2 + c;
+            int absolute = leadColumns + c;
             bool verso = absolute % 2 == 0;
             var col = new List<RichTextComponentBase>();
             if (verso)
@@ -1037,7 +1112,7 @@ public class CallingsTab : IAlmanacBookTab
 
         // Spread index: two columns per spread across the whole detail set.
         rungSpread = new Dictionary<int, int>();
-        foreach (var (rung, colIdx) in headSpread) rungSpread[rung] = (2 + colIdx) / 2;
+        foreach (var (rung, colIdx) in headSpread) rungSpread[rung] = (leadColumns + colIdx) / 2;
         return final;
     }
 

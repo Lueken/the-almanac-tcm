@@ -355,6 +355,7 @@ public class AlmanacTcmModSystem : ModSystem
         Domains.CooPatches.RegisterServer(sapi);
         Domains.CooBonusPatches.RegisterServer(sapi);
         Domains.AniPatches.RegisterServer(sapi);
+        Domains.AniRiding.RegisterServer(sapi); // distance-paid riding (LGD-176)
 
         // POT's zero-Harmony clayforming listener + the persisted kiln-owner and vessel-mark
         // side maps (a pit kiln fires unattended; a placed crock cannot carry its own stamp).
@@ -612,6 +613,9 @@ public class AlmanacTcmModSystem : ModSystem
             return;
         }
 
+        // Rebuild the generated _readme/_help block before the write-back. global.json is
+        // rewritten on every successful load anyway, so there is nothing to gate on here.
+        Config.KnobDocs.Stamp(GlobalConfig);
         sapi.StoreModConfig(GlobalConfig, "almanactcm/global.json");
         TcmLog.Verbose = GlobalConfig.VerboseDebugLogging;
     }

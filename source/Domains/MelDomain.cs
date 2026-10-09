@@ -38,6 +38,8 @@ public static class MelDomain
     // a full drill.
     public const string DummyTrainMul = "dummyTrainMul";   // raw multiplier per hit at Untrained
     public const string DummyTrainFree = "dummyTrainFree"; // full-pay hits per day per calling
+    public const string KillRepeatFree = "killRepeatFree";   // full-pay kills per species per day (LGD-249)
+    public const string KillRepeatDecay = "killRepeatDecay"; // decay^n past the free count
     /// <summary>The defensive verb (ADOPTED by ruling: "this will help promote the use of
     /// it"): a successful block or parry of a hostile blow.</summary>
     public const string TechBlocking = "blocking";
@@ -111,6 +113,10 @@ public static class MelDomain
             // Straw-dummy training: ~30 drilled hits a morning at half raw while Untrained.
             [DummyTrainMul] = 0.5,
             [DummyTrainFree] = 30,
+            // Real kills, per species per day: the say-nay curve that replaced the dedup
+            // blackout (0.5.16, LGD-249). FOR's retuned gather shape (12 / 0.5) [TUNE].
+            [KillRepeatFree] = 12,
+            [KillRepeatDecay] = 0.5,
             [RawParryMul] = 1.5,
             [DamageUntrained] = 0.85,
             [ArmorUntrained] = 0.30,

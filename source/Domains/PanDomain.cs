@@ -58,6 +58,23 @@ public static class PanDomain
     /// <summary>Minimum propick-style ore factor before an ore is worth whispering about.</summary>
     public const string PanWhisperMinFactor = "panWhisperMinFactor";
 
+    // ---- The bore readout (knobbed 2026-10-07 jl). The two rank gates on the Master+ borehole
+    // depth readout were bare literals in PanPatches (PanSurveyor.MasterLevel for "reports at
+    // all", a literal 17 for "reports the exact band and records it to the shared map"), so a
+    // server that wanted the depth readout off, or wanted it earlier, had no lever and needed a
+    // code change. Requested by Thalius after the whisper disable: a server keeper asking to
+    // turn a reading off should not be told to recompile.
+    /// <summary>Rank at which the prospecting-pick borehole starts reporting ore depth at all.
+    /// Default 13 = Master I, the ruled rung. Set above the GM cap (17) to disable the readout
+    /// entirely; lower it to grant the bore earlier.</summary>
+    public const string BoreDepthLevel = "boreDepthLevel";
+    /// <summary>Rank at which the bore reports the EXACT band ("first at 34 down, runs to 48")
+    /// and records it to the shared depth store the Surveyor's maps carry. Default 17 = GM, the
+    /// ruled rung. Below it the readout is the coarse "first struck near 32 down" and NOTHING is
+    /// recorded, so raising this above the GM cap keeps the chat readout while taking depth off
+    /// shared maps.</summary>
+    public const string BoreDepthExactLevel = "boreDepthExactLevel";
+
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
@@ -107,6 +124,11 @@ public static class PanDomain
             // wash length, on top of the 20s per-player cooldown in PanPatches.
             [PanWhisperChance] = 0.25,
             [PanWhisperMinFactor] = 0.05,
+            // The bore gates, previously bare literals in PanPatches.BoreDepthPatch
+            // (2026-10-07 jl). Values UNCHANGED from what shipped: 13 = Master I was
+            // PanSurveyor.MasterLevel, 17 = GM was a literal 17. Only the lever is new.
+            [BoreDepthLevel] = Leveling.Rank.Master,
+            [BoreDepthExactLevel] = Leveling.Rank.Grandmaster,
         }
     };
 

@@ -1193,6 +1193,58 @@ NOT run in game. NOT deployed.
 places (`modinfo.json`, `source/AlmanacTcmModSystem.cs:11`) so a build from this tree cannot
 mislabel itself as 0.5.15.
 
+### Staged to conjunction-test 2026-10-08 (not deployed anywhere else)
+
+Built and staged for Jeffrey to look at the identity-page reflow in game.
+
+- `Releases/almanactcm_0.5.16.zip`, sha256
+  `daecdacdf0e6a76edd9f0de3dd77573763caebc6638c58bffe1fe468ec4fa56b`, 437,489 bytes, 25 entries,
+  entry list identical to 0.5.15 (nothing added or removed). Packed with python `zipfile` and
+  explicit forward-slash arcnames; 0 backslash entries, in-zip `modinfo.json` reads 0.5.16, `.pdb`
+  excluded as in every prior release. Release build clean: 0 errors, 38 warnings, all pre-existing
+  in files this release does not touch.
+- `the-almanac-illuminated/Releases/almanacilluminated_0.3.2.zip`, sha256 `fbcd8a808865a3a4`,
+  982,152 bytes, 34 entries, entry list identical to the released 0.3.1. Built by the csproj's own
+  Release `ZipFiles` target; checked for backslash entries anyway (0) since MSBuild `ZipDirectory`
+  on Windows is not guaranteed to normalise them.
+
+Both staged into `Installations/conjunction-test/Mods/`, hash-verified identical to the repo zips.
+The outgoing zips were renamed aside, not deleted (`almanactcm_0.5.11.zip.pre0516-bak`,
+`almanacilluminated_0.3.1.zip.pre0516-bak`).
+
+New code verified present in the RELEASE dll by exact UTF-16LE byte search, per the 0.5.12 lesson
+about `errors='ignore'` producing false negatives: the re-bake guard, the pot-peek lock, the lime
+and monolith routings, the foundry persistence key, both kill-repeat knobs, the ANI feeding and
+riding techniques, `rideCreditBlocks`, the ALC seal routing and both crock-carry strings. The
+LGD-109 press gate has no runtime string at all (it is a silent return), so it was confirmed by
+its `juiceableLitresTransfered` literal and its `pressPaidLitres` field instead. `SplitHyphen`
+confirmed in the Illuminated dll the same way.
+
+**Two things found while staging, both worth knowing.**
+
+`ANI.json` needed a hand edit, and a real deploy will too. The config merge adds missing
+Techniques and Bonus rows by itself (verified in `LedgerSystem`), so feeding, riding and the five
+new knobs arrive on their own. `M` is NOT in the merge: it has no baseline and is read straight
+off disk, which is the same gap the 0.5.15 notes recorded for PAN. The test install's ANI.json
+still read `M: 2` against four reachable verbs now, so it was edited to 4 by hand (config dir
+backed up to `almanactcm-pre0516-bak` first). **Any server upgrading to 0.5.16 needs the same
+edit**, and the release note has to say so. FAR.json keeps an inert `feeding` row and its two
+feed knobs, which is harmless (nothing grants FAR/feeding) and is left in place deliberately so
+the upgrade path is the one a real server sees.
+
+The Illuminated zip that was in conjunction-test was NOT the released 0.3.1. It was 27 entries
+and 432,626 bytes against the real 0.3.1's 34 and 981,864, and the seven missing entries were
+exactly the font files (`IlluminatedSerif-*`, `IlluminatedDecorative-*`) added by the
+mark-capable-serifs work. That install has therefore been rendering the book with fallback fonts,
+and since the fonts ARE the measurement basis for both chapter-tab label fitting and page-height
+measurement, it was not a valid place to judge either the tab fit or the identity overflow.
+It is now, which is its own reason the staged build may look different in more places than the
+two fixes.
+
+Conjunction left at 0.3.12 on purpose: the identity page does not involve it, and rebuilding
+would pull in that repo's unreleased 0.3.14 work, which this session has not verified. The ALC
+tags for LGD-91 are therefore NOT in this staging.
+
 ### 1. The helve hammer stops spamming the anvil hook log
 
 Reported by Jeffrey from the live log, 2026-10-06 21:12, repeating:
@@ -1225,6 +1277,538 @@ bounded but not quiet. It was written to debug the mark chain in 0.2.5-dev and t
 long over. Moving it to the Postfix, where completion is actually known, would make it one line
 per finished piece. Left as-is for now because it is a real diagnostic and the spam complaint is
 specifically the helve.
+
+### 2. The panning whisper can be turned off, the bore has knobs, and every config documents itself
+
+From Thalius (Frostbound), 2026-10-07: a player walked world chunks panning for iron, got a
+reading, and dug straight down to it, which took the server from barely out of the copper age to
+iron in two in-game years. He asked what in the config file disables the readings. Three things
+came out of answering that.
+
+**`panWhisperChance: 0` now actually means silent.** `PanPatches.MaybeWhisper` rolled
+`NextDouble() > chance`, so at 0 a `NextDouble()` of exactly 0.0 still spoke. About one in 2^53,
+so nobody ever saw it, but it is the only chance roll in the mod spelled `>` rather than `>=` or
+guarded with `chance <= 0` (compare AniBonusPatches 127, MetPatches 489, TaiPatches 237,
+TemStormShift 238), and a knob we document as a switch has to be a switch. Now
+`whisperChance <= 0 || NextDouble() >= whisperChance`.
+
+For the record, the two ways to answer Thalius' actual question, neither of which needed a code
+change: `traceStrengthApprentice` and `traceStrengthGm` both to 0 kills the placer trace AND the
+whisper (the whisper is called from inside the trace prefix, after the `strength <= 0` return),
+or `panWhisperChance: 0` silences the chat line and leaves the drop bias working.
+
+**The Master+ bore depth readout has rank knobs.** `BoreDepthPatch` gated on
+`PanSurveyor.MasterLevel` and a bare literal `17`, so a server that wanted the depth readout off,
+or earlier, had no lever at all. Two new PAN `Bonus` knobs, both self-merging, both shipping the
+values that were already hardcoded: `boreDepthLevel` (13 = Master I, the rung at which the bore
+reports depth at all; set above 17 to disable the readout) and `boreDepthExactLevel` (17 = GM, the
+rung at which it reports the exact band and RECORDS it to the shared depth store; raise it above 17
+to keep the chat readout while taking depth off shared maps). Both are read before the column scan,
+so a server that disables the readout does not pay for the scan either. **No behaviour change at
+shipped values.**
+
+**Every config file now documents itself.** The real problem under Thalius' question was that the
+answer was unfindable: 275 Bonus knobs across 22 domains, 104 techniques and 46 global fields, with
+their only explanation in C# doc comments. `source/Config/KnobDocs.cs` (infrastructure, global
+help) and `KnobDocs.Domains.cs` (the per-domain prose) hold one operator-facing line per value, and
+`KnobDocs.Stamp` writes them into three new generated properties on the models: `_readme` at the
+top of each file, `_techniqueHelp` directly under `Techniques`, `_bonusHelp` directly under
+`Bonus`. global.json gets `_readme` and `_help`.
+
+Why model properties and not JSON comments: Newtonsoft tolerates `//` on read, but
+`StoreModConfig` re-serialises the object graph on every write and a write happens on any merge, so
+comments would survive until the next mod update and then vanish without a word. Being part of the
+model, the block round-trips, is rebuilt from the registry on every load so it cannot drift from the
+code, and self-heals if an operator deletes it.
+
+The `*FloorPerRaw` tail floors (18 of them) and ARC's `ritualRaw*` keys (18) are documented by
+generation rather than by 36 near-identical registry lines, so adding a technique floor or an RBM
+ritual needs no registry edit. Anything else without an entry gets a placeholder naming itself, and
+`LedgerSystem` warns once at boot with the list (CONVENTIONS section 5), so a gap is loud.
+
+Verified by driving the real `Stamp` against the real `Defaults()` out of the built assembly:
+22 domains, 104 techniques, 275 knobs, 46 global fields, **zero** placeholders; `Stamp` idempotent
+on a second call and across a serialise/deserialise round trip, so a boot does not needlessly
+rewrite 23 files; and a real pre-0.5.17 `PAN.json` off disk (M=3, the old TierTotals, seven knobs)
+loads with every tuned value untouched and the help block added. Not yet exercised by a running
+server.
+
+**While reading all 22 domains, one doc-vs-code drift found and NOT changed.** `ForDomain` ships
+`gatherRepeatFree = 12` and `gatherRepeatDecay = 0.5` (retuned in `eea10cf`, 0.5.15), but three
+places still describe the original 4 and 0.1: the inline comment on the values ("Four of a species
+pay full each day"), the doc comment on `GatherRepeatDecay` ("At the 0.1 default the 5th break...
+pays x0.1"), and the 0.5.13 patch note. The shipped numbers are presumably the intended ones, so
+the help text was written from them, but somebody should decide which is wrong and fix the other
+three. Left alone rather than guessed at.
+
+Also noted, not touched: `PanSurveyor.MasterLevel = 13` duplicates `Rank.Master`, and bare rank
+literals survive in several domains (`MelDomain` `blockTierLevel = 13` and `start = 9`, and a
+`const int start = 5` in the `BonusT` of GLA, BRE, ANI, COO, POT, FAR, plus `MelDomain.DummyFade`
+and the RAN anchors). CONVENTIONS section 2 wants `Rank.Apprentice` there. Out of scope for a
+config-documentation pass; it is a clean mechanical sweep for whoever wants it.
+
+### 3. Three XP farms close: the empty press, the re-baked pie, the cancelled knit (LGD-109, LGD-107, LGD-92)
+
+All three are the same defect class the tree-seed fix named in 0.5.8: the grant site paid for
+the INTERACTION when it should have paid for the WORK, and in each case the world already keeps
+a record of whether the work happened. All three now read that record. No knobs, no config
+shape change, no behaviour change for honest play.
+
+**The press (LGD-109).** `CooPatches.JuicePostfix` rides
+`BlockEntityFruitPress.OnBlockInteractStop`, and vanilla's first act there is
+`if (!CompressAnimActive) return` (BEFruitpress.cs:599) — but a Harmony postfix runs after an
+early return just the same, so EVERY right-click release on the press paid COO 0.5 + BRE 0.5
+behind nothing but the 20s bucket. No mash read as `mash == ""`, matched no honeycomb test, and
+fell through to the grant: an empty press, or an empty bucket set under one, was a working farm.
+The press's own mash stack carries `juiceableLitresTransfered`, which vanilla's tick listener
+advances only when juice actually moves (:309), so the patch now keeps a per-press high-water
+mark (`pressPaidLitres`, in-memory, dropped when the press empties) and pays only when the total
+has grown since it last paid. A decrease means a fresh mash was loaded and the mark resets.
+Known edge, documented at the site: the mark is in-memory, so a part-pressed mash sitting in a
+press across a server restart can pay once more for juice drawn before the restart — one credit,
+behind the bucket, against the current every-click.
+
+**The oven (LGD-107).** `OvenTakePostfix` credited any pickup whose slot snapshot classified as
+`Finished`. The 0.5.8 stage classifier answers "where on its baking chain does this stack sit",
+which tells dough from bread from char but cannot tell whether THIS oven did the work: a cooked
+pie put back in and taken straight out re-read as a finished pickup, and at DOUBLE rate, because
+a pie is a Large bake. Same shape as the fuel hole 0.5.8 closed — the filter described the item,
+not the labour. The cook's signature is already the durable record that a pickup was paid
+(`OvenTakePrefix` signs finished goods as they leave and skips already-signed ones), so the
+snapshot now captures `AlreadySigned` on the way in — read BEFORE the prefix's own stamping pass
+— and the postfix withholds credit from a stack that arrived signed, with a log line in the coo
+category. Narrow on purpose: it only ever withholds from signed stacks, so a finished bake the
+prefix cannot sign (neither directly edible nor a BlockPie; no known vanilla or pack item
+qualifies) keeps today's behaviour rather than silently losing credit for modded goods.
+
+**The needles (LGD-92).** `TaiPatches.KnitStopPostfix` granted whenever the prefix had resolved
+a mapped output from the left hand — and knitting 2.0.3's own `OnHeldInteractStop` opens with
+`if (secondsUsed < GetKnitTime) return` (decompiled this pass), so releasing the button early
+left the twine untouched and still banked a full knit, against the explicit ratified ruling
+(rank-bonus-design.md: "partial work banks nothing"). The one path that makes cloth is the one
+that takes twine out of the left hand (`TakeOut(4)`), so the prefix now records the twine stack
+and count, and the postfix pays — and stamps the Tailor's Mark — only when the hand shrank,
+changed or emptied. Mirroring the time test instead would have read a private config through
+reflection and still paid for a case the mod itself refuses (twine dropping below four
+mid-hold).
+
+Builds clean against 1.22.7; the two edited files carry zero analyzer warnings. Not yet
+exercised on a running server. Linear issues to move when this ships. Verified stale while
+triaging, no code change needed: LGD-185 (tree seed on cobblestone) was fixed by `e15eedd` in
+0.5.8, and LGD-219 (TAI per-minute bucket) was resolved — direction reversed — by the 0.5.15
+station-salt work; both are still open in Linear and should be closed with a pointer at those
+releases.
+
+### 4. The under-grant pass: five "grants nothing" reports run to ground (LGD-119, LGD-169, LGD-168, LGD-102, LGD-249)
+
+Each report was traced to its seam against the LIVE mod versions (decompiled from
+`.server-sync/mods-mirror`, boot-log hook lines checked), not against the versions the seams
+were designed on. Two were stale, three were real, and one of the real ones surfaced a second
+defect on the way. Builds clean; none of it exercised on a running server yet.
+
+**LGD-119 (loom awards no XP) decomposes into three, only one of them code.** The boot log
+shows `TAI loom weaving hooked (WeaveInput grant + fibre thrift)` on every boot since Sept 1 —
+the seam was NEVER absent, and the restructure warning in TaiPatches' header was wrong about
+the live 1.2.12. The zero-pay the players felt was the per-minute-bucket dedup blackout, fixed
+by the 0.5.15 station salt (deployed): that half is stale. The Clothiers Heirlooms AUTOLOOM is
+a windmill-fed machine with no mounted player, the same ruled class as the panning machine
+("wiring it is a feature decision, not a dedup bug", 0.5.15 audit): deliberately not wired.
+The code fix: `TaiPatches.OutputSlotOf` hardcoded "slot 1 on both the wheel and the loom",
+which is true of the wheel and never was of the loom — the fly-shuttle loom's inventory is
+slots 0-2 weaving INPUTS, 3 the output (decompiled InventoryFlyshuttleLoom; the BE's own
+property reads `inventory?[3]`). The Master+ fibre-thrift proc on the loom was dropping its
+bonus unit into an input slot — free twine, the economy paying in raw material — or doing
+nothing when slot 1 sat empty. It now reads the BE's own public `OutputSlot` property via
+Traverse, so the wheel keeps slot 1, the loom gets slot 3, and a future restructure degrades
+to a skipped proc instead of a wrong slot.
+
+**LGD-169 (smelter pour into casting sand pays zero) was a wrong-seam hook, not a timing bug.**
+The design note said BlockEntityCastingSand.ReceiveLiquidMetal "routes the stream to every mold
+it can reach" — on live industrialstory 0.7.6, it does not. ReceiveLiquidMetal fires only on
+the FIRST block the pour touches: a mold forwards to FillMold (hook fired, paid), but a channel
+goes to RouteMetal, and RouteMetal fills every reachable mold by calling their FillMold
+DIRECTLY. So a channel pour paid zero however much metal moved, while hand-pours into each
+mold paid — exactly the reported split (Pin's 1200-unit channel pour vs chanka's "I always got
+experience"). The hook moved to FillMold, the one funnel both paths share; same prefix/postfix
+pair, same was-it-full-before gate. ReceiveLiquidMetal stays as the named fallback so a future
+restructure that removes FillMold degrades to the old direct-pour coverage, with the boot line
+naming which seam attached.
+
+**LGD-168 (fixed riftbloom pays nothing) was the success gate reading the wrong slots.**
+`MealPotPostfix` gated on the input/output slot pair changing, and the cooksInto path parks its
+PRODUCT in cooking slot 0, leaving only the vessel conversion in the input slot as a trace. A
+pot whose dirtied form is ITSELF — Conjunction's rust-touched pot, the bloom's dedicated vessel
+by design — converts to the same collectible, so the gate read the cook as a no-op and returned
+before the ALC branch. First bloom fix in a clean pot visibly converted the pot and paid, which
+is why the 2026-08-17 playtest banked; every fix after it, in the pot the bloom had claimed,
+paid nothing. `SmeltState` now snapshots cooking slot 0 too, and the gate accepts a transform
+in ANY slot the two paths write. Also quietly covers vanilla cooksInto recipes re-cooked in an
+already-dirty pot, which had the same hole.
+
+**LGD-102 (Rustic Compounds pay no Arcana) was report-era stale plus one live hole, now closed.**
+At report time (Sept 26) the server ran TCM 0.5.3, which stamped foundry owners only at the
+core OnInteract; the portal-side stamp shipped Sept 6 (`3fea5ec`) and reached the server with
+0.5.14 that same evening. What remained live: `foundryOwners` was in-memory, and the foundry
+is the one owner-at-the-act station that RESUMES WORK BY ITSELF — RunThaumicFoundryCreateItem
+ends by restarting the recipe off the tablet still in its slot, so a charged foundry kept
+minting across a reboot with every product logged "NO owner stamped; uncredited". That is how
+a long unattended batch recipe (compounds) read as dead while anchor work, re-touched per
+piece, paid. The owner map now persists through the SaveGame store
+(`almanacArcFoundryOwners`), the BRE seal-owner shape verbatim, loaded with a boot count line.
+
+**LGD-249 (repeat creature kills pay zero, even in storms) was the dedup blackout in a combat
+coat.** The kill context was `(species, 64-block cell)` with NO time term, so the 90s ring
+swallowed every same-species kill near the last: a storm room-clear paid the first drifter of
+each kind and then zero — chanka's "slaughtered about 6 and got 9 XP, then 0 for the rest",
+while Vinni's +67 came through parries, which have their own context. Same class as the
+stations (LGD-238), same two-part cure: the context now salts on EntityId ("one corpse, one
+context" — unique per creature, stable for that corpse, so a double-fired death event still
+dedups), and repetition moved to the ruled say-nay curve — `killRepeatFree` /
+`killRepeatDecay`, new MEL Bonus knobs shipping FOR's retuned gather shape (12 / 0.5) [TUNE],
+one pool per species per day across melee and ranged. The decay rides `mult`, so the TEM and
+ARC co-grants taper in step with the method that earned them. KnobDocs entries added for both
+knobs. The report's other two asks (storm-time XP caps raised, per-tier XP scaling) are
+balance rulings, not this fix: DifficultyMult already tiers the pay, which zero-pay was
+hiding.
+
+### 5. The exploit pass: pot-peek theft and the walled-quern farm close; three more reports run dry (LGD-99, LGD-90, LGD-121, LGD-179, LGD-173)
+
+**LGD-99 (peeking a pot steals the cook's XP).** The firepit cook stamp transferred on EVERY
+interact, and peeking is an interact, so whoever opened a burning pit while a meal cooked
+became cook of record and collected at completion — the reported overnight thefts. The pit
+itself knows when work is mid-flight: burning, with input still cookable (a raw meal pot or a
+direct-heat item, the same classification SmeltPrefix uses). In that state the stamp is now
+locked to its holder; a cold or empty pit hands over exactly as before, so taking over a dead
+firepit (swap pots, light, claim) is untouched. The peeker is told nothing; the coo log line
+is the trace.
+
+**LGD-90 (riftbloom quern regrind) was vanilla's no-op grind path, paid by us.** grindInput
+has a return with NOTHING consumed: output merge refused (potency-mismatched riftbloom pile —
+or just a full flour stack) AND the eject face blocked returns before InputSlot.TakeOut(1)
+(BEQuern.cs, the `Replaceable < 6000` return). QuernPostfix paid every completion without
+asking, so a walled-in quern with a mismatched output stack banked ALC reagentwork off the
+same unconsumed bloom, forever — plain grain against a full output had the identical hole.
+The gate is the session's standard shape: the input shrank, or nothing is paid. The REAL
+eject path consumes and still pays. The stacks-won't-merge inventory friction itself is
+LGD-110's (alchemy barrels) and Conjunction's merge-tolerance question — not touched here.
+
+**LGD-121 (taming one packet / offline birth XP): both halves already answered.** The birth
+half shipped in 0.5.14 — BirthPostfix escrows an offline breeder through LogOffline with the
+LGD-96 citation in place. The one-packet-on-the-last-saddle-break half is the RULED behaviour
+(partial progress banks nothing, the WILD->TAME crossing is the act), documented at the hook
+site. Changing that is a re-ruling, not a fix. Close with pointers.
+
+**LGD-179 (mining cobblestone) has been fixed since 0.4.35**, by the same report that filed
+it (LauCaRo's): MiningStonePatch requires `rock-*`, so cobblestone — placed or ruin — pays
+nothing, with the tradeoff recorded at the site ("ruin cobble is the accepted casualty. Do not
+re-litigate per report"). The Discord-era intent "ruin cobblestone should still pay" was
+superseded by that recorded ruling. Stale; close with the pointer.
+
+**LGD-173 (chat prints Temporal XP the Almanac does not keep) is LGD-249 seen from the
+reporting side.** The announce path cannot lie: QueueFeedback fires only when practice
+actually banks and carries the exact banked raw. What the reporter saw was the kill-context
+blackout — first drifter of a species banked and announced, every repeat deduped to zero and
+spoke only the repeat line — which reads exactly as "chat claims XP the book does not store."
+Resolved by the LGD-249 context salt in this same version; verify on the live server, then
+close both together.
+
+### 6. The attribution pass: five verbs re-homed, two new grants (LGD-91, LGD-122, LGD-140, LGD-141, LGD-159, LGD-176, LGD-163)
+
+Seven rulings from Jeffrey, 2026-10-08. Five were "this verb pays the wrong domain", which is
+cheap once the grant site is found; two were new grants; one turned out to need no change.
+Every routing decision is made on a PROPERTY of the work (an item attribute, a grind output, a
+block domain, an interface) rather than a name list, so the rule covers the pack's mods without
+enumerating them.
+
+**LGD-91: Conjunction crafting is ALC, zero cooking.** The ruling is broader than the report, so
+the fix is too. Four consumables carried no `tcmCraftDomain` tag at all (draught in all five
+tiers, quintessence, aqua ardens, clear distillate) while the six reagents did, which is why a
+settling draught simmered in the pot read as COO — the ALC branch never saw it. All four are
+tagged now. The barrel seal needed code: `StoreAndGrantSeal` routes tanning and dye away from
+BRE by the same shape, and alchemical matter now joins them, which ALSO fixes a silent zero —
+under the 0.5.14 allowlist inversion a STEEPED descent draught (the crafts left the grid in
+Conjunction 0.3.13, dev3) was one of the 495 inert outputs and earned nothing at all. No
+spoilage taper and no Brewer's Mark on an occult flask. `IsAlcMatter` went internal to be shared.
+
+**LGD-122: feeding is 100% Animal Handling.** Moved whole rather than split: the verb, its
+Raw 2 / K 15, and the feed-economy knobs (`feedUntrained` / `feedGm`) all now live on ANI with
+the same shipped numbers, so a day's feed banks exactly what it banked — in a different book.
+The hook stays in `FarPatches` because the trough spine (fill stamp, `raisedBy` write, feed
+economy) is one mechanism and splitting the file would have split that. ANI's `M` 2 -> 4
+(feeding plus riding below), the LGD-237 reachable-verbs convention. **The Almanac's guide text
+moved with it**: six feed bullets lifted out of FAR's rungs into ANI's, the FAR Untrained and
+Novice summaries rewritten, and the three feed figures re-homed in `DomainFigures`. A live
+`FAR.json` carrying a tuned feeding row is now inert; nothing grants FAR/feeding.
+
+**LGD-140: lime is the mason's grind.** Routed on the OUTPUT, not the input: vanilla grinds
+limestone, chalk AND marble all to `lime` (grindingPropsByType, verified in 1.22.7's stone.json),
+the same mason's work in three coats, so one output test catches all three and any mod that adds
+a fourth. Pays MAS `dress`, the recurring-stonecraft row. Halite stays on the COO/FAR food split
+deliberately: salt is the kitchen's matter.
+
+**LGD-141: monolith harvest is 100% ARC.** RBM's ancient monolith is a `BlockOre` SUBCLASS whose
+override calls base (decompiled 3.2.5), which is how a pickaxe swing at an arcane station read as
+mining practice. Routed by block DOMAIN (`rustboundmagic`) rather than a path list — everything
+RBM builds as "ore" is arcane matter today, and the comment records that a future mundane RBM
+deposit would need revisiting. Pays ARC `laboratory` (the station row) at FLAT raw: the depth
+coefficient is a miner's lever, and where a monolith happens to stand says nothing about the
+arcanist. No MIN share, per the ruling.
+
+**LGD-159: a sewn container is tailoring.** Bags carry no `CollectibleBehaviorWearable`, so the
+garment branch never saw them and a modular backpack paid nothing. The test is `IHeldBag`, which
+vanilla baskets, Immersive Modular Backpacks (`ItemImmersiveBag` implements it, decompiled 1.6.1)
+and specialized backpacks all declare. The existing textile gate still applies, which is what
+makes the ruling safe: consumed cloth/hide units scale the credit, a reed basket pays nothing,
+and the leathercraft half of the report rides the leather/hide markers already in the list.
+
+**LGD-176: riding pays for ground crossed, not keys held.** New `source/Domains/AniRiding.cs`,
+built on Conjunction's excursion ledger (`Tether.Refresh`): a 1s tick samples the rider's
+position and banks the horizontal distance actually covered, paying one `riding` credit per
+`rideCreditBlocks` (default 50 [TUNE]). The named exploit dies by construction — a horse pressed
+into a corner produces zero displacement and therefore zero practice, with no failure model
+needed. Single steps over 12 blocks are discarded as teleports or lag snaps (Conjunction's
+`MaxStepPerSample` posture; vanilla gallop is ~9 blocks/s). Controlling seat only
+(`seat.CanControl`), and the mount must carry vanilla's `EntityBehaviorRideable` — the
+saddle-break line this domain already pays, so a boat is not an animal. **Known gap, documented
+rather than guessed:** Jaunt-line mounts that ride through their own behavior class are not
+covered; wiring them needs their seams read first.
+
+**LGD-163: investigated, no change — the +2 is not casting's.** The reported sequence decomposes
+exactly: the first `+8` is MET `smelting` (Raw 3, once per crucible, attribute-guarded on first
+pour), the pour's own credit is the SAME grant, and the trailing `+2` arrives from a different
+seam entirely — `ToolMoldFillPatch` is edge-triggered on the not-full to full transition, so it
+pays MET `casting` (Raw 6) once per mold COMPLETED. A pour that tops off a mold reads as a small
+late number because it is a separate, correctly-gated act, not a stray share of the smelt. Both
+seams are already single-fire and already exclusive. Jeffrey's instinct that the pour should not
+grant casting is a RULING question (should filling a mold be casting practice at all, or should
+casting live only at the take?), not a defect: nothing is double-paying. Left for a decision.
+
+Builds clean against 1.22.7: 0 errors, and zero analyzer warnings in all ten edited files.
+`rungs.json` re-validated as JSON. The guide move was verified by driving the REAL
+`DomainFigures` providers out of the built assembly against the real `rungs.json`, merging
+server-synced over client-computed figures exactly as the renderer does: **636 placeholder uses
+across every domain, 0 unresolved** — so no rung renders a literal `{feedM4}` after the move.
+Not yet exercised on a running server.
+
+Deploy note: `ANI.json` gains `feeding`, `riding`, `feedUntrained`, `feedGm` and
+`rideCreditBlocks`; `FAR.json` loses its feeding row and feed knobs; `MEL.json` gains the two
+kill-repeat knobs from section 4. Conjunction ships asset-only changes for its half of LGD-91,
+so that mod needs its own release for the tags to reach players.
+
+### 7. A crock stopped losing its Potter's Mark the moment food went into it (Brick, via Thalius)
+
+Relayed 2026-10-08 from Thalius' Frostbound issue tracker, reported by Brick: crocks marked by
+the Almanac lose the mark once food is placed inside, "as far as I can tell reverting it back
+into a normal crock." That reading is exactly right, and it is worse than cosmetic: the
+preservation bonus the mark buys only ever applies to a vessel WITH food in it, so the mark was
+being destroyed at the precise moment it first meant anything. Every marked crock on every
+server has been an ordinary crock in practice since the mark shipped.
+
+Two independent mechanisms, one for each way a crock gets filled. Both are the lifecycle-hop
+failure this file's header already warns about ("miss one hop and the mark dies there"); the
+clayforming stamp, the firing clone and the pickup rebuild were all carried, and the serve was
+missed because an empty crock has nothing to carry yet.
+
+**Filling a carried crock from a cooked pot.** Vanilla's fresh-serve branch does not fill the
+vessel in your hand. It reads the vessel's own `mealBlockCode`, builds `new ItemStack(mealblock)`,
+copies the contents into that, and assigns it over the slot
+(`BlockCookedContainerBase.ServeIntoStack`, decompiled baseline). For a crock that code resolves
+to `crock-{color}-fired`, which is the SAME block it already was, so the player sees an identical
+crock that has silently lost every custom attribute. New prefix/postfix pair on `ServeIntoStack`
+lifts the packed mark off the vessel before the call and writes it back after, the same shape
+`PackOf`/`ApplyPacked` already serve the firing hop. Applied only when the served stack comes
+back UNMARKED, which leaves the merge branch alone (topping up a vessel that already holds
+servings mutates in place and keeps its mark, which is why only the FIRST fill showed the fault)
+and can never overwrite a different potter's mark. Declared on the base, so one pair covers the
+pot, a crock serving on into ground storage, and every meal-container merge routed through it.
+
+**Filling a PLACED crock from a held pot, which this file broke itself.** `ServeIntoBowl` converts
+the vessel in place with the two-arg `SetBlock(mealBlockCode, pos)`. The position is unchanged, so
+the position-keyed mark store should have survived it, except that a `SetBlock` still counts as a
+placement (`Block.OnBlockPlaced`: "always called when a block has been placed through whatever
+method"), so `VesselPlacedPostfix` fired with `byItemStack` null, fell to its `else`, and
+`Remove`d the stored mark. The guard is now explicit: a genuine player placement ALWAYS arrives
+with a stack, because `DoPlaceBlock` calls the three-arg `SetBlock(BlockId, pos, byItemStack)`, so
+a null stack means a programmatic in-place conversion and the mark stays. The `Remove` is still
+correct for a real unmarked placement, which is the behaviour that line was written for.
+
+Seams verified by reflecting against the live 1.22.7 `VSSurvivalMod.dll` rather than trusting the
+names: `BlockCookedContainerBase.ServeIntoStack` is declared there returning `Boolean` with first
+parameter `bowlSlot`, and `BlockEntityCrock.OnBlockPlaced` declares `ItemStack byItemStack`, which
+are the names both patches bind by. Builds clean, zero warnings in the edited file.
+
+**Not yet exercised in game, and this one wants a real check before it ships** (one crock, one
+meal, read the tooltip): the carried half is a stack-attribute round trip and the placed half
+depends on the null-stack reading holding for every mod in the pack that converts a vessel block.
+Existing crocks already filled have no mark to restore and will stay plain; the fix is
+forward-looking only.
+
+### 8. The identity page pages itself, instead of running off the bottom (LGD-93, Pun)
+
+The second half of Pun's 2026-09-25 report ("the foraging page text overflows the first page").
+The tab half of that ticket is Illuminated's and is fixed there (0.3.2, the hyphen break); THIS
+half is ours, and the first page of a trade is the identity page.
+
+**It was the one column in the book shipped unmeasured.** The rungs are trial-measured and split
+(`BuildRungColumns`, and `SplitRung` for a rung no page can hold), the ladder is built to fit,
+and the identity column was assembled and handed over at whatever height it came to:
+`new List<RichTextComponentBase[]> { comps.ToArray() }`, with no measurement anywhere in its
+path. `AppendPinnedFoot` was the only thing that measured it, and only to decide whether to pad
+above the trade web, with its own comment conceding it "skips the pad when the column is already
+too full to pin cleanly", which appends the foot past the bottom margin rather than preventing
+the overflow.
+
+**Why foraging, when foraging is not the longest page.** Checked rather than assumed: FOR's
+identity prose is 190 characters, 16th of 22. But the identity page also carries `techniques`
+("The work") and `tip` ("A smith's tip"), and only EIGHT of the twenty-two trades have either.
+Counting every authored field that lands on the page there is a clean cliff: the eight with the
+extra blocks run 845 to 1043 characters, the other fourteen 400 to 550. FOR is third-heaviest of
+the eight at 932 and carries the single longest tip in the file at 438. BEE (1043) and MET (943)
+are worse and will have been overflowing too. Above the prose the chrome is reader-state sized
+as well (rank pips, the progress bar, its caption, the affinity line), which is why whether a
+page fit depended on who was reading and at what rank, and why this never showed in authoring.
+
+New `SplitIdentityColumns` packs the prose onto page-height columns and pins the trade web to
+the LAST of them. Component-granular, because that is the only granularity available: unlike a
+rung, which `SplitRung` can rebuild from its own bullets, this column is a flat run of finished
+components, so it packs greedily and breaks where the next one would overflow (the shape
+`ChapterRenderer`'s own paginator uses). A spacer landing at the top of a fresh column is
+dropped, since its job was to separate it from something now on the previous page; and a foot
+that will not fit under the final column takes a leaf of its own rather than being appended past
+the margin.
+
+**`BuildRungColumns` no longer assumes the identity was one page.** It derived both its
+verso/recto parity (`absolute = 2 + c`) and its click-to-rung spread map (`(2 + colIdx) / 2`)
+from a hardcoded 2. Both now read a passed-in `leadColumns` = identity pages + the ladder recto,
+so the running heads, the verso foot and rung navigation stay correct however many pages the
+identity takes. This was the part that would have broken silently.
+
+**Safety property worth stating:** when the identity fits one page, which is the usual case and
+every case for the fourteen lighter trades, `SplitIdentityColumns` returns exactly one column,
+`leadColumns` is 2, and the output is identical to before. The change can only add pages where
+text was previously lost off the bottom.
+
+**One authored intent is displaced, deliberately, and should be reviewed.** The 2026-08-22
+handoff set the spread as "identity verso, the Ladder recto" — the two facing each other. A
+two-page identity makes the pair [identity, identity continued] and moves the ladder onto the
+next verso with the first rungs facing it. That reads coherently and costs no blank paper, but it
+is not the pairing the handoff specified. The alternative, padding the identity to an odd number
+of columns to hold the ladder on a recto, spends a blank page to do it. Left as the reflow
+because losing text off the page is the worse fault, but it is a design call and it is Jeffrey's
+to confirm.
+
+Builds clean, zero warnings in the edited file. **Not verified in game, and this one needs it**:
+the whole fix is layout, the measurement path needs a live Cairo context, and the thing to check
+is a FOR, BEE or MET page at a mid rank, reading to the bottom of the identity page and on to the
+ladder.
+
+**CORRECTION 2026-10-09, after looking at it in game.** Foraging at Untrained renders clean with
+about a third of the leaf spare, identity verso and ladder recto exactly as the handoff wanted,
+so the reflow described above did not trigger and the authored pairing is intact. Two things
+follow. The spread-pairing question raised above is therefore moot until a page actually needs
+two leaves, and the heavy pages (BEE 1043, MET 943) are still unchecked. And the ORIGINAL report
+is now in doubt as a live defect: the client it came from was running an Illuminated build with
+no fonts in it, so the book measured with fallback type, which is wider than the real serif and
+is the better explanation for the spill. This change stands as a guard against an unmeasured
+column rather than as a fix for something reproduced. Do not write the patch note as a cure; it
+has been reworded accordingly.
+
+The Illuminated half of LGD-93 was REVERTED the same day. See that repo's TODO.md: the "E" is a
+literal one-character label the fitter never touches, and two-line tab labels are unreachable at
+`UnTabH = 27` anyway, so the hyphen break was inert and aimed at the wrong mechanism. Illuminated
+is back at 0.3.1 with no change from this session.
+
+### 9. Fishing could not fill a day without companion mods (Dr Wrights, AB)
+
+Reported 2026-10-09: "Fishing gives way to little exp for the amount required to rank up."
+Read as a rate complaint it is wrong; it is arithmetic, and it is PAN's defect wearing a rod.
+
+FIS defines FOUR techniques and ships `M = 3`, but only ONE is reachable on a bare pack.
+Angling is a Harmony patch on vanilla `EntityBobber.TryCatchFish`, unconditional. Spearing
+(`FisPsPatches`) and processing (`FisEcologyPatches`) both early-return without
+`primitivesurvival`; trapping (`FisTrapPatches`) needs `primitivesurvival` OR
+`ithaniaexpandedfishing`. A domain's daily value splits across M verbs, so with neither mod
+installed an angler fishing from dawn to dark reached at most a THIRD of a day's fishing and
+the other two thirds were unreachable by any route. Exactly LGD-237, exactly the PAN shape
+0.5.15 fixed, and it reads to a player precisely as Dr Wrights described.
+
+`FisTrapPatches.ClampFisM` counts what the pack can actually reach (1, +1 spearing with PS,
++1 trapping with PS or Ithania, +1 processing with PS) and narrows `M` to it, on the same
+deferred callback ENG's clamp uses so the ledger's config load is certainly done.
+
+**Clamps DOWN only.** A full pack reaches all four against a shipped `M` of 3, which slightly
+over-pays rather than capping anything; raising M there would be a live nerf to servers that
+are currently fine, and that is a balance call rather than a defect fix. Narrowing can only
+ever hand back value that was unreachable. Effect by pack: neither mod 3 -> 1 (the fix);
+Ithania only 3 -> 2; primitivesurvival present, no change. **The Quire and Frostbound both run
+primitivesurvival, so neither changes** — this is for packs like AB.
+
+Worth filing in Linear; it is not on the board yet. And worth a sweep: ENG and FIS both needed
+this, FIS was found only because a player reported the symptom, and nothing checks the general
+case. A boot-time audit comparing each domain's `M` against the verbs whose seams actually
+attached would catch the next one without a report.
+
+Builds clean, 0 errors, 38 warnings (unchanged; the one in this file is the pre-existing
+CS8604, shifted down by the insertion). Not exercised in game.
+
+**RETUNED THE SAME DAY, and this is the half that actually reaches Dr Wrights.** He reported
+from THE QUIRE, which runs primitivesurvival, so all four verbs are reachable there and the
+clamp above does nothing for him. The clamp fixes packs like AB; it was not his complaint.
+
+His complaint is the breadth-phase per-verb cap. Below Journeyman a domain's day splits across
+M verbs and each is capped at `Smax/M`, so at M=3 a rod angler banked at most 33.3 a day and
+could not reach the rest BY FISHING: the other two thirds needed spearing, traps and filleting,
+three Primitive Survival workflows a rod angler may never touch even where they exist. Measured
+against the ladder's 150 to Novice I, that is about 4.5 rod-only days.
+
+`FisDomain.M` 3 -> 2 (ruled by Jeffrey). Angling's K stays 40. Modelled before choosing:
+
+| config | cap | 5 catches | 10 | 20 | 40 | fill | days to Novice I |
+|---|---|---|---|---|---|---|---|
+| was, M3 K40 | 33.3 | 11.1 | 16.7 | 22.5 | 32.5 | 42 | 4.5 |
+| **now, M2 K40** | 50.0 | 16.7 | 25.0 | 33.3 | 43.4 | 54 | 3.0 |
+| considered, M2 K50 | 50.0 | 14.3 | 22.2 | 30.8 | 40.9 | 59 | 3.0 |
+
+M2/K40 is a flat +50% at every early catch count, not merely a higher ceiling. K50 was
+considered and dropped on Jeffrey's reasoning: a higher K approaches the cap more slowly, which
+hands back about a seventh of the early gain, and fishing is passive but for a couple of clicks,
+so the reward has to land early or the wait reads as nothing happening. Front-load it.
+
+Cost, stated rather than discovered later: two verbs now fill a fishing day (2 x 50), so breadth
+past two earns nothing extra in the breadth phase where three was the old requirement. Depth
+phase is untouched; it saturates against the full Smax and never reads M.
+
+The clamp still composes correctly at the new default. Truth table re-checked: neither mod ->
+reachable 1, clamps 2 -> 1; Ithania only -> reachable 2, no clamp; primitivesurvival -> reachable
+4, no clamp (down only).
+
+**DEPLOY, and this one bites.** `M` has no merge baseline and is read straight off disk, so
+shipping 2 does NOTHING for an existing server. The Quire needs `"M": 2` written into
+`ModConfig/almanactcm/FIS.json` by hand or Dr Wrights sees no change at all. That is the third
+domain needing this manual step (PAN in 0.5.15, ANI and now FIS in 0.5.16), which is the
+argument for the boot-time M audit noted above.
+
+
+**APPLIED TO THE QUIRE 2026-10-09, ahead of any deploy.** `data/ModConfig/almanactcm/FIS.json`
+pulled, `"M": 3` changed to `2` as a single-line edit so the rest of the file stayed byte for
+byte identical (1450 bytes before and after, only the `M` key differing on a parsed diff),
+pushed, and read back: server sha matches the local file exactly. Backup of the pre-edit file in
+the session scratchpad as `FIS.json.pre-m2-bak`.
+
+Safe to do on a running server: domain configs are written only during the boot merge pass
+(`LedgerSystem` :259), never on GameWorldSave, so nothing clobbers it mid-session. It takes
+effect at the next restart.
+
+**This needs no deploy.** M is pure config and the 0.5.15 build already running reads it, so
+Dr Wrights gets the change at the next restart without waiting for 0.5.16. The 0.5.16 merge will
+rewrite FIS.json (help blocks, baselines) but leaves `M` alone, so the 2 survives the upgrade.
+
+Two related facts established while in there. **PAN reads `M: 2`, so 0.5.15's manual edit was
+actually done** — that question is closed. And **ANI reads `M: 2`, which is correct for 0.5.15
+and must NOT be pre-edited**: 0.5.15 has only genraising and taming, so setting 4 now would split
+the ANI day across two verbs that cannot fill it. ANI's edit to 4 happens only once 0.5.16 is
+live.
+
 
 ## Staged in 0.5.15
 

@@ -57,6 +57,33 @@ public static class ArcPatches
             TcmLog.Cat(api, TcmLog.Config, "ARC: rustboundmagic absent -> domain dormant (no re-root, no grants)");
             return;
         }
+
+        // Foundry owner stamps persist across restarts (0.5.16, LGD-102). The foundry is the one
+        // owner-at-the-act station whose map was still in-memory, and it is also the one station
+        // that RESUMES ITS WORK BY ITSELF: RunThaumicFoundryCreateItem ends by restarting the
+        // recipe off the tablet still in its slot, so a charged foundry left running mints
+        // product after product across a reboot with nobody re-touching it. Every one of those
+        // minted as "NO owner stamped; uncredited" — which is how a tablet recipe the player runs
+        // in long unattended batches (rustic compounds) read as paying nothing while anchor work,
+        // re-touched per piece, paid. The BRE seal-owner map is the persistence precedent.
+        api.Event.SaveGameLoaded += () =>
+        {
+            try
+            {
+                byte[]? data = api.WorldManager.SaveGame.GetData("almanacArcFoundryOwners");
+                if (data != null)
+                {
+                    var loaded = Vintagestory.API.Util.SerializerUtil
+                        .Deserialize<Dictionary<string, string>>(data);
+                    if (loaded != null) foreach (var kv in loaded) foundryOwners[kv.Key] = kv.Value;
+                }
+                TcmLog.Cat(api, TcmLog.Config, $"ARC foundry owners loaded: {foundryOwners.Count} stamped station(s)");
+            }
+            catch (Exception e) { TcmLog.Error(api, $"ARC foundry-owner map unreadable ({e.Message}); starting empty"); }
+        };
+        api.Event.GameWorldSave += () =>
+            api.WorldManager.SaveGame.StoreData("almanacArcFoundryOwners",
+                Vintagestory.API.Util.SerializerUtil.Serialize(foundryOwners));
         api.Event.RegisterGameTickListener(_ => Reconcile(api), 2000);
         // Drop a leaver's trance accounting so the map cannot grow across a long uptime, and so a
         // rejoin re-baselines its mana reading instead of trusting a stale one.

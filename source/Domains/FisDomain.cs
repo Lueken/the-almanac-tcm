@@ -51,7 +51,24 @@ public static class FisDomain
     {
         Code = Code,
         Smax = 100,
-        M = 3,
+        // RULED 2026-10-09 (Dr Wrights, The Quire: "fishing gives way too little exp for the
+        // amount required to rank up"). M was 3, so below Journeyman a rod angler was capped at
+        // Smax/3 = 33.3 a day and could not reach the rest by fishing at all: filling a day
+        // meant spearing, running traps AND filleting, three Primitive Survival workflows a rod
+        // angler may never touch even on a pack that has them. At 2 the same angler banks 50,
+        // which is +50% at EVERY catch count, not merely a higher ceiling (5 catches 11.1 ->
+        // 16.7, 20 catches 22.5 -> 33.3), and Novice I falls from about 4.5 rod-only days to 3.
+        //
+        // Front-loaded on purpose: fishing is passive but for a couple of clicks, so the reward
+        // has to land early or the wait reads as nothing happening. Angling's K stays 40 for
+        // exactly that reason. Raising K to 50 was considered and dropped: a higher K approaches
+        // the cap more SLOWLY, which would have paid back about a seventh of the early gain to
+        // buy a longer tail nobody asked for.
+        //
+        // The cost, stated: two verbs now fill the day (2 x 50), so breadth past two earns
+        // nothing extra in the breadth phase where three was the old requirement. Accepted.
+        // Depth phase is untouched - it saturates against the full Smax and never reads M.
+        M = 2,
         // The farmhand is the fisher (the one FIS affinity anchor); the waterside gather pairs
         // with the forager.
         Adjacency = new List<string> { "FAR", "FOR" },

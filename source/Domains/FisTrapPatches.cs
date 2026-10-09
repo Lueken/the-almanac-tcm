@@ -49,9 +49,54 @@ public static class FisTrapPatches
         }
     }
 
+    /// <summary>
+    /// M MUST EQUAL REACHABLE VERBS, NOT DEFINED ONES (the LGD-237 ruling, applied to FIS
+    /// after Dr Wrights reported on AB 2026-10-09 that "fishing gives way too little exp for
+    /// the amount required to rank up"). FIS defines four techniques and ships `M = 2` (it was
+    /// 3 until the 2026-10-09 retune), but only ONE is reachable without companion mods: angling
+    /// is a vanilla
+    /// EntityBobber patch, while spearing and processing need primitivesurvival and trapping
+    /// needs primitivesurvival or ithaniaexpandedfishing.
+    ///
+    /// A domain's daily value splits across M verbs, so on a pack with neither mod an angler
+    /// who fished from dawn to dark reached at most HALF a day's fishing (a third before the
+    /// retune) and the rest was unreachable by any route. That is not a rate to tune; it is the same arithmetic
+    /// defect PAN carried until 0.5.15, and it reads to a player exactly as Dr Wrights
+    /// described it.
+    ///
+    /// CLAMPS DOWN ONLY, never up. A full pack reaches all four against a shipped M of 2,
+    /// which over-pays slightly rather than capping anything, and raising M there would be a
+    /// live nerf to servers that are currently fine. Narrowing M to what a pack can actually
+    /// reach can only ever return value that was unreachable. Deferred like ENG's clamp so the
+    /// ledger's config load is certainly finished first.
+    /// </summary>
+    private static void ClampFisM(ICoreServerAPI api)
+    {
+        bool ps = api.ModLoader.IsModEnabled("primitivesurvival");
+        bool it = api.ModLoader.IsModEnabled("ithaniaexpandedfishing");
+
+        int reachable = 1;                  // angling: vanilla bobber, always
+        if (ps) reachable++;                // spearing
+        if (ps || it) reachable++;          // trapping
+        if (ps) reachable++;                // processing
+
+        api.Event.RegisterCallback(_ =>
+        {
+            var cfgs = Core?.Ledger?.DomainConfigs;
+            if (cfgs == null || !cfgs.TryGetValue(FisDomain.Code, out var dc) || dc.M <= reachable) return;
+            int was = dc.M;
+            dc.M = reachable;
+            TcmLog.Cat(api, TcmLog.Config,
+                $"FIS m clamped {was} -> {reachable}: " +
+                $"primitivesurvival {(ps ? "present" : "absent")}, ithaniaexpandedfishing {(it ? "present" : "absent")}; " +
+                "unreachable verbs no longer hold back the day");
+        }, 5000);
+    }
+
     public static void RegisterServer(ICoreServerAPI api)
     {
         sapi = api;
+        ClampFisM(api);
         try
         {
             string file = StateFileName;

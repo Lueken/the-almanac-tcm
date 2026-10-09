@@ -34,7 +34,7 @@ public static class FarDomain
     public const string TechPlanting = "planting";     // BlockEntityFarmland.TryPlant
     public const string TechHarvesting = "harvesting"; // BlockCrop.OnBlockBroken (yield-proportional)
     public const string TechFertilizing = "fertilizing"; // BlockEntitySoilNutrition.OnBlockInteract
-    public const string TechFeeding = "feeding";       // BlockEntityTrough.ConsumeOnePortion (writes raisedBy)
+    // feeding: MOVED TO ANI (RULED 2026-10-08, LGD-122). See AniDomain.TechFeeding.
     public const string TechMilking = "milking";       // EntityBehaviorMilkable.MilkingComplete
     public const string TechEggs = "eggs";             // BlockEntityHenBox.OnInteract (spammy, heavy dedup)
     public const string TechGrafting = "grafting";     // fruit-tree propagation (DEFERRED to 1b)
@@ -71,11 +71,7 @@ public static class FarDomain
     /// and timed, so the expertise earns a slight premium — not a throughput multiplier, which the
     /// per-crop credit already gives it. Applies on top of the yield-proportional ripeFrac.</summary>
     public const string HarvestScytheBonus = "harvestScytheBonus";
-    /// <summary>Feed economy (the MET fuel analog): satiety an animal draws per trough portion,
-    /// scaled by the FILLER's rank — a master's trough feeds to the same satiety on fewer
-    /// portions; an Untrained hand's feed goes to waste.</summary>
-    public const string FeedUntrained = "feedUntrained";
-    public const string FeedGm = "feedGm";
+    // feedUntrained / feedGm: MOVED TO ANI with the feeding verb (LGD-122).
     /// <summary>Fertilizer thrift: chance at GM that an application costs no item (the powder-
     /// thrift shape). 0 below Apprentice.</summary>
     public const string FertThriftGm = "fertThriftGm";
@@ -125,8 +121,9 @@ public static class FarDomain
             // partial, immature seed-only ~0. The outcome is the practice signal (continuous success-gate).
             [TechHarvesting] = new() { Raw = 3, K = 30 },
             [TechFertilizing] = new() { Raw = 1, K = 20 },
-            // Per-session passive husbandry: small K, one feeding session banks most of its share.
-            [TechFeeding] = new() { Raw = 2, K = 15 },
+            // Feeding moved to ANI whole — verb, values, and feed economy (RULED 2026-10-08,
+            // LGD-122). A live FAR.json still carrying a tuned feeding row is inert: nothing
+            // grants FAR/feeding anymore.
             [TechMilking] = new() { Raw = 2, K = 20 },
             // The weakest, spammiest row: low raw + heavy contextHash dedup (a coop sweep = one context).
             [TechEggs] = new() { Raw = 1, K = 12 },
@@ -151,7 +148,6 @@ public static class FarDomain
             [HarvestDockUntrained] = 0.85,
             [HarvestRipeFloor] = 0.50,
             [HarvestScytheBonus] = 1.15,
-            [FeedUntrained] = 0.90, [FeedGm] = 1.25,
             [FertThriftGm] = 0.20,
             [GraftRetryGm] = 0.50,
             [ShearScratchUntrained] = 1.5,

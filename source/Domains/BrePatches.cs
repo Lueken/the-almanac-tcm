@@ -230,6 +230,17 @@ public static class BrePatches
             TcmLog.Cat(api, "bre", $"seal at {pos}: dye bath ({code}) -> TAI dye for {player.PlayerName}");
             return null; // no BRE grant, no completion effects
         }
+        // Alchemical matter is the alchemist's seal (RULED 2026-10-08, LGD-91: Conjunction
+        // crafting is ALC, zero cooking — and under the allowlist below, a steeped descent
+        // draught was earning NOTHING, one of the 495 inert outputs the inversion swallowed).
+        // Same routing shape as tanning and dye above: the verb belongs to another domain, so
+        // BRE abstains — no spoilage taper, no Brewer's Mark on an occult flask.
+        if (CooPatches.IsAlcMatter(recipe.Output.ResolvedItemStack))
+        {
+            Core?.Ledger?.Log(player, AlcDomain.Code, AlcDomain.TechReagentWork, cx);
+            TcmLog.Cat(api, "bre", $"seal at {pos}: alchemical matter ({code}) -> ALC reagentwork for {player.PlayerName}");
+            return null;
+        }
         if (IsNonEarning(code)) // lime/tannin reagent prep: feeds tanning, earns nothing
         {
             TcmLog.Cat(api, "bre", $"seal at {pos}: non-earning barrel prep ({code}); no grant");

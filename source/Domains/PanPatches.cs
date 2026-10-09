@@ -285,7 +285,13 @@ public static class PanPatches
         }
         if (best == null || bestV < minFactor) return;
 
-        if (sapi.World.Rand.NextDouble() > PanDomain.Knob(PanDomain.PanWhisperChance, 0.25)) return;
+        // >= , not >. The house form for every other chance roll in the mod (AniBonusPatches
+        // 127, MetPatches 489, TaiPatches 237, TemStormShift 238) and the only spelling under
+        // which panWhisperChance = 0 is a PROVABLE off: with `>`, a NextDouble() of exactly 0.0
+        // still spoke. 2026-10-07 jl: changed on Thalius' request to silence the whisper by
+        // config, where the documented knob has to mean what it says.
+        double whisperChance = PanDomain.Knob(PanDomain.PanWhisperChance, 0.25);
+        if (whisperChance <= 0 || sapi.World.Rand.NextDouble() >= whisperChance) return;
 
         long now = sapi.World.ElapsedMilliseconds;
         if (lastWhisperMs.TryGetValue(player.PlayerUID, out long last) && now - last < WhisperCooldownMs) return;
@@ -373,8 +379,13 @@ public static class PanPatches
         {
             if (sapi == null || serverPlayer == null || blockSel?.Position == null || isOreMethod == null) return;
             if (blockSel.Face != BlockFacing.UP) return; // the drill itself refused sideways bores
+            // Both rank gates come from config now (2026-10-07 jl). Read BEFORE the column
+            // scan below, which is a full-height triple loop: a server that set boreDepthLevel
+            // above the GM cap to switch the readout off must not pay for the scan either.
             int level = PanDomain.LevelOf(serverPlayer);
-            if (level < PanSurveyor.MasterLevel) return;
+            int boreLevel = (int)PanDomain.Knob(PanDomain.BoreDepthLevel, Leveling.Rank.Master);
+            int exactLevel = (int)PanDomain.Knob(PanDomain.BoreDepthExactLevel, Leveling.Rank.Grandmaster);
+            if (level < boreLevel) return;
 
             int radius = 1;
             try
@@ -427,7 +438,7 @@ public static class PanPatches
             {
                 if (listed++ >= 5) break;
                 string ore = Lang.GetL(serverPlayer.LanguageCode, "ore-" + kv.Key);
-                if (level >= 17)
+                if (level >= exactLevel)
                 {
                     sb.AppendLine(Lang.GetL(serverPlayer.LanguageCode, "almanactcm:bore-exact", ore, kv.Value.min, kv.Value.max));
                     stored.Add(new PanSurveyor.PanOreBand { OreKey = kv.Key, MinDepth = kv.Value.min, MaxDepth = kv.Value.max });

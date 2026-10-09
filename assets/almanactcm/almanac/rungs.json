@@ -82,26 +82,23 @@
 			"rungs": [
 				{
 					"rank": "Untrained",
-					"summary": "Bruised harvests, wounding shears, feed half-wasted.",
+					"summary": "Bruised harvests and wounding shears.",
 					"bullets": [
 						{ "text": "An untrained hand bruises the crop: every harvest you break returns **{harvestDockU}%** of its drops. This clears at Novice I." },
-						{ "text": "The beginner's shears wound: untrained shearing multiplies ShearLib's own scratch chance by **{shearScratchU}**, and a shear that wounds banks no practice at all.", "with": "ShearLib" },
-						{ "text": "Feed from an untrained hand partly goes to waste: animals draw **{feedULessPct}%** less satiety from every trough portion you filled." }
+						{ "text": "The beginner's shears wound: untrained shearing multiplies ShearLib's own scratch chance by **{shearScratchU}**, and a shear that wounds banks no practice at all.", "with": "ShearLib" }
 					]
 				},
 				{
 					"rank": "Novice",
 					"summary": "The docks clear; the trough begins to feed true.",
 					"bullets": [
-						{ "text": "Every untrained dock clears at Novice I: the harvest returns whole again, the shears stop wounding beyond vanilla, and the trough feeds true at **1.00x**." },
-						{ "text": "The feed curve starts here and climbs every level after, **{feedStepPct}%** more satiety per portion each step, to a new ceiling of **+{feedN4}%** by Novice IV." }
+						{ "text": "Every untrained dock clears at Novice I: the harvest returns whole again and the shears stop wounding beyond vanilla. The trough moved to the handler's page — feeding is Animal Handling's work now." }
 					]
 				},
 				{
 					"rank": "Apprentice",
 					"summary": "Thrift, tended grafts and the first exceptional harvests open.",
 					"bullets": [
-						{ "text": "Feed: **+{feedA1}%** satiety per portion at Apprentice I to a new ceiling of **+{feedA4}%** by Apprentice IV." },
 						{ "text": "Fertilizer thrift opens and climbs every level: nothing at Apprentice I, then a **{thriftA4}%** chance by Apprentice IV that an application costs you nothing and the spared handful comes back." },
 						{ "text": "Tended cuttings cling to life: nothing at Apprentice I to a **{graftA4}%** revert roll on a dying graft by Apprentice IV, which lets the tree roll its own unmodified odds again on a later tick. No single graft is ever easier than vanilla, and none is ever certain." },
 						{ "text": "The exceptional harvest opens the same way: nothing at Apprentice I to a **{procA4}%** chance by Apprentice IV that a harvest hands back one bonus unit. Below Journeyman it only fires on a crop that already carries a mark, because an unmarked crop in an unmarked hand never reaches the roll." }
@@ -113,7 +110,7 @@
 					"bullets": [
 						{ "text": "Your produce starts carrying your name, \"Grown by\", from Journeyman I up. On a cooked dish both names render, grower above cook; when the same hand grew and cooked, the cook's line carries the fold and this one stands down." },
 						{ "text": "The exceptional harvest goes from **{procJ1}%** at Journeyman I to a new ceiling of **{procJ4}%** by Journeyman IV, and from here it fires on any crop you pull, marked or not, because your own hand is now the mark." },
-						{ "text": "Feed: **+{feedJ1}%** to a new ceiling of **+{feedJ4}%**. Fertilizer thrift: **{thriftJ1}%** to a new ceiling of **{thriftJ4}%**. Graft revert: **{graftJ1}%** to a new ceiling of **{graftJ4}%**." }
+						{ "text": "Fertilizer thrift: **{thriftJ1}%** to a new ceiling of **{thriftJ4}%**. Graft revert: **{graftJ1}%** to a new ceiling of **{graftJ4}%**." }
 					]
 				},
 				{
@@ -121,7 +118,7 @@
 					"summary": "Cultivated by — the mark deepens with the hand.",
 					"bullets": [
 						{ "text": "The mark deepens at Master I: \"Cultivated by\"." },
-						{ "text": "Feed: **+{feedM1}%** to a new ceiling of **+{feedM4}%** by Master IV. Fertilizer thrift: **{thriftM1}%** to **{thriftM4}%**. Graft revert: **{graftM1}%** to **{graftM4}%**. Exceptional harvest: **{procM1}%** to **{procM4}%**." }
+						{ "text": "Fertilizer thrift: **{thriftM1}%** to **{thriftM4}%**. Graft revert: **{graftM1}%** to **{graftM4}%**. Exceptional harvest: **{procM1}%** to **{procM4}%**." }
 					]
 				},
 				{
@@ -130,7 +127,7 @@
 					"bullets": [
 						{ "text": "The full mark: \"Heirloom of\", bred for the yield." },
 						{ "text": "A Grandmaster's produce keeps: anything bearing the full grown-by mark spoils at **{spoilGrownGm}x** the normal rate. The keeping stays on the raw crop, because a cooked dish is governed by the cook's hand, not the grower's." },
-						{ "text": "Every curve tops out at once: **{feedGmX}x** trough satiety, a **{thriftGm}%** fertilizer thrift, a **{graftGm}%** graft revert, and a **{procGm}%** exceptional harvest." }
+						{ "text": "Every curve tops out at once: a **{thriftGm}%** fertilizer thrift, a **{graftGm}%** graft revert, and a **{procGm}%** exceptional harvest." }
 					],
 					"grants": [
 						{
@@ -146,16 +143,19 @@
 			"rungs": [
 				{
 					"rank": "Untrained",
-					"summary": "Treats land poorly from an unpracticed hand.",
+					"summary": "Treats land poorly, and feed goes to waste.",
 					"bullets": [
-						{ "text": "Treats from an unpracticed hand land poorly: each one advances a taming at **{treatU}x**, a tenth short. This clears at Novice I.", "with": "PetAI" }
+						{ "text": "Treats from an unpracticed hand land poorly: each one advances a taming at **{treatU}x**, a tenth short. This clears at Novice I.", "with": "PetAI" },
+						{ "text": "An unpracticed hand overfills the trough: each portion feeds **{feedULessPct}%** short. This clears at Novice I. The trough is the handler's work now — feeding moved here from Farming." },
+						{ "text": "The saddle teaches from the first ride: ground actually covered in the saddle is riding practice. Distance crossed is the only measure — a horse pressed against a wall goes nowhere and learns you nothing." }
 					]
 				},
 				{
 					"rank": "Novice",
-					"summary": "Treats land true, and the curve begins to climb.",
+					"summary": "Treats land true, and the curves begin to climb.",
 					"bullets": [
-						{ "text": "Treats land true at **1.00x** from Novice I, and the curve climbs every level after, **{treatStepPct}%** more progress per treat each step, to a new ceiling of **{treatN4}x** by Novice IV.", "with": "PetAI" }
+						{ "text": "Treats land true at **1.00x** from Novice I, and the curve climbs every level after, **{treatStepPct}%** more progress per treat each step, to a new ceiling of **{treatN4}x** by Novice IV.", "with": "PetAI" },
+						{ "text": "The trough feeds true at **1.00x** from Novice I, and the feed curve climbs every level after, **{feedStepPct}%** more satiety per portion each step, to a new ceiling of **+{feedN4}%** by Novice IV." }
 					]
 				},
 				{
@@ -164,6 +164,7 @@
 					"bullets": [
 						{ "text": "A wild fox refuses unpracticed hands: Animal Handling level **{gateFox}**, Apprentice I, is where you can begin the taming at all. Below it no treat is taken and nothing starts, and the threshold is a per-species server knob.", "with": "PetAI" },
 						{ "text": "Treats: **{treatA1}x** at Apprentice I to a new ceiling of **{treatA4}x** by Apprentice IV.", "with": "PetAI" },
+						{ "text": "Feed: **+{feedA1}%** satiety per portion at Apprentice I to a new ceiling of **+{feedA4}%** by Apprentice IV." },
 						{ "text": "Thrown softer opens and climbs every level: nothing at Apprentice I to **{throwA4}%** of a saddle-break throw's damage healed back by Apprentice IV, never all of it." },
 						{ "text": "Bloodline hygiene opens: a practiced breeder's newborns purge deleterious alleles harder, lifting Genelib's **{purgeBase}** stock inbreeding resistance to **{purgeA4}** by Apprentice IV.", "with": "Genelib" },
 						{ "text": "Litter depth opens: nothing at Apprentice I to a **{litterA4}%** chance by Apprentice IV of one extra offspring in a litter, never past the species' own maximum.", "with": "Genelib" }
@@ -175,6 +176,7 @@
 					"bullets": [
 						{ "text": "The wolf waits longer than the fox: taming a wild wolf refuses hands below Animal Handling level **{gateWolf}**, Journeyman I, and again a per-species server knob.", "with": "PetAI" },
 						{ "text": "Treats: **{treatJ1}x** to a new ceiling of **{treatJ4}x** by Journeyman IV. Thrown softer: **{throwJ1}%** healed back to a new ceiling of **{throwJ4}%**.", "with": "PetAI" },
+						{ "text": "Feed: **+{feedJ1}%** to a new ceiling of **+{feedJ4}%**." },
 						{ "text": "Bloodline hygiene: **{purgeJ1}** resistance to a new ceiling of **{purgeJ4}**. Litter depth: **{litterJ1}%** to a new ceiling of **{litterJ4}%**.", "with": "Genelib" }
 					],
 					"grants": [
@@ -190,6 +192,7 @@
 					"bullets": [
 						{ "text": "The mark deepens at Master I: \"Bred by\"." },
 						{ "text": "Treats: **{treatM1}x** to a new ceiling of **{treatM4}x** by Master IV. Thrown softer: **{throwM1}%** to a new ceiling of **{throwM4}%**.", "with": "PetAI" },
+						{ "text": "Feed: **+{feedM1}%** to a new ceiling of **+{feedM4}%** by Master IV." },
 						{ "text": "Bloodline hygiene: **{purgeM1}** resistance to a new ceiling of **{purgeM4}**. Litter depth: **{litterM1}%** to a new ceiling of **{litterM4}%**.", "with": "Genelib" }
 					]
 				},
@@ -199,6 +202,7 @@
 					"bullets": [
 						{ "text": "The full mark: \"Master's Line of\", a pedigree bloodline, advertised on the animal itself through any sale." },
 						{ "text": "The curves top out: treats at **{treatGmX}x**, so a Grandmaster domesticates on fewest, and **{throwGm}%** of a throw's damage healed back.", "with": "PetAI" },
+						{ "text": "The trough tops out at **{feedGmX}x** satiety per portion." },
 						{ "text": "Bloodline hygiene reaches **{purgeGmR}**, hard-capped at **0.95** so even a Grandmaster's line sheds its load imperfectly, and litter depth reaches a **{litterGm}%** roll for one extra offspring.", "with": "Genelib" }
 					]
 				}

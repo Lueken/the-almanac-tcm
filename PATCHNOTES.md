@@ -4,6 +4,179 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.5.16 (unreleased)
+
+**Held deliberately. Not built, not deployed.** The Almanac is required on the client, so every
+version costs every player an update, and this one is collecting work before it ships rather than
+going out for a single fix. The notes are written as the work lands so nothing is lost.
+
+**Four ways to be paid for work you did not do, all closed.** An empty fruit press paid for being
+screwed down. So did setting an empty bucket under one. A cooked pie put back in the oven and
+pulled straight out paid baking again, at double rate, because a pie takes the whole oven and the
+credit is sized for that. Knitting needles paid a full garment if you let go of the button before
+the garment existed, and kept the twine. And a quern walled in on all four sides, with something
+in the output slot it could not stack onto, paid for grinding the same item over and over without
+ever consuming it.
+
+They are four reports, but they were one mistake made four times: I was paying for the
+interaction instead of the work. The press now pays for juice that actually came out of the mash.
+The oven pays once per bake, and knows the difference between a loaf it baked and a loaf you
+carried back in. The needles pay when the twine leaves your hand, which is the one moment cloth
+exists. The quern pays when the input is actually consumed. None of this touches honest work: if
+you did the thing, the numbers are exactly what they were.
+
+Thanks to **RazorTank** for the press and the needles, **itty bitty gamer goblin** for the pie,
+and **razortank** for the riftbloom grind.
+
+**Peeking into someone else's pot no longer takes their cooking credit.** This one deserves a
+plain apology. A firepit remembered whoever touched it last, and the meal paid that person when
+it finished, so anyone who opened a pot to look at a cooking meal quietly became the cook. People
+set pots before bed and woke up with nothing. While a pit is burning with a raw meal in it, the
+cook of record is now fixed and cannot be taken. A cold or empty pit still changes hands
+normally, so swapping pots and relighting is unaffected.
+
+Reported by **yaro**, reproduced overnight by **itty bitty gamer goblin**, and raised about a
+month earlier by **LauCaRo**, which means it stood for a month after someone told me. Sorry.
+
+**Clearing a room in a temporal storm pays for the whole room now.** Kills were keyed by creature
+type and rough location with no sense of time, so the second drifter of a kind near the first one
+read as the same kill and paid nothing. Chanka slaughtered about six, got nine points, then zero
+for the rest of a storm. Every corpse is now its own event, and repetition is handled by the same
+honest curve that governs foraging and knapping instead: the first twelve of a species each day
+pay in full, then the curve eases in. Temporal and Arcana shares taper along with the melee or
+ranged credit that earned them, so the whole thing stays in step.
+
+This is also why Temporal XP sometimes appeared in chat and never reached the book. Chat was
+telling the truth about the first kill and the repeat rule was eating the rest. Two reports, one
+bug, seen from two sides.
+
+Thanks **The.Lord.Chanka**, **Pin** and **Pun**, and **zaelesh** for the Temporal half.
+
+**Pouring a smelter down a channel into casting sand pays like pouring by hand.** It paid nothing
+at all. Tapping a smelter onto a mold worked; tapping it onto a CHANNEL, which is how anyone
+actually runs a casting floor, filled every mold on the run through a path my credit never
+watched. Pin poured twelve hundred units of copper and got zero. Chanka had always been paid,
+because Chanka poured by hand. Both were telling the truth. Fixed at the one place every pour
+goes through, so channel and hand are the same work now.
+
+**Three crafts that paid nothing now pay.** Making fixed riftbloom paid nothing after the first
+one, because the Almanac watched for the pot to change and the bloom's own pot is already its
+dirtied form, so a second batch in the claimed pot read as nothing having happened. Rustic
+compounds in the Thaumic Foundry paid nothing on long unattended runs, because the foundry
+restarts its own recipe off the tablet still in the slot and kept minting across server restarts
+with no owner remembered; the owner is written to the save now. And a Master's loom was dropping
+its thrift bonus into a weaving input slot instead of the cloth output, which is to say it was
+quietly handing out free twine instead of the bonus it advertised.
+
+Thanks **razortank** for the riftbloom, **Zaelesh** for the compounds, and **ComitatensSaxoni**
+and **Silas** for the loom thread that led to the slot.
+
+**Five trades now pay the right calling.** All the same complaint: the work was credited to the
+wrong book.
+
+- Everything you craft from the Marginalia's alchemy is Alchemy now, and none of it is Cooking.
+  Settling draughts paid the kitchen. A steeped descent draught paid nothing whatsoever. Simmering
+  a flask over a fire is the alchemist's work no matter what the fire thinks it is doing.
+- Feeding an animal is Animal Handling, not Farming and Husbandry. The whole verb moved, including
+  the trough efficiency your rank buys, at exactly the numbers it had. A day's feeding banks what
+  it always banked, in a different book.
+- Grinding limestone is Masonry. It paid Farming and Cooking, which is what happens when the quern
+  assumes everything in it is food. Chalk and marble go the same way. Salt still pays the kitchen,
+  because salt is the kitchen's business.
+- Breaking an ancient monolith is Arcana. It paid Mining, because underneath the monolith is
+  technically an ore block, and a pickaxe swing at a thing that hums is not prospecting.
+- Sewing a bag or a pack is Tailoring. Modular backpacks, quivers and sheaths paid nothing because
+  the Almanac only recognised clothing. Anything stitched from cloth or hide counts now, scaled by
+  how much went into it. A woven reed basket still pays nothing, because that is not the tailor's
+  craft.
+
+Thanks **razortank** for the draughts, **yaro** for the feeding, **grey_chanticleer** for the
+limestone, **Silas** for the monolith, and **Pun** for the bags.
+
+**Riding pays Animal Handling, and only for ground you actually cover.** Pin asked for this a
+while ago and I sat on it, because the obvious version of it is a weight on the W key with the
+horse's nose in a corner. So it pays by distance instead: the saddle teaches you for every fifty
+blocks you genuinely travel, and a horse pressed against a wall travels nowhere and teaches
+nothing. No failure model needed; the world already refuses the trick. Teleports and lag snaps
+pay zero. Only the rider holding the reins earns, so a passenger in a cart is cargo.
+
+Mounts from the Jaunt family are not covered yet. They ride through their own machinery and I
+have not read it.
+
+**Your config files explain themselves now.** Two hundred and seventy five tuning values across
+twenty two trades, and the only explanation lived in my source code. Every generated config now
+carries a plain-language line for every value it contains, rebuilt from the code on each load so
+it cannot drift, and restored if you delete it. Thalius asked what in the config disables the
+panning whisper; the real problem was that the answer was unfindable.
+
+While answering that: setting the panning whisper chance to zero now actually silences it, and
+the Master's bore depth readout has rank levers instead of a hardcoded number. Neither changes
+anything at shipped values.
+
+**A marked crock keeps its mark when you put food in it.** Brick reported through Thalius that a
+crock marked by a good potter went back to being an ordinary crock the moment food went inside,
+and that is precisely what was happening. Filling a crock does not fill the one in your hand;
+the game builds a fresh crock, moves the food into that, and hands it to you, and every mark the
+old one carried went in the bin. Filling a crock already sitting on the ground went the same way
+by a different route.
+
+This was worse than a missing label. The whole point of the mark is that a good potter's crock
+keeps food longer, and that bonus only ever applies to a crock with food in it, so the mark was
+being destroyed at the exact moment it first did anything. Marked crocks have been ordinary
+crocks in practice for as long as the mark has existed. Both routes now carry the mark across.
+
+Crocks you have already filled have no mark left to restore and will stay plain. Sorry. Fill a
+fresh one.
+
+**A trade's first page measures itself now.** Every other page in a calling measures itself and
+breaks where it has to; the first one, the page with the trade's name and its account on it, was
+the one page that never did. It was assembled and handed to the book at whatever height it came
+to. Eight of the twenty-two trades carry two blocks the other fourteen do not, the list of the
+work and the tip, which is most of a page on its own, and the lines above the prose grow with
+your rank besides. Now it pages like the rest, with the partner callings staying pinned to the
+foot of the last leaf.
+
+Honest about this one: it is a guard, not a cure for something seen since. Foraging was reported
+spilling past the leaf, and foraging reads clean here. The report came from a client whose book
+was missing its fonts, which measures wider than the real type does, and that is the better
+explanation for what was seen. A page that already fit is untouched either way.
+
+**Fishing pays half again as much from the first catch.** Dr Wrights reported fishing paying far
+too little for what a rank costs, and he was right, but it was not the rates. A trade's daily
+value is split across the kinds of work in it, and Fishing split four ways while most people fish
+one way: with a rod. Spearing, running traps and dressing the catch are each a separate kind of
+work, so an angler who only angled hit a ceiling at a third of a day and could not reach the rest
+by fishing at all. Fishing now splits two ways instead of three. A rod angler banks half again as
+much for the same catch, from the very first one, and reaches Novice I in about three days of
+fishing where it used to take four and a half.
+
+Front-loaded deliberately. Fishing is a passive wait with a couple of clicks in it, so the reward
+has to arrive early or the wait reads as nothing happening. The bite rate is untouched; what
+changed is what a bite is worth.
+
+The same arithmetic was quietly worse on servers without Primitive Survival, where three of the
+four kinds of fishing do not exist at all and an angler was capped at a third of a day with no
+route to the rest. Fishing now counts the work a pack can actually reach and splits across that.
+
+Server operators: this is a config value the updater cannot reach, the same as panning's in
+0.5.15. A new install gets it right. An existing server needs `"M": 2` written into
+`ModConfig/almanactcm/FIS.json` by hand, or fishing stays where it was.
+
+**A sentence on the Melee page reads properly now.** It said "This trade is read and defense",
+which is two different kinds of word pretending to be a pair. Pin caught it. It reads "the read
+and the defense" now, which is what it was always trying to say.
+
+**Also, quieter.** A powered helve hammer was writing a diagnostic line to the server log on every
+strike, several a second, recording work that was then thrown away unread. Thirteen releases old.
+Gone.
+
+Server operators: this release adds values to `ANI.json` (feeding, riding and their levers),
+removes the feeding row from `FAR.json`, and adds two kill-repeat values to `MEL.json`. New
+installs get all of it. The alchemy half of the Marginalia change ships in that mod, not this one,
+so both need updating for draughts to pay Alchemy.
+
+---
+
 ## 0.5.15 (2026-10-06)
 
 **"Repeated, nothing new learned." It had not been repeated.** Forge two knives back to back and

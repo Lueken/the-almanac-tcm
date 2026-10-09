@@ -129,6 +129,22 @@ public static class PotBonusPatches
         HookCarry(api, harmony, "Vintagestory.GameContent.BlockGenericTypedContainer", "OnPickBlock",
             nameof(VesselPickPostfix), "POT mark carriage (storage vessel pickup)");
 
+        // THE SERVE HOP (0.5.16, Brick via Thalius' Frostbound tracker): filling a vessel from a
+        // cooked pot REPLACES the vessel's stack outright, so the mark died at the one moment a
+        // crock starts doing the job the mark is about. See ServeCarryPrefix for the mechanism.
+        // Declared on BlockCookedContainerBase, so one pair covers the pot, the crock serving on
+        // into ground storage, and every meal-container merge that routes through it.
+        var cooked = AccessTools.TypeByName("Vintagestory.GameContent.BlockCookedContainerBase");
+        var serve = cooked == null ? null : AccessTools.DeclaredMethod(cooked, "ServeIntoStack");
+        if (serve != null)
+        {
+            harmony.Patch(serve,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(PotBonusPatches), nameof(ServeCarryPrefix))),
+                postfix: new HarmonyMethod(AccessTools.Method(typeof(PotBonusPatches), nameof(ServeCarryPostfix))));
+            TcmLog.Info(api, "POT mark carriage (serve into vessel) hooked (BlockCookedContainerBase.ServeIntoStack)");
+        }
+        else TcmLog.Warn(api, "POT serve-carriage seam not found (BlockCookedContainerBase.ServeIntoStack); a filled vessel will lose its mark");
+
         // The Potter's Mark line is contributed to Engine.ProvenanceLine (see MarkLine below),
         // which orders vessels last in the block.
     }
@@ -218,6 +234,19 @@ public static class PotBonusPatches
             vesselMarks[key] = $"{attrs.GetString(PotByAttr)}|{attrs.GetString(PotByNameAttr)}|{attrs.GetInt(PotTierAttr)}";
             TcmLog.Cat(__instance.Api, "pot", $"vessel placed at {__instance.Pos} carries the mark of {attrs.GetString(PotByNameAttr)}; stored");
         }
+        else if (byItemStack == null)
+        {
+            // NO STACK MEANS NO PLACEMENT (0.5.16, the placed half of Brick's report). A player
+            // placing a vessel always arrives here with their stack: DoPlaceBlock calls the
+            // three-arg SetBlock(BlockId, pos, byItemStack). A NULL stack means something set the
+            // block programmatically, and the case that matters is ServeIntoBowl filling a PLACED
+            // vessel: it does the two-arg SetBlock(mealBlockCode, pos), which still counts as a
+            // placement ("always called when a block has been placed through whatever method"),
+            // so this postfix used to fire with nothing in hand and Remove the stored mark. The
+            // vessel at this position is the same vessel being converted in place, so the mark
+            // stays. The Remove below is still right for a genuine unmarked placement.
+            TcmLog.Cat(__instance.Api, "pot", $"vessel at {__instance.Pos} set without a stack (in-place conversion); mark left in the store");
+        }
         else vesselMarks.Remove(key);
 
         // Fresh placement never passes through FromTreeAttributes, so scale here too. An unmarked
@@ -225,6 +254,39 @@ public static class PotBonusPatches
         // marked vessel and the block entity was reused.
         ScaleVesselInventory(__instance, MarkedLevel(__instance.Pos));
         __instance.MarkDirty(true); // ship the tree, so the client scales its copy as well
+    }
+
+    /// <summary>Serving a meal into a vessel: carry the potter's mark across the replacement.
+    ///
+    /// Reported by Brick through Thalius' Frostbound tracker (2026-10-08): a marked crock lost its
+    /// mark the moment food went into it and read as an ordinary crock afterwards. Literally true.
+    /// Vanilla's fresh-serve branch does not fill the vessel you are holding; it builds
+    /// `new ItemStack(mealblock)` from the vessel's own `mealBlockCode`, copies the contents in,
+    /// and assigns it over the slot (BlockCookedContainerBase.cs, the tail of ServeIntoStack). For
+    /// a crock that code resolves to `crock-{color}-fired`, the SAME block it already was, so the
+    /// player sees an identical crock that has quietly lost every custom attribute, the mark with
+    /// them. This is the third hop in this lifecycle to work that way; the firing clone and the
+    /// pickup rebuild were already carried (see PackOf), and the serve was missed because an empty
+    /// crock had nothing to carry yet.
+    ///
+    /// Cruel timing: the preservation bonus only ever applies to a vessel WITH food in it, so the
+    /// mark was being destroyed at the exact moment it first meant anything.
+    ///
+    /// The merge branch (topping up a vessel that already holds servings) mutates in place and
+    /// keeps its mark, which is why only the first fill showed the fault. Applying only when the
+    /// mark is ABSENT therefore leaves that branch untouched and never overwrites a different
+    /// potter's mark.</summary>
+    public static void ServeCarryPrefix(ItemSlot bowlSlot, out string? __state)
+        => __state = PackOf(bowlSlot?.Itemstack);
+
+    public static void ServeCarryPostfix(ItemSlot bowlSlot, bool __result, string? __state)
+    {
+        if (!__result || __state == null) return;
+        var served = bowlSlot?.Itemstack;
+        // Only a stack that came back UNMARKED was rebuilt; the merge branch kept its own.
+        if (served == null || PackOf(served) != null) return;
+        ApplyPacked(served, __state);
+        bowlSlot!.MarkDirty();
     }
 
     /// <summary>Pickup rebuilds the vessel stack from BE data (custom attrs lost); restore the mark

@@ -107,9 +107,20 @@ public static class MetConditionalPatches
     //
     // Sand casting is the mass-production road, and it fills nothing like a vanilla tool mold:
     // BlockEntitySmallSmelter.TryTapMoltenMetal (and the blast, reverb and retort equivalents)
-    // runs the WHOLE pour synchronously, and BlockEntityCastingSand.ReceiveLiquidMetal routes the
-    // stream through connected channels to every mold it can reach. One hammer strike therefore
-    // completes every connected mold in the same instant.
+    // runs the WHOLE pour synchronously, routing the stream through connected channels to every
+    // mold it can reach. One hammer strike therefore completes every connected mold in the same
+    // instant.
+    //
+    // THE SEAM IS FillMold, NOT ReceiveLiquidMetal (0.5.16, LGD-169). ReceiveLiquidMetal fires
+    // only on the FIRST block the pour touches: poured onto a mold it forwards to FillMold, but
+    // poured onto a channel it goes to RouteMetal, and RouteMetal fills every connected mold by
+    // calling their FillMold DIRECTLY (decompiled from industrialstory 0.7.6, the live version).
+    // Hooked on ReceiveLiquidMetal, the only call the patch ever saw on a channel pour was the
+    // channel's own — not a mold, no grant — so tipping 1200 units down a channel run banked
+    // exactly zero while a hand-pour straight into each mold paid. That is the reported split
+    // ("channel pour is easier than pouring by hand" vs "I always got experience"). FillMold is
+    // the one funnel both paths share, and it early-returns on a full mold, so the same
+    // was-it-full-before shape carries over unchanged.
     //
     // RULED 2026-07-29: that simultaneity must NOT cost the player anything. Each completed mold
     // is its own practice event keyed on its own position, so the dedup ring sees distinct
@@ -301,19 +312,29 @@ public static class MetConditionalPatches
         }
 
         // Casting sand: one grant per mold COMPLETED, credited to the tapper or the pourer.
-        var sandFill = AccessTools.Method(
-            AccessTools.TypeByName("IndustrialStory.BlockEntityCastingSand"), "ReceiveLiquidMetal");
+        // FillMold, not ReceiveLiquidMetal: the latter never fires on molds a CHANNEL routes to
+        // (see the seam note above), which was LGD-169's zero-XP channel pour. The old seam
+        // stays as the fallback so a future restructure that removes FillMold degrades to the
+        // direct-pour-only coverage this had before, not to nothing.
+        var sandType = AccessTools.TypeByName("IndustrialStory.BlockEntityCastingSand");
+        var sandFill = AccessTools.Method(sandType, "FillMold");
+        string sandSeam = "FillMold (direct + channel-routed)";
+        if (sandFill == null)
+        {
+            sandFill = AccessTools.Method(sandType, "ReceiveLiquidMetal");
+            sandSeam = "ReceiveLiquidMetal (FillMold absent - direct pours only, channel pours unpaid)";
+        }
         if (sandFill != null)
         {
             harmony.Patch(sandFill,
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(SandCastFillPatch), "Prefix")),
                 postfix: new HarmonyMethod(AccessTools.Method(typeof(SandCastFillPatch), "Postfix")));
             hooked++;
-            TcmLog.Info(api, "MET casting practice hooked to industrialstory casting sand (per mold filled)");
+            TcmLog.Info(api, $"MET casting practice hooked to industrialstory casting sand via {sandSeam}");
         }
         else
         {
-            TcmLog.Warn(api, "industrialstory present but BlockEntityCastingSand.ReceiveLiquidMetal not found; sand-casting practice inactive");
+            TcmLog.Warn(api, "industrialstory present but BlockEntityCastingSand FillMold/ReceiveLiquidMetal not found; sand-casting practice inactive");
         }
 
         // Brick furnace: the only alloying route industrialstory offers, so TechAlloying lives

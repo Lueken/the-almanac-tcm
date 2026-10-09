@@ -33,6 +33,14 @@ public static class AniDomain
     public const string TechGenRaising = "genraising";
     /// <summary>Domestication: petai feed-to-tame OR vanilla saddle-break, one verb two hooks.</summary>
     public const string TechTaming = "taming";
+    /// <summary>Trough feeding (BlockEntityTrough.ConsumeOnePortion). FAR's verb from the
+    /// 2026-07-09 husbandry split until the 2026-10-08 re-ruling (LGD-122): feeding an animal
+    /// is the handler's act, 100% ANI. The grant site stays in FarPatches (the trough spine —
+    /// fill stamp, raisedBy write, feed economy — is one mechanism and was not moved).</summary>
+    public const string TechFeeding = "feeding";
+    /// <summary>Ground actually covered in the saddle (AniRiding tick, LGD-176): paid per
+    /// rideCreditBlocks of real displacement, never per key held.</summary>
+    public const string TechRiding = "riding";
 
     /// <summary>The shared owner stamp FAR's trough feed (and the taming hooks) write on an
     /// animal and ANI's birth reads. A durable WatchedAttributes string, so it survives to the
@@ -94,12 +102,18 @@ public static class AniDomain
     /// wild predator. 0 = ungated. Wolf at Journeyman I, fox at Apprentice I by default.</summary>
     public const string GateWolf = "gateWolf";
     public const string GateFox = "gateFox";
+    /// <summary>Satiety an animal draws per trough portion, by the FILLER's rank — followed
+    /// the feeding verb here from FAR (LGD-122).</summary>
+    public const string FeedUntrained = "feedUntrained";
+    public const string FeedGm = "feedGm";
+    /// <summary>Blocks of real ridden displacement per riding credit (LGD-176).</summary>
+    public const string RideCreditBlocks = "rideCreditBlocks";
 
     public static DomainConfig Defaults() => new()
     {
         Code = Code,
         Smax = 100,
-        M = 2, // small-m clamp: 2 rare, late techniques — depth over breadth is the honest shape
+        M = 4, // reachable verbs (LGD-237 convention): feeding joined from FAR (LGD-122) and riding is new (LGD-176), beside the two rare late ones
         Adjacency = new List<string> { "HUN", "FAR" },
         Techniques = new Dictionary<string, TechniqueConfig>
         {
@@ -107,6 +121,12 @@ public static class AniDomain
             // raw is scaled up at the call site by the newborn's generation (ruled Q3).
             [TechGenRaising] = new() { Raw = 8, K = 12 },
             [TechTaming] = new() { Raw = 8, K = 12 },
+            // Per-session passive husbandry, moved whole from FAR (LGD-122): same values the
+            // verb carried there, so the day's feed banks what it always banked.
+            [TechFeeding] = new() { Raw = 2, K = 15 },
+            // Distance-paid (LGD-176): raw 1 per rideCreditBlocks crossed, small K — a real
+            // journey banks its share and pen circles saturate out. [TUNE]
+            [TechRiding] = new() { Raw = 1, K = 12 },
         },
         Bonus = new Dictionary<string, double>
         {
@@ -118,6 +138,11 @@ public static class AniDomain
             [TreatUntrained] = 0.90, [TreatGm] = 1.40,
             [ThrowHealGm] = 0.70,
             [GateWolf] = 9, [GateFox] = 5,
+            // The feed economy followed its verb (LGD-122): satiety per portion by the FILLER's
+            // ANI rank now. Same numbers FAR shipped.
+            [FeedUntrained] = 0.90, [FeedGm] = 1.25,
+            // Riding (LGD-176): one credit per this many blocks actually crossed. [TUNE]
+            [RideCreditBlocks] = 50,
         },
     };
 

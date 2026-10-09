@@ -1,3 +1,5 @@
+﻿using System.Collections.Generic;
+
 namespace AlmanacTcm.Config;
 
 /// <summary>
@@ -8,6 +10,16 @@ namespace AlmanacTcm.Config;
 /// </summary>
 public class TcmGlobalConfig
 {
+    // ---------------------------------------------------------------- the generated help block
+    // ADDED 2026-10-07 jl. See the note at the top of DomainConfig for why the help is a model
+    // property rather than a JSON comment, and KnobDocs for the registry these are built from.
+    // Both are GENERATED: rewritten on every boot, edits lost, deletion self-heals.
+
+    /// <summary>Generated orientation for whoever opens global.json. Rebuilt every load from
+    /// <see cref="KnobDocs"/>; editing it accomplishes nothing.</summary>
+    [Newtonsoft.Json.JsonProperty("_readme", ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
+    public List<string> Readme { get; set; } = new();
+
     public int ConsolidationHour { get; set; } = 3;
 
     /// <summary>Lifetime GM-domain cap (guard #12). Lowering never revokes attained GMs.</summary>
@@ -335,4 +347,11 @@ public class TcmGlobalConfig
     /// see the ground is tired can also see what to do about it.
     /// </summary>
     public int SickBiofumigationReadRank { get; set; } = 1;
+
+    /// <summary>GENERATED, not a tuning surface. One line per field above: what it does, its units,
+    /// and the value that switches it off where one exists. Declared LAST so the 46 help lines sit
+    /// below the values rather than pushing them off the screen. Rebuilt every load from
+    /// <see cref="KnobDocs"/>.</summary>
+    [Newtonsoft.Json.JsonProperty("_help", ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
+    public Dictionary<string, string> Help { get; set; } = new();
 }
