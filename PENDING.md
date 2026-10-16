@@ -1978,6 +1978,30 @@ that LGD-239 (knapping rank expression) may make unnecessary.
 
 ## Staged in 0.6.0
 
+- **Casting is paid by the metal, not by the mold (LGD-316).** `MetPatches.cs`,
+  `ToolMoldFillPatch.Postfix`.
+
+  The grant was a flat 1.0 per completed cast, so a mold taking twice the metal paid exactly what
+  a small one did. Same defect shape as the 0.5.15 station blackout: counting the act instead of
+  the work. `BlockEntityToolMold` sizes itself from its own blocktype (`requiredUnits`, default
+  100) and at the not-full to full edge `FillLevel` has reached that size, so `FillLevel` is the
+  units actually cast and needs no access to the protected field. Clamped to 0.25x-4x against a
+  pathological blocktype. **A 100-unit mold is unchanged**, so the common case does not move.
+
+  Two findings from the same pass, neither of them code:
+
+  - **LGD-134 is half stale.** The grid-craft route already scales with batch volume:
+    `GridRecipe.ConsumeInput` fires once PER CRAFT and the `seq` counter added in 0.5.15 for
+    LGD-238 makes every craft in a shift-click burst pay. What is NOT verified is the potion
+    CAULDRON route, where one brew yields several portions. Check that before closing the ticket;
+    do not close it on the grid half alone.
+  - **LGD-319 is a rate ruling, not this defect.** Planting pays per seed, and a seed is one act,
+    so nothing is volume-blind there. Making seed spam less attractive means changing the rate or
+    adding decay, which is the balance work deliberately parked after wave 1. Left alone on that
+    ruling rather than folded in here.
+
+  Builds clean. **Not exercised on a running server.**
+
 - **The quench layer switches on for the route players actually use (LGD-356, and it closes
   LGD-334 with it).** `MetPatches.cs`, `ResolveQuencher` plus a roll log.
 

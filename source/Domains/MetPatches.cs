@@ -1054,8 +1054,18 @@ public static class MetPatches
             // second pour into the same mold inside the 90s window banked zero whatever the metal and
             // whatever the tool. Edge-triggered on the not-full to full transition, so one grant per
             // fill; the smelt cost and the daily curve are the governors.
+            //
+            // PAID BY THE METAL, NOT BY THE MOLD (0.6.0, LGD-316). The grant was a flat 1.0 per
+            // completed cast, so a mold that takes twice the metal paid exactly what a small one
+            // did: the same defect shape as the station blackout, counting the act instead of the
+            // work. BlockEntityToolMold sizes itself from its own blocktype (requiredUnits,
+            // default 100), and at the not-full to full edge FillLevel has reached that size, so
+            // FillLevel is the units actually cast and needs no access to the protected field.
+            // A 100-unit mold stays exactly where it was.
+            double units = Math.Clamp(__instance.FillLevel / 100.0, 0.25, 4.0);
             Core?.Ledger?.Log(pouringPlayer, MetDomain.Code, MetDomain.TechCasting,
-                HashCode.Combine(__instance.Pos, System.Threading.Interlocked.Increment(ref metActSeq)));
+                HashCode.Combine(__instance.Pos, System.Threading.Interlocked.Increment(ref metActSeq)),
+                units);
         }
     }
 
