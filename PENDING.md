@@ -1,9 +1,21 @@
-﻿# PENDING: almanactcm 0.5.16 (unreleased)
+﻿# PENDING: almanactcm 0.5.18 (unreleased)
 
-Heading bumped 2026-10-06 (second time that day): 0.5.15 shipped to The Quire in the evening, so
-the next accumulating version is 0.5.16. **0.5.16 is deliberately being held to collect more work
-before a deploy**, because TCM is `requiredOnClient` and every release costs every player a client
-update. Do not ship it for the one log fix alone.
+**0.5.18 has staged work: see `## Staged in 0.5.18` below.** This heading is the next accumulating
+version. Append here.
+
+Heading bumped 2026-10-16, two versions late, and that lateness is the point. The heading still
+read 0.5.16 "deliberately being held, not built, not deployed" while **0.5.16 AND 0.5.17 were both
+built, both deployed, and 0.5.17 had been live on The Quire for six days**. The deploying session
+shipped and never came back to this file. That is the same failure this file exists to prevent,
+pointed the other way: a stale heading makes shipped work read as staged, and it also cost a Linear
+reconciliation on 2026-10-15 that closed 27 issues whose fixes had been live for days.
+
+Ground truth for what is live is the server's own boot log mod table, never this file. Pull it over
+SFTP and read the `'almanactcm'` row.
+
+Superseded note, kept for the trail: 0.5.16 was held to collect work before a deploy, because TCM
+is `requiredOnClient` and every release costs every player a client update. It was eventually
+shipped with a full release's worth of work in it, which is the convention working.
 
 Heading bumped 2026-10-06: it still said 0.5.14, which `## Deployed` records as shipped to The
 Quire on 2026-09-26. Anything appended under a stale heading reads as staged for a release that
@@ -1186,11 +1198,18 @@ NOT run in game. NOT deployed.
   law: a future table adding a different always-drop family would over-pay again (noted in the
   file header).
 
-## Staged in 0.5.16
+## Staged in 0.5.16 (SHIPPED 2026-10-09, superseded same day by 0.5.17)
 
-**HELD. Not built, not deployed.** Collecting work before a release, because TCM is
-`requiredOnClient` and a version costs every player an update. Version already bumped in both
-places (`modinfo.json`, `source/AlmanacTcmModSystem.cs:11`) so a build from this tree cannot
+**Status corrected 2026-10-16.** This section said "HELD. Not built, not deployed." for a week
+after it shipped. It was built, deployed to The Quire on 2026-10-09 at 10:10 UTC, and pulled the
+same day: opening the Callings tab crashed the client outright. 0.5.17 carries every item below
+plus the one-line fix for that crash, and is what players actually run. See `## Deployed`.
+
+Everything in this section is therefore LIVE, by way of 0.5.17. Do not re-stage any of it.
+
+Original note, kept for the trail: held to collect work before a release, because TCM is
+`requiredOnClient` and a version costs every player an update. Version bumped in both places
+(`modinfo.json`, `source/AlmanacTcmModSystem.cs:11`) so a build from this tree could not
 mislabel itself as 0.5.15.
 
 ### Staged to conjunction-test 2026-10-08 (not deployed anywhere else)
@@ -1952,7 +1971,67 @@ full day was impossible.
 Do not fold any wave 2 value into source until it is ruled. MIN's `M=2` in particular is a stopgap
 that LGD-239 (knapping rank expression) may make unnecessary.
 
+## Staged in 0.5.18
+
+- **The boot-time `M` audit (LGD-292).** Two read-only checks that run once at server start and
+  change nothing. `M` is the most error-prone value in the config and it has shipped wrong three
+  times (PAN 0.5.15 player-reported, ENG 0.4.x caught in review, FIS 0.5.16 player-reported). Every
+  time the arithmetic was visible at boot and nothing looked at it.
+  - `source/Config/VerbReach.cs`: per domain, per technique, the condition the grant patcher
+    itself tests, transcribed from the patcher with the file and line it came from. All 22 domains
+    and all 95 shipped techniques are covered, cross-checked mechanically against each
+    `*Domain.Defaults()` technique set. A verb is reachable when any ONE of its alternatives holds,
+    because several have a vanilla floor beside a mod seam (MEL blocking) or ride either of two
+    mods (WOO sawing). A technique with no entry counts as reachable and is named in the log, so a
+    verb shipped after this table cannot invent a shortfall that is not real.
+  - `source/Config/MConfigAudit.cs`: check 1 compares live `M` against the reachable verb count
+    and warns on a shortfall, naming the unreachable verbs and the mods that would supply them.
+    Deferred to 8000 ms so it runs AFTER the two bespoke clamps (ENG at 5000, FIS at 5000) and
+    judges a clamped domain on its effective `M`. Check 2 compares live `M` against the shipped
+    default and warns on any difference, in either direction.
+  - Registered from `StartServerSide`. The drift half runs there SYNCHRONOUSLY on purpose: the
+    clamps mutate `M` in memory from a 5000 ms callback, and a callback cannot run before startup
+    returns, which is what makes "live `M`" mean "what the operator's file holds".
+- **What the drift check deliberately does not do.** Live `M` differing from shipped has two causes,
+  operator tuning or a shipped default that never landed, and `M` has no merge baseline to tell
+  them apart. The warning names both causes rather than guessing between them. A heuristic (say,
+  "it matches an older shipped default, so it is probably stale") would mislabel an operator who
+  chose that same number deliberately, and a diagnostic that is confidently wrong is worse than one
+  that admits what it cannot see.
+- **No `M` value anywhere was changed.** Wave 2 of the retune is shelved (2026-10-16) and the two
+  bespoke clamps stay. This work warns; it does not retune.
+- **What the audit found, running the table against a vanilla-only pack:** `MIN` (quarrying needs
+  StoneQuarry, so `M=3` against 2 reachable), `ALC` (chemistry needs IndustrialStory, `M=3` against
+  2), `FOR` (both sap verbs need ACA, `M=3` against 2) and `MAS` (`M=2` against chisel alone, the
+  only verb that is not MedievalArchitecture or StoneQuarry). `MIN` and `ALC` are already on the
+  shelved wave 2 list; **`FOR` and `MAS` are not on any list** and nobody had spotted them. FIS and
+  ENG are caught by their own clamps before the audit looks. A fully modded pack like The Quire
+  reaches every one of those verbs, which is exactly why four of them survived this long.
+
 ## Deployed
+
+**0.5.17 DEPLOYED to The Quire 2026-10-09 12:27 UTC. LIVE since the 2026-10-10 06:44 restart.**
+`Releases/almanactcm_0.5.17.zip`, sha256 `88f1bcfbf56b4075...`, 437,855 bytes. Server readback on
+2026-10-16 is **byte-identical** to the local release zip (sha compared, not file size). Boot log
+verified: the mod table reads `'almanactcm' '0.5.17'`, `annotated patches applied (80 class(es))`,
+zero fatals.
+
+Content is 0.5.16 entire, plus one fix: the Callings tab no longer crashes the client. TCM reads
+its two serif font names from Illuminated, which turned them from `const` into properties. A const
+is inlined into the caller at build time, so a build against the newer sibling Debug DLL emitted
+`get_SerifBody` / `get_SerifDecorative` calls that the Illuminated players actually run has no
+methods for, and the page died with MissingMethodException the moment it was opened. Both builds
+were numbered 0.3.1, so nothing looked wrong at build time and nothing logged until a player
+clicked the tab.
+
+`AlmanacTcm.csproj` is now PINNED to `lib/AlmanacIlluminated-0.3.1-released.dll`, a copy of the
+released DLL, rather than the sibling's `bin/Debug` output. **Re-pin only when a matching
+Illuminated is genuinely deployed**, or this returns.
+
+**0.5.16 DEPLOYED to The Quire 2026-10-09 10:10 UTC, WITHDRAWN the same day.**
+`Releases/almanactcm_0.5.16.zip`, sha256 `a43619f9d3439fe0...`, 437,871 bytes. Parked on the server
+as `almanactcm_0.5.16.zip.crash0516-bak`. Opening the Callings tab crashed the client; see 0.5.17
+above. Never ran through a restart, so no player ever loaded it.
 
 **0.5.15 DEPLOYED to The Quire 2026-10-06, loads at next restart.**
 `Releases/almanactcm_0.5.15.zip`, sha256

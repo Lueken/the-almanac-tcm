@@ -418,6 +418,17 @@ public class AlmanacTcmModSystem : ModSystem
         // reads levels through it.
         Domains.TemTetherBridge.Wire(sapi);
 
+        // The m audit (LGD-292). Read-only, both halves: it reports and changes nothing.
+        // Drift runs HERE, synchronously, so "live m" means what the operator's file holds: the
+        // ENG and FIS clamps mutate m in memory from a 5000 ms callback, and a callback cannot
+        // run before startup returns. Reachability is deferred past those same clamps inside
+        // MConfigAudit, so a clamped domain is judged on its effective m.
+        if (Ledger != null)
+        {
+            Config.MConfigAudit.AuditDrift(sapi, Template, Ledger.DomainConfigs);
+            Config.MConfigAudit.RegisterReachabilityPass(sapi, Template, Ledger.DomainConfigs);
+        }
+
         TcmLog.Cat(sapi, TcmLog.Config,
             $"engine config: consolidationHour={GlobalConfig.ConsolidationHour}, " +
             $"gmDomainCap={GlobalConfig.GmDomainCap}, lambdaDeath={GlobalConfig.LambdaDeath}, " +
