@@ -1,7 +1,12 @@
-﻿# PENDING: almanactcm 0.5.18 (unreleased)
+﻿# PENDING: almanactcm 0.6.0 (unreleased)
 
-**0.5.18 has staged work: see `## Staged in 0.5.18` below.** This heading is the next accumulating
+**0.6.0 has staged work: see `## Staged in 0.6.0` below.** This heading is the next accumulating
 version. Append here.
+
+Renumbered 0.5.18 to 0.6.0 on 2026-10-16 (Jeffrey). The identity law reaches eight more mark
+families and the quench layer switches on for the route players actually use. Both change
+behaviour players will feel, and more of that scale is queued behind them, so this is a minor
+version rather than a patch.
 
 Heading bumped 2026-10-16, two versions late, and that lateness is the point. The heading still
 read 0.5.16 "deliberately being held, not built, not deployed" while **0.5.16 AND 0.5.17 were both
@@ -1971,7 +1976,76 @@ full day was impossible.
 Do not fold any wave 2 value into source until it is ruled. MIN's `M=2` in particular is a stopgap
 that LGD-239 (knapping rank expression) may make unnecessary.
 
-## Staged in 0.5.18
+## Staged in 0.6.0
+
+- **The quench layer switches on for the route players actually use (LGD-356, and it closes
+  LGD-334 with it).** `MetPatches.cs`, `ResolveQuencher` plus a roll log.
+
+  `quenchingPlayer` was resolved with one line that only worked while the hot piece sat in the
+  smith's own inventory. Dropping the work into water is the ordinary way to quench, and a dropped
+  stack is not an `InventoryBasePlayer`, so three things failed together and silently: the shatter
+  reduction returned early and left VANILLA odds, no `QuenchAttempt` was recorded so the quench
+  earned no practice, and nothing logged. A Master was rolling at 1.0 instead of
+  `shatterFactorGm` 0.4, which is about two and a half times the loss rate the mod promises him.
+  Chanka lost iron pounder caps to exactly this on 2026-10-14.
+
+  Ground storage is a real second route, not a hypothetical: `BEGroundStorage` is one of vanilla's
+  own Quenchable call sites and its slots are not player slots either.
+
+  Attribution order is held inventory, then the piece's own smith stamp, then nearest player within
+  6 blocks. The stamp is preferred over proximity because it names who forged the piece rather than
+  who is standing nearby; proximity is a short-leashed last resort for unsigned work or a smith who
+  has logged off.
+
+  **This also closes LGD-334 without any tooltip work.** The tooltip was honest all along: on that
+  route the chance really was vanilla. Once the reduction applies, displayed and real agree.
+
+  The roll is now logged (throttled per player, since `IsGettingCooled` fires every cooling tick),
+  which is what LGD-356 asked for. It logs the rate, not the outcome, which TCM never sees. That is
+  still enough to tell "the mechanic worked and he was unlucky" from the defect above.
+
+  Builds clean. **Not exercised on a running server**, and this one wants a live check before it
+  ships: the shatter path destroys player work, so a wrong attribution is expensive.
+
+- **The identity law reaches the rest of the marks (LGD-362, LGD-331, LGD-299, LGD-139, LGD-158).**
+  `source/Engine/MakerMarkIdentity.cs`, new. The food half of this law shipped 2026-09-03 and
+  stopped at FAR, COO and BRE; every other maker mark was left outside it and the same defect class
+  kept erupting.
+
+  One list does it. A mark is an ItemStack attribute, and attributes are part of stack identity at
+  four vanilla gates that all read `GlobalConstants.IgnoredStackAttributes`: stack merging
+  (`Collectible.cs:2558`), merchant and JSON matching (`JsonItemStack.cs:199`), recipe ingredients
+  (`RecipeBase.cs:828`) and the STORY QUEST TURN-IN (`DialogueComponent.cs:197`). So five reports
+  that read as unrelated bugs are one, and the worst of them blocks a vanilla story arc: a
+  TCM-forged bronze pick is refused by the Resonance Archives turn-in.
+
+  Eight mark families registered: MET maker, MET workpiece, MET Grandmaster signatures, TAI, ALC,
+  POT, GLA and tool parts. Paired with a `TryMergeStacks` reconcile on the same quern law the food
+  half uses, so an open gate does not become a laundering route.
+
+  **The smith mark keeps its Journeyman level.** The ticket (LGD-331) and the Discord diagnosis both
+  said the mark is a flat +5% and the level is stored for nothing. That is wrong.
+  `MetPatches.cs:38-47` documents the level as frozen at creation and driving the tiered provenance
+  line, and it gates real behaviour at `MetSignaturePatches.cs:165` and `ToolPartMarks.cs:241`.
+  Dropping it would have destroyed Axis 6. It is the reconcile key instead, exactly like COO's
+  cooktier: same level stacks, mixed level merges to plain.
+
+  Three decisions worth re-reading before this ships:
+
+  1. `sp:smithingQuality` is in the list. It is Smithing+'s key, not ours, but TCM writes it at
+     `MetPatches.cs:358`, so leaving it out would have left LGD-362 broken on that one key after
+     fixing everything else. This is the only third-party key the law touches.
+  2. MAS (`almanactcm:masby`) and ENG (`almanactcm:engby`) are deliberately NOT registered. Both
+     write to a BlockEntity tree rather than an ItemStack (`MasPatches.cs:181`, `EngPatches.cs:194`),
+     so they cannot break stack identity.
+  3. **Open for Jeffrey.** `MakerLevelAttr` is documented "PERMANENT: never stripped". The reconcile
+     does strip the whole MET set when two different maker levels merge, which is what makes
+     LGD-331's pounder caps stack at all. Tools never hit it, being MaxStackSize 1, so this only
+     ever fires on stackable forged goods. If "never stripped" was meant to cover that case too,
+     the fix is one line and LGD-331 goes back to not stacking.
+
+  Builds clean: 0 errors, 38 warnings, all pre-existing and none in the new file.
+  **Not exercised on a running server.**
 
 - **The boot-time `M` audit (LGD-292).** Two read-only checks that run once at server start and
   change nothing. `M` is the most error-prone value in the config and it has shipped wrong three

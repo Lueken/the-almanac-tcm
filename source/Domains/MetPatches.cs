@@ -834,13 +834,75 @@ public static class MetPatches
 
     private static readonly ConditionalWeakTable<ItemStack, QuenchAttempt> quenchAttempts = new();
 
+    /// <summary>How far from a dropped workpiece a smith can stand and still be the one
+    /// quenching it. Deliberately short: this is a last resort, and a generous radius would
+    /// start crediting bystanders for other people's work.</summary>
+    private const double QuenchProximityRange = 6.0;
+
+    /// <summary>Per-player throttle for the quench roll line; IsGettingCooled runs every
+    /// cooling tick and would otherwise write one line per tick per piece.</summary>
+    private static readonly Dictionary<string, long> lastShatterLog = new();
+
+    /// <summary>
+    /// Who is quenching this piece (LGD-356, fixed 2026-10-16).
+    ///
+    /// THE BUG THIS EXISTS FOR. This used to be one line:
+    ///
+    ///     quenchingPlayer = (slot.Inventory as InventoryBasePlayer)?.Player;
+    ///
+    /// which resolves a player ONLY while the hot piece sits in his own inventory. Dropping the
+    /// work into water is the ordinary way to quench it, and a dropped stack is not in an
+    /// InventoryBasePlayer, so the whole MET quench layer silently switched off on the route
+    /// players actually use. Three things hang off this one value and all three failed together:
+    ///
+    ///   1. the shatter reduction (ShatterChancePatch returns early on null), so a Master rolled
+    ///      at VANILLA odds instead of shatterFactorGm. Chanka lost iron pounder caps to this on
+    ///      2026-10-14 at roughly two and a half times the rate the mod promises him;
+    ///   2. the QuenchAttempt record, so the quench earned no practice either;
+    ///   3. nothing logged, which is why it took a player noticing his credits did not add up.
+    ///
+    /// It also explains LGD-334 without any tooltip work. The tooltip was honest: on that route
+    /// the chance really was vanilla.
+    ///
+    /// GROUND STORAGE IS A REAL SECOND ROUTE, not a hypothetical: BEGroundStorage is one of
+    /// vanilla's own Quenchable call sites, and its slots are not player inventory slots either.
+    ///
+    /// ATTRIBUTION ORDER, and why. The smith stamp is preferred over proximity because it names
+    /// the person who actually forged the piece rather than whoever happens to be standing there.
+    /// Proximity is the last resort, kept short, and it only ever applies to work nobody signed.
+    /// An offline smith resolves to null by PlayerByUid, which falls through to proximity: his
+    /// level cannot be read while he is gone, and refusing to quench would be worse than a
+    /// neighbour finishing the job.
+    /// </summary>
+    private static IPlayer? ResolveQuencher(IWorldAccessor world, ItemSlot? slot, Vec3d pos)
+    {
+        // 1. Held or carried: the original path, and still the common one.
+        var own = (slot?.Inventory as InventoryBasePlayer)?.Player;
+        if (own != null) return own;
+
+        // 2. Dropped, or in ground storage: ask the piece who forged it.
+        string? smithUid = slot?.Itemstack?.Attributes?.GetString(SmithAttr);
+        if (smithUid != null)
+        {
+            IPlayer? smith = world.PlayerByUid(smithUid);
+            if (smith != null) return smith;
+        }
+
+        // 3. Unsigned work, or a smith who has logged off. Nearest player, short leash.
+        return world.NearestPlayer(pos.X, pos.Y, pos.Z) is { } near
+            && near.Entity?.Pos != null
+            && near.Entity.Pos.DistanceTo(pos) <= QuenchProximityRange
+                ? near
+                : null;
+    }
+
     [HarmonyPatch(typeof(CollectibleBehaviorQuenchable), "IsGettingCooled")]
     public static class QuenchContextPatch
     {
         public static void Prefix(IWorldAccessor world, ItemSlot slot, Vec3d pos)
         {
             if (world.Side != EnumAppSide.Server) return;
-            quenchingPlayer = (slot.Inventory as InventoryBasePlayer)?.Player;
+            quenchingPlayer = ResolveQuencher(world, slot, pos);
 
             // The tongs are noted here, but NOT paid here (RULED 2026-08-19). This method
             // runs on every cooling tick and only ROLLS the break; the piece can still
@@ -893,10 +955,26 @@ public static class MetPatches
         public static void Postfix(ref float __result)
         {
             if (quenchingPlayer == null) return;
+            float vanilla = __result;
             double factor = MetDomain.ShatterFactor(MetLevel(quenchingPlayer),
                 Knob(MetDomain.ShatterFactorUntrained, 1.5),
                 Knob(MetDomain.ShatterFactorGm, 0.4));
             __result = (float)(__result * factor);
+
+            // LGD-356 asked for this. The roll itself is vanilla's and reports nothing, so a
+            // shatter was unprovable: the only evidence anyone had was a player saying his
+            // credits did not add up. This does not log the OUTCOME, which TCM never sees; it
+            // logs that the reduction was applied and at what rate, which is what tells the
+            // difference between "the mechanic worked and he was unlucky" and the defect above.
+            // Throttled per player, because IsGettingCooled runs on every cooling tick.
+            var api = quenchingPlayer.Entity?.Api;
+            if (api == null) return;
+            long now = api.World.ElapsedMilliseconds;
+            string uid = quenchingPlayer.PlayerUID;
+            if (lastShatterLog.TryGetValue(uid, out long last) && now - last < 10000) return;
+            lastShatterLog[uid] = now;
+            TcmLog.Cat(api, "met",
+                $"quench roll for {quenchingPlayer.PlayerName}: vanilla {vanilla:0.###} x{factor:0.##} -> {__result:0.###} (MET level {MetLevel(quenchingPlayer)})");
         }
     }
 

@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 [assembly: ModInfo("The Almanac: Trades, Callings & Mastery", "almanactcm",
     Authors = new string[] { "Venah" },
     Description = "Identity-first trade progression for the modded world.",
-    Version = "0.5.17")]
+    Version = "0.6.0")]
 
 namespace AlmanacTcm;
 
@@ -205,6 +205,11 @@ public class AlmanacTcmModSystem : ModSystem
             // rather than by attribute so a missing seam warns and skips (CONVENTIONS.md 6).
             Try("provenance-line", () => Engine.ProvenanceLine.PatchConditional(api, harmony));
             Try("food-provenance", () => Engine.FoodProvenance.PatchConditional(api, harmony));
+            // The other half of the identity law (LGD-362, LGD-331, LGD-299, LGD-139, LGD-158).
+            // Must follow food-provenance: both append to GlobalConstants.IgnoredStackAttributes
+            // and each skips keys already present, so the order is not load-bearing, but keeping
+            // the pair adjacent is how the two halves stay findable as one law.
+            Try("maker-mark-identity", () => Engine.MakerMarkIdentity.PatchConditional(api, harmony));
             Try("ANI", () => Domains.AniPatches.PatchConditional(api, harmony));
             Try("ANI-bonus", () => Domains.AniBonusPatches.PatchConditional(api, harmony));
             Try("POT", () => Domains.PotPatches.PatchConditional(api, harmony));
