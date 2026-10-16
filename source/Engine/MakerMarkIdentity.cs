@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using Vintagestory.API.Common;
@@ -286,6 +286,55 @@ public static class MakerMarkIdentity
             prefix: new HarmonyMethod(AccessTools.Method(typeof(MakerMarkIdentity), nameof(MergeReconcilePrefix))),
             postfix: new HarmonyMethod(AccessTools.Method(typeof(MakerMarkIdentity), nameof(MergeReconcilePostfix))));
         RegisterIgnoredKeys(api);
+
+        // The legacy heal, patched separately so a failure here cannot cost us the reconcile above.
+        var mergable = AccessTools.Method(typeof(CollectibleObject),
+            nameof(CollectibleObject.GetMergableQuantity));
+        if (mergable == null)
+            TcmLog.Warn(api, "maker mark identity: GetMergableQuantity not found; already-marked ingots keep their stale durability attribute and will not stack until replaced");
+        else
+            harmony.Patch(mergable,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(MakerMarkIdentity), nameof(StripMeaninglessWearPrefix))));
+
         TcmLog.Info(api, $"maker mark identity hooked ({All.Length} mark families: uniform batch keeps the mark, mixed goes plain)");
+    }
+
+    // --------------------------------------------------------------- the legacy wear heal
+
+    /// <summary>Clear a durability attribute from a stack that has no durability pool, at the one
+    /// moment it matters (LGD-139, 2026-10-16).
+    ///
+    /// MET's mark used to write vanilla "durability" onto anything it stamped, including stacks
+    /// whose GetMaxDurability is 1 - every hand-forged ingot, and vanilla toolheads too. MetPatches
+    /// no longer creates it, but the ingots already in players' chests still carry it, and that one
+    /// integer is enough to refuse a merge: "durability" is real wear state, so it is NOT in
+    /// IgnoredStackAttributes and must never be. Those stacks therefore never reach the reconcile
+    /// above - they are rejected by the identity test before TryMergeStacks is ever called.
+    ///
+    /// So the heal has to sit in front of the test itself. On a collectible with no pool the
+    /// attribute means nothing, dropping it is lossless, and the stacks compare equal again.
+    ///
+    /// COST: the first guard is CollectibleObject.Durability, a field resolved at load, so every
+    /// real tool leaves in one comparison and never enters GetMaxDurability. Only a stack that
+    /// claims no pool AND carries a durability attribute - which is the broken case and nothing
+    /// else - pays for the confirming call.</summary>
+    public static void StripMeaninglessWearPrefix(CollectibleObject __instance,
+        ItemStack sinkStack, ItemStack sourceStack)
+    {
+        Strip(__instance, sinkStack);
+        Strip(__instance, sourceStack);
+    }
+
+    private static void Strip(CollectibleObject coll, ItemStack? stack)
+    {
+        if (coll == null || coll.Durability > 1) return;                  // a real tool: out, cheaply
+        if (stack?.Attributes == null) return;
+        if (!stack.Attributes.HasAttribute("durability")) return;         // nothing stale to clear
+        // Another mod may have given this a pool (Toolsmith does, for parts), in which case the
+        // attribute is load-bearing and must stay. Never-throw: GetMaxDurability runs foreign
+        // postfixes, and "cannot tell" has to mean "leave it alone".
+        try { if (coll.GetMaxDurability(stack) > 1) return; }
+        catch { return; }
+        stack.Attributes.RemoveAttribute("durability");
     }
 }

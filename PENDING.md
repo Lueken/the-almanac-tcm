@@ -1978,6 +1978,61 @@ that LGD-239 (knapping rank expression) may make unnecessary.
 
 ## Staged in 0.6.0
 
+- **A mark stops writing wear state onto things that have no wear (LGD-139).** `MetPatches.cs`
+  (`RefreshHeadDurability`, `ApplyMark`, `MarkTransferPatch`), `Engine/MakerMarkIdentity.cs`
+  (`StripMeaninglessWearPrefix`).
+
+  This is the half of LGD-139 Chanka was still reporting on 2026-10-13, three versions after the
+  mark gate was supposed to have fixed it: hand-forged ingots will not stack with swage-table or
+  helve-hammer ingots.
+
+  **The cause was one integer, and it was ours.** `RefreshHeadDurability` topped up vanilla
+  `durability` whenever `GetMaxDurability > 0`. For a stack with no durability pool that call
+  answers **1**, because `CollectibleObject.Durability` DEFAULTS to 1 - so every ingot that got
+  past the mark gate was stamped `durability=1`. `durability` is genuine wear state, so it is not
+  in `IgnoredStackAttributes` and must never be, which means that single attribute refuses the
+  merge on its own. 0.6.0's identity law made the mark keys stack; this was the part an ignore
+  list cannot reach. It hit vanilla toolheads the same way (`axehead` is `maxstacksize 4`).
+
+  Now: `max <= 1` writes nothing at all, and **nothing ever creates an attribute that was not
+  already on the stack** - an absent durability already means full, so writing it buys nothing and
+  costs the stack its merging. That invariant is the actual fix; the threshold is how it is read.
+
+  Already-marked ingots in players' chests still carry the stale attribute, and they never reach
+  the 0.6.0 merge reconcile because the identity test rejects them before `TryMergeStacks` is
+  called. So the heal sits in front of the test, as a prefix on `GetMergableQuantity` that drops a
+  meaningless `durability` from both sides. Guarded on the `Durability` field first, so a real tool
+  leaves in one comparison and only the broken case pays for a `GetMaxDurability` call.
+
+- **The quality bonus no longer leaves a tool born worn, or quietly repairs one (LGD-139).**
+  `MetPatches.cs`, `RefreshHeadDurability` + both call sites.
+
+  Toolsmith and SmithingPlus report condition as current/max where **max is computed live and
+  current is a stored integer**. The moment `sp:smithingQuality` lifts max, every stored current is
+  stale by exactly that factor, which is the reported `5000/5250` - a fresh Journeyman tool 5%
+  damaged before its first swing. Both call sites now read the max *before* stamping quality and
+  scale the stored numbers by the factor it moved.
+
+  Scaling, not filling. Filling to max is what the code did before, and on a re-stamp of a worn
+  head that was a **free repair** - a hole nobody had reported yet.
+
+  Routed by which pair the stack actually uses, confirmed against decompiled Toolsmith 1.2.18:
+  a finished tool keeps head wear in vanilla `durability` (`SetToolheadCurrentDurability` *is*
+  `Collectible.SetDurability`), while a bare part keeps it in
+  `toolPartCurrentDurability`/`toolPartMaxDurability` and ignores vanilla entirely. The old code
+  only ever wrote the vanilla one, so on a bare Toolsmith head it wrote a field nothing reads -
+  and worse, Toolsmith tests `HasAttribute("durability")` to decide a stack IS an assembled head.
+
+  **What I could not verify:** that the assembled-tool half is still broken at all. Traced through
+  decompiled Toolsmith, TCM's postfix already ran last and already topped up, so on the bench path
+  the ordering was correct before this change. The reports are against 0.5.11 and 0.5.14 and the
+  2026-10-13 follow-up only re-reported the ingots. It may have been fixed in that window and never
+  closed - the same fix-shipped-vs-fix-live gap the 2026-10-15 board reconciliation found 27 of.
+  The change above is still correct and strictly safer, and `TcmLog.Hooks` now prints
+  `durability carried on <code>: max A -> B (xF)` at every mark, which settles it from one play
+  session instead of by argument.
+
+
 - **Casting is paid by the metal, not by the mold (LGD-316).** `MetPatches.cs`,
   `ToolMoldFillPatch.Postfix`.
 

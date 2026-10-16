@@ -352,35 +352,87 @@ public static class MetPatches
             return false;
         }
 
+        // The max BEFORE the quality stamp, so the top-up below knows the exact factor the
+        // bonus moved it by. Read first: once sp:smithingQuality lands, this number is gone.
+        int maxBefore = SafeMaxDurability(stack);
+
         stack.Attributes.SetString(MakerAttr, maker.uid);
         stack.Attributes.SetString(MakerNameAttr, maker.name);
         stack.Attributes.SetInt(MakerLevelAttr, maker.level);
         stack.Attributes.SetFloat(SmithingQualityAttr, (float)QualityFactor(maker.level));
-        RefreshHeadDurability(stack, api);
+        RefreshHeadDurability(stack, api, maxBefore);
         MetSignature.Assign(stack, maker.level);
         return true;
     }
 
-    /// <summary>Top the head durability off to its NEW max after the quality buff raises it.
-    /// Toolsmith reads head current-durability from the vanilla "durability" attribute; a fresh
-    /// forge sets it to the BASE max, so once our sp:smithingQuality lifts GetMaxDurability the
-    /// tool would otherwise be born partly worn (e.g. 5000/5750). Call right after stamping quality.</summary>
-    private static void RefreshHeadDurability(ItemStack? stack, ICoreAPI? api)
+    // Toolsmith's own tool-PART wear pair (ToolsmithAttributes, 1.2.18 - the same scheme
+    // PartQualityLevers reads for handles and bindings). A bare head keeps its wear here and
+    // ignores vanilla "durability" entirely; a FINISHED tool is the other way round, because
+    // Toolsmith's SetToolheadCurrentDurability is literally Collectible.SetDurability. Scaling
+    // whichever pair is present covers both without having to know which one we were handed.
+    private const string PartCurAttr = "toolPartCurrentDurability";
+    private const string PartMaxAttr = "toolPartMaxDurability";
+
+    /// <summary>GetMaxDurability, guarded. It runs every other mod's postfixes and Toolsmith's
+    /// can NRE on a bare head, so a throw means "cannot tell" and answers 0.</summary>
+    private static int SafeMaxDurability(ItemStack? stack)
+    {
+        if (stack?.Collectible == null) return 0;
+        try { return stack.Collectible.GetMaxDurability(stack); }
+        catch { return 0; }
+    }
+
+    /// <summary>Carry the stored wear numbers across a change in max durability, so the quality
+    /// bonus neither leaves a tool born worn nor quietly repairs one (LGD-139, rebuilt 2026-10-16).
+    ///
+    /// Toolsmith and SmithingPlus report a tool's condition as current/max where max is COMPUTED
+    /// live through GetMaxDurability and current is a STORED integer. The instant our
+    /// sp:smithingQuality lifts max, every stored current is stale by exactly that factor: a fresh
+    /// Journeyman tool reads 5000/5250 and is 5% damaged before its first swing. So multiply the
+    /// stored numbers by the same factor the max just moved by. Percentage is preserved, which is
+    /// the whole point: filling to max instead (what this did until now) also silently repaired any
+    /// worn head that passed back through a re-stamp.
+    ///
+    /// TWO INVARIANTS, both learned the hard way:
+    ///
+    /// 1. NEVER CREATE AN ATTRIBUTE THAT WAS NOT ALREADY THERE. Attributes are stack identity, and
+    ///    vanilla "durability" is not in IgnoredStackAttributes and must never be - it is real wear
+    ///    state, not a label. An absent durability already MEANS full, so writing it buys nothing
+    ///    and costs the stack its merging.
+    /// 2. NOTHING AT ALL on a stack with no durability pool (max &lt;= 1, the IsDamageable threshold:
+    ///    CollectibleObject.Durability DEFAULTS to 1). This is the still-live half of LGD-139.
+    ///    GetMaxDurability answers 1 for an ingot and for a vanilla toolhead, and the old `max > 0`
+    ///    test wrote durability=1 onto both. That one integer is why hand-forged ingots have never
+    ///    stacked with swage-table or helve-hammer ingots, and it does the same to a vanilla axehead
+    ///    (maxstacksize 4). The mark keys themselves stack again as of 0.6.0's identity law; this
+    ///    attribute was the part the ignore list cannot cover.</summary>
+    private static void RefreshHeadDurability(ItemStack? stack, ICoreAPI? api, int maxBefore)
     {
         if (stack?.Collectible == null) return;
-        // Best-effort and never-throw: GetMaxDurability runs other mods' postfixes (Toolsmith's
-        // can NRE on a bare head), and this call sits in the maker's-mark flow BEFORE the
-        // re-stamp registers — an escaping exception here would abort the whole mark. So it is
-        // fully guarded; a failure just skips the top-up, it never breaks the mark.
-        try
-        {
-            int max = stack.Collectible.GetMaxDurability(stack);
-            if (max > 0) stack.Attributes.SetInt("durability", max);
-        }
-        catch (System.Exception e)
-        {
-            if (api != null) TcmLog.Cat(api, TcmLog.Hooks, $"head durability top-up skipped ({stack.Collectible.Code}): {e.Message}");
-        }
+        int maxAfter = SafeMaxDurability(stack);
+
+        // Invariant 2: no pool, no business writing wear state onto it.
+        if (maxAfter <= 1 || maxBefore <= 1) return;
+        if (maxAfter == maxBefore) return;
+
+        double factor = (double)maxAfter / maxBefore;
+        ScaleWear(stack, "durability", factor);   // vanilla pool, and Toolsmith's finished tool
+        ScaleWear(stack, PartCurAttr, factor);    // Toolsmith's bare part: current
+        ScaleWear(stack, PartMaxAttr, factor);    // Toolsmith's bare part: its stored max
+
+        if (api != null)
+            TcmLog.Cat(api, TcmLog.Hooks, $"durability carried on {stack.Collectible.Code}: "
+                + $"max {maxBefore} -> {maxAfter} (x{factor:0.###}), stored wear scaled to match");
+    }
+
+    /// <summary>Scale one stored wear integer. Absent stays absent (invariant 1): an absent
+    /// durability already means full, and creating one would cost the stack its stacking.</summary>
+    private static void ScaleWear(ItemStack stack, string attr, double factor)
+    {
+        if (!stack.Attributes.HasAttribute(attr)) return;
+        int value = stack.Attributes.GetInt(attr, 0);
+        if (value <= 0) return;
+        stack.Attributes.SetInt(attr, Math.Max(1, (int)Math.Round(value * factor)));
     }
 
     /// <summary>MET's Bonus-knob accessor (public since 2026-08-22: DomainFigures quotes
@@ -1131,9 +1183,14 @@ public static class MetPatches
                 // have stripped or re-stamped since the mark was frozen; recomputing would
                 // hand a stripped head a full-quality tool and quietly undo the gate. The
                 // frozen level says who made it; this float says what condition it is in.
+                // Same read-before-stamp as ApplyMark. Toolsmith has already finished by the
+                // time this postfix runs (its behavior hook is INSIDE the method we postfix) and
+                // it set the tool's current durability from a max that did not yet carry quality,
+                // so this is the factor its number is short by.
+                int maxBefore = SafeMaxDurability(output);
                 output.Attributes.SetFloat(SmithingQualityAttr,
                     input.Itemstack.Attributes.GetFloat(SmithingQualityAttr, 1f));
-                RefreshHeadDurability(output, outputSlot?.Inventory?.Api);
+                RefreshHeadDurability(output, outputSlot?.Inventory?.Api, maxBefore);
                 // GM signature: keep an already-marked head's edge; otherwise the bare head
                 // finally becomes a classifiable tool here, so assign by the finished type.
                 if (!MetSignature.CopySignature(input.Itemstack, output))
