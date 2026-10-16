@@ -40,10 +40,17 @@
       <HintPath>$(VsDir)/Lib/cairo-sharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- Sibling Almanac mod: hard dependency (modinfo), so the assembly is
-         always loaded at runtime; build Illuminated (Debug) before TCM. -->
+    <!-- Sibling Almanac mod: hard dependency (modinfo), so the assembly is always
+         loaded at runtime. PINNED TO THE RELEASED DLL, NOT THE SIBLING DEBUG OUTPUT
+         (0.5.16 crash, 2026-10-09): Illuminated f6a5ef6 turned FontRegistry.SerifBody
+         and SerifDecorative from `const` into properties. A const is INLINED into the
+         caller, so building against a newer Debug DLL silently emits get_SerifBody /
+         get_SerifDecorative calls that the DLL players actually run has no methods for,
+         and the Callings tab died with MissingMethodException the moment it was opened.
+         Both builds were labelled 0.3.1, so nothing looked wrong. Re-pin this file only
+         when a matching Illuminated is genuinely deployed. -->
     <Reference Include="AlmanacIlluminated">
-      <HintPath>..\the-almanac-illuminated\bin\Debug\Mods\almanacilluminated\AlmanacIlluminated.dll</HintPath>
+      <HintPath>lib\AlmanacIlluminated-0.3.1-released.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

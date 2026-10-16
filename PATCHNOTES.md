@@ -1,14 +1,77 @@
-﻿# Patch notes
+# Patch notes
 
 The Almanac: Trades, Callings & Mastery.
 
 ---
 
-## 0.5.16 (unreleased)
+## 0.5.17
 
-**Held deliberately. Not built, not deployed.** The Almanac is required on the client, so every
-version costs every player an update, and this one is collecting work before it ships rather than
-going out for a single fix. The notes are written as the work lands so nothing is lost.
+### The Callings page opens again
+
+0.5.16 crashed the client the moment you clicked Callings in the Almanac. Not a slow page or a
+blemish: the game closed. Anyone who opened that tab lost their session. This release is that one
+fix and nothing else.
+
+What happened is worth writing down because nothing about it looked wrong. The Almanac reads its
+two serif font names from Illuminated. Those names used to be constants, and a constant is copied
+into the reader at build time rather than looked up when the page is drawn. Illuminated later
+turned them into live lookups so the book could switch to mark-capable fonts. That is a fine change
+on its own, but it means anything built against the newer Illuminated goes looking for a lookup
+that the Illuminated you actually have does not carry, and the page dies on the spot rather than
+falling back to a plain font.
+
+The Almanac was built against a newer Illuminated than the one that shipped. Both were numbered
+0.3.1, so there was no version mismatch to notice, no warning at build time, and no error in any
+log until a player clicked the tab. 0.5.17 is built against the Illuminated that is actually out,
+and the Almanac now carries a pinned copy of it so a sibling build can never quietly substitute
+itself again.
+
+Nothing else changed. Every 0.5.16 fix is still here, including the one players confirmed the same
+morning: repeat kills of the same creature now pay.
+
+### If you are updating from 0.5.15
+
+0.5.16 and 0.5.17 are the same release for your purposes. Follow the 0.5.16 operator notes below,
+including the config steps. If you already updated to 0.5.16 and did those steps, you have nothing
+further to do: drop 0.5.17 in and restart.
+
+---
+
+## 0.5.16
+
+**Superseded by 0.5.17. Do not install this version.** It shipped on 2026-10-09 and was withdrawn
+the same day: opening the Callings tab crashed the client. 0.5.17 is this release entire plus that
+one fix, so everything described below is what you get when you install 0.5.17.
+
+The release was held back for a while before it went out, because the Almanac is required on the
+client and every version costs every player an update. The notes below were written as the work
+landed so nothing was lost.
+
+### Server operators: read this before you update
+
+This release changes values the config updater **cannot** reach on its own. Two trades, Animal
+Handling and Fishing, now count a different number of kinds of work, and that number is only
+ever read from your existing config file. Update without doing this and those two trades keep
+the old arithmetic, silently, with nothing in the log to tell you.
+
+In order, and do not skip the backup:
+
+1. **Stop the server.**
+2. **Back up `ModConfig/almanactcm/` somewhere safe.** Copy the whole folder. If you have tuned
+   anything at all, this copy is the only record of it.
+3. **Update the mod.**
+4. **Delete the files inside `ModConfig/almanactcm/`** and start the server. They rebuild from
+   the new defaults on boot, correct and complete.
+5. **Stop the server again, and put your own tweaks back** by hand, reading them out of the
+   backup from step 2 and writing them into the freshly generated files. Do not copy the old
+   files over the new ones; that puts the old arithmetic straight back.
+6. **Start the server.** Now the changes are live.
+
+A new install needs none of this. A single-player world needs none of this.
+
+Changing nothing but those two numbers also works, if you would rather keep every tweak and
+touch nothing else: write `"M": 4` into `ANI.json` and `"M": 2` into `FIS.json`, then restart.
+Everything else in this release merges itself.
 
 **Four ways to be paid for work you did not do, all closed.** An empty fruit press paid for being
 screwed down. So did setting an empty bucket under one. A cooked pie put back in the oven and
