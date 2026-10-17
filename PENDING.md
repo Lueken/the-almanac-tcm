@@ -2023,14 +2023,19 @@ that LGD-239 (knapping rank expression) may make unnecessary.
   only ever wrote the vanilla one, so on a bare Toolsmith head it wrote a field nothing reads -
   and worse, Toolsmith tests `HasAttribute("durability")` to decide a stack IS an assembled head.
 
-  **What I could not verify:** that the assembled-tool half is still broken at all. Traced through
-  decompiled Toolsmith, TCM's postfix already ran last and already topped up, so on the bench path
-  the ordering was correct before this change. The reports are against 0.5.11 and 0.5.14 and the
-  2026-10-13 follow-up only re-reported the ingots. It may have been fixed in that window and never
-  closed - the same fix-shipped-vs-fix-live gap the 2026-10-15 board reconciliation found 27 of.
-  The change above is still correct and strictly safer, and `TcmLog.Hooks` now prints
-  `durability carried on <code>: max A -> B (xF)` at every mark, which settles it from one play
-  session instead of by argument.
+  **SETTLED LIVE, same evening.** Chanka confirmed in-game on 2026-10-16: a fresh iron pickaxe,
+  forged and fully assembled at Journeyman, reads **5250/5250** against a 5000 base. So the
+  assembled-tool half was already fixed sometime after 0.5.14 and the ticket had simply never been
+  closed - the same fix-shipped-vs-fix-live gap the 2026-10-15 reconciliation found 27 of. Asked
+  rather than argued, which is the cheaper move whenever the server can answer.
+
+  That confirmation also caught a regression in the first cut of this change. Withholding the
+  attribute was too broad a rule: Toolsmith reads an absent `durability` on an ASSEMBLED tool as a
+  null head and calls `ResetNullHead`, whose own log warns it "might result in fallback data of a
+  Candle being assigned". A cast or direct-forged tool vanilla left unstamped is exactly that case.
+  So the invariant now applies only where the attribute is meaningless (`max <= 1`); a stack with a
+  real pool is stamped, and since those are `maxstacksize 1` it costs no merging. Writing it and
+  then scaling it would have applied the bonus twice, so the fill and the scale are exclusive.
 
 
 - **Casting is paid by the metal, not by the mold (LGD-316).** `MetPatches.cs`,

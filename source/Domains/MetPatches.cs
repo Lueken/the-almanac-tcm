@@ -395,10 +395,14 @@ public static class MetPatches
     ///
     /// TWO INVARIANTS, both learned the hard way:
     ///
-    /// 1. NEVER CREATE AN ATTRIBUTE THAT WAS NOT ALREADY THERE. Attributes are stack identity, and
-    ///    vanilla "durability" is not in IgnoredStackAttributes and must never be - it is real wear
-    ///    state, not a label. An absent durability already MEANS full, so writing it buys nothing
-    ///    and costs the stack its merging.
+    /// 1. CREATE THE ATTRIBUTE ONLY WHERE IT IS LOAD-BEARING, which is any stack that really has a
+    ///    pool. On those, stack size is 1, so writing it costs no merging, and withholding it is
+    ///    actively dangerous: Toolsmith reads an absent "durability" on an assembled tool as a NULL
+    ///    HEAD and calls ResetNullHead, whose own log warns it "might result in fallback data of a
+    ///    Candle being assigned" (ItemStackExtensions.GetToolheadCurrentDurability). A cast or
+    ///    direct-forged tool that vanilla left unstamped is exactly that case. Verified live
+    ///    2026-10-16 (Chanka: a fresh assembled iron pickaxe reads 5250/5250), so this path works
+    ///    and must not be broken on the way past it.
     /// 2. NOTHING AT ALL on a stack with no durability pool (max &lt;= 1, the IsDamageable threshold:
     ///    CollectibleObject.Durability DEFAULTS to 1). This is the still-live half of LGD-139.
     ///    GetMaxDurability answers 1 for an ingot and for a vanilla toolhead, and the old `max > 0`
@@ -416,7 +420,18 @@ public static class MetPatches
         if (maxAfter == maxBefore) return;
 
         double factor = (double)maxAfter / maxBefore;
-        ScaleWear(stack, "durability", factor);   // vanilla pool, and Toolsmith's finished tool
+
+        // A real pool with nothing stored anywhere: vanilla reads absent as full, but Toolsmith
+        // reads it as a null head (invariant 1), so stamp it. Absent already meant full, so
+        // maxAfter IS the carried value and there is nothing to scale - writing it and then
+        // scaling it would apply the bonus twice. This is NOT the old fill-to-max either: that
+        // overwrote a STORED number, and in doing so repaired any worn head that passed back
+        // through a re-stamp.
+        if (!stack.Attributes.HasAttribute("durability") && !stack.Attributes.HasAttribute(PartMaxAttr))
+            stack.Attributes.SetInt("durability", maxAfter);
+        else
+            ScaleWear(stack, "durability", factor);   // vanilla pool, and Toolsmith's finished tool
+
         ScaleWear(stack, PartCurAttr, factor);    // Toolsmith's bare part: current
         ScaleWear(stack, PartMaxAttr, factor);    // Toolsmith's bare part: its stored max
 
