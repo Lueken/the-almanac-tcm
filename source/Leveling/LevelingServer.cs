@@ -1,4 +1,4 @@
-// Derived from XLib/XLeveling by Xandu (MIT) — see THIRD-PARTY-LICENSES/XLIB-LICENSE.txt.
+﻿// Derived from XLib/XLeveling by Xandu (MIT) — see THIRD-PARTY-LICENSES/XLIB-LICENSE.txt.
 // Source: github.com/Xandu93/VSMods via github.com/DeadSigma/xskills-fork_xlib-fork.
 using System;
 using System.Collections.Generic;
@@ -236,7 +236,8 @@ public class LevelingServer
             g?.FamVersedHarvests ?? 8,
             g?.FamFamilyVersedSum ?? 16,
             g?.FamSpread ?? 0.5,
-            g?.FamKinCeiling ?? 7), byPlayer);
+            g?.FamKinCeiling ?? 7,
+            g?.GmDomainCap ?? 2), byPlayer);
 
         foreach (PlayerDomain playerDomain in domainSet.PlayerDomains)
         {

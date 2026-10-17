@@ -1,4 +1,4 @@
-// Derived from XLib/XLeveling by Xandu (MIT) — see THIRD-PARTY-LICENSES/XLIB-LICENSE.txt.
+﻿// Derived from XLib/XLeveling by Xandu (MIT) — see THIRD-PARTY-LICENSES/XLIB-LICENSE.txt.
 // Source: github.com/Xandu93/VSMods via github.com/DeadSigma/xskills-fork_xlib-fork.
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -110,10 +110,16 @@ public class ClientConfigPacket
     /// server about where "never everything" sits.</summary>
     public int famKinCeiling = 7;
 
+    /// <summary>Lifetime Great Work cap, so the Callings page can state the real price of a
+    /// declaration ("one of your two") on a server that configured something other than two.
+    /// Display only; the server re-checks the cap before granting anything.</summary>
+    public int gmDomainCap = 2;
+
     public ClientConfigPacket() { }
 
     public ClientConfigPacket(bool alloyLedgerGated, bool growerEyeFar,
-        int famAcquainted, int famVersed, int famFamilyVersed, double famSpread, int famKinCeiling)
+        int famAcquainted, int famVersed, int famFamilyVersed, double famSpread, int famKinCeiling,
+        int gmDomainCap)
     {
         this.alloyLedgerGated = alloyLedgerGated;
         this.growerEyeFar = growerEyeFar;
@@ -122,6 +128,7 @@ public class ClientConfigPacket
         this.famFamilyVersed = famFamilyVersed;
         this.famSpread = famSpread;
         this.famKinCeiling = famKinCeiling;
+        this.gmDomainCap = gmDomainCap;
     }
 }
 

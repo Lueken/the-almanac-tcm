@@ -351,5 +351,14 @@
   "block-stump-ebony": "Ebony stump",
   "block-stump-walnut": "Walnut stump",
   "block-stump-purpleheart": "Purpleheart stump",
-  "almanactcm:met-quench-shatter": "In your hands: {0:0.#%} ({1} Metalworking, x{2:0.##})"
+  "almanactcm:met-quench-shatter": "In your hands: {0:0.#%} ({1} Metalworking, x{2:0.##})",
+  "almanactcm:gm-declared": "{0} is declared a Great Work of your hands. {1} of {2} spent.",
+  "almanactcm:gm-refuse-already": "{0} already stands as a Great Work of yours.",
+  "almanactcm:gm-refuse-not-master": "A Great Work is declared at {0}, and your {1} has not reached it.",
+  "almanactcm:gm-refuse-resisted": "Your hands resist this trade. {0} will never become a Great Work of yours.",
+  "almanactcm:gm-refuse-no-slots": "A life holds {0} Great Works, and yours are all declared.",
+  "almanactcm:gm-refuse-capped": "{0} does not climb to Grandmaster on this server.",
+  "almanactcm:gm-refuse-disabled": "{0} is not practiced on this server.",
+  "almanactcm:gm-refuse-unapproved": "Your claim on {0} is not recognised yet.",
+  "almanactcm:gm-refuse-unknown": "That Calling cannot be declared."
 }

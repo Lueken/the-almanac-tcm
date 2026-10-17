@@ -393,6 +393,11 @@ public class AlmanacTcmModSystem : ModSystem
         Domains.TaiPatches.RegisterServer(sapi);
         Domains.TaiEmphasis.RegisterServer(sapi);
 
+        // Grandmaster by declaration: the only route to the rank, since practice ceilings at
+        // Master IV in every affinity band. Server-authoritative because it spends one of the
+        // configured lifetime slots and cannot be undone.
+        Engine.GmAscension.RegisterServer(sapi);
+
         // TEM's per-player stat reconcile (gear cost + stability resistance) + the Storm-Sense forecast
         // run on a 2s tick; it resolves SystemTemporalStability for the storm schedule read.
         Domains.TemPatches.RegisterServer(sapi);
@@ -465,6 +470,8 @@ public class AlmanacTcmModSystem : ModSystem
         Domains.AlcEmphasis.RegisterClient(capi);
         // TAI emphasis: the Callings book's Warm/Lasting/Cool toggle sends on this channel.
         Domains.TaiEmphasis.RegisterClient(capi);
+        // The Great Work declaration: the Callings page asks, the server decides.
+        Engine.GmAscension.RegisterClient(capi);
 
         // Hunter's Map envelope sync — dormant with the shelved layer (see Start).
         // Domains.HunPatches.RegisterClient(capi);
@@ -598,6 +605,10 @@ public class AlmanacTcmModSystem : ModSystem
     public int FamFamilyVersed { get; set; } = 16;
     public double FamSpread { get; set; } = 0.5;
     public int FamKinCeiling { get; set; } = 7;
+
+    /// <summary>Client mirror of the lifetime Great Work cap, synced at join so the Callings page
+    /// can name the real price of a declaration. Display only.</summary>
+    public int GmDomainCap { get; set; } = 2;
 
     private void RegisterDomains(ICoreAPI api)
     {

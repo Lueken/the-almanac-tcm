@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using AlmanacIlluminated;
 using AlmanacTcm.Leveling;
@@ -22,6 +22,13 @@ public class CallingsTab : IAlmanacBookTab
     private IAlmanacBookTabHost? host;
     private string? detailCode;                     // null = overview, else the domain shown
     private string? webHot;                         // non-null = trade-web view, holding this hot seat
+
+    /// <summary>Non-null = this Calling's declaration is one click from being made, and the page
+    /// shows the price instead of the offer. This is the whole of the two-step guard: a lifetime,
+    /// irreversible choice must not be one stray click inside a book the player is browsing.
+    /// Cleared whenever the page moves, so an armed state can never outlive the spread that
+    /// explained it.</summary>
+    private string? gmArmed;
     private Dictionary<string, DomainInfo>? info;   // lazy-loaded flavor asset
     private Dictionary<string, string>? webProse;   // lazy-loaded per-edge ledger lines
     private Dictionary<string, TradeWebAsset.Road>? webRoads;   // code-fact co-grant edges
@@ -40,6 +47,12 @@ public class CallingsTab : IAlmanacBookTab
     {
         this.client = client;
         this.rungLib = rungLib;
+
+        // The declaration's answer comes back as an ordinary domain sync, so the page that asked
+        // the question has to be told to re-read it; otherwise the offer sits there looking
+        // unanswered until the book is closed and reopened. Recompose is a no-op on a closed book
+        // (the host guards it with IsOpened), so this is safe whether anyone is reading or not.
+        client.GreatWorkDeclared += _ => { gmArmed = null; host?.Recompose(); };
     }
 
     public string Label => "Callings";
@@ -53,7 +66,7 @@ public class CallingsTab : IAlmanacBookTab
     public void OnAttached(IAlmanacBookTabHost host) => this.host = host;
 
     /// <summary>Selecting the ribbon tab always returns to the overview.</summary>
-    public void OnActivated() { detailCode = null; webHot = null; }
+    public void OnActivated() { detailCode = null; webHot = null; gmArmed = null; }
 
     public List<RichTextComponentBase[]> BuildColumns(ICoreClientAPI capi, double columnWidth, double columnHeight)
     {
@@ -130,7 +143,7 @@ public class CallingsTab : IAlmanacBookTab
             var comps = new List<RichTextComponentBase>
             {
                 new BookLinkComponent(capi, entry.DisplayName, nameFont,
-                    _ => { detailCode = code; host?.Recompose(); }),
+                    _ => { detailCode = code; gmArmed = null; host?.Recompose(); }),
             };
             if (score > 0) comps.Add(new AffinityMarkComponent(capi, filled: score >= 3));
             comps.Add(new RichTextComponent(capi, "\n", nameFont));
@@ -268,7 +281,7 @@ public class CallingsTab : IAlmanacBookTab
             // Into the drawn web; BuildWeb falls back to the first ring node when
             // this code happens to be disabled.
             new BookLinkComponent(capi, "The trade web, drawn ›", webLink,
-                _ => { webHot = "WOO"; detailCode = null; host?.Recompose(); }),
+                _ => { webHot = "WOO"; detailCode = null; gmArmed = null; host?.Recompose(); }),
             new RichTextComponent(capi, "\n", webLink),
             new ClearFloatTextComponent(capi, 8),
             new RichTextComponent(capi, CountedStanding(total, ceiling, begun, untouched) + "\n", tailItalic),
@@ -342,6 +355,102 @@ public class CallingsTab : IAlmanacBookTab
 
     /// <summary>The key for the marks, pinned to the foot of the rightmost column so
     /// the stars and the barred pip read plainly. Muted, out of the way.</summary>
+    /// <summary>THE GREAT WORK DECLARATION (ruled 2026-10-16), the only route to Grandmaster:
+    /// practice ceilings at Master IV in every affinity band, so the rank is chosen, never earned
+    /// by repetition. Three states on one page.
+    ///
+    ///   Below Master IV   a note of what waits, so the ladder's deliberately UNBARRED Grandmaster
+    ///                     pip is explained rather than merely unexplained.
+    ///   At Master IV      the offer, then - on a second click - the price, naming the slots
+    ///                     already spent and what remains after this one.
+    ///   Grandmaster       the fact of it, and nothing clickable.
+    ///
+    /// Eligibility comes from Engine.GmAscension.RefusalFor, the same predicate the server
+    /// authorizes with, so this page can never offer something the server will refuse. The click
+    /// only REQUESTS: nothing is predicted locally, because the slot is irreversible and a page
+    /// that optimistically lies about a lifetime choice is worse than one that waits. The rank
+    /// arrives the ordinary way, through the domain sync, with the ceremony banner behind it.</summary>
+    private List<RichTextComponentBase> GreatWorkSection(ICoreClientAPI capi, string code,
+        string display, int id, int level, CairoFont subhead, CairoFont body,
+        CairoFont mutedItalic, CairoFont muted)
+    {
+        var o = new List<RichTextComponentBase>();
+        if (id < 0) return o;
+
+        int cap = AlmanacTcmModSystem.ClientInstance?.GmDomainCap ?? 2;
+        if (cap <= 0) return o;   // Great Works switched off on this server: say nothing at all.
+
+        // Declared Great Works, counted AND named off the same synced ladder, so the number and
+        // the names cannot disagree - the reason AffinitySystem keeps its count and its name list
+        // on one predicate.
+        var declared = new List<string>();
+        foreach (var kv in client.Domains)
+        {
+            if (kv.Value == null || kv.Value.Level < Rank.Grandmaster) continue;
+            if (kv.Key >= 0 && kv.Key < Domains.DomainRoster.All.Length)
+                declared.Add(Domains.DomainRoster.All[kv.Key].DisplayName);
+        }
+
+        o.Add(new ClearFloatTextComponent(capi, 14));
+        o.Add(new RichTextComponent(capi, "Your Great Work\n", subhead));
+
+        if (level >= Rank.Grandmaster)
+        {
+            o.Add(new RichTextComponent(capi,
+                display + " is a Great Work of your hands, declared and standing.\n", body));
+            if (declared.Count > 1)
+                o.Add(new RichTextComponent(capi,
+                    "Declared: " + string.Join(", ", declared) + "  (" + declared.Count + " of " + cap + ")\n",
+                    mutedItalic));
+            return o;
+        }
+
+        if (level < Rank.MasterIV)
+        {
+            o.Add(new RichTextComponent(capi,
+                "Practice carries you to " + Domain.RankName(Rank.MasterIV) + " and no further. "
+                + "Grandmaster is not earned by repetition; it is declared, once, and it spends "
+                + "one of your " + cap + ".\n", mutedItalic));
+            return o;
+        }
+
+        // Standing at the ceiling. Ask the shared predicate whether the offer is real.
+        string? refusal = Engine.GmAscension.RefusalFor(
+            level, true, Domain.MaxLevelDefault, declared.Count, cap, Score(id));
+        if (refusal != null)
+        {
+            o.Add(new RichTextComponent(capi,
+                Engine.GmAscension.RefusalText(refusal, display, cap) + "\n", mutedItalic));
+            return o;
+        }
+
+        if (gmArmed != code)
+        {
+            o.Add(new RichTextComponent(capi, "You have gone as far as practice carries.\n", body));
+            o.Add(new BookLinkComponent(capi, "Declare this Great Work \u203a", body,
+                _ => { gmArmed = code; host?.Recompose(); }));
+            o.Add(new RichTextComponent(capi, "\n", body));
+            return o;
+        }
+
+        // Armed: the price, stated plainly, before the irreversible click.
+        o.Add(new RichTextComponent(capi,
+            "Declaring " + display + " spends one of your " + cap + " Great Works, permanently.\n", body));
+        o.Add(new RichTextComponent(capi, declared.Count > 0
+            ? "Already declared: " + string.Join(", ", declared) + "\n"
+            : "You have declared none yet.\n", mutedItalic));
+        o.Add(new RichTextComponent(capi,
+            "Remaining after this: " + System.Math.Max(0, cap - declared.Count - 1) + "\n", mutedItalic));
+        o.Add(new ClearFloatTextComponent(capi, 6));
+        o.Add(new BookLinkComponent(capi, "Declare \u203a", body,
+            _ => { gmArmed = null; Engine.GmAscension.Request(id); host?.Recompose(); }));
+        o.Add(new RichTextComponent(capi, "   ", body));
+        o.Add(new BookLinkComponent(capi, "\u2039 Not yet", muted,
+            _ => { gmArmed = null; host?.Recompose(); }));
+        o.Add(new RichTextComponent(capi, "\n", body));
+        return o;
+    }
+
     private List<RichTextComponentBase> BuildLegend(ICoreClientAPI capi)
     {
         CairoFont head = CairoFont.WhiteSmallText().WithFont(FontRegistry.DisplaySans)
@@ -397,7 +506,7 @@ public class CallingsTab : IAlmanacBookTab
 
         var comps = new List<RichTextComponentBase>
         {
-            new BookLinkComponent(capi, "‹ All Callings", muted, _ => { detailCode = null; host?.Recompose(); }),
+            new BookLinkComponent(capi, "‹ All Callings", muted, _ => { detailCode = null; gmArmed = null; host?.Recompose(); }),
             new RichTextComponent(capi, "\n", muted),
             new RichTextComponent(capi, display, heading),
         };
@@ -441,6 +550,8 @@ public class CallingsTab : IAlmanacBookTab
             comps.Add(new RichTextComponent(capi, "What mastery gives\n", subhead));
             comps.Add(new RichTextComponent(capi, di.mastery + "\n", body));
         }
+
+        comps.AddRange(GreatWorkSection(capi, code, display, id, level, subhead, body, mutedItalic, muted));
 
         // ALC: the Grandmaster's Potent/Lasting emphasis toggle, the player's own choice, stamped
         // onto every remedy they make. Only a live lever at Grandmaster; below it, a note of what waits.
@@ -1081,7 +1192,7 @@ public class CallingsTab : IAlmanacBookTab
             if (verso)
             {
                 col.Add(new BookLinkComponent(capi, "‹ All Callings", linkMuted,
-                    _ => { detailCode = null; host?.Recompose(); }));
+                    _ => { detailCode = null; gmArmed = null; host?.Recompose(); }));
                 col.Add(new RichTextComponent(capi, "   " + display.ToUpperInvariant() + "\n", caps));
             }
             else

@@ -1978,6 +1978,53 @@ that LGD-239 (knapping rank expression) may make unnecessary.
 
 ## Staged in 0.6.0
 
+- **Grandmaster by declaration — the rank becomes reachable at all (Track 2, base-TCM half).**
+  New `Engine/GmAscension.cs`; `Gui/CallingsTab.cs` (`GreatWorkSection`, `gmArmed`);
+  `Leveling/LevelingClient.cs` (`GreatWorkDeclared`); the `GmDomainCap` sync through
+  `ClientConfigPacket`; nine lang keys.
+
+  **Grandmaster was unreachable, and nothing said so.** Practice ceilings at `Rank.MasterIV` in
+  every affinity band (`AffinitySystem.BandFor`, ruled 2026-08-19), so no amount of work reaches
+  it. The rank was defined, `GmDomainCap` was configured, `GmCount` and `GreatWorkNames` were
+  live, the ladder drew the Grandmaster pip deliberately UNBARRED to promise it - and `CanAscend`
+  **had no callers**. A lifetime cap nothing consults is not a cap, and a promised rank with no
+  route is worse than one that was never offered.
+
+  Base TCM now asks one question: at Master IV the Calling page offers the declaration, and saying
+  yes spends one of the configured lifetime slots. The EARNING - commissions, proofs, the quest
+  shape - stays with Charter, which is not `requiredOnClient` and can afford to be interesting.
+  `ApprovalProvider` is the seam Charter will set; built now because it is nearly free today and
+  would otherwise force Charter to patch or fork this flow instead of gating it.
+
+  **The server is sole authority here, unlike every other book control.** The emphasis toggles let
+  the client write optimistically because being briefly wrong about Potent-versus-Lasting costs
+  nothing. This spends an irreversible slot, so the client only REQUESTS and renders nothing until
+  the server's own sync returns. Every gate is re-read live inside the handler, so a double-click,
+  a replayed packet or two clients on one account cannot spend two slots for one decision. Refusals
+  are spoken, never silent.
+
+  One predicate serves both sides (`GmAscension.RefusalFor`), so the page can never offer what the
+  server will refuse. It takes primitives rather than a `PlayerDomain`: the client has no
+  `PlayerDomain` to hand over, and that constructor throws on a null set, so a stand-in object
+  would have crashed the book. Caught while building, not after.
+
+  Two-step confirm, chosen 2026-10-17 over a modal: click the offer, the page restates the price
+  (slots already spent, by name, and what remains) and only the second click sends. `gmArmed`
+  clears on every navigation, so an armed state can never outlive the spread that explained it.
+
+  **No Illuminated change was needed.** `BookLinkComponent` and `host.Recompose()` already carry
+  it, and `Recompose` is already guarded by `IsOpened()` on the host side, which is what makes the
+  sync-driven refresh safe with the book shut. `GreatWorkDeclared` is deliberately narrow rather
+  than a general domain-synced event: `PlayerDomainPacket` also carries join replays and every
+  mid-day pending sync, and `Recompose` resets to the first spread, so a general hook would yank a
+  reading player back to page one at arbitrary moments.
+
+  **Not verified in play.** The whole flow is untested against a live client: the page states, the
+  refusal lines, and whether the ceremony banner reads right for a declared rank rather than an
+  earned one. `GREAT WORK DECLARED` logs unconditionally at Info (not behind a category) because
+  "who declared what, and when" is asked after the fact.
+
+
 - **The quench tooltip reads the smith's own odds (LGD-334).** `MetPatches.cs`,
   `QuenchTooltipPatch` + `MetLevelOf`, and one lang key.
 

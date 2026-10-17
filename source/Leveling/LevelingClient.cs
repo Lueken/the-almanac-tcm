@@ -1,4 +1,4 @@
-// Derived from XLib/XLeveling by Xandu (MIT) — see THIRD-PARTY-LICENSES/XLIB-LICENSE.txt.
+﻿// Derived from XLib/XLeveling by Xandu (MIT) — see THIRD-PARTY-LICENSES/XLIB-LICENSE.txt.
 // Source: github.com/Xandu93/VSMods via github.com/DeadSigma/xskills-fork_xlib-fork.
 using System.Collections.Generic;
 using Vintagestory.API.Client;
@@ -126,6 +126,7 @@ public class LevelingClient
         core.FamFamilyVersed = packet.famFamilyVersed;
         core.FamSpread = packet.famSpread;
         core.FamKinCeiling = packet.famKinCeiling;
+        core.GmDomainCap = packet.gmDomainCap;
     }
 
     private void OnAffinityPacket(AffinityPacket packet)
@@ -133,9 +134,18 @@ public class LevelingClient
         if (packet.domainId >= 0) Affinity[packet.domainId] = packet.band;
     }
 
+    /// <summary>A domain just crossed INTO Grandmaster, which on the client only ever happens as
+    /// the answer to a Great Work declaration. Deliberately narrow rather than a general
+    /// "domain synced" event: PlayerDomainPacket also carries every join replay and every mid-day
+    /// pending sync, and the book's Recompose resets to the first spread - so a general hook would
+    /// yank a reading player back to page one at arbitrary moments. This one fires rarely, once,
+    /// and only when a page genuinely has something new to say.</summary>
+    public event System.Action<int>? GreatWorkDeclared;
+
     private void OnDomainPacket(PlayerDomainPacket packet)
     {
         if (packet.domainId < 0) return;
+        int before = Domains.TryGetValue(packet.domainId, out var prior) ? prior?.Level ?? 0 : 0;
         Domains[packet.domainId] = new DomainState
         {
             Level = packet.level,
@@ -144,6 +154,8 @@ public class LevelingClient
             Hidden = packet.hidden,
             PendingBanked = packet.pendingBanked
         };
+        if (before < Rank.Grandmaster && packet.level >= Rank.Grandmaster)
+            GreatWorkDeclared?.Invoke(packet.domainId);
     }
 
     private void OnKnowledgePacket(KnowledgePacket packet)
