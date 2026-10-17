@@ -29,6 +29,14 @@ public class CallingsTab : IAlmanacBookTab
     /// Cleared whenever the page moves, so an armed state can never outlive the spread that
     /// explained it.</summary>
     private string? gmArmed;
+
+    /// <summary>Non-null = a declaration for this Calling has been sent and the server has not
+    /// answered yet. Needed because SINGLEPLAYER pauses the integrated server while the book is
+    /// open, so the grant cannot land until the book closes: without this the panel reverted to
+    /// the offer and read as if the press had been ignored (reported 2026-10-17, "clicking either
+    /// does nothing"). It claims the declaration was SENT, never that it succeeded - the rank
+    /// itself only ever appears when the server's sync says so.</summary>
+    private string? gmSent;
     private Dictionary<string, DomainInfo>? info;   // lazy-loaded flavor asset
     private Dictionary<string, string>? webProse;   // lazy-loaded per-edge ledger lines
     private Dictionary<string, TradeWebAsset.Road>? webRoads;   // code-fact co-grant edges
@@ -52,7 +60,7 @@ public class CallingsTab : IAlmanacBookTab
         // the question has to be told to re-read it; otherwise the offer sits there looking
         // unanswered until the book is closed and reopened. Recompose is a no-op on a closed book
         // (the host guards it with IsOpened), so this is safe whether anyone is reading or not.
-        client.GreatWorkDeclared += _ => { gmArmed = null; host?.Recompose(); };
+        client.GreatWorkDeclared += _ => { gmArmed = null; gmSent = null; host?.Recompose(); };
     }
 
     public string Label => "Callings";
@@ -66,7 +74,7 @@ public class CallingsTab : IAlmanacBookTab
     public void OnAttached(IAlmanacBookTabHost host) => this.host = host;
 
     /// <summary>Selecting the ribbon tab always returns to the overview.</summary>
-    public void OnActivated() { detailCode = null; webHot = null; gmArmed = null; }
+    public void OnActivated() { detailCode = null; webHot = null; gmArmed = null; gmSent = null; }
 
     public List<RichTextComponentBase[]> BuildColumns(ICoreClientAPI capi, double columnWidth, double columnHeight)
     {
@@ -143,7 +151,7 @@ public class CallingsTab : IAlmanacBookTab
             var comps = new List<RichTextComponentBase>
             {
                 new BookLinkComponent(capi, entry.DisplayName, nameFont,
-                    _ => { detailCode = code; gmArmed = null; host?.Recompose(); }),
+                    _ => { detailCode = code; gmArmed = null; gmSent = null; host?.Recompose(); }),
             };
             if (score > 0) comps.Add(new AffinityMarkComponent(capi, filled: score >= 3));
             comps.Add(new RichTextComponent(capi, "\n", nameFont));
@@ -281,7 +289,7 @@ public class CallingsTab : IAlmanacBookTab
             // Into the drawn web; BuildWeb falls back to the first ring node when
             // this code happens to be disabled.
             new BookLinkComponent(capi, "The trade web, drawn ›", webLink,
-                _ => { webHot = "WOO"; detailCode = null; gmArmed = null; host?.Recompose(); }),
+                _ => { webHot = "WOO"; detailCode = null; gmArmed = null; gmSent = null; host?.Recompose(); }),
             new RichTextComponent(capi, "\n", webLink),
             new ClearFloatTextComponent(capi, 8),
             new RichTextComponent(capi, CountedStanding(total, ceiling, begun, untouched) + "\n", tailItalic),
@@ -355,21 +363,35 @@ public class CallingsTab : IAlmanacBookTab
 
     /// <summary>The key for the marks, pinned to the foot of the rightmost column so
     /// the stars and the barred pip read plainly. Muted, out of the way.</summary>
+    // The Great Work box: warmer than the page, sealed in wax red. Deliberately NOT the Rubric
+    // brown the rest of the tab uses for emphasis - this is the one irreversible decision in the
+    // Almanac and it must not look like another heading.
+    private static readonly double[] SealInterior = { 0.969, 0.937, 0.855, 1 };
+    private static readonly double[] SealRule = { 0.72, 0.13, 0.08, 1 };
+    private static readonly double[] SealFill = { 0.55, 0.12, 0.10, 1 };
+    private static readonly double[] SealRim = { 0.38, 0.06, 0.04, 1 };
+    private static readonly double[] SealHi = { 0.82, 0.45, 0.38, 0.60 };
+
     /// <summary>THE GREAT WORK DECLARATION (ruled 2026-10-16), the only route to Grandmaster:
     /// practice ceilings at Master IV in every affinity band, so the rank is chosen, never earned
-    /// by repetition. Three states on one page.
+    /// by repetition. Five states.
     ///
-    ///   Below Master IV   a note of what waits, so the ladder's deliberately UNBARRED Grandmaster
-    ///                     pip is explained rather than merely unexplained.
-    ///   At Master IV      the offer, then - on a second click - the price, naming the slots
-    ///                     already spent and what remains after this one.
-    ///   Grandmaster       the fact of it, and nothing clickable.
+    ///   Below Master IV   a plain note of what waits, so the ladder's deliberately UNBARRED
+    ///                     Grandmaster pip is explained rather than merely unexplained. No box:
+    ///                     nothing is being asked of the reader yet.
+    ///   At Master IV      the sealed panel, asking.
+    ///   Armed             the same panel, restating the price, with the committing press.
+    ///   Sent              the panel, waiting on the server.
+    ///   Grandmaster       the panel with no choices: the fact of it, standing.
+    ///   Refused           the reason, plain.
     ///
-    /// Eligibility comes from Engine.GmAscension.RefusalFor, the same predicate the server
-    /// authorizes with, so this page can never offer something the server will refuse. The click
-    /// only REQUESTS: nothing is predicted locally, because the slot is irreversible and a page
-    /// that optimistically lies about a lifetime choice is worse than one that waits. The rank
-    /// arrives the ordinary way, through the domain sync, with the ceremony banner behind it.</summary>
+    /// The box exists because this is the one irreversible decision the Almanac offers, and in its
+    /// first build it read as one more underlined link on a page full of them (live trial,
+    /// 2026-10-17). Eligibility still comes from Engine.GmAscension.RefusalFor, the same predicate
+    /// the server authorizes with, so the page can never offer what the server will refuse.
+    ///
+    /// The press only REQUESTS. Nothing is predicted locally, because the slot is irreversible and
+    /// a page that optimistically lies about a lifetime choice is worse than one that waits.</summary>
     private List<RichTextComponentBase> GreatWorkSection(ICoreClientAPI capi, string code,
         string display, int id, int level, CairoFont subhead, CairoFont body,
         CairoFont mutedItalic, CairoFont muted)
@@ -391,22 +413,20 @@ public class CallingsTab : IAlmanacBookTab
                 declared.Add(Domains.DomainRoster.All[kv.Key].DisplayName);
         }
 
-        o.Add(new ClearFloatTextComponent(capi, 14));
-        o.Add(new RichTextComponent(capi, "Your Great Work\n", subhead));
-
+        // Declared and standing: the payoff, sealed, with nothing to press.
         if (level >= Rank.Grandmaster)
         {
-            o.Add(new RichTextComponent(capi,
-                display + " is a Great Work of your hands, declared and standing.\n", body));
+            string text = display + " is a Great Work of your hands, declared and standing.";
             if (declared.Count > 1)
-                o.Add(new RichTextComponent(capi,
-                    "Declared: " + string.Join(", ", declared) + "  (" + declared.Count + " of " + cap + ")\n",
-                    mutedItalic));
+                text += "  (" + declared.Count + " of " + cap + ": " + string.Join(", ", declared) + ")";
+            o.AddRange(PanelBlock(capi, "A Great Work", text));
             return o;
         }
 
         if (level < Rank.MasterIV)
         {
+            o.Add(new ClearFloatTextComponent(capi, 14));
+            o.Add(new RichTextComponent(capi, "Your Great Work\n", subhead));
             o.Add(new RichTextComponent(capi,
                 "Practice carries you to " + Domain.RankName(Rank.MasterIV) + " and no further. "
                 + "Grandmaster is not earned by repetition; it is declared, once, and it spends "
@@ -419,36 +439,73 @@ public class CallingsTab : IAlmanacBookTab
             level, true, Domain.MaxLevelDefault, declared.Count, cap, Score(id));
         if (refusal != null)
         {
+            o.Add(new ClearFloatTextComponent(capi, 14));
+            o.Add(new RichTextComponent(capi, "Your Great Work\n", subhead));
             o.Add(new RichTextComponent(capi,
                 Engine.GmAscension.RefusalText(refusal, display, cap) + "\n", mutedItalic));
             return o;
         }
 
-        if (gmArmed != code)
+        // Sent, waiting on the server. Singleplayer pauses the integrated server while the book is
+        // open, so the answer genuinely cannot arrive until it closes; say so rather than letting
+        // the panel snap back to the offer and read as a press that did nothing.
+        if (gmSent == code)
         {
-            o.Add(new RichTextComponent(capi, "You have gone as far as practice carries.\n", body));
-            o.Add(new BookLinkComponent(capi, "Declare this Great Work \u203a", body,
-                _ => { gmArmed = code; host?.Recompose(); }));
-            o.Add(new RichTextComponent(capi, "\n", body));
+            o.AddRange(PanelBlock(capi, "A Great Work",
+                "Your declaration is made. The Almanac will show it once the ink dries"
+                + " - in a single-handed world, when you close the book."));
             return o;
         }
 
-        // Armed: the price, stated plainly, before the irreversible click.
-        o.Add(new RichTextComponent(capi,
-            "Declaring " + display + " spends one of your " + cap + " Great Works, permanently.\n", body));
-        o.Add(new RichTextComponent(capi, declared.Count > 0
-            ? "Already declared: " + string.Join(", ", declared) + "\n"
-            : "You have declared none yet.\n", mutedItalic));
-        o.Add(new RichTextComponent(capi,
-            "Remaining after this: " + System.Math.Max(0, cap - declared.Count - 1) + "\n", mutedItalic));
-        o.Add(new ClearFloatTextComponent(capi, 6));
-        o.Add(new BookLinkComponent(capi, "Declare \u203a", body,
-            _ => { gmArmed = null; Engine.GmAscension.Request(id); host?.Recompose(); }));
-        o.Add(new RichTextComponent(capi, "   ", body));
-        o.Add(new BookLinkComponent(capi, "\u2039 Not yet", muted,
-            _ => { gmArmed = null; host?.Recompose(); }));
-        o.Add(new RichTextComponent(capi, "\n", body));
+        if (gmArmed != code)
+        {
+            o.AddRange(PanelBlock(capi, "The height of practice",
+                "You have gone as far as practice carries. Beyond this rung there is no more "
+                + "practice, only the declaration: " + display + " named a Great Work of your "
+                + "hands, for the rest of your life.",
+                new DecisionPanelComponent.Choice("Declare this Great Work",
+                    () => { gmArmed = code; host?.Recompose(); })));
+            return o;
+        }
+
+        // Armed: the price, stated plainly, before the irreversible press.
+        o.AddRange(PanelBlock(capi, "This cannot be undone",
+            "Declaring " + display + " spends one of your " + cap + " Great Works, permanently. "
+            + (declared.Count > 0
+                ? "Already declared: " + string.Join(", ", declared) + ". "
+                : "You have declared none yet. ")
+            + "Remaining after this: " + System.Math.Max(0, cap - declared.Count - 1) + ".",
+            new DecisionPanelComponent.Choice("Declare",
+                () => { gmArmed = null; gmSent = code; Engine.GmAscension.Request(id); host?.Recompose(); }),
+            new DecisionPanelComponent.Choice("Not yet",
+                () => { gmArmed = null; host?.Recompose(); }, quiet: true)));
         return o;
+    }
+
+    /// <summary>One sealed panel plus the vertical room its frame needs. The box is drawn PAST the
+    /// text bounds, so without these reservations it collides with the blocks around it - the same
+    /// contract CalloutComponent carries.</summary>
+    private List<RichTextComponentBase> PanelBlock(ICoreClientAPI capi, string heading, string text,
+        params DecisionPanelComponent.Choice[] choices)
+    {
+        CairoFont panelBody = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody)
+            .WithColor(Ink).WithFontSize(18f);
+        CairoFont panelHead = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifDecorative)
+            .WithWeight(Cairo.FontWeight.Bold).WithFontSize(18f);
+        CairoFont pick = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifDecorative)
+            .WithWeight(Cairo.FontWeight.Bold).WithColor(Ink).WithFontSize(18f);
+        CairoFont quiet = CairoFont.WhiteSmallText().WithFont(FontRegistry.SerifBody)
+            .WithColor(Muted).WithFontSize(18f);
+
+        var panel = new DecisionPanelComponent(capi, text, panelBody, heading, panelHead, pick,
+            quiet, "\u2767", SealInterior, SealRule, SealFill, SealRim, SealHi, choices);
+
+        return new List<RichTextComponentBase>
+        {
+            new ClearFloatTextComponent(capi, (float)DecisionPanelComponent.OuterMarginTop),
+            panel,
+            new ClearFloatTextComponent(capi, (float)panel.ReserveBelow),
+        };
     }
 
     private List<RichTextComponentBase> BuildLegend(ICoreClientAPI capi)
@@ -506,7 +563,7 @@ public class CallingsTab : IAlmanacBookTab
 
         var comps = new List<RichTextComponentBase>
         {
-            new BookLinkComponent(capi, "‹ All Callings", muted, _ => { detailCode = null; gmArmed = null; host?.Recompose(); }),
+            new BookLinkComponent(capi, "‹ All Callings", muted, _ => { detailCode = null; gmArmed = null; gmSent = null; host?.Recompose(); }),
             new RichTextComponent(capi, "\n", muted),
             new RichTextComponent(capi, display, heading),
         };
@@ -1192,7 +1249,7 @@ public class CallingsTab : IAlmanacBookTab
             if (verso)
             {
                 col.Add(new BookLinkComponent(capi, "‹ All Callings", linkMuted,
-                    _ => { detailCode = null; gmArmed = null; host?.Recompose(); }));
+                    _ => { detailCode = null; gmArmed = null; gmSent = null; host?.Recompose(); }));
                 col.Add(new RichTextComponent(capi, "   " + display.ToUpperInvariant() + "\n", caps));
             }
             else

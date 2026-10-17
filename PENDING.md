@@ -1978,6 +1978,42 @@ that LGD-239 (knapping rank expression) may make unnecessary.
 
 ## Staged in 0.6.0
 
+- **The Great Work declaration becomes a moment, and TCM now pairs with Illuminated 0.3.2.**
+  `Gui/CallingsTab.cs` (`GreatWorkSection`, `gmSent`), Illuminated's new `DecisionPanelComponent`,
+  `MinIlluminatedVersion` 0.3.0 -> 0.3.2, `lib/` re-pinned.
+
+  **SHIPS AS A PAIR. `almanactcm 0.6.0` requires `almanacilluminated 0.3.2`.** The panel type does
+  not exist in 0.3.1. The runtime floor was raised in the same change so a mismatched install is
+  refused at boot with a readable message instead of dying when the Callings tab is first opened,
+  which is exactly how the 0.5.16 crash presented.
+
+  Live trial 2026-10-17 proved the flow end to end (ANI declared, ladder and overview both right)
+  and turned up three things:
+
+  1. **"Clicking either does nothing."** Not a bug in the handler. Singleplayer pauses the
+     integrated server while the book is open, so the packet could not be answered until the book
+     closed. The panel now holds a `gmSent` state saying the declaration is made and the Almanac
+     will show it when the ink dries. It claims SENT, never succeeded.
+  2. **The idempotence gate earned its keep in the wild.** Three presses queued during the pause;
+     the log shows one `GREAT WORK DECLARED` followed by two `refused (already)`. That is the
+     re-read-live-state design working on real input, not a thought experiment.
+  3. **It read as one more underlined link** on a page full of them. Now a sealed panel: the
+     author's-hand double border in wax red (deliberately NOT the Rubric brown the rest of the tab
+     uses for emphasis), a seal, a heading, and the choices drawn inside the box with the
+     committing one as a chip and the way out quiet beside it.
+
+  **Illuminated was needed after all.** I said in planning that it would not be, on the grounds
+  that `BookLinkComponent` and `host.Recompose()` already carried an in-book control. True for a
+  plain link, wrong for a framed one: both of those components live in Illuminated, and the rich
+  text model only lets a component narrow its OWN flow, so no frame can indent separate links that
+  follow it. The panel had to become one component, which meant a new Illuminated type.
+
+  **Packaging trap, caught before it shipped.** Illuminated's build output links `assets` to
+  `resources/assets` rather than copying it, so `os.walk` without `followlinks=True` packed a
+  3-entry zip with no fonts and no assets at all, and nothing about it looked wrong. The packer now
+  asserts that any mod it packs contains at least one `assets/` entry.
+
+
 - **Grandmaster by declaration — the rank becomes reachable at all (Track 2, base-TCM half).**
   New `Engine/GmAscension.cs`; `Gui/CallingsTab.cs` (`GreatWorkSection`, `gmArmed`);
   `Leveling/LevelingClient.cs` (`GreatWorkDeclared`); the `GmDomainCap` sync through
