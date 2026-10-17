@@ -136,7 +136,8 @@ public class CallingsTab : IAlmanacBookTab
             float pending = state?.PendingBanked ?? 0f;
             bool atCeiling = required <= 0 && level >= Domain.MaxLevelDefault;
             bool awake = level > 0 || experience > 0 || pending > 0;
-            double fraction = required > 0 ? experience / required : (atCeiling ? 1 : 0);
+            double fraction = AtPracticeTop(level) || atCeiling ? 1
+                : required > 0 ? experience / required : 0;
             double pendingFraction = required > 0 ? pending / required : 0;
             total++;
             if (atCeiling) ceiling++;
@@ -182,10 +183,8 @@ public class CallingsTab : IAlmanacBookTab
                 comps.Add(new RichTextComponent(capi, "\n", rank));
                 comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 8, pendingFraction: pendingFraction));
                 comps.Add(new ClearFloatTextComponent(capi, 3));
-                if (required > 0)
-                    comps.Add(new RichTextComponent(capi, ProgressCaption(level, experience, required, pending), muted));
-                else if (atCeiling)
-                    comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
+                string? cap = StandingCaption(level, experience, required, pending, atCeiling);
+                if (cap != null) comps.Add(new RichTextComponent(capi, cap + "\n", muted));
             }
             return comps;
         }
@@ -557,7 +556,8 @@ public class CallingsTab : IAlmanacBookTab
         float required = state?.RequiredExperience ?? 0f;
         float pending = state?.PendingBanked ?? 0f;
         bool atCeiling = required <= 0 && level >= Domain.MaxLevelDefault;
-        double fraction = required > 0 ? experience / required : (atCeiling ? 1 : 0);
+        double fraction = AtPracticeTop(level) || atCeiling ? 1
+                : required > 0 ? experience / required : 0;
         double pendingFraction = required > 0 ? pending / required : 0;
         info!.TryGetValue(code, out DomainInfo? di);
 
@@ -584,12 +584,9 @@ public class CallingsTab : IAlmanacBookTab
         comps.Add(new RichTextComponent(capi, "\n", body));
         comps.Add(new ProgressBarComponent(capi, fraction, columnWidth - 2, 8, pendingFraction: pendingFraction));
         comps.Add(new ClearFloatTextComponent(capi, 3));
-        if (required > 0)
-            comps.Add(new RichTextComponent(capi, ProgressCaption(level, experience, required, pending), muted));
-        else if (atCeiling)
-            comps.Add(new RichTextComponent(capi, "The height of the art\n", muted));
-        else
-            comps.Add(new RichTextComponent(capi, "Untrained, a fresh page\n", muted));
+        string? standingCap = StandingCaption(level, experience, required, pending, atCeiling)
+            ?? "Untrained, a fresh page";
+        comps.Add(new RichTextComponent(capi, standingCap + "\n", muted));
 
         string? affinity = AffinityLine(capi, id);
         if (affinity != null)
@@ -706,8 +703,8 @@ public class CallingsTab : IAlmanacBookTab
         int curRank = atCeiling ? 5 : (level <= 0 ? 0 : Domain.TierOf(level) + 1);
         int barredRanks = Barred(id);
         string standing = Domain.RankName(level);
-        string distance = atCeiling ? "The height of the art"
-            : ProgressCaption(level, experience, required, pending).TrimEnd('\n');
+        string distance = StandingCaption(level, experience, required, pending, atCeiling)
+            ?? "a fresh page";
 
         // THE IDENTITY PAGE IS PAGED LIKE EVERY OTHER (LGD-93, Pun 2026-09-25: the foraging
         // page ran off the bottom). It was the one column in the book shipped unmeasured: the
@@ -931,9 +928,8 @@ public class CallingsTab : IAlmanacBookTab
             float required = st?.RequiredExperience ?? 0f;
             float pending = st?.PendingBanked ?? 0f;
             bool atCeiling = required <= 0 && level >= Domain.MaxLevelDefault;
-            string dist = atCeiling ? "The height of the art"
-                : required > 0 ? ProgressCaption(level, experience, required, pending).TrimEnd('\n')
-                : "a fresh page";
+            string dist = StandingCaption(level, experience, required, pending, atCeiling)
+                ?? "a fresh page";
             return (Domain.RankName(level), dist);
         }
 
@@ -1430,6 +1426,26 @@ public class CallingsTab : IAlmanacBookTab
     {
         if (string.IsNullOrEmpty(code)) return "newcomer";
         return char.ToUpperInvariant(code[0]) + code.Substring(1);
+    }
+
+    /// <summary>Standing at the practice ceiling: Master IV, with Grandmaster not yet declared.
+    ///
+    /// Every affinity band ceilings at Rank.MasterIV (AffinitySystem.BandFor, ruled 2026-08-19),
+    /// so a Master IV page that read "1760 to Grandmaster" was quoting a number no amount of work
+    /// can ever reach - the rank beyond it is declared, not earned (Engine.GmAscension). Four
+    /// display sites asked the same question and none of them knew this, so they all share the
+    /// predicate now rather than each growing its own copy of the rule.</summary>
+    private static bool AtPracticeTop(int level) => level >= Rank.MasterIV && level < Rank.Grandmaster;
+
+    /// <summary>What sits under a progress bar, or beside a rank on the ladder. Null means print
+    /// nothing at all.</summary>
+    private static string? StandingCaption(int level, float experience, float required, float pending,
+        bool atCeiling)
+    {
+        if (atCeiling) return "The height of the art";
+        if (AtPracticeTop(level)) return "The height of practice";
+        if (required > 0) return ProgressCaption(level, experience, required, pending).TrimEnd('\n');
+        return null;
     }
 
     /// <summary>The line under a bar: banked distance to the next rank, plus today's

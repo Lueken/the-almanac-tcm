@@ -183,6 +183,16 @@ public static class GmAscension
         int spent = AffinitySystem.GmCount(domainSet);
         Speak(player, Lang.Get("almanactcm:gm-declared", pd.Domain.DisplayName, spent, cap));
 
+        // Server news, not a private achievement. Two per lifetime, irreversible, and the whole
+        // point of a Grandmaster is that other people can come to them for the work only they can
+        // do - which cannot happen if nobody is told. Sent to every group the server has, so it
+        // lands wherever a player is reading. The declaring player gets their own line above
+        // regardless, so switching the announcement off never leaves them with silence.
+        if (sapi != null && (AlmanacTcmModSystem.ServerInstance?.GlobalConfig?.AnnounceGreatWorks ?? true))
+            sapi.BroadcastMessageToAllGroups(
+                Lang.Get("almanactcm:gm-announce", player.PlayerName, pd.Domain.DisplayName),
+                EnumChatType.Notification);
+
         // Logged at Info, not under a category: a lifetime, irreversible choice belongs in the
         // server log unconditionally, because the question "who declared what, and when" is asked
         // after the fact and a category toggle would have lost the answer.

@@ -1978,6 +1978,26 @@ that LGD-239 (knapping rank expression) may make unnecessary.
 
 ## Staged in 0.6.0
 
+- **Master IV stops quoting a number nobody can reach, and a Great Work is announced server-wide.**
+  `Gui/CallingsTab.cs` (`AtPracticeTop`, `StandingCaption`), `Engine/GmAscension.cs`,
+  `Config/TcmGlobalConfig.cs` (`AnnounceGreatWorks`), one lang key.
+
+  **"1760 to Grandmaster" on a Master IV page was a lie the book had always told.** Every affinity
+  band ceilings at `Rank.MasterIV`, so that number cannot be reached by any amount of work - the
+  rank past it is declared, not earned. It read as a grind target in front of a wall.
+
+  Master IV now reads "The height of practice" and its bar fills. **Four display sites were asking
+  the same question** (overview card, detail page, ladder standing, trade-web standing) and each
+  had its own copy of the rule, which is how they were all wrong together; they now share
+  `StandingCaption`, so the next change to what a ceiling says happens once.
+
+  **The declaration announces to the whole server** (`BroadcastMessageToAllGroups`), governed by
+  `AnnounceGreatWorks`, default true. The reasoning is not celebration: the rank is capped at two
+  per lifetime and the point of a Grandmaster is that other players seek them out for work only
+  they can do, which cannot happen if nobody is told. The declaring player is told separately
+  either way, so switching the announcement off never leaves them staring at silence.
+
+
 - **The Great Work declaration becomes a moment, and TCM now pairs with Illuminated 0.3.2.**
   `Gui/CallingsTab.cs` (`GreatWorkSection`, `gmSent`), Illuminated's new `DecisionPanelComponent`,
   `MinIlluminatedVersion` 0.3.0 -> 0.3.2, `lib/` re-pinned.

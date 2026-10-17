@@ -360,5 +360,6 @@
   "almanactcm:gm-refuse-capped": "{0} does not climb to Grandmaster on this server.",
   "almanactcm:gm-refuse-disabled": "{0} is not practiced on this server.",
   "almanactcm:gm-refuse-unapproved": "Your claim on {0} is not recognised yet.",
-  "almanactcm:gm-refuse-unknown": "That Calling cannot be declared."
+  "almanactcm:gm-refuse-unknown": "That Calling cannot be declared.",
+  "almanactcm:gm-announce": "{0} has declared a Great Work: {1}. There will be no more than two in their lifetime."
 }

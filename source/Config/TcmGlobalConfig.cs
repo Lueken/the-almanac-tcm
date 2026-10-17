@@ -25,6 +25,13 @@ public class TcmGlobalConfig
     /// <summary>Lifetime GM-domain cap (guard #12). Lowering never revokes attained GMs.</summary>
     public int GmDomainCap { get; set; } = 2;
 
+    /// <summary>Announce a declared Great Work to the whole server. On by default: the rank is
+    /// capped at two for a lifetime and is the one irreversible choice in TCM, so it is a piece of
+    /// server news rather than a private achievement, and a Grandmaster other players do not know
+    /// about cannot be sought out for the work only they can do. A server that would rather keep
+    /// it quiet sets this false; the declaring player is told either way.</summary>
+    public bool AnnounceGreatWorks { get; set; } = true;
+
     /// <summary>Fraction of pending (unconsolidated) practice scattered on death.</summary>
     public double LambdaDeath { get; set; } = 0.5;
 
