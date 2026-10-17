@@ -1,6 +1,123 @@
-# Patch notes
+﻿# Patch notes
 
 The Almanac: Trades, Callings & Mastery.
+
+---
+
+## 0.6.0
+
+**Requires The Almanac: Illuminated 0.3.2 or newer.** The two ship as a pair this time, and the
+floor is checked at load, so a mismatched install is refused at boot with a readable line rather
+than failing later when you open the book.
+
+**Smithing Plus is not required, and this page was wrong to say it was.** It was listed as a hard
+requirement and never enforced as one, which a player on the mod page caught before I did. TCM
+reads it through optional integration, accepts either modid (`smithingplus` or the maintained
+`smithingplusplus`), and runs without either. What you lose without it is confined to Metalworking:
+the rank scaled bit recovery when splitting, the forge fuel economy, part of the Grandmaster
+signature, and the maker's durability bonus, which has nothing to apply it. The marks, the gating,
+the quench work and every other calling are unaffected. Recommended, not required.
+
+### Grandmaster can be reached
+
+Practice has always stopped at Master IV. Every class, every calling, favoured or not. The rank
+above it was described, drawn on the ladder, and capped at two for a lifetime, and there was no way
+to get there. That is fixed, and it is the headline of this release.
+
+At Master IV your Calling page now offers the declaration. Press once and the page states the
+price: which of your Great Works are already spent, by name, and how many remain after this one.
+Press again and it is done, permanently. Saying no costs nothing and the offer waits.
+
+The choice is deliberately plain. No commission, no quest, no errand. You have gone as far as
+practice carries and the last step is a decision you make about who you are on this server. The
+earning of it, the proofs and the ceremony, belongs to Charter when that mod lands; base TCM keeps
+only the choice, and that split is what let the rest of this release happen.
+
+A declaration is announced to the whole server. Two per lifetime is a small number and a
+Grandmaster nobody knows about cannot be sought out for the work only they can do. Server owners
+who would rather keep it quiet can switch the announcement off in global.json; the player who
+declared is told either way.
+
+### Marked goods stack, sell and turn in like plain ones
+
+A maker's mark is stored on the item, and Vintage Story treats everything stored on an item as part
+of what the item IS. Two otherwise identical goods that disagree on any of it are two different
+things. That one fact was behind five reports that read as five unrelated bugs.
+
+Pounder caps forged at Journeyman I would not stack with ones forged at Journeyman II. Knitted
+wool refused to sit with loom woven. Worst of it: a TCM marked bronze pick was refused by the
+Resonance Archives turn in, which blocks a vanilla story arc outright, because the quest matcher
+tests that the pick you hand over carries nothing extra.
+
+Eight more families of mark now travel the way the food marks already did. They stack, they sell,
+they satisfy recipes, and they turn in. When a marked batch merges with an unmarked one the result
+goes plain, and when two equal marks merge the mark survives, which is the same rule the quern has
+always followed.
+
+### Hand forged ingots stack again
+
+This one was reported on the mod page months ago and the cause turned out to be a single number we
+were writing ourselves.
+
+The mark used to stamp a durability value onto anything it touched. On a tool that is correct. On
+an ingot, which has no durability at all, the game still answers the question with a 1, and we
+wrote that 1 down. Durability is real wear, not a label, so it can never be ignored for stacking
+the way a maker's name can. One invisible integer is why hand forged iron would not pool with iron
+off the swage table or the helve hammer, and it was quietly doing the same to plain vanilla
+toolheads.
+
+Nothing writes it now unless the thing can actually wear. Ingots already sitting in your chests
+heal themselves the first time you handle them, so no cleanup is needed.
+
+### Tools stop being born worn, and re-stamping stops repairing them
+
+The maker's bonus raises a tool's maximum durability. The number it is currently at is stored
+separately, so the moment the maximum went up the stored figure was out of date by exactly the
+bonus, and a fresh Journeyman tool read 5000 of 5250 before its first swing.
+
+Both places that stamp a mark now carry the stored figure across by the same factor the maximum
+moved. The old behaviour filled the tool to full instead, which also meant a worn head passing back
+through a re-stamp came out repaired for free. Nobody had reported that one yet.
+
+### Quenching answers to the hand that did it
+
+Metalworking has always cut your quench shatter chance as you rank up, and for a great many smiths
+it was doing nothing at all.
+
+The reduction only applied when the piece was in your own inventory. Quench a piece sitting on the
+anvil, in ground storage, or on the floor, which is how most people actually work, and the mod did
+not know whose hands it was, so the roll ran at vanilla odds, the quench taught you nothing, and
+nothing was written to the log. Three symptoms, one cause, and it cost at least one smith a good
+deal of iron.
+
+The piece is now traced to its smith three ways: your inventory first, then the mark already on the
+work, then the nearest hand within a few blocks for unsigned pieces. Every roll is logged with the
+vanilla chance, your factor and the result, so a shatter can be told apart from a mechanic that
+is not firing.
+
+The tooltip also stopped lying. It had been printing vanilla's odds, which was honest while the
+reduction was broken and became wrong the moment it worked. It now shows your own figure beside the
+base one.
+
+### Casting is paid by the metal, not by the mold
+
+A completed cast paid the same whether it took a hundred units or four hundred. It now scales with
+what the mold actually holds. A hundred unit mold pays exactly what it always did, so nobody's rate
+moves except the people pouring the big ones, who were being short changed.
+
+### Master IV stops quoting a number you cannot reach
+
+The Calling page told a Master IV smith they were 1760 from Grandmaster. No amount of work delivers
+that, because practice ends at Master IV and the rank past it is declared. It was a grind target
+painted on a wall. Master IV now reads as the height of practice, and its bar is full, in all four
+places the book reports standing.
+
+### For server owners
+
+TCM checks its own domain config at boot and warns when a calling's M value, the number of verbs a
+day's learning is spread across, does not match the verbs that calling can actually reach on the
+installed mod set. A mismatch silently caps how much of a day anyone can bank, and it was
+previously invisible. The check only reads and reports; it changes nothing.
 
 ---
 
