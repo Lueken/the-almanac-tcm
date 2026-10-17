@@ -1016,6 +1016,81 @@ public static class MetPatches
         }
     }
 
+    /// <summary>MET's domain id in the roster, for the client-side level read. Resolved once;
+    /// the roster is fixed at build time.</summary>
+    private static int metDomainId = -2;
+
+    private static int MetDomainId()
+    {
+        if (metDomainId != -2) return metDomainId;
+        metDomainId = -1;
+        for (int i = 0; i < DomainRoster.All.Length; i++)
+            if (DomainRoster.All[i].Code == MetDomain.Code) { metDomainId = i; break; }
+        return metDomainId;
+    }
+
+    /// <summary>MET level from whichever side is live: the server ledger, or (client) the synced
+    /// state of the local player. Same shape as FisGearGate.FisLevelOf and for the same reason -
+    /// the tooltip below runs on the client, where the ledger does not exist.</summary>
+    public static int MetLevelOf(ICoreAPI? api, IPlayer? player)
+    {
+        if (api == null || player == null) return 0;
+        if (api.Side == EnumAppSide.Server)
+            return AlmanacTcmModSystem.ServerInstance?.Server?.GetDomainSet(player)?.FindDomain(MetDomain.Code)?.Level ?? 0;
+
+        Leveling.LevelingClient? client = AlmanacTcmModSystem.ClientInstance?.Client;
+        int id = MetDomainId();
+        return client != null && id >= 0 && client.Domains.TryGetValue(id, out var st) ? st.Level : 0;
+    }
+
+    /// <summary>Show the smith their OWN quench odds (LGD-334).
+    ///
+    /// Vanilla prints `quenchable-shatter-chance` straight from GetShatterChance, and that call
+    /// lands outside the roll window - quenchingPlayer is only armed between the IsGettingCooled
+    /// prefix and its finalizer - so ShatterChancePatch returns early and the tooltip shows the
+    /// UNREDUCED number. While the reduction was broken that was honest, which is why LGD-334 read
+    /// as "I cannot tell if it is applied". Fixing the reduction is exactly what turns the same
+    /// line into a wrong number, so it has to be answered here.
+    ///
+    /// ADDITIVE, not a rewrite: vanilla's line stays as the base and this appends the smith's own
+    /// figure beside it, so the two together read as base and earned rather than as a correction.
+    /// Nothing here touches GetShatterChance on the client. That was the tempting shortcut and it
+    /// is wrong: SetTemperature runs client-side too, and vanilla's applyQuenchedStats and
+    /// applyTemperedStats both READ that getter and WRITE the result back into the stack's
+    /// `shatterchance` attribute, so a client-side factor would bake a predicted bonus into the
+    /// item and then drift against the server's copy on every sync.</summary>
+    [HarmonyPatch(typeof(CollectibleBehaviorQuenchable), nameof(CollectibleBehaviorQuenchable.GetHeldItemInfo))]
+    public static class QuenchTooltipPatch
+    {
+        public static void Postfix(CollectibleBehaviorQuenchable __instance,
+            ItemSlot inSlot, System.Text.StringBuilder dsc, IWorldAccessor world)
+        {
+            if (world?.Side != EnumAppSide.Client) return;
+            var stack = inSlot?.Itemstack;
+            if (stack == null || dsc == null) return;
+
+            IPlayer? me = (world as Vintagestory.API.Client.IClientWorldAccessor)?.Player;
+            if (me == null) return;
+
+            int level = MetLevelOf(me.Entity?.Api, me);
+            double factor = MetDomain.ShatterFactor(level,
+                Knob(MetDomain.ShatterFactorUntrained, 1.5),
+                Knob(MetDomain.ShatterFactorGm, 0.4));
+
+            // Novice I sits exactly on vanilla. A line saying "x1.00, no change" is noise, and the
+            // vanilla line above already says it.
+            if (System.Math.Abs(factor - 1.0) < 0.005) return;
+
+            float vanilla;
+            try { vanilla = __instance.GetShatterChance(world, stack); }
+            catch { return; }
+            if (vanilla <= 0f) return;
+
+            dsc.AppendLine(Vintagestory.API.Config.Lang.Get("almanactcm:met-quench-shatter",
+                vanilla * factor, Leveling.Domain.RankName(level), factor));
+        }
+    }
+
     [HarmonyPatch(typeof(CollectibleBehaviorQuenchable), nameof(CollectibleBehaviorQuenchable.GetShatterChance))]
     public static class ShatterChancePatch
     {

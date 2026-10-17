@@ -1978,6 +1978,31 @@ that LGD-239 (knapping rank expression) may make unnecessary.
 
 ## Staged in 0.6.0
 
+- **The quench tooltip reads the smith's own odds (LGD-334).** `MetPatches.cs`,
+  `QuenchTooltipPatch` + `MetLevelOf`, and one lang key.
+
+  Vanilla prints `quenchable-shatter-chance` straight out of `GetShatterChance`, and that call
+  lands OUTSIDE the roll window - `quenchingPlayer` is armed only between the `IsGettingCooled`
+  prefix and its finalizer - so `ShatterChancePatch` returns early and the tooltip shows the
+  unreduced number. While the reduction was broken that was honest, which is why LGD-334 read as
+  "I cannot tell whether it applies". **Fixing the reduction is exactly what turns that same line
+  into a wrong number**, so it could not ship without this.
+
+  Additive: vanilla's line stays as the base and a second line gives the smith's own figure, so the
+  pair reads as base-and-earned rather than as a correction. Skipped at Novice I, which sits exactly
+  on vanilla and would only print "x1.00".
+
+  **Not done by patching the getter client-side**, which was the tempting one-liner and is wrong:
+  `SetTemperature` runs on the client too, and vanilla's `applyQuenchedStats` and
+  `applyTemperedStats` both READ that getter and WRITE the result back into the stack's
+  `shatterchance` attribute. A client-side factor would bake a predicted bonus into the item and
+  then drift against the server copy on every sync. Those two call sites are also why the
+  server-side patch is safe as written: both are reached from `trySettleWorkItem`, outside the
+  window, so the factor applies to the roll and is never accumulated into stored state. Checked
+  2026-10-17 specifically for that compounding, and for the inverse - an Untrained smith's 1.5x
+  penalty being stamped permanently onto a piece somebody else finishes. Neither happens.
+
+
 - **A mark stops writing wear state onto things that have no wear (LGD-139).** `MetPatches.cs`
   (`RefreshHeadDurability`, `ApplyMark`, `MarkTransferPatch`), `Engine/MakerMarkIdentity.cs`
   (`StripMeaninglessWearPrefix`).

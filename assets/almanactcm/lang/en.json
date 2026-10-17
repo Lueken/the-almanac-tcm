@@ -350,5 +350,6 @@
   "block-stump-larch": "Larch stump",
   "block-stump-ebony": "Ebony stump",
   "block-stump-walnut": "Walnut stump",
-  "block-stump-purpleheart": "Purpleheart stump"
+  "block-stump-purpleheart": "Purpleheart stump",
+  "almanactcm:met-quench-shatter": "In your hands: {0:0.#%} ({1} Metalworking, x{2:0.##})"
 }
