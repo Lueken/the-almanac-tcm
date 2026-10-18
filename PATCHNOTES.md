@@ -6,7 +6,7 @@ The Almanac: Trades, Callings & Mastery.
 
 ## 0.6.0
 
-**Requires The Almanac: Illuminated 0.3.2 or newer.** The two ship as a pair this time, and the
+**Requires The Almanac: Illuminated 0.3.3 or newer.** The two ship as a pair this time, and the
 floor is checked at load, so a mismatched install is refused at boot with a readable line rather
 than failing later when you open the book.
 

@@ -50,13 +50,14 @@
          Both builds were labelled 0.3.1, so nothing looked wrong. Re-pin this file only
          when a matching Illuminated is genuinely deployed.
 
-         RE-PINNED TO 0.3.2 on 2026-10-17 for DecisionPanelComponent (the Great Work panel).
-         That type does not exist in 0.3.1, so TCM 0.6.0 and Illuminated 0.3.2 MUST ship as a
-         pair - MinIlluminatedVersion was raised to 0.3.2 in the same change so a mismatched
+         RE-PINNED TO 0.3.3 on 2026-10-17. First to 0.3.2 for DecisionPanelComponent (the Great
+         Work panel), then to 0.3.3 when 0.3.2 was withdrawn for shipping the Spotted Page seam
+         by accident. That type does not exist before 0.3.2, so TCM 0.6.0 and Illuminated 0.3.3
+         MUST ship as a pair - MinIlluminatedVersion was raised to 0.3.2 in the same change so a mismatched
          install is refused at boot with a readable message instead of dying when the Callings
          tab is first opened, which is how the 0.5.16 crash presented. -->
     <Reference Include="AlmanacIlluminated">
-      <HintPath>lib\AlmanacIlluminated-0.3.2-released.dll</HintPath>
+      <HintPath>lib\AlmanacIlluminated-0.3.3-released.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
