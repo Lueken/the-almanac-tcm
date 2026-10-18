@@ -2347,6 +2347,38 @@ that LGD-239 (knapping rank expression) may make unnecessary.
 
 ## Deployed
 
+**0.6.1 DEPLOYED to The Quire 2026-10-18 22:10 UTC. LIVE since the 22:13:49 UTC boot.**
+`Releases/almanactcm_0.6.1.zip`, sha256 `9cb016ef64827ace...`, 450,282 bytes. Server readback is
+byte-identical to the local release zip (sha compared, not file size). Boot log verified: the mod
+table reads `'almanactcm' '0.6.1' ... 'almanactcm_0.6.1.zip'`, `annotated patches applied (81
+class(es))`, the oven hook registered `declared`, zero `NullReferenceException` and zero `[Fatal]`
+across the whole boot. The 725 `[Error]` lines are third-party asset and patch failures
+(immersivemodularbackpacks, rustboundmagic, rileysrpadditions among them); none are Almanac.
+
+**The restart was luck, not planning.** The server was stopped at 22:04:31 UTC, the zip landed at
+22:10, and it booted at 22:13 and read the new zip. Nobody had to be asked for a restart and no
+player was online to lose, the last one having left at 12:02 UTC. A deploy six minutes earlier would
+have sat waiting for a restart instead.
+
+0.6.0 is parked as `almanactcm_0.6.0.zip.pre061-bak`. **Its server copy was byte-identical to
+`Releases/almanactcm_0.6.0.zip`**, which clears the server of the 0.6.0 hash mismatch: whatever the
+kicked client was running came from somewhere other than this zip.
+
+Zip built with python zipfile, matching 0.6.0's layout exactly: 25 entries, forward slashes only, no
+.pdb, `modinfo.json` inside reads 0.6.1, CRCs clean.
+
+Client profile synced: `Installations/The-Quire-Live-Server/Mods/almanactcm_0.6.1.zip` at the same
+sha. Two stale shadow copies in `ModsByServer/162.245.190.86-25576/` (0.5.15 and 0.5.17) were
+renamed `.stale`, because that folder shadows `Mods/` and survives Mods cleanups.
+
+**Outstanding: ModDB and the website.** Upload THIS file, sha `9cb016ef...`. Do not rebuild it under
+the same number.
+
+**Jeffrey's own client cannot join yet, for a reason that has nothing to do with TCM.** That profile
+carries `almanacilluminated_0.3.0.zip` in `Mods/`, plus 0.3.0 and 0.3.1 in `ModsByServer/`, while the
+server runs 0.3.3. FairPlayGuardian 1.2.4 is live on the server and compares mod files by hash, so
+none of the three can pass. Sync the server's own 0.3.3 copy rather than a local rebuild of it.
+
 **0.6.0 DEPLOYED to The Quire 2026-10-18 03:49 UTC. LIVE since the 03:53:47 UTC boot.**
 `Releases/almanactcm_0.6.0.zip`, 450,226 bytes, server copy the same size. Boot log verified from a
 pull on 2026-10-18: the mod table reads `'almanactcm' '0.6.0' ... 'almanactcm_0.6.0.zip'`,
