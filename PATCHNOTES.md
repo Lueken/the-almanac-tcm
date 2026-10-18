@@ -6,9 +6,9 @@ The Almanac: Trades, Callings & Mastery.
 
 ## 0.6.0
 
-**Requires The Almanac: Illuminated 0.3.2 or newer.** The two ship as a pair this time, and the
+**Requires The Almanac: Illuminated 0.3.2 or newer, and you want 0.3.3.** The two ship as a pair this time, and the
 floor is checked at load, so a mismatched install is refused at boot with a readable line rather
-than failing later when you open the book.
+than failing later when you open the book. Take 0.3.3 rather than 0.3.2: 0.3.2 shipped an unfinished book-corruption layer by accident and 0.3.3 withdraws it. TCM needs no rebuild for either.
 
 **Smithing Plus is not required, and this page was wrong to say it was.** It was listed as a hard
 requirement and never enforced as one, which a player on the mod page caught before I did. TCM
