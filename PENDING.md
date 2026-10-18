@@ -1,7 +1,13 @@
-﻿# PENDING: almanactcm 0.6.0 (unreleased)
+﻿# PENDING: almanactcm 0.6.1 (unreleased)
 
-**0.6.0 has staged work: see `## Staged in 0.6.0` below.** This heading is the next accumulating
+**0.6.1 has staged work: see `## Staged in 0.6.1` below.** This heading is the next accumulating
 version. Append here.
+
+Heading bumped 2026-10-18, same day as the 0.6.0 deploy rather than days after it, which is the
+first time this file has not gone stale on a release. 0.6.0 shipped to The Quire on 2026-10-18 at
+03:49 UTC and has been live since the 03:53:47 UTC boot; its section below is marked SHIPPED and
+its record is under `## Deployed`. Ground truth for that was the server's own boot log mod table,
+pulled over SFTP, not this file.
 
 Renumbered 0.5.18 to 0.6.0 on 2026-10-16 (Jeffrey). The identity law reaches eight more mark
 families and the quench layer switches on for the route players actually use. Both change
@@ -1976,7 +1982,9 @@ full day was impossible.
 Do not fold any wave 2 value into source until it is ruled. MIN's `M=2` in particular is a stopgap
 that LGD-239 (knapping rank expression) may make unnecessary.
 
-## Staged in 0.6.0
+## Staged in 0.6.0 (SHIPPED 2026-10-18, live since the 03:53:47 UTC boot)
+
+**Status recorded 2026-10-18.** Everything below is live. See `## Deployed` for the artefact.
 
 - **Master IV stops quoting a number nobody can reach, and a Great Work is announced server-wide.**
   `Gui/CallingsTab.cs` (`AtPracticeTop`, `StandingCaption`), `Engine/GmAscension.cs`,
@@ -2294,7 +2302,63 @@ that LGD-239 (knapping rank expression) may make unnecessary.
   ENG are caught by their own clamps before the audit looks. A fully modded pack like The Quire
   reaches every one of those verbs, which is exactly why four of them survived this long.
 
+## Staged in 0.6.1
+
+- **Loading firewood into a clay oven no longer kicks the player.**
+  `Domains/CooPatches.cs` (`OvenTakePostfix`, `SimmerPostfix`), `Domains/BeePatches.cs`
+  (`FgcTakePostfix`), `Domains/FisPsPatches.cs` (`Postfix`), version in both places.
+
+  Reported from a live client log against 0.5.17 (ACA 2.0.0-dev.28, EF 2.0.0-dev.16):
+  `NullReferenceException` in `CooPatches.OvenTakePostfix`, under `BlockEntityOven.OnInteract_Patch3`
+  and `BlockClayOven.OnBlockInteractStart`. **0.6.0 carries the same line unchanged, so this is live
+  right now.**
+
+  **Harmony skips a prefix once an earlier prefix on the same method has returned false, and it runs
+  the postfix either way.** The skip reaches any prefix that can affect the original, and a prefix
+  taking a reference-type parameter counts: `OvenTakePrefix` takes `IPlayer byPlayer`. `__state` is
+  excluded from that test, so the `out` parameter is not what exposed it. Three patches sit on
+  `BlockEntityOven.OnInteract` in the live pack (the trace reads `_Patch3`), one of them claimed the
+  firewood click, our snapshot was never taken, and `__state.Length` threw inside the server's
+  interact handler. An exception there disconnects the player, which is why a cooking patch
+  presented as a kick.
+
+  The postfix now returns when there is no snapshot. The original did not run either, so there is
+  nothing to credit.
+
+  **Audited all 60 `__state` signatures.** Struct states cannot be null and are not exposed. Three
+  more reference-type states sat behind a skippable prefix and get the same guard: `SimmerPostfix`
+  (`ItemStack?[]`, would throw), `FgcTakePostfix` (`string`, would throw, and `__result` is set by
+  the skipping prefix so it is no guard) and the PS spear retrieve (`string`, no throw, but a null
+  state could credit a retrieve that never ran). Everything else already guarded.
+
+  **One to know about, not a bug today:** `RanFirearmsPatches.ThriftPatch.Postfix` takes a
+  non-nullable `ThriftState`, which is a class. Its body does check for null, so it is safe, but the
+  signature says it cannot be, so the compiler will never warn if that check is ever removed. Same
+  shape as the oven bug, caught only by a runtime guard.
+
+  Built locally against 1.22.7: 0 errors, 38 pre-existing warnings. PR #2, merged as `990d242`.
+
+- **Ship ONE zip. The same file goes to ModDB, the website and the server.** A client running
+  FairPlayGuardian 1.2.4 compares mod files by hash, not by version string, so two different builds
+  both numbered 0.6.1 produce `using mismatched Mods: Server: almanactcm (v0.6.1) - Client:
+  almanactcm (v0.6.1)` and the player cannot get in. That kick is in the 2026-10-18 client log
+  against 0.6.0 and it is what forced the version bump rather than a rebuild. Never rebuild a zip
+  that has already been published under its number.
+
 ## Deployed
+
+**0.6.0 DEPLOYED to The Quire 2026-10-18 03:49 UTC. LIVE since the 03:53:47 UTC boot.**
+`Releases/almanactcm_0.6.0.zip`, 450,226 bytes, server copy the same size. Boot log verified from a
+pull on 2026-10-18: the mod table reads `'almanactcm' '0.6.0' ... 'almanactcm_0.6.0.zip'`,
+`annotated patches applied (81 class(es))`, and zero `NullReferenceException` across the whole boot.
+0.5.17 is parked on the server as `almanactcm_0.5.17.zip.pre060-bak`.
+
+Shipped as a pair with `almanacilluminated 0.3.2`, which `MinIlluminatedVersion` enforces at boot.
+
+**This record was written on 2026-10-18, a day after the deploy, by the session that found the oven
+bug.** The deploying session updated the server and never came back to this file, so for a day the
+heading called 0.6.0 unreleased while players were running it. That is the third time this exact
+failure is recorded here.
 
 **0.5.17 DEPLOYED to The Quire 2026-10-09 12:27 UTC. LIVE since the 2026-10-10 06:44 restart.**
 `Releases/almanactcm_0.5.17.zip`, sha256 `88f1bcfbf56b4075...`, 437,855 bytes. Server readback on
