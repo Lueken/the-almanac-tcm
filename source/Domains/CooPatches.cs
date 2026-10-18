@@ -377,9 +377,17 @@ public static class CooPatches
     ///
     /// Fuel is now NotBakeware and is refused on that ground rather than on being inedible, which
     /// is the honest reason: the oven never bakes it.</summary>
-    public static void OvenTakePostfix(BlockEntity __instance, IPlayer byPlayer, OvenSlotSnapshot[] __state)
+    public static void OvenTakePostfix(BlockEntity __instance, IPlayer byPlayer, OvenSlotSnapshot[]? __state)
     {
-        if (byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
+        // NO SNAPSHOT, NO DIFF (0.6.1). Harmony skips a prefix that takes a reference-type
+        // argument (byPlayer here) once an earlier prefix on the same method has returned false,
+        // but it always runs the postfix, so __state arrives null. The live pack carries two
+        // other patches on BlockEntityOven.OnInteract (the trace read OnInteract_Patch3), loading
+        // firewood took that path, and this method threw on __state.Length inside the server's
+        // interact handler, which disconnected the player. Reported against 0.5.17 with ACA
+        // 2.0.0-dev.28 and EF 2.0.0-dev.16. The original did not run either, so there is
+        // nothing to credit.
+        if (__state == null || byPlayer == null || __instance?.Api?.Side != EnumAppSide.Server) return;
         var inv = (__instance as BlockEntityContainer)?.Inventory;
         if (inv == null) return;
 
@@ -1052,9 +1060,10 @@ public static class CooPatches
     ///   • an ingredient (something still bound for another dish): the growers' marks carry.
     /// The cook is the firepit's cook of record (lastCook via the pit's own GUI-open stamp), read
     /// off the ISlotProvider the same way the meal-pot path reads it.</summary>
-    public static void SimmerPostfix(IWorldAccessor world, ISlotProvider cookingSlotsProvider, ItemSlot outputSlot, ItemStack?[] __state)
+    public static void SimmerPostfix(IWorldAccessor world, ISlotProvider cookingSlotsProvider, ItemSlot outputSlot, ItemStack?[]? __state)
     {
-        if (world?.Side != EnumAppSide.Server || __state.Length == 0) return;
+        // Null when another mod's prefix skipped DoSmelt, and with it SimmerPrefix (see OvenTakePostfix).
+        if (world?.Side != EnumAppSide.Server || __state == null || __state.Length == 0) return;
         ItemStack? made = outputSlot?.Itemstack;
         if (made?.Collectible == null) return;
         if (made.Collectible is Vintagestory.GameContent.BlockLiquidContainerBase) return; // the pan came through: liquid branch

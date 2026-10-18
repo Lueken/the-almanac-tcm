@@ -48,9 +48,11 @@ public static class FisPsPatches
             __state = slot?.Itemstack?.Attributes?.GetString("fish", "none") ?? "none";
         }
 
-        public static void Postfix(ItemSlot slot, EntityAgent byEntity, string __state)
+        public static void Postfix(ItemSlot slot, EntityAgent byEntity, string? __state)
         {
-            if (byEntity?.World?.Side != EnumAppSide.Server || __state == "none") return;
+            // Null when another mod's prefix skipped the retrieve, and with it ours
+            // (CooPatches.OvenTakePostfix has the Harmony rule): no snapshot, no catch to credit.
+            if (byEntity?.World?.Side != EnumAppSide.Server || __state is null or "none") return;
             string now = slot?.Itemstack?.Attributes?.GetString("fish", "none") ?? "none";
             if (now != "none") return; // retrieve did not complete (too quick, or no conversion)
 

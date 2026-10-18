@@ -311,10 +311,12 @@ public static class BeePatches
             __state = PathOf(inv[slot].Itemstack);
     }
 
-    public static void FgcTakePostfix(object __instance, IPlayer byPlayer, BlockSelection blockSel, bool __result, string __state)
+    public static void FgcTakePostfix(object __instance, IPlayer byPlayer, BlockSelection blockSel, bool __result, string? __state)
     {
         if (!__result || byPlayer == null || __instance is not BlockEntity be) return;
-        if (!__state.Contains("harvestable")) return;
+        // Null when another mod's prefix skipped TryTake, and with it ours (CooPatches.OvenTakePostfix
+        // has the full Harmony rule). __result is then whatever that prefix set, so it is no guard.
+        if (__state == null || !__state.Contains("harvestable")) return;
         Core?.Ledger?.Log(byPlayer, BeeDomain.Code, BeeDomain.TechCombwork,
             HashCode.Combine("beeframe", be.Pos.X, be.Pos.Y, be.Pos.Z, blockSel?.SelectionBoxIndex ?? 0));
     }
