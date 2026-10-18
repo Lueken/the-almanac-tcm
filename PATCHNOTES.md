@@ -4,6 +4,32 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.6.1
+
+### Loading firewood into a clay oven no longer kicks you
+
+On a server where another mod also patches the clay oven, putting firewood in it threw an error in
+the Almanac's baking credit and the server disconnected the player on the spot. Reported against
+0.5.17 alongside A Culinary Artillery 2.0.0-dev.28 and Expanded Foods 2.0.0-dev.16, and still
+present in 0.6.0.
+
+The cause is how Harmony stacks patches. When a mod ahead of the Almanac takes over an oven click
+and tells the game to skip the normal handling, the Almanac's look at the oven before the click is
+skipped with it, but its look after the click still runs, and it had nothing to compare against.
+It now steps aside when the earlier look never happened. The same gap existed in three quieter
+places, the ACA saucepan, the From Golden Combs frame pull and the Primitive Survival fishing spear,
+and those are closed too. Nothing else changed.
+
+### If your server kicks with "mismatched Mods" and the same version on both sides
+
+That message names two copies of almanactcm that carry the same version number but are not the
+same file. A server that checks mod files, which FairPlayGuardian does, refuses the second copy.
+Delete almanactcm from your own Mods folder and from ModsByServer, then rejoin and let the server
+send you its copy. Server owners: install the ModDB zip, not a local build, so the server and
+players are on the identical file.
+
+---
+
 ## 0.6.0
 
 **Requires The Almanac: Illuminated 0.3.2 or newer, and you want 0.3.3.** The two ship as a pair this time, and the
