@@ -2376,6 +2376,23 @@ that LGD-239 (knapping rank expression) may make unnecessary.
 
 ## Deployed
 
+**0.6.2 DEPLOYED to The Quire 2026-10-19 03:50 UTC. LOADS AT NEXT RESTART; 0.6.1 is live until
+then.** `Releases/almanactcm_0.6.2.zip`, sha256 `72c111e341355235...`, 450,282 bytes. Server
+readback byte-identical to the local release zip. 0.6.1 parked as `almanactcm_0.6.1.zip.pre062-bak`.
+The running boot (22:13:49 UTC, 0.6.1) was empty at deploy time, last player out at 03:46 UTC.
+
+Until the restart, the tool-heal bug is still live: dropping a worn tool onto a stack, or
+shift-clicking it across a chest, heals it. One more window of farmable repairs was judged cheaper
+than bouncing the server by hand; the healed tools are unrecoverable either way.
+
+Client profile synced: `Installations/The-Quire-Live-Server/Mods/almanactcm_0.6.2.zip` at the same
+sha, 0.6.1 renamed `.stale` beside it (rm is denied in this session; VS ignores non-zip extensions).
+
+**Outstanding: ModDB and the website want this exact file**, sha `72c111e3...`. ElectricBoots is on
+the ModDB 0.6.0 build, so the page is where his fix actually ships. Do not rebuild under this
+number. The Illuminated mismatch blocking Jeffrey's own client (0.3.0 local vs 0.3.3 server) is
+still open too; it is an Illuminated sync, not a TCM one.
+
 **0.6.1 DEPLOYED to The Quire 2026-10-18 22:10 UTC. LIVE since the 22:13:49 UTC boot.**
 `Releases/almanactcm_0.6.1.zip`, sha256 `9cb016ef64827ace...`, 450,282 bytes. Server readback is
 byte-identical to the local release zip (sha compared, not file size). Boot log verified: the mod
