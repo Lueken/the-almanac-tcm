@@ -4,6 +4,29 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.6.2
+
+### Dropping a worn tool no longer heals it
+
+Since 0.6.0, offering a worn tool to a stack of anything else, which is what dropping it onto the
+ground does, and what shift-clicking it across a chest does, quietly restored it to full
+durability. Reported by ElectricBoots, whose Toolsmith detail gave the cause away: only the head
+healed while handle and binding kept breaking, and the head's wear is exactly the part that lives
+where the Almanac was looking.
+
+The fault was in the stale-mark cleanup that 0.6.0 added for old hand-forged ingots. When the game
+asks whether two stacks can merge, it asks the question through the stack already sitting in the
+slot, and the cleanup judged both stacks by that one item. Ask flint whether a pickaxe has a
+durability pool and flint says no, so the pickaxe's wear was cleared as meaningless, and a tool
+with no recorded wear reads as new. The same motion could also wipe the wear on a loose Toolsmith
+tool head. The cleanup now judges each stack by what that stack actually is, and only runs at all
+when the two stacks are the same item, which is the only case that could ever merge.
+
+Tools already healed stay healed; nothing recorded their old wear. The ingot fix this code exists
+for still works as before.
+
+---
+
 ## 0.6.1
 
 ### Loading firewood into a clay oven no longer kicks you

@@ -1,6 +1,6 @@
-﻿# PENDING: almanactcm 0.6.1 (unreleased)
+﻿# PENDING: almanactcm 0.6.2 (unreleased)
 
-**0.6.1 has staged work: see `## Staged in 0.6.1` below.** This heading is the next accumulating
+**0.6.2 has staged work: see `## Staged in 0.6.2` below.** This heading is the next accumulating
 version. Append here.
 
 Heading bumped 2026-10-18, same day as the 0.6.0 deploy rather than days after it, which is the
@@ -2302,7 +2302,7 @@ that LGD-239 (knapping rank expression) may make unnecessary.
   ENG are caught by their own clamps before the audit looks. A fully modded pack like The Quire
   reaches every one of those verbs, which is exactly why four of them survived this long.
 
-## Staged in 0.6.1
+## Staged in 0.6.1 (SHIPPED 2026-10-18, live since the 22:13:49 UTC boot)
 
 - **Loading firewood into a clay oven no longer kicks the player.**
   `Domains/CooPatches.cs` (`OvenTakePostfix`, `SimmerPostfix`), `Domains/BeePatches.cs`
@@ -2344,6 +2344,35 @@ that LGD-239 (knapping rank expression) may make unnecessary.
   almanactcm (v0.6.1)` and the player cannot get in. That kick is in the 2026-10-18 client log
   against 0.6.0 and it is what forced the version bump rather than a rebuild. Never rebuild a zip
   that has already been published under its number.
+
+## Staged in 0.6.2
+
+- **Dropping a worn tool no longer heals it to full (the merge-query heal judges each stack by its
+  own collectible).** `Engine/MakerMarkIdentity.cs` (`StripMeaninglessWearPrefix`, `Strip`), version
+  in both places.
+
+  Reported by ElectricBoots on Discord 2026-10-18 against the ModDB build: drop any used tool and
+  pick it back up, full durability; vanilla-only world behaves. His Toolsmith detail named the line:
+  only the head healed, handle and binding kept breaking, and an assembled Toolsmith tool's vanilla
+  `durability` attribute IS the head's wear.
+
+  **Mechanism, confirmed in engine source, not reproduced in game.** The LGD-139 heal (new in 0.6.0,
+  commit 5df75f1) is a prefix on `CollectibleObject.GetMergableQuantity`, which the engine calls as
+  `sinkStack.Collectible.GetMergableQuantity(sinkStack, sourceStack, ...)` (`ItemSlot.cs:129`
+  `CanTakeFrom`, `:376` `TryPutInto`). `__instance` is the SINK's collectible; the prefix judged the
+  SOURCE stack by it. Offer a worn pickaxe to a flint stack: flint's `Durability` is 0, flint's
+  `GetMaxDurability` never reads the stack it is handed (`Collectible.cs:485`), so the pickaxe's
+  `durability` attribute was removed, and absent reads as full. Deterministic, both sides, any
+  offer-to-occupied-slot motion: ground stacks, shift-click routing, drag-over. The same motion
+  stripped loose Toolsmith toolheads, whose pool lives in a postfix only their own collectible
+  answers.
+
+  Fix: judge each stack by `stack.Collectible`, and gate the whole prefix on sink and source being
+  the same collectible, which is lossless because vanilla's merge test requires same Class and Id
+  before attributes are compared. The LGD-139 case (two legacy marked ingot stacks of one type) is
+  same-collectible by definition and still heals. Affected versions: 0.6.0 and 0.6.1 only.
+
+  **Tools already healed stay healed.** Nothing recorded the prior wear; no restore exists.
 
 ## Deployed
 

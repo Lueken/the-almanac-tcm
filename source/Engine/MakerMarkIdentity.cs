@@ -314,22 +314,43 @@ public static class MakerMarkIdentity
     /// So the heal has to sit in front of the test itself. On a collectible with no pool the
     /// attribute means nothing, dropping it is lossless, and the stacks compare equal again.
     ///
+    /// EACH STACK IS JUDGED BY ITS OWN COLLECTIBLE (0.6.2). The engine calls this method as
+    /// sinkStack.Collectible.GetMergableQuantity(sinkStack, sourceStack, ...) (ItemSlot.cs:129
+    /// CanTakeFrom, :376 TryPutInto), so __instance is the SINK's collectible while sourceStack
+    /// can be any item at all. 0.6.0 and 0.6.1 judged the source by __instance: offer a worn
+    /// pickaxe to a slot holding flint and the pickaxe is interrogated with flint's Durability (0)
+    /// and flint's GetMaxDurability (never looks at the stack it is handed, Collectible.cs:485),
+    /// so the pickaxe's "durability" attribute was removed, and an absent attribute reads as FULL.
+    /// Dropping a tool onto any ground stack, or shift-clicking it across a chest, healed it.
+    /// Reported by ElectricBoots 2026-10-18; the Toolsmith detail in his report (only the head
+    /// healed, handle and binding kept breaking) is this exact line, because the vanilla attribute
+    /// on an assembled Toolsmith tool IS the head's wear. The same motion also stripped loose
+    /// Toolsmith toolheads, whose pool lives in a GetMaxDurability postfix their own collectible
+    /// answers for and flint's does not.
+    ///
+    /// The same-collectible gate is lossless: vanilla's merge test requires same Class and Id
+    /// before attributes are even compared, so a cross-type query could never have produced a
+    /// merge, and the heal fires the first time a stale ingot meets its own kind, which is the
+    /// only moment it ever mattered.
+    ///
     /// COST: the first guard is CollectibleObject.Durability, a field resolved at load, so every
     /// real tool leaves in one comparison and never enters GetMaxDurability. Only a stack that
     /// claims no pool AND carries a durability attribute - which is the broken case and nothing
     /// else - pays for the confirming call.</summary>
-    public static void StripMeaninglessWearPrefix(CollectibleObject __instance,
-        ItemStack sinkStack, ItemStack sourceStack)
+    public static void StripMeaninglessWearPrefix(ItemStack sinkStack, ItemStack sourceStack)
     {
-        Strip(__instance, sinkStack);
-        Strip(__instance, sourceStack);
+        if (sinkStack?.Collectible == null || sourceStack?.Collectible == null) return;
+        if (!ReferenceEquals(sinkStack.Collectible, sourceStack.Collectible)) return; // can never merge: not ours to touch
+        Strip(sinkStack);
+        Strip(sourceStack);
     }
 
-    private static void Strip(CollectibleObject coll, ItemStack? stack)
+    private static void Strip(ItemStack stack)
     {
-        if (coll == null || coll.Durability > 1) return;                  // a real tool: out, cheaply
-        if (stack?.Attributes == null) return;
-        if (!stack.Attributes.HasAttribute("durability")) return;         // nothing stale to clear
+        var coll = stack.Collectible;                                      // its own, never the caller's
+        if (coll.Durability > 1) return;                                   // a real tool: out, cheaply
+        if (stack.Attributes == null) return;
+        if (!stack.Attributes.HasAttribute("durability")) return;          // nothing stale to clear
         // Another mod may have given this a pool (Toolsmith does, for parts), in which case the
         // attribute is load-bearing and must stay. Never-throw: GetMaxDurability runs foreign
         // postfixes, and "cannot tell" has to mean "leave it alone".
