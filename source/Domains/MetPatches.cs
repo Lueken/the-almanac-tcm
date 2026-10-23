@@ -885,9 +885,9 @@ public static class MetPatches
 
     // ---------------------------------------------------------------- quench
 
-    /// <summary>Ambient quenching player, set for the duration of IsGettingCooled so
-    /// the parameterless GetShatterChance seam can know whose hands hold the tongs.</summary>
-    private static IPlayer? quenchingPlayer;
+    /// <summary>Vanilla's own TempAttributes key for the cached break roll
+    /// (CollectibleBehaviorQuenchable.IsGettingCooled, 1.22.7).</summary>
+    private const string WillBreakAttr = "willbreak";
 
     /// <summary>One pending quench, remembered from the cooling tick that saw the tongs
     /// until the settle that decides whether the work survived. Keyed weakly on the stack
@@ -906,10 +906,6 @@ public static class MetPatches
     /// start crediting bystanders for other people's work.</summary>
     private const double QuenchProximityRange = 6.0;
 
-    /// <summary>Per-player throttle for the quench roll line; IsGettingCooled runs every
-    /// cooling tick and would otherwise write one line per tick per piece.</summary>
-    private static readonly Dictionary<string, long> lastShatterLog = new();
-
     /// <summary>
     /// Who is quenching this piece (LGD-356, fixed 2026-10-16).
     ///
@@ -922,7 +918,7 @@ public static class MetPatches
     /// InventoryBasePlayer, so the whole MET quench layer silently switched off on the route
     /// players actually use. Three things hang off this one value and all three failed together:
     ///
-    ///   1. the shatter reduction (ShatterChancePatch returns early on null), so a Master rolled
+    ///   1. the shatter reduction (the old ShatterChancePatch returned early on null), so a Master rolled
     ///      at VANILLA odds instead of shatterFactorGm. Chanka lost iron pounder caps to this on
     ///      2026-10-14 at roughly two and a half times the rate the mod promises him;
     ///   2. the QuenchAttempt record, so the quench earned no practice either;
@@ -940,6 +936,15 @@ public static class MetPatches
     /// An offline smith resolves to null by PlayerByUid, which falls through to proximity: his
     /// level cannot be read while he is gone, and refusing to quench would be worse than a
     /// neighbour finishing the job.
+    ///
+    /// THE STAMP STEP WAS DEAD UNTIL 0.6.3. It read SmithAttr, which only ever lives on the anvil
+    /// WORK ITEM (OnUseOver stamps it at the first strike). Vanilla builds the finished piece as a
+    /// fresh clone of the recipe output (BEAnvil.cs:583 in 1.22.7) and carries nothing across but
+    /// the temperature, so no finished knife or chisel ever had SmithAttr and every tossed piece
+    /// fell through to proximity. The finished piece carries MakerAttr (ApplyMark), so that is read
+    /// first now. The maker must also be within the same short leash: a mark travels with traded
+    /// work, and a Master in another town must not lend his factor, or bank practice, for a
+    /// stranger's quench.
     /// </summary>
     private static IPlayer? ResolveQuencher(IWorldAccessor world, ItemSlot? slot, Vec3d pos)
     {
@@ -947,51 +952,94 @@ public static class MetPatches
         var own = (slot?.Inventory as InventoryBasePlayer)?.Player;
         if (own != null) return own;
 
-        // 2. Dropped, or in ground storage: ask the piece who forged it.
-        string? smithUid = slot?.Itemstack?.Attributes?.GetString(SmithAttr);
-        if (smithUid != null)
-        {
-            IPlayer? smith = world.PlayerByUid(smithUid);
-            if (smith != null) return smith;
-        }
+        // 2. Dropped, or in ground storage: ask the piece who made it, if he is at hand.
+        var attrs = slot?.Itemstack?.Attributes;
+        string? smithUid = attrs?.GetString(MakerAttr) ?? attrs?.GetString(SmithAttr);
+        if (smithUid != null && world.PlayerByUid(smithUid) is { } smith && WithinQuenchReach(smith, pos))
+            return smith;
 
-        // 3. Unsigned work, or a smith who has logged off. Nearest player, short leash.
-        return world.NearestPlayer(pos.X, pos.Y, pos.Z) is { } near
-            && near.Entity?.Pos != null
-            && near.Entity.Pos.DistanceTo(pos) <= QuenchProximityRange
-                ? near
-                : null;
+        // 3. Unsigned work, or a smith who is gone or far off. Nearest player, short leash.
+        return world.NearestPlayer(pos.X, pos.Y, pos.Z) is { } near && WithinQuenchReach(near, pos)
+            ? near
+            : null;
     }
+
+    private static bool WithinQuenchReach(IPlayer player, Vec3d pos)
+        => player.Entity?.Pos != null && player.Entity.Pos.DistanceTo(pos) <= QuenchProximityRange;
 
     [HarmonyPatch(typeof(CollectibleBehaviorQuenchable), "IsGettingCooled")]
     public static class QuenchContextPatch
     {
-        public static void Prefix(IWorldAccessor world, ItemSlot slot, Vec3d pos)
+        public static void Prefix(CollectibleBehaviorQuenchable __instance, IWorldAccessor world,
+            ItemSlot slot, Vec3d pos, float temperature)
         {
             if (world.Side != EnumAppSide.Server) return;
-            quenchingPlayer = ResolveQuencher(world, slot, pos);
+            IPlayer? smith = ResolveQuencher(world, slot, pos);
+            if (smith == null || slot.Itemstack == null) return;
 
             // The tongs are noted here, but NOT paid here (RULED 2026-08-19). This method
             // runs on every cooling tick and only ROLLS the break; the piece can still
             // shatter afterwards, and a shatter must teach nothing. The credit is handed
             // over in QuenchSettledPatch, which vanilla reaches only on a quench that held.
-            if (quenchingPlayer != null && slot.Itemstack != null)
+            var attempt = new QuenchAttempt
             {
-                var attempt = new QuenchAttempt
-                {
-                    Uid = quenchingPlayer.PlayerUID,
-                    Cx = HashCode.Combine(slot.Itemstack.Collectible.Id,
-                        (int)pos.X / 4, (int)pos.Y / 4, (int)pos.Z / 4),
-                };
-                quenchAttempts.Remove(slot.Itemstack);
-                quenchAttempts.Add(slot.Itemstack, attempt);
-            }
-        }
+                Uid = smith.PlayerUID,
+                Cx = HashCode.Combine(slot.Itemstack.Collectible.Id,
+                    (int)pos.X / 4, (int)pos.Y / 4, (int)pos.Z / 4),
+            };
+            quenchAttempts.Remove(slot.Itemstack);
+            quenchAttempts.Add(slot.Itemstack, attempt);
 
-        public static void Finalizer()
-        {
-            quenchingPlayer = null;
+            RollShatter(__instance, world, slot.Itemstack, temperature, smith);
         }
+    }
+
+    /// <summary>
+    /// Roll the break ourselves, one step ahead of vanilla (0.6.3).
+    ///
+    /// Vanilla rolls once per quench inside IsGettingCooled and caches the outcome in the stack's
+    /// TempAttributes under "willbreak" until the piece settles, and it only rolls while that key
+    /// is absent. Writing the key first, from the smith's own odds, makes vanilla skip its roll
+    /// and run everything else (the break, the settle, the quenched stats) untouched.
+    ///
+    /// WHY NOT A POSTFIX ON GetShatterChance, which is what this replaced. That getter is a
+    /// one-line attribute read, the shape the JIT inlines, and Harmony's own docs say a patch on
+    /// an inlined method never runs. MonoMod marks a method no-inline only when it patches THAT
+    /// method, and TCM applied the IsGettingCooled patch first, which compiles Harmony's
+    /// replacement body on the spot, fully optimized, while the getter was still inlinable.
+    /// Chanka's quench log (45 quenches at Master, 2026-10-23) read nearer vanilla than his
+    /// factor on both the toss route and the right-click route, and right-click always resolved
+    /// him from his hotbar, so attribution could not explain it. Inlining is the suspected cause,
+    /// read from engine, Harmony and MonoMod source and not yet seen in a running game when this
+    /// was written (PENDING, 0.6.3, holds the check). A roll written here has no seam for the JIT
+    /// to fold away either way, whatever order the patches land in.
+    ///
+    /// The conditions mirror vanilla's, in vanilla's order: state first, then the temperature
+    /// read, which can settle the piece exactly as vanilla's own read can.
+    /// </summary>
+    private static void RollShatter(CollectibleBehaviorQuenchable quenchable, IWorldAccessor world,
+        ItemStack stack, float temperature, IPlayer smith)
+    {
+        if (stack.TempAttributes.HasAttribute(WillBreakAttr)) return;
+        string state = quenchable.GetState(stack);
+        if (state != "quench" && state != "overheat") return;
+        if (!(temperature < stack.Collectible.GetTemperature(world, stack) - 2)) return;
+
+        float vanilla = quenchable.GetShatterChance(world, stack);
+        int level = MetLevel(smith);
+        double factor = MetDomain.ShatterFactor(level,
+            Knob(MetDomain.ShatterFactorUntrained, 1.5),
+            Knob(MetDomain.ShatterFactorGm, 0.4));
+        double chance = vanilla * factor;
+        bool willBreak = world.Rand.NextDouble() < chance;
+        stack.TempAttributes.SetBool(WillBreakAttr, willBreak);
+
+        // LGD-356 asked for this. Once per quench now, not per cooling tick, so no throttle, and
+        // the OUTCOME is ours to report: a shatter on the server log is a roll, not a guess.
+        var api = smith.Entity?.Api;
+        if (api == null) return;
+        TcmLog.Cat(api, "met",
+            $"quench roll for {smith.PlayerName}: {stack.Collectible.Code} vanilla {vanilla:0.###} x{factor:0.##} -> {chance:0.###} (MET level {level}), {(willBreak ? "BREAKS" : "holds")}");
     }
 
     /// <summary>The quench that held. Vanilla calls applyQuenchedStats from trySettleWorkItem
@@ -1045,10 +1093,9 @@ public static class MetPatches
 
     /// <summary>Show the smith their OWN quench odds (LGD-334).
     ///
-    /// Vanilla prints `quenchable-shatter-chance` straight from GetShatterChance, and that call
-    /// lands outside the roll window - quenchingPlayer is only armed between the IsGettingCooled
-    /// prefix and its finalizer - so ShatterChancePatch returns early and the tooltip shows the
-    /// UNREDUCED number. While the reduction was broken that was honest, which is why LGD-334 read
+    /// Vanilla prints `quenchable-shatter-chance` straight from GetShatterChance, which is the
+    /// UNREDUCED number: the smith's factor is applied only inside the roll (RollShatter), never
+    /// to the getter. While the reduction was broken that was honest, which is why LGD-334 read
     /// as "I cannot tell if it is applied". Fixing the reduction is exactly what turns the same
     /// line into a wrong number, so it has to be answered here.
     ///
@@ -1088,35 +1135,6 @@ public static class MetPatches
 
             dsc.AppendLine(Vintagestory.API.Config.Lang.Get("almanactcm:met-quench-shatter",
                 vanilla * factor, Leveling.Domain.RankName(level), factor));
-        }
-    }
-
-    [HarmonyPatch(typeof(CollectibleBehaviorQuenchable), nameof(CollectibleBehaviorQuenchable.GetShatterChance))]
-    public static class ShatterChancePatch
-    {
-        public static void Postfix(ref float __result)
-        {
-            if (quenchingPlayer == null) return;
-            float vanilla = __result;
-            double factor = MetDomain.ShatterFactor(MetLevel(quenchingPlayer),
-                Knob(MetDomain.ShatterFactorUntrained, 1.5),
-                Knob(MetDomain.ShatterFactorGm, 0.4));
-            __result = (float)(__result * factor);
-
-            // LGD-356 asked for this. The roll itself is vanilla's and reports nothing, so a
-            // shatter was unprovable: the only evidence anyone had was a player saying his
-            // credits did not add up. This does not log the OUTCOME, which TCM never sees; it
-            // logs that the reduction was applied and at what rate, which is what tells the
-            // difference between "the mechanic worked and he was unlucky" and the defect above.
-            // Throttled per player, because IsGettingCooled runs on every cooling tick.
-            var api = quenchingPlayer.Entity?.Api;
-            if (api == null) return;
-            long now = api.World.ElapsedMilliseconds;
-            string uid = quenchingPlayer.PlayerUID;
-            if (lastShatterLog.TryGetValue(uid, out long last) && now - last < 10000) return;
-            lastShatterLog[uid] = now;
-            TcmLog.Cat(api, "met",
-                $"quench roll for {quenchingPlayer.PlayerName}: vanilla {vanilla:0.###} x{factor:0.##} -> {__result:0.###} (MET level {MetLevel(quenchingPlayer)})");
         }
     }
 
