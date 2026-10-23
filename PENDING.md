@@ -1,7 +1,7 @@
-﻿# PENDING: almanactcm 0.6.3 (unreleased)
+﻿# PENDING: almanactcm 0.6.4 (unreleased)
 
-**0.6.3 has staged work: see `## Staged in 0.6.3` below.** This heading is the next accumulating
-version. Append here.
+**0.6.4 has staged work: see `## Staged in 0.6.4` below.** This heading is the next accumulating
+version. Append here. 0.6.3's section is kept below and is closed, not open for appends.
 
 Heading bumped 2026-10-24, the same day 0.6.3's work landed. 0.6.2 was deployed to The Quire on
 2026-10-19 and its section below is marked SHIPPED; leaving the heading at 0.6.2 would have made
@@ -13,6 +13,16 @@ briefly numbered 0.6.3 was split back out on 2026-10-24 and is now 0.6.4, held o
 hold is about confidence in new roll code that destroys player work when it is wrong, and four
 players were waiting on a book fix that cannot touch it. Nothing is lost by shipping them apart,
 and a held release is a bad place to park an urgent fix.
+
+Heading bumped again 2026-10-24 on this branch: 0.6.3 went out as book layout only, so the
+accumulating version here is 0.6.4. The paragraph below is the 2026-10-23 note from when this
+work was still numbered 0.6.3, kept verbatim because the stale-heading lesson in it is the whole
+reason this file exists:
+
+> Heading bumped 2026-10-23. 0.6.2 was deployed to The Quire 2026-10-19 (see `## Deployed`) and this
+> heading still read 0.6.2 "unreleased", which is the stale-heading failure described below. Version
+> in `modinfo.json` and the assembly attribute moved to 0.6.3 in the same change, so nothing built
+> from this tree can carry the published 0.6.2 number.
 
 Heading bumped 2026-10-18, same day as the 0.6.0 deploy rather than days after it, which is the
 first time this file has not gone stale on a release. 0.6.0 shipped to The Quire on 2026-10-18 at
@@ -2436,6 +2446,70 @@ new from Illuminated — but they answer one thread and should land in one clien
 + 1` (`CallingsTab.cs:703`) marks the **Grandmaster** rung as current even though it is undeclared.
 It is a display inaccuracy with its own cause, unrelated to layout, and folding it into a layout
 change would have buried it.
+
+## Staged in 0.6.4
+
+**DEPLOY HOLD stands.** Split out of 0.6.3 on 2026-10-24 so the book fixes could ship without it;
+the hold itself is unchanged and still Jeffrey's, pending test-world data. Nothing below has been
+built. Renumbered from 0.6.3 in the same change — `modinfo.json` and the assembly attribute both
+read 0.6.4 on this branch.
+
+- **The quench shatter reduction rolls inside TCM instead of riding a vanilla getter.**
+  `Domains/MetPatches.cs` (`QuenchContextPatch`, new `RollShatter`, `ShatterChancePatch` removed),
+  version in both places.
+
+  Reported by Chanka 2026-10-23 with a 45-quench log at Master I and II since 0.6.2: 5 breaks,
+  against 5.85 expected at vanilla odds and 3.06 at his factor. Statistically open (about 2 to 1
+  for vanilla, P(5 or fewer | vanilla) = 0.46, P(5 or more | TCM) = 0.19), but the knife rows
+  matter more than the count: knives were quenched by right-click, which runs through the hotbar
+  slot and resolved him correctly even before LGD-356, so attribution cannot be the whole story.
+
+  **Suspected mechanism, read from source, not yet seen in a running game.** Vanilla
+  (`CollectibleBehaviorQuenchable.IsGettingCooled`, vsessentialsmod 1.22.7) rolls once per quench
+  against `GetShatterChance` and caches the result in `TempAttributes["willbreak"]` until the
+  piece settles. TCM cut the odds with a postfix on `GetShatterChance`, a one-line attribute read.
+  Harmony's docs warn small methods get inlined and their patches never run. MonoMod marks a
+  method no-inline only when it detours that method (`PlatformTripleDetourFactory.CreateDetour`),
+  and compiles the replacement body at patch time. TCM applies annotated classes in declaration
+  order, so `QuenchContextPatch` (on `IsGettingCooled`) went in before `ShatterChancePatch`, and
+  Harmony's optimized replacement for `IsGettingCooled` was compiled while the getter was still
+  inlinable. If the JIT inlined it, every roll on every route was vanilla, the 0.6.0 roll log
+  never fired, and LGD-356's attribution fix changed nothing on the roll.
+
+  **Check before trusting the fix, and before writing the patch note:** grep The Quire's
+  `server-main.log` for `quench roll for` across Chanka's sessions since 0.6.2 (with
+  `VerboseDebugLogging` on in the global config, or the grep proves nothing). Zero hits across
+  his quenches confirms the getter was inlined. Hits carrying his factor mean the old patch worked
+  and his run was variance, and this change is then a hardening rather than a fix.
+
+  Fix: the `IsGettingCooled` prefix now does the roll. It mirrors vanilla's conditions in
+  vanilla's order (no `willbreak` yet, state `quench` or `overheat`, temperature dropping), rolls
+  against `GetShatterChance` times the smith's factor, and writes `willbreak` itself. Vanilla sees
+  the key and skips its own roll, so the break, the settle and the quenched stats all stay
+  vanilla's. Nothing depends on patch order or on the JIT any more. The ambient `quenchingPlayer`
+  static and its finalizer are gone with the postfix. The tooltip was never fed by the postfix
+  and is unchanged.
+
+  The roll log now fires once per quench rather than throttled per tick, and it names the item and
+  the OUTCOME (`BREAKS` or `holds`), which TCM can finally see because it made the roll. A server
+  log is now a quench ledger anyone can count against the expected rate.
+
+- **The smith-stamp step of quench attribution reads the stamp finished work actually carries.**
+  Same file, `ResolveQuencher`, new `WithinQuenchReach`.
+
+  Step 2 read `SmithAttr`, which lives only on the anvil work item. Vanilla builds the finished
+  piece as a fresh clone of the recipe output (`BEAnvil.cs:583`, temperature copied, nothing else),
+  and the finished piece is marked with `MakerAttr` by `ApplyMark`. So the stamp step never matched
+  a finished knife or chisel, and every tossed or ground-stored piece fell through to the nearest
+  player. It reads `MakerAttr` first now, `SmithAttr` as the fallback, and **the maker must be
+  within the same 6-block leash as proximity.** That guard is a judgement call worth a ruling: a
+  mark travels with traded work, and without it a Master in another town would lend his factor,
+  and bank the practice, for a stranger's quench. With it, the maker wins over a nearer bystander
+  only when he is at the barrel himself.
+
+  Neither change has been built here (no SDK in the session that wrote it). **Build against
+  1.22.7 and quench once in a test world before this ships**: the shatter path destroys player
+  work.
 
 ## Deployed
 
