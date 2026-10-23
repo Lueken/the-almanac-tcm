@@ -2454,6 +2454,27 @@ the hold itself is unchanged and still Jeffrey's, pending test-world data. Nothi
 built. Renumbered from 0.6.3 in the same change — `modinfo.json` and the assembly attribute both
 read 0.6.4 on this branch.
 
+**DEPLOY HOLD (Jeffrey, 2026-10-23, written when this work was numbered 0.6.3): 0.6.4 does
+not ship until he lifts it — he wants more data
+than Chanka's 49-row sheet before this goes live.** For whoever picks this up: the hold is about
+confidence in the NEW roll code, not about whether the old one is broken — that question closed
+on 2026-10-23 from the live server logs. Both 0.6.2 boots (2026-10-19 archive and the current
+one) have VerboseDebugLogging on, carry Chanka's `MET/quenching` practice lines (79 on the first
+boot alone), and contain ZERO `quench roll for` or `almanac:tcm:met` lines, while 4,345 other
+`almanac:tcm` lines prove the logger worked. The prefix ran, the getter postfix never did; the
+reduction never applied in 0.6.0–0.6.2 on any route. More quenches on 0.6.2 only destroy more
+player work at vanilla odds. The data that lifts the hold comes from the laptop verification
+run: build the branch against 1.22.7 and bulk-quench in a test world at forced MET levels, where
+the new per-quench log line (factor + BREAKS/holds) makes the rate directly countable at no cost
+to players.
+
+Also established 2026-10-23, so nobody rediscovers it: Smithing Plus prefixes the same
+`IsGettingCooled` (Tungsten PatchConflict line, both boots, SP's prefix first). Read from SP's
+source: it is a void prefix that clones the stack so a postfix can spawn metal bits when the
+piece shatters. It never touches `shatterchance` or `willbreak`, does not skip the original, and
+coexists with the 0.6.3 roll; TCM's willbreak write happens after SP's clone, which only matters
+to SP when the slot empties, so bits recovery keeps working.
+
 - **The quench shatter reduction rolls inside TCM instead of riding a vanilla getter.**
   `Domains/MetPatches.cs` (`QuenchContextPatch`, new `RollShatter`, `ShatterChancePatch` removed),
   version in both places.
