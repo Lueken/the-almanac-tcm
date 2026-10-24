@@ -2451,8 +2451,8 @@ change would have buried it.
 
 **DEPLOY HOLD stands.** Split out of 0.6.3 on 2026-10-24 so the book fixes could ship without it;
 the hold itself is unchanged and still Jeffrey's, pending test-world data. Nothing below has been
-built. Renumbered from 0.6.3 in the same change — `modinfo.json` and the assembly attribute both
-read 0.6.4 on this branch.
+built. Renumbered from 0.6.3 in the same change, so `modinfo.json` and the assembly attribute
+both read 0.6.4 on this branch.
 
 **DEPLOY HOLD (Jeffrey, 2026-10-23, written when this work was numbered 0.6.3): 0.6.4 does
 not ship until he lifts it — he wants more data
