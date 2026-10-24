@@ -1,7 +1,18 @@
-﻿# PENDING: almanactcm 0.6.2 (unreleased)
+﻿# PENDING: almanactcm 0.6.3 (unreleased)
 
-**0.6.2 has staged work: see `## Staged in 0.6.2` below.** This heading is the next accumulating
+**0.6.3 has staged work: see `## Staged in 0.6.3` below.** This heading is the next accumulating
 version. Append here.
+
+Heading bumped 2026-10-24, the same day 0.6.3's work landed. 0.6.2 was deployed to The Quire on
+2026-10-19 and its section below is marked SHIPPED; leaving the heading at 0.6.2 would have made
+shipped work read as staged, which is the failure this file exists to prevent.
+
+0.6.3 is **book layout only** and carries no gameplay change. The quench-roll rework that was
+briefly numbered 0.6.3 was split back out on 2026-10-24 and is now 0.6.4, held on
+`feature/quench-roll` until the test-world data lands. The split was Jeffrey's call: the quench
+hold is about confidence in new roll code that destroys player work when it is wrong, and four
+players were waiting on a book fix that cannot touch it. Nothing is lost by shipping them apart,
+and a held release is a bad place to park an urgent fix.
 
 Heading bumped 2026-10-18, same day as the 0.6.0 deploy rather than days after it, which is the
 first time this file has not gone stale on a release. 0.6.0 shipped to The Quire on 2026-10-18 at
@@ -2345,7 +2356,7 @@ that LGD-239 (knapping rank expression) may make unnecessary.
   against 0.6.0 and it is what forced the version bump rather than a rebuild. Never rebuild a zip
   that has already been published under its number.
 
-## Staged in 0.6.2
+## Staged in 0.6.2 (SHIPPED 2026-10-19)
 
 - **Dropping a worn tool no longer heals it to full (the merge-query heal judges each stack by its
   own collectible).** `Engine/MakerMarkIdentity.cs` (`StripMeaninglessWearPrefix`, `Strip`), version
@@ -2373,6 +2384,58 @@ that LGD-239 (knapping rank expression) may make unnecessary.
   same-collectible by definition and still heals. Affected versions: 0.6.0 and 0.6.1 only.
 
   **Tools already healed stay healed.** Nothing recorded the prior wear; no restore exists.
+
+## Staged in 0.6.3
+
+Book layout only. No gameplay change, no balance change, nothing that touches a roll. Both items
+are in `source/Gui/CallingsTab.cs`; both are built and clean here, neither is verified in game.
+
+- **The Callings page stops emitting a blank leaf, which is what "the Ladder disappeared at
+  Master" actually was.** `SplitIdentityColumns`, and a new `PlaceFoot`.
+
+  Reported on The Quire 2026-10-24 by Silas, Chanka and Pun within ten minutes of each other.
+  Three screenshots, same shape: the right-hand page blank except the trade web hanging at its
+  foot, the folio reading "2 of 6", and the rank ladder nowhere on the spread.
+
+  The ladder never vanished and never shrank. `BuildRungModels` loops all six rungs
+  unconditionally and `LadderComponent` reserves a constant row height, so rank state changes
+  ink, not height. What changed was the column count. When the trade-web foot would not fit under
+  the last identity column, the old code appended a **literally empty** column and pinned the foot
+  to the bottom of it. Every column after that shunted one page further on, and since the detail
+  view shows two columns per spread, the ladder slid off the visible spread.
+
+  `PlaceFoot` now walks the tail of the page across into that leaf, last component first, while
+  the leaf still holds them and the foot, keeping at least one component on the page it came from.
+  The leaf carries real content above the foot instead of being blank paper. In the degenerate
+  case — a page that is one component taller than itself, nothing movable — the foot still takes
+  its own leaf, because appending it to a full column runs it past the bottom margin, and a
+  clipped block reads as broken where a sparse page only reads as sparse. That branch now logs
+  under the new `TcmLog.Layout` category with the measured fill, so the next occurrence is a log
+  line instead of a code read. Nothing anywhere reported page fill before this.
+
+  **Pun was at Master III, not capped.** The at-cap Declare panel adds roughly 98 unscaled units
+  of reserved frame plus its prose and so makes the overflow much likelier, but it is not the
+  cause. Anyone treating this as a Grandmaster-declaration bug will fix the wrong thing.
+
+- **A page break no longer eats the Declare panel's top margin.** Same function.
+
+  The paginator drops a spacer that lands at the top of a fresh column, which is right for an
+  ordinary gap and wrong for `DecisionPanelComponent`: its `OuterMarginTop` of 45 is space the box
+  draws its own frame *into* (`DecisionPanelComponent.cs:131` sets the frame top at
+  `minY - Pad - HeadRow`). Losing it drew the box edge above the top of the page. The spacer is
+  now kept when the component after it is a panel.
+
+  Not reported by anyone. Found while reading the paginator for the blank-leaf fix, which is the
+  only reason to believe it is rare rather than absent.
+
+**Ships with `almanacilluminated` 0.3.4**, which fixes the page-turn corner the same four players
+could not find. The two are independent — `MinIlluminatedVersion` stays 0.3.2 and TCM uses nothing
+new from Illuminated — but they answer one thread and should land in one client update.
+
+**Still open, deliberately not fixed here.** At capped Master IV, `curRank = Domain.TierOf(level)
++ 1` (`CallingsTab.cs:703`) marks the **Grandmaster** rung as current even though it is undeclared.
+It is a display inaccuracy with its own cause, unrelated to layout, and folding it into a layout
+change would have buried it.
 
 ## Deployed
 

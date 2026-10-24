@@ -1,4 +1,4 @@
-using Vintagestory.API.Common;
+﻿using Vintagestory.API.Common;
 
 namespace AlmanacTcm;
 
@@ -19,6 +19,10 @@ public static class TcmLog
     /// <summary>Soil sickness accrual and decay. Off in normal play, exhaustive when
     /// chasing a curve that only shows over seasons.</summary>
     public const string Soil = "soil";
+    /// <summary>Book page packing: column fill, breaks, and foot placement. Added after
+    /// the 2026-10-24 blank-leaf report, which took a code read to diagnose because
+    /// nothing anywhere logged how full a page was.</summary>
+    public const string Layout = "layout";
 
     public static bool Verbose = true;
 

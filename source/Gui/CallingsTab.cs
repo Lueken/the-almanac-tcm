@@ -1094,9 +1094,9 @@ public class CallingsTab : IAlmanacBookTab
     ///
     /// Two details that are the difference between a page break and a blemish. A spacer
     /// that lands at the top of a fresh column is dropped, because its whole job is to
-    /// separate it from something that is now on the previous page. And a foot that will
-    /// not fit under the final column takes a column of its own rather than being appended
-    /// past the bottom margin, which is precisely the overflow being fixed.
+    /// separate it from something that is now on the previous page — except where the
+    /// spacer IS the margin a panel draws its frame into. And a foot that will not fit
+    /// under the final column takes a leaf of its own, which PlaceFoot then fills.
     /// </summary>
     private static List<List<RichTextComponentBase>> SplitIdentityColumns(ICoreClientAPI capi,
         List<RichTextComponentBase> comps, double columnWidth, double columnHeight,
@@ -1108,16 +1108,24 @@ public class CallingsTab : IAlmanacBookTab
         var cols = new List<List<RichTextComponentBase>>();
         var current = new List<RichTextComponentBase>();
 
-        foreach (var c in comps)
+        for (int i = 0; i < comps.Count; i++)
         {
-            // A spacer is never worth opening a column for.
-            if (current.Count == 0 && c is ClearFloatTextComponent) continue;
+            var c = comps[i];
+
+            // A spacer is never worth opening a column for, unless it is the margin a panel
+            // draws its frame into: DecisionPanelComponent puts its box top above its own
+            // first line (OuterMarginTop), so losing that spacer at a break draws the frame
+            // off the top of the page. The two cases are identical here and opposite in effect.
+            bool keepSpacer = c is ClearFloatTextComponent
+                && i + 1 < comps.Count && comps[i + 1] is DecisionPanelComponent;
+
+            if (current.Count == 0 && c is ClearFloatTextComponent && !keepSpacer) continue;
 
             var trial = new List<RichTextComponentBase>(current) { c };
             if (current.Count > 0 && Measure(capi, trial, columnWidth) > availH)
             {
                 cols.Add(current);
-                current = c is ClearFloatTextComponent
+                current = c is ClearFloatTextComponent && !keepSpacer
                     ? new List<RichTextComponentBase>()
                     : new List<RichTextComponentBase> { c };
                 continue;
@@ -1126,16 +1134,67 @@ public class CallingsTab : IAlmanacBookTab
         }
         if (current.Count > 0 || cols.Count == 0) cols.Add(current);
 
-        if (foot.Count > 0)
-        {
-            var last = cols[cols.Count - 1];
-            double footH = Measure(capi, foot, columnWidth);
-            if (last.Count > 0 && Measure(capi, last, columnWidth) + footH > availH)
-                cols.Add(new List<RichTextComponentBase>());   // the foot gets its own leaf
-            AppendPinnedFoot(capi, cols[cols.Count - 1], columnWidth, columnHeight, foot);
-        }
+        if (foot.Count > 0) PlaceFoot(capi, cols, columnWidth, columnHeight, availH, foot);
 
         return cols;
+    }
+
+    /// <summary>
+    /// Put the foot block on a page. It pins to the bottom of the last column when it fits
+    /// there, and when it does not it opens a leaf — but that leaf has to carry something.
+    ///
+    /// Until 0.6.3 it opened an EMPTY one. That is what players saw as "the Ladder
+    /// disappeared at Master": a page blank except the trade web hanging at its foot, and
+    /// every column after it shunted a page further on, off the visible spread. Reported on
+    /// The Quire 2026-10-24 by Silas, Chanka and Pun — Pun at Master III, so the at-cap
+    /// Declare panel only makes the overflow likelier, it is not the cause.
+    /// </summary>
+    private static void PlaceFoot(ICoreClientAPI capi, List<List<RichTextComponentBase>> cols,
+        double columnWidth, double columnHeight, double availH, List<RichTextComponentBase> foot)
+    {
+        var last = cols[cols.Count - 1];
+        double footH = Measure(capi, foot, columnWidth);
+
+        if (last.Count == 0 || Measure(capi, last, columnWidth) + footH <= availH)
+        {
+            AppendPinnedFoot(capi, last, columnWidth, columnHeight, foot);
+            return;
+        }
+
+        // Walk the tail of the page across to the new leaf, last component first, while the
+        // leaf still holds them and the foot. The old page keeps at least one component:
+        // trading a blank second page for a blank first one is not a fix.
+        var leaf = new List<RichTextComponentBase>();
+        while (last.Count > 1)
+        {
+            var moved = last[last.Count - 1];
+            var trial = new List<RichTextComponentBase> { moved };
+            trial.AddRange(leaf);
+            if (Measure(capi, trial, columnWidth) + footH > availH) break;
+            last.RemoveAt(last.Count - 1);
+            leaf.Insert(0, moved);
+        }
+
+        // A spacer separating the moved run from what stayed behind has no job now, at
+        // either end of the break. Same rule as the main loop, applied to both sides.
+        while (leaf.Count > 0 && leaf[0] is ClearFloatTextComponent) leaf.RemoveAt(0);
+        while (last.Count > 1 && last[last.Count - 1] is ClearFloatTextComponent)
+            last.RemoveAt(last.Count - 1);
+
+        if (leaf.Count == 0)
+        {
+            // Nothing could move: the page is a single component taller than itself. The
+            // foot still takes its own leaf, because appending it here would run it past the
+            // bottom margin, and a clipped block reads as broken where a sparse page only
+            // reads as sparse. Log it — a component that tall is its own bug, and before
+            // this line nothing anywhere reported how full a page was.
+            TcmLog.Cat(capi, TcmLog.Layout,
+                $"bare foot leaf: last column measures {Measure(capi, last, columnWidth):0} of " +
+                $"{availH:0} in {last.Count} component(s), foot needs {footH:0}");
+        }
+
+        cols.Add(leaf);
+        AppendPinnedFoot(capi, leaf, columnWidth, columnHeight, foot);
     }
 
     /// <summary>Pin a foot block to the bottom of a column by padding the measured
