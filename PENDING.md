@@ -2455,9 +2455,9 @@ built. Renumbered from 0.6.3 in the same change, so `modinfo.json` and the assem
 both read 0.6.4 on this branch.
 
 **DEPLOY HOLD (Jeffrey, 2026-10-23, written when this work was numbered 0.6.3): 0.6.4 does
-not ship until he lifts it — he wants more data
+not ship until he lifts it. He wants more data
 than Chanka's 49-row sheet before this goes live.** For whoever picks this up: the hold is about
-confidence in the NEW roll code, not about whether the old one is broken — that question closed
+confidence in the NEW roll code, not about whether the old one is broken. That question closed
 on 2026-10-23 from the live server logs. Both 0.6.2 boots (2026-10-19 archive and the current
 one) have VerboseDebugLogging on, carry Chanka's `MET/quenching` practice lines (79 on the first
 boot alone), and contain ZERO `quench roll for` or `almanac:tcm:met` lines, while 4,345 other
