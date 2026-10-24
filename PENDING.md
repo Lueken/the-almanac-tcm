@@ -2407,7 +2407,7 @@ are in `source/Gui/CallingsTab.cs`; both are built and clean here, neither is ve
   `PlaceFoot` now walks the tail of the page across into that leaf, last component first, while
   the leaf still holds them and the foot, keeping at least one component on the page it came from.
   The leaf carries real content above the foot instead of being blank paper. In the degenerate
-  case — a page that is one component taller than itself, nothing movable — the foot still takes
+  case (a page that is one component taller than itself, nothing movable) the foot still takes
   its own leaf, because appending it to a full column runs it past the bottom margin, and a
   clipped block reads as broken where a sparse page only reads as sparse. That branch now logs
   under the new `TcmLog.Layout` category with the measured fill, so the next occurrence is a log
@@ -2429,8 +2429,8 @@ are in `source/Gui/CallingsTab.cs`; both are built and clean here, neither is ve
   only reason to believe it is rare rather than absent.
 
 **Ships with `almanacilluminated` 0.3.4**, which fixes the page-turn corner the same four players
-could not find. The two are independent — `MinIlluminatedVersion` stays 0.3.2 and TCM uses nothing
-new from Illuminated — but they answer one thread and should land in one client update.
+could not find. The two are independent, since `MinIlluminatedVersion` stays 0.3.2 and TCM uses
+nothing new from Illuminated, but they answer one thread and should land in one client update.
 
 **Still open, deliberately not fixed here.** At capped Master IV, `curRank = Domain.TierOf(level)
 + 1` (`CallingsTab.cs:703`) marks the **Grandmaster** rung as current even though it is undeclared.

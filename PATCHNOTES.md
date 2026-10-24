@@ -4,6 +4,38 @@ The Almanac: Trades, Callings & Mastery.
 
 ---
 
+## 0.6.3
+
+### The rank ladder stopped disappearing from the Callings page
+
+Open a trade at a high rank and the facing page could come up blank except for the trade web
+sitting at the bottom of it, with the ladder of ranks nowhere on the spread. Reported by Silas,
+Chanka and Pun on the same morning, with screenshots that made the shape of it obvious.
+
+The ladder was never removed and never shrank. It had been pushed onto a later page. When the
+trade web would not fit underneath the last page of a trade's description, the book opened a new
+page for it and put nothing else there, so everything after that slid one page further on. On a
+two page spread, one page of slide is enough to carry the ladder out of sight.
+
+The book now moves the end of the description onto that page along with the trade web, so the
+page carries something. Nothing is hidden at any rank, and all six rungs still read the same at
+Untrained as they do at Grandmaster.
+
+Worth saying plainly, because it shaped the first round of guesses: this was never about reaching
+Master. Pun hit it at Master III. Declaring a Great Work makes the page taller and so makes the
+overflow likelier, but a long enough trade could always run out of room.
+
+### The Great Work box no longer draws off the top of a page
+
+When a page break landed immediately before it, the declaration box lost the margin it draws its
+frame into and the top edge of the box went above the top of the page. Nobody reported this one.
+It turned up while reading the page layout code for the fix above.
+
+### Also
+
+Turning a page is easier to find, which is the other half of the same report. That fix lives in
+The Almanac: Illuminated 0.3.4, and the two are meant to be installed together.
+
 ## 0.6.2
 
 ### Dropping a worn tool no longer heals it
